@@ -1,33 +1,17 @@
-import type { Job, RecentItem } from "@ghost/contract"
-
-export const kindLabel: Record<Job["kind"], string> = {
-  chat: "Ask Ghost",
-  build_suggestion: "Build suggestion",
-  weapon_rolls: "Weapon rolls",
-  vault_cleanup: "Vault cleanup",
-  postmaster_to_vault: "Postmaster to vault",
-}
-
-export const statusLabel: Record<Job["status"], string> = {
-  queued: "Queued",
-  running: "Running",
-  done: "Done",
-  failed: "Failed",
-}
-
-export function relativeTime(iso: string) {
-  const seconds = Math.round((Date.now() - new Date(iso).getTime()) / 1000)
-  if (seconds < 60) return "just now"
-  const minutes = Math.round(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.round(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  return `${Math.round(hours / 24)}d ago`
-}
+import type { RecentItem } from "@ghost/contract"
 
 export function clock(iso: string) {
   const d = new Date(iso)
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
+}
+
+/** "TODAY", "3H OLD", "2D OLD": how stale a piece of data is. */
+export function age(iso: string, now: number = Date.now()) {
+  const hours = (now - Date.parse(iso)) / 3_600_000
+  if (!Number.isFinite(hours)) return "DATE UNKNOWN"
+  if (hours < 1) return "JUST NOW"
+  if (hours < 24) return `${Math.floor(hours)}H OLD`
+  return `${Math.floor(hours / 24)}D OLD`
 }
 
 export const isToday = (iso: string) => new Date(iso).toDateString() === new Date().toDateString()
@@ -35,7 +19,11 @@ export const isToday = (iso: string) => new Date(iso).toDateString() === new Dat
 export const upper = (s: string) => s.toUpperCase()
 
 export const sourceLabel = (source: string) =>
-  source === "postmaster" ? "FROM POSTMASTER" : source === "unknown" ? "ACQUIRED" : upper(source)
+  source === "postmaster"
+    ? "FROM POSTMASTER"
+    : source === "drop" || source === "unknown"
+      ? "DROPS"
+      : upper(source)
 
 export const locationLabel = (location: RecentItem["location"]) =>
   location === "vault"
@@ -44,15 +32,37 @@ export const locationLabel = (location: RecentItem["location"]) =>
       ? "IN POSTMASTER"
       : "ON CHARACTER"
 
-/** Group recent items by source and the minute they were first seen, newest first. */
-export function groupRecent(items: ReadonlyArray<RecentItem>) {
-  const groups = new Map<string, { key: string; at: string; source: string; items: RecentItem[] }>()
+export interface RecentGroup {
+  readonly key: string
+  readonly at: string
+  readonly source: string
+  readonly jobId: string | null
+  readonly items: RecentItem[]
+}
+
+/**
+ * Group recent items into arrivals: same source (or same Ghost request) and
+ * first seen within the same ten minutes. Input is newest first.
+ */
+export function groupRecent(items: ReadonlyArray<RecentItem>): RecentGroup[] {
+  const groups: RecentGroup[] = []
   for (const item of items) {
-    const minute = item.firstSeenAt.slice(0, 16)
-    const key = `${minute}|${item.source}`
-    const group = groups.get(key) ?? { key, at: item.firstSeenAt, source: item.source, items: [] }
-    group.items.push(item)
-    groups.set(key, group)
+    const last = groups[groups.length - 1]
+    const close =
+      last !== undefined &&
+      Date.parse(last.at) - Date.parse(item.firstSeenAt) < 10 * 60_000 &&
+      (item.jobId !== null
+        ? item.jobId === last.jobId
+        : last.jobId === null && item.source === last.source)
+    if (close) last.items.push(item)
+    else
+      groups.push({
+        key: `${item.firstSeenAt}|${item.jobId ?? item.source}`,
+        at: item.firstSeenAt,
+        source: item.source,
+        jobId: item.jobId,
+        items: [item],
+      })
   }
-  return Array.from(groups.values())
+  return groups
 }

@@ -61,6 +61,12 @@ export interface BungieClientShape {
   readonly pullFromPostmaster: (
     input: Omit<TransferItemInput, "transferToVault">,
   ) => Effect.Effect<unknown, BungieError | BungieNotLinked>
+  /** The item must already be on that character. */
+  readonly equipItem: (input: {
+    readonly itemId: string
+    readonly characterId: string
+    readonly membershipType: number
+  }) => Effect.Effect<unknown, BungieError | BungieNotLinked>
 }
 
 export class BungieClient extends Context.Service<BungieClient, BungieClientShape>()(
@@ -169,6 +175,7 @@ export const BungieClientLive = Layer.effect(
         post("/Destiny2/Actions/Items/TransferItem/", { stackSize: 1, ...input }),
       pullFromPostmaster: (input) =>
         post("/Destiny2/Actions/Items/PullFromPostmaster/", { stackSize: 1, ...input }),
+      equipItem: (input) => post("/Destiny2/Actions/Items/EquipItem/", input),
     }
   }),
 ).pipe(Layer.provide(FetchHttpClient.layer))

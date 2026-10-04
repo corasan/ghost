@@ -28,41 +28,72 @@ bunx expo run:ios     # or: bunx expo run:android
 the phone's camera to open the app with that address saved, then sign in with
 Bungie. The address can also be changed by hand from the sign-in screen.
 
-## The four tabs
+## Chat is the app
 
-The app follows the "Ghost - App Map" design: four tabs, dark only, Outfit
-for text and JetBrains Mono for labels and numbers.
+The app follows "Ghost - App Map v2": chat is the main screen and everything
+else sits behind one control, your Guardian's power in the top right.
+Barlow Condensed for headings, Barlow for sentences, JetBrains Mono for data,
+and chamfered corners instead of rounded ones.
 
-- **Ghost**: chat. Every message is a job on the server; the transcript is the
-  job list. The row of kinds under the transcript picks how the agent is briefed
-  (chat, build suggestion, weapon rolls, vault cleanup, postmaster to vault).
-  Tapping the diamond opens History, the log of every request.
-- **Guardian** (opens here): what each character has equipped, power, stats, and
-  a banner when the postmaster is close to full that hands the ask to Ghost.
-- **Vault**: the vault as a list with tier, type, and power. Cleanup mode asks
-  Ghost to flag duplicates and low rolls and shows its answer above the list.
-- **Recent**: items Ghost recorded (postmaster pulls), grouped by source and
-  time, with keep / junk decided on the row and stored on the server.
+- **Chat**: every request you've made, oldest first. Ghost's briefing sits where
+  the current session starts: what changed since you last played ("Since last
+  night: 11 new items, two of them beat what you have on. Postmaster is at 9 of
+  21.") plus the two most useful follow-ups. Answers are a sentence, an optional
+  plan block (rows you can untick, one confirm, undo afterwards) and the sources
+  the answer relied on, with their age.
+- **Menu** (tap your power): switch character, then Guardian, Vault, Recent and
+  History, each with its one number.
+- **Guardian**: equipped gear as one ledger, stats as tier bars, and one Ghost
+  suggestion that returns to chat with it queued.
+- **Vault**: search by name, perk or type; category, rarity, element, class
+  armor, dupes, junk, new and unlocked filters; sort by power, newest, stat
+  total or name. Cleanup mode shows Ghost's flagged list to tick and tag as junk.
+- **Recent**: everything that arrived in the last 48 hours, grouped by arrival,
+  with upgrades flagged, keep / junk on each row, and undo for batches Ghost moved.
+- **History**: every call Ghost made, grouped by request, with undo.
 
 ## How a request flows
 
-1. The app creates a **job** (`POST /jobs`) with a kind such as `postmaster_to_vault`
-   and a prompt. The server stores the row in SQLite and returns it immediately.
-2. A single background fiber polls for queued jobs and runs each one through the
-   **Claude Agent SDK**. That SDK runs Claude Code headless and authenticates with
-   the `claude login` already on the machine, which is what makes the subscription
-   pay for it rather than an API key.
-3. The agent's only tools are the **ghost MCP server**, mounted on the same Bun
-   HTTP server at `/mcp`. Each tool is a thin typed wrapper over one Bungie
-   endpoint (`get_profile`, `transfer_item`, `pull_from_postmaster`, ...).
-4. The app polls `GET /jobs` while anything is queued or running, then shows the
-   result in the Ghost transcript. Items the agent moved are written to
-   `items_seen` and surfaced on the Recent tab.
+1. The app creates a **job** (`POST /jobs`) with the prompt and the selected
+   character. The server stores it in SQLite and returns at once.
+2. One background fiber runs queued jobs through the **Claude Agent SDK**, which
+   uses the `claude login` on the machine, so the subscription pays for it.
+3. The agent reads the account through the **ghost MCP server** (`get_characters`,
+   `search_items`) and never mutates it. To change anything it calls
+   `present_plan`; the plan is saved on the job and shown in chat.
+4. When you confirm, `POST /jobs/:id/apply` runs the ticked rows itself (pull,
+   transfer, equip, tag junk), journals every Bungie call in `actions`, and
+   `POST /jobs/:id/undo` replays the journal backwards.
 
-Guardian and Vault do not go through the agent. `GET /guardian` and `GET /vault`
-read the profile straight from Bungie and resolve item hashes against a local
-copy of the Destiny manifest (`manifest_items`, downloaded once per manifest
-version, about 30 MB on first use).
+## Where Ghost's Destiny knowledge comes from
+
+Roll, build and mod advice must come from data fetched for the answer, not from
+model memory, and every answer lists its sources with their age.
+
+- **God rolls**: DIM's default community wishlist,
+  [`voltron.txt`](https://raw.githubusercontent.com/48klocs/dim-wish-list-sources/master/voltron.txt)
+  from 48klocs/dim-wish-list-sources (the list DIM loads by default, per that
+  repo's README and DIM's wiki). The server refreshes it at most every 12 hours
+  with a conditional request and keeps each roll's curator section, URL and date,
+  so a citation points at the original source. `check_rolls` matches your actual
+  perks (enhanced perks count as their base perk) and derives the roll score.
+- **Perk, mod, fragment and aspect effects**: `describe_plugs` reads descriptions
+  from the current patch's Bungie manifest.
+- **Meta**: the agent may use web search and fetch, preferring sources from the
+  last 60 days, and must name the season or date of what it cites.
+
+## Caching
+
+- **Server**: the Bungie profile is cached for 30 seconds and concurrent requests
+  share one load; the cache is dropped after any item move. Memberships are cached
+  for the process. The manifest is checked for a new version at most hourly and
+  lookups are memoised. Every fresh profile also syncs `items_seen`, which is what
+  makes Recent and the "since last" briefing work without the agent.
+- **App**: TanStack Query in memory, persisted to SQLite (`expo-sqlite/kv-store`)
+  for a week, so the app opens on the last known chat, vault and briefing while
+  it refetches. The chat polls fast only while a job is running.
+- **Lists**: every list is a LegendList (`@legendapp/list`), virtualised and,
+  where rows share a shape, recycled.
 
 ## Design decisions worth knowing
 
@@ -88,31 +119,24 @@ will drop connections. Writing the job to SQLite first means the request returns
 at once, a server restart cannot lose work, and the app only ever reads state.
 One worker fiber also guarantees two agents never race to move the same items.
 
-**Tools are small on purpose.** Each MCP tool does exactly one Bungie call. The
-model composes the workflow (memberships, then profile, then transfers), and the
-schema on each tool both documents it for the model and validates what the model
-sends back. `vault_cleanup` only lists candidates; nothing is dismantled without
-a list the player sees.
+**The agent proposes, the server acts.** The agent's tools only read. A plan is
+data the player can inspect and untick, and the server executes it
+deterministically, which is what makes undo and the History log possible.
 
 **Designed screens, native navigation.** The design is a custom dark UI (tier
 colors, mono labels, chat bubbles) that neither SwiftUI's nor Compose's stock
 components produce, so screens are plain React Native views styled from
-`src/theme`. Navigation stays native: tabs use `NativeTabs`, so the bar is a
-real `UITabBarController` on iOS and a Material bottom bar on Android, and the
-settings sheet is a native modal.
+`src/constants/theme.ts`. Navigation stays native: menu pages are stack screens
+with the system back swipe, and settings is a native sheet.
 
 ## Status
 
-The scaffold runs end to end (verified: create a job, the agent connects to the
-MCP server, the job completes). What is not done yet:
-
 - Bungie OAuth needs an https redirect URL registered on bungie.net; the
-  `/auth/bungie/callback` route exists but has not been exercised against Bungie.
-- Guardian and Vault have been checked against the Bungie API shapes but not
-  against a live linked account yet.
-- Recent shows the names the agent recorded; it does not resolve hashes through
-  the manifest yet.
-- Plans with per-row ticks (build swaps, postmaster routing) and Undo from
-  History are in the design but not built: the server would need to journal
-  each Bungie call a job makes and expose it. Dismantle is not possible at all,
-  Bungie's API has no endpoint for it.
+  callback route has not been exercised against Bungie yet.
+- Everything that needs a linked account (profile sync, briefing contents, plan
+  apply and undo against real items) is typed and unit-tested on fixtures but
+  has not run against a live account.
+- Dismantle is not possible: Bungie's API has no endpoint for it, so cleanup tags
+  items as junk.
+- The app now needs a fresh development build (`expo-sqlite` is a new native
+  module).

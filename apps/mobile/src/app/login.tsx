@@ -1,10 +1,10 @@
 import { router } from "expo-router"
 import * as WebBrowser from "expo-web-browser"
-import { Pressable, StyleSheet, Text, View } from "react-native"
+import { Pressable, StyleSheet, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
-import { ActionButton, Diamond, Mono } from "@/components/ghost/ui"
-import { Ghost, Type } from "@/constants/theme"
+import { Body, Button, Cond, Diamond, Mono } from "@/components/ghost/ui"
+import { Ghost } from "@/constants/theme"
 import { useBungieAuthStart, useHealth } from "@/lib/api"
 import { useServerUrl } from "@/lib/server-url"
 
@@ -23,54 +23,46 @@ export default function LoginScreen() {
       },
     })
 
+  const status = online
+    ? { label: "SERVER · ONLINE", color: Ghost.good }
+    : health.isPending
+      ? { label: "SERVER · CONNECTING", color: Ghost.muted }
+      : { label: "SERVER · UNREACHABLE", color: Ghost.danger }
+
   return (
     <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: insets.bottom + 16 }]}>
       <View style={styles.hero}>
-        <View style={styles.glow}>
-          <Diamond size={18} glow />
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+          <Diamond size={12} />
+          <Cond size={34} style={{ letterSpacing: 5 }}>
+            GHOST
+          </Cond>
         </View>
-        <Text style={styles.title}>Ghost</Text>
-        <Text style={styles.tagline}>
+        <Body size={16} color={Ghost.muted} style={{ textAlign: "center", maxWidth: 300 }}>
           Ask in plain language. Ghost proposes a plan, and nothing happens until you confirm.
-        </Text>
+        </Body>
       </View>
 
       <View style={{ gap: 14 }}>
-        <View style={[styles.button, !online && { opacity: 0.4 }]}>
-          <ActionButton
-            label={authStart.isPending ? "Opening Bungie…" : "Sign in with Bungie"}
-            tone="accent"
-            onPress={online && !authStart.isPending ? signIn : undefined}
+        <View style={{ flexDirection: "row" }}>
+          <Button
+            label={authStart.isPending ? "OPENING BUNGIE…" : "SIGN IN WITH BUNGIE"}
+            tone="solid"
+            disabled={!online || authStart.isPending}
+            onPress={signIn}
           />
         </View>
-        <Text style={styles.note}>
+        <Body size={12} color={Ghost.dim} style={{ textAlign: "center", lineHeight: 17 }}>
           {online
             ? "Sign-in happens in the browser. The server keeps the tokens; the app never sees them."
             : "Run `bun run serve` on the server and scan its QR code with the camera to connect."}
-        </Text>
+        </Body>
         <Pressable hitSlop={12} style={styles.server} onPress={() => router.push("/settings")}>
-          <View
-            style={[
-              styles.dot,
-              {
-                backgroundColor: online
-                  ? Ghost.good
-                  : health.isPending
-                    ? Ghost.muted
-                    : Ghost.danger,
-              },
-            ]}
-          />
-          <Mono color={online || health.isPending ? Ghost.muted : Ghost.danger}>
-            {online
-              ? "SERVER · ONLINE"
-              : health.isPending
-                ? "SERVER · CONNECTING"
-                : "SERVER · UNREACHABLE"}
-          </Mono>
+          <View style={[styles.dot, { backgroundColor: status.color }]} />
+          <Mono color={status.color}>{status.label}</Mono>
           <Mono color={Ghost.accent}>CHANGE ›</Mono>
         </Pressable>
-        <Mono color={Ghost.dim} style={{ letterSpacing: 0, textAlign: "center" }}>
+        <Mono style={{ letterSpacing: 0, textAlign: "center" }}>
           {serverUrl.replace(/^https?:\/\//, "")}
         </Mono>
       </View>
@@ -80,25 +72,7 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Ghost.bg, paddingHorizontal: 24 },
-  hero: { flex: 1, alignItems: "center", justifyContent: "center", gap: 14 },
-  glow: { marginBottom: 14 },
-  title: { fontFamily: Type.semibold, fontSize: 40, letterSpacing: -0.8, color: Ghost.text },
-  tagline: {
-    fontFamily: Type.light,
-    fontSize: 15,
-    lineHeight: 23,
-    color: Ghost.muted,
-    textAlign: "center",
-    maxWidth: 300,
-  },
-  button: { flexDirection: "row" },
-  note: {
-    fontFamily: Type.regular,
-    fontSize: 12,
-    lineHeight: 17,
-    color: Ghost.dim,
-    textAlign: "center",
-  },
+  hero: { flex: 1, alignItems: "center", justifyContent: "center", gap: 18 },
   server: {
     flexDirection: "row",
     alignItems: "center",

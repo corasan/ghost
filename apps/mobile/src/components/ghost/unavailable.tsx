@@ -1,43 +1,33 @@
 import { router } from "expo-router"
-import { StyleSheet, Text, View } from "react-native"
+import { View } from "react-native"
 
-import { Ghost, Type } from "@/constants/theme"
+import { Ghost } from "@/constants/theme"
 import { errorMessage, useHealth } from "@/lib/api"
-import { ActionButton } from "./ui"
+import { Body, Button, Cond } from "./ui"
 
 export function Unavailable({ error, onRetry }: { error: unknown; onRetry: () => void }) {
   const health = useHealth()
 
   const state = health.isError
     ? {
-        title: "Ghost can't reach the server",
+        title: "GHOST CAN'T REACH THE SERVER",
         detail: "Check that the server is running and that the address is right.",
-        action: "Server settings",
+        action: "SERVER SETTINGS",
       }
-    : { title: "Bungie error", detail: errorMessage(error), action: null }
+    : { title: "BUNGIE ERROR", detail: errorMessage(error), action: null }
 
   return (
-    <View style={styles.box}>
-      <Text style={styles.title}>{state.title}</Text>
-      <Text style={styles.detail}>{state.detail}</Text>
+    <View style={{ paddingVertical: 40, gap: 10 }}>
+      <Cond size={18}>{state.title}</Cond>
+      <Body size={14} color={Ghost.dim}>
+        {state.detail}
+      </Body>
       <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
         {state.action ? (
-          <ActionButton label={state.action} onPress={() => router.push("/settings")} />
+          <Button label={state.action} onPress={() => router.push("/settings")} />
         ) : null}
-        <ActionButton label="Retry" tone="accent" onPress={onRetry} />
+        <Button label="RETRY" tone="solid" onPress={onRetry} />
       </View>
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  box: { paddingVertical: 48, gap: 8 },
-  title: { fontFamily: Type.medium, fontSize: 16, color: Ghost.text, textAlign: "center" },
-  detail: {
-    fontFamily: Type.regular,
-    fontSize: 13,
-    lineHeight: 19,
-    color: Ghost.dim,
-    textAlign: "center",
-  },
-})
