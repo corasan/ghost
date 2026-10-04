@@ -1,137 +1,14 @@
 import type { Rarity } from "@/constants/theme"
 
-// Sample content from the Ghost app map design. The server has no endpoints
-// for equipment, vault contents or structured plans yet, so the Guardian and
-// Vault tabs and the example exchanges on the Ghost tab render this instead.
+// Example exchanges from the Ghost app map design. The server answers in
+// plain text, so the Ghost tab shows these as prompts to try until it can
+// return structured plans.
 
 export interface Stat {
   readonly label: string
   readonly value: number
   readonly hit?: boolean
 }
-
-export interface GearItem {
-  readonly name: string
-  readonly rarity: Rarity
-  readonly slot: string
-  readonly power: number
-}
-
-export const guardian: {
-  readonly subtitle: string
-  readonly power: number
-  readonly classes: readonly string[]
-  readonly vault: { readonly used: number; readonly size: number }
-  readonly weapons: readonly GearItem[]
-  readonly armor: readonly GearItem[]
-  readonly stats: readonly Stat[]
-  readonly suggestion: { readonly text: string; readonly prompt: string }
-} = {
-  subtitle: "HUNTER · NIGHTSTALKER",
-  power: 2007,
-  classes: ["Hunter", "Warlock", "Titan"],
-  vault: { used: 559, size: 600 },
-  weapons: [
-    { name: "Ace of Spades", rarity: "exotic", slot: "KINETIC", power: 2010 },
-    { name: "Forbearance", rarity: "legendary", slot: "ENERGY · ARC", power: 2004 },
-    { name: "Apex Predator", rarity: "legendary", slot: "POWER · SOLAR", power: 2001 },
-  ],
-  armor: [
-    { name: "Mask of Bakris", rarity: "exotic", slot: "HELMET · EXOTIC", power: 2009 },
-    { name: "Dreambane Grips", rarity: "legendary", slot: "ARMS", power: 2006 },
-    { name: "Iron Forerunner", rarity: "legendary", slot: "CHEST", power: 2008 },
-    { name: "Lustrous Strides", rarity: "legendary", slot: "LEGS", power: 2007 },
-    { name: "Cloak of Five", rarity: "legendary", slot: "CLASS", power: 2005 },
-  ],
-  stats: [
-    { label: "MOB", value: 100 },
-    { label: "RES", value: 100 },
-    { label: "REC", value: 40 },
-    { label: "DIS", value: 30 },
-    { label: "INT", value: 60 },
-    { label: "STR", value: 20 },
-  ],
-  suggestion: {
-    text: "Postmaster is at 9/21. Clear it before Trials?",
-    prompt: "Empty the postmaster into the vault",
-  },
-}
-
-export interface FlaggedItem {
-  readonly id: string
-  readonly name: string
-  readonly rarity: Rarity
-  readonly reason: "dupe" | "low"
-  readonly why: string
-  readonly perks: string
-  readonly score: number
-  readonly power: number
-  readonly keep?: boolean
-}
-
-export const flagged: readonly FlaggedItem[] = [
-  {
-    id: "1",
-    name: "Igneous Hammer",
-    rarity: "legendary",
-    reason: "dupe",
-    why: "DUPLICATE · BETTER COPY (ROLL 94)",
-    perks: "Encore · Kill Clip",
-    score: 48,
-    power: 1998,
-  },
-  {
-    id: "2",
-    name: "Cataphract GL3",
-    rarity: "legendary",
-    reason: "low",
-    why: "LOW ROLL",
-    perks: "Ambitious Assassin · Demolitionist",
-    score: 31,
-    power: 2008,
-  },
-  {
-    id: "3",
-    name: "Fatebringer (Timelost)",
-    rarity: "legendary",
-    reason: "dupe",
-    why: "DUPLICATE",
-    perks: "Explosive Payload · Firefly",
-    score: 72,
-    power: 2006,
-    keep: true,
-  },
-  {
-    id: "4",
-    name: "Round Robin",
-    rarity: "legendary",
-    reason: "low",
-    why: "LOW ROLL",
-    perks: "Hip-Fire Grip · Adagio",
-    score: 22,
-    power: 1994,
-  },
-  {
-    id: "5",
-    name: "Taipan-4fr",
-    rarity: "rare",
-    reason: "dupe",
-    why: "DUPLICATE · RARE",
-    perks: "Triple Tap · Firing Line",
-    score: 40,
-    power: 1990,
-  },
-  {
-    id: "6",
-    name: "Dreambane Helm",
-    rarity: "legendary",
-    reason: "low",
-    why: "LOW TOTAL · 57",
-    perks: "Res 6 · Rec 10 · Dis 2",
-    score: 29,
-    power: 1996,
-  },
-]
 
 export interface PlanRow {
   readonly name: string

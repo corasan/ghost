@@ -1,3 +1,4 @@
+import { Image } from "expo-image"
 import type { ReactNode } from "react"
 import { Pressable, type StyleProp, StyleSheet, Text, type TextStyle, View } from "react-native"
 
@@ -47,11 +48,23 @@ export function Diamond({
   )
 }
 
-// Stands in for the item icon until the server sends real ones.
-export function Swatch({ rarity, size, bar }: { rarity?: Rarity; size: number; bar?: boolean }) {
-  const tone = rarity ? Rarity[rarity] : { color: Ghost.dim, fill: Ghost.card }
+// The item's icon framed in its rarity colour. Falls back to a flat tile
+// when the manifest has no icon.
+export function Swatch({
+  rarity = "unknown",
+  size,
+  bar,
+  icon,
+}: {
+  rarity?: Rarity
+  size: number
+  bar?: boolean
+  icon?: string | null
+}) {
+  const tone = Rarity[rarity]
   return (
-    <View
+    <Image
+      source={icon ?? undefined}
       style={[
         { width: size, height: size, backgroundColor: tone.fill, borderColor: tone.color },
         bar ? { borderLeftWidth: 3 } : { borderWidth: 1 },

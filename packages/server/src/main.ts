@@ -5,6 +5,8 @@ import { ClaudeAgentLive } from "./agent/claude.ts"
 import { JobRunnerLive } from "./agent/runner.ts"
 import { ApiLive } from "./api/index.ts"
 import { BungieClientLive } from "./bungie/client.ts"
+import { GuardianLive } from "./bungie/guardian.ts"
+import { ManifestLive } from "./bungie/manifest.ts"
 import { AppConfig, AppConfigLive } from "./config.ts"
 import { DatabaseLive } from "./db/client.ts"
 import { ItemsRepoLive } from "./db/items.ts"
@@ -19,9 +21,11 @@ const Repositories = Layer.mergeAll(JobsRepoLive, ItemsRepoLive, SettingsLive).p
   Layer.provideMerge(DatabaseLive),
 )
 
-const Services = Layer.mergeAll(BungieClientLive, ClaudeAgentLive).pipe(
+const Clients = Layer.mergeAll(BungieClientLive, ManifestLive, ClaudeAgentLive).pipe(
   Layer.provideMerge(Repositories),
 )
+
+const Services = GuardianLive.pipe(Layer.provideMerge(Clients))
 
 const Routes = Layer.mergeAll(ApiLive, McpLive)
 

@@ -1,6 +1,7 @@
 import { router, Stack, useLocalSearchParams } from "expo-router"
 import { type ComponentRef, useEffect, useRef, useState } from "react"
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -11,11 +12,29 @@ import {
   View,
 } from "react-native"
 
+import { useSafeAreaInsets } from "react-native-safe-area-context"
+
 import { ExampleCard } from "@/components/ghost/example-card"
 import { Mono } from "@/components/ghost/ui"
-import { Ghost, Type } from "@/constants/theme"
+import { BottomTabInset, Ghost, Type } from "@/constants/theme"
 import { useCreateJob, useHealth, useJobs } from "@/lib/api"
 import { examples } from "@/lib/sample"
+
+// The native tab bar floats over the screen, so the composer has to clear it
+// until the keyboard covers the bar.
+function useTabBarInset() {
+  const insets = useSafeAreaInsets()
+  const [keyboard, setKeyboard] = useState(false)
+  useEffect(() => {
+    const show = Keyboard.addListener("keyboardWillShow", () => setKeyboard(true))
+    const hide = Keyboard.addListener("keyboardWillHide", () => setKeyboard(false))
+    return () => {
+      show.remove()
+      hide.remove()
+    }
+  }, [])
+  return keyboard ? 0 : insets.bottom + BottomTabInset
+}
 
 function Asked({ children }: { children: string }) {
   return <Text style={[styles.bubble, styles.asked]}>{children}</Text>
@@ -43,6 +62,7 @@ export default function GhostScreen() {
   const health = useHealth()
   const jobs = useJobs()
   const createJob = useCreateJob()
+  const tabBarInset = useTabBarInset()
 
   // A banner or the Vault tab queues a request by navigating here with it.
   useEffect(() => {
@@ -128,7 +148,7 @@ export default function GhostScreen() {
           COULDN'T REACH GHOST · TRY AGAIN
         </Mono>
       ) : null}
-      <View style={styles.composer}>
+      <View style={[styles.composer, { marginBottom: tabBarInset }]}>
         <TextInput
           value={draft}
           onChangeText={setDraft}

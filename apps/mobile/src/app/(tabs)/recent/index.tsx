@@ -1,4 +1,3 @@
-import type { RecentItem } from "@ghost/contract"
 import { Stack } from "expo-router"
 import { useState } from "react"
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native"
@@ -6,37 +5,16 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "r
 import { Mono, Swatch } from "@/components/ghost/ui"
 import { Segmented } from "@/components/native"
 import { Ghost, Type } from "@/constants/theme"
-import { useRecentItems } from "@/lib/api"
-import { clock } from "@/lib/format"
-
-type Decision = "kept" | "junk"
-
-const place: Record<RecentItem["location"], string> = {
-  postmaster: "STILL AT POSTMASTER",
-  character: "ON CHARACTER",
-  vault: "NOW IN VAULT",
-}
-
-// Items first seen in the same minute arrived together, so they share a group.
-function groupByArrival(items: readonly RecentItem[]) {
-  const groups = new Map<string, RecentItem[]>()
-  for (const item of items) {
-    const key = clock(item.firstSeenAt)
-    groups.set(key, [...(groups.get(key) ?? []), item])
-  }
-  return [...groups]
-}
+import { useRecentItems, useSetDecision } from "@/lib/api"
+import { clock, groupRecent, locationLabel, sourceLabel } from "@/lib/format"
 
 export default function RecentScreen() {
   const recent = useRecentItems()
+  const setDecision = useSetDecision()
   const [filter, setFilter] = useState<"all" | "undecided">("all")
-  // Kept on the device until the server can tag items.
-  const [decisions, setDecisions] = useState<ReadonlyMap<string, Decision>>(new Map())
 
   const items = recent.data ?? []
-  const undecided = items.filter((item) => !decisions.has(item.itemInstanceId))
-  const decide = (id: string, decision: Decision) =>
-    setDecisions((previous) => new Map(previous).set(id, decision))
+  const undecided = items.filter((item) => item.decision === null)
 
   return (
     <>
@@ -69,49 +47,56 @@ export default function RecentScreen() {
                 : "Nothing new yet. Items Ghost pulls from the postmaster show up here."}
           </Text>
         ) : null}
-        {groupByArrival(filter === "undecided" ? undecided : items).map(([time, group]) => (
-          <View key={time}>
+        {groupRecent(filter === "undecided" ? undecided : items).map((group) => (
+          <View key={group.key}>
             <Mono size={9} color={Ghost.dim} style={{ marginBottom: 6 }}>
-              {time} · {group.length}
+              {clock(group.at)} · {sourceLabel(group.source)} · {group.items.length}
             </Mono>
-            {group.map((item) => {
-              const decision = decisions.get(item.itemInstanceId)
-              return (
-                <View key={item.itemInstanceId} style={styles.row}>
-                  <Swatch size={48} />
-                  <View style={{ flex: 1 }}>
-                    <Text numberOfLines={1} style={styles.name}>
-                      {item.name ?? `Item ${item.itemHash}`}
-                    </Text>
-                    <Mono size={9} style={{ marginTop: 3 }}>
-                      {place[item.location]}
-                    </Mono>
-                  </View>
-                  {decision ? (
-                    <Mono size={9} color={decision === "kept" ? Ghost.good : Ghost.danger}>
-                      {decision.toUpperCase()}
-                    </Mono>
-                  ) : (
-                    <View style={{ flexDirection: "row", gap: 6 }}>
-                      <Pressable
-                        accessibilityLabel="Keep"
-                        style={styles.decide}
-                        onPress={() => decide(item.itemInstanceId, "kept")}
-                      >
-                        <Text style={{ color: Ghost.good, fontSize: 14 }}>✓</Text>
-                      </Pressable>
-                      <Pressable
-                        accessibilityLabel="Junk"
-                        style={styles.decide}
-                        onPress={() => decide(item.itemInstanceId, "junk")}
-                      >
-                        <Text style={{ color: Ghost.danger, fontSize: 14 }}>✕</Text>
-                      </Pressable>
-                    </View>
-                  )}
+            {group.items.map((item) => (
+              <View key={item.itemInstanceId} style={styles.row}>
+                <Swatch size={48} />
+                <View style={{ flex: 1 }}>
+                  <Text numberOfLines={1} style={styles.name}>
+                    {item.name ?? `Item ${item.itemHash}`}
+                  </Text>
+                  <Mono size={9} style={{ marginTop: 3 }}>
+                    {locationLabel(item.location)}
+                  </Mono>
                 </View>
-              )
-            })}
+                {item.decision ? (
+                  <Pressable
+                    hitSlop={12}
+                    accessibilityLabel="Clear decision"
+                    onPress={() => setDecision.mutate({ id: item.itemInstanceId, decision: null })}
+                  >
+                    <Mono size={9} color={item.decision === "keep" ? Ghost.good : Ghost.danger}>
+                      {item.decision === "keep" ? "KEPT" : "JUNK"}
+                    </Mono>
+                  </Pressable>
+                ) : (
+                  <View style={{ flexDirection: "row", gap: 6 }}>
+                    <Pressable
+                      accessibilityLabel="Keep"
+                      style={styles.decide}
+                      onPress={() =>
+                        setDecision.mutate({ id: item.itemInstanceId, decision: "keep" })
+                      }
+                    >
+                      <Text style={{ color: Ghost.good, fontSize: 14 }}>✓</Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityLabel="Junk"
+                      style={styles.decide}
+                      onPress={() =>
+                        setDecision.mutate({ id: item.itemInstanceId, decision: "junk" })
+                      }
+                    >
+                      <Text style={{ color: Ghost.danger, fontSize: 14 }}>✕</Text>
+                    </Pressable>
+                  </View>
+                )}
+              </View>
+            ))}
           </View>
         ))}
       </ScrollView>

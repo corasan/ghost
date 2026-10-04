@@ -1,6 +1,6 @@
+import { mkdirSync } from "node:fs"
 import { SqliteClient, SqliteMigrator } from "@effect/sql-sqlite-bun"
 import { Effect, Layer } from "effect"
-import { mkdirSync } from "node:fs"
 import { Reactivity } from "effect/reactivity"
 import { SqlClient } from "effect/sql"
 import { AppConfig } from "../config.ts"
@@ -37,6 +37,27 @@ const migrations = {
       CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
+      )
+    `
+  }),
+  // "source" is who put the item in front of you (postmaster, drop, vendor,
+  // unknown) and "decision" is what you told Ghost to do about it. The
+  // manifest table is a local cache of Bungie's item definitions so names and
+  // tiers resolve without a network call per item.
+  "0002_decisions_and_manifest": Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    yield* sql`ALTER TABLE items_seen ADD COLUMN source TEXT NOT NULL DEFAULT 'unknown'`
+    yield* sql`ALTER TABLE items_seen ADD COLUMN decision TEXT`
+    yield* sql`
+      CREATE TABLE IF NOT EXISTS manifest_items (
+        hash INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        type_name TEXT NOT NULL,
+        icon TEXT,
+        tier_type INTEGER NOT NULL,
+        bucket_hash INTEGER NOT NULL,
+        item_type INTEGER NOT NULL,
+        damage_type INTEGER NOT NULL
       )
     `
   }),

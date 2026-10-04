@@ -3,6 +3,7 @@
  * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
  */
 
+import type { ItemTier } from "@ghost/contract"
 import { Platform } from "react-native"
 
 export const Colors = {
@@ -80,12 +81,15 @@ export const Ghost = {
   danger: "#E05C4B",
 } as const
 
+// Keyed by the item tier the server reports.
 export const Rarity = {
   exotic: { color: "#CEAE33", fill: "#3a3118" },
   legendary: { color: "#A365D6", fill: "#2a1f36" },
   rare: { color: "#5A8FD6", fill: "#1c2838" },
-} as const
-export type Rarity = keyof typeof Rarity
+  common: { color: "#5b6472", fill: "#15191f" },
+  unknown: { color: "#5b6472", fill: "#15191f" },
+} as const satisfies Record<ItemTier, { color: string; fill: string }>
+export type Rarity = ItemTier
 
 export const Type = {
   light: "Outfit_300Light",

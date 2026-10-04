@@ -2,12 +2,14 @@ import {
   BungieAuthFailed,
   BungieAuthResult,
   BungieAuthStart,
+  BungieFailed,
   GhostApi,
   Health,
 } from "@ghost/contract"
-import { Effect, Layer, Schema } from "effect"
+import { Effect, Layer, Option, Schema } from "effect"
 import { HttpApiBuilder, HttpApiScalar } from "effect/http-api"
 import { BungieClient } from "../bungie/client.ts"
+import { Guardian } from "../bungie/guardian.ts"
 import { ItemsRepo } from "../db/items.ts"
 import { JobsRepo } from "../db/jobs.ts"
 
@@ -37,9 +39,36 @@ const JobsLive = HttpApiBuilder.group(GhostApi, "jobs", (handlers) =>
 )
 
 const InventoryLive = HttpApiBuilder.group(GhostApi, "inventory", (handlers) =>
-  handlers.handle("recent", () =>
-    Effect.flatMap(ItemsRepo, (items) => items.recent).pipe(Effect.orDie),
-  ),
+  handlers
+    .handle("recent", () => Effect.flatMap(ItemsRepo, (items) => items.recent).pipe(Effect.orDie))
+    .handle("decide", ({ params, payload }) =>
+      Effect.gen(function* () {
+        const items = yield* ItemsRepo
+        const updated = yield* items.setDecision(params.id, payload.decision).pipe(Effect.orDie)
+        // The contract does not declare a not-found error for this route,
+        // so an unknown id is a defect (500) rather than a typed failure.
+        return yield* Option.match(updated, {
+          onNone: () => Effect.die(new Error(`unknown item ${params.id}`)),
+          onSome: Effect.succeed,
+        })
+      }),
+    ),
+)
+
+// BungieError carries Bungie's status and message; the contract exposes it
+// as BungieFailed so the app can show the text without knowing the shape.
+const GuardianLive = HttpApiBuilder.group(GhostApi, "guardian", (handlers) =>
+  handlers
+    .handle("snapshot", () =>
+      Effect.flatMap(Guardian, (g) => g.snapshot).pipe(
+        Effect.catchTag("BungieError", (e) => new BungieFailed({ message: e.message })),
+      ),
+    )
+    .handle("vault", () =>
+      Effect.flatMap(Guardian, (g) => g.vault).pipe(
+        Effect.catchTag("BungieError", (e) => new BungieFailed({ message: e.message })),
+      ),
+    ),
 )
 
 const Memberships = Schema.Struct({
@@ -70,6 +99,6 @@ const AuthLive = HttpApiBuilder.group(GhostApi, "auth", (handlers) =>
 // /docs serves an interactive reference generated from the contract, handy
 // for poking the server from a laptop on the tailnet.
 export const ApiLive = HttpApiBuilder.layer(GhostApi, { openapiPath: "/openapi.json" }).pipe(
-  Layer.provide([HealthLive, JobsLive, InventoryLive, AuthLive]),
+  Layer.provide([HealthLive, JobsLive, InventoryLive, GuardianLive, AuthLive]),
   Layer.merge(HttpApiScalar.layer(GhostApi, { path: "/docs" })),
 )

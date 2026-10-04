@@ -24,8 +24,25 @@ cd apps/mobile
 bunx expo run:ios     # or: bunx expo run:android
 ```
 
-In the app, open Home, tap the server row, and enter the server's tailnet
-address, for example `http://my-mac.tail1234.ts.net:4848`.
+In the app, open the Ghost tab, tap the `MCP · LOCAL` pill in the header, and
+enter the server's tailnet address, for example `http://my-mac.tail1234.ts.net:4848`.
+Then link your Bungie account from the same screen.
+
+## The four tabs
+
+The app follows the "Ghost - App Map" design: four tabs, dark only, Outfit
+for text and JetBrains Mono for labels and numbers.
+
+- **Ghost**: chat. Every message is a job on the server; the transcript is the
+  job list. The row of kinds under the transcript picks how the agent is briefed
+  (chat, build suggestion, weapon rolls, vault cleanup, postmaster to vault).
+  Tapping the diamond opens History, the log of every request.
+- **Guardian** (opens here): what each character has equipped, power, stats, and
+  a banner when the postmaster is close to full that hands the ask to Ghost.
+- **Vault**: the vault as a list with tier, type, and power. Cleanup mode asks
+  Ghost to flag duplicates and low rolls and shows its answer above the list.
+- **Recent**: items Ghost recorded (postmaster pulls), grouped by source and
+  time, with keep / junk decided on the row and stored on the server.
 
 ## How a request flows
 
@@ -38,9 +55,14 @@ address, for example `http://my-mac.tail1234.ts.net:4848`.
 3. The agent's only tools are the **ghost MCP server**, mounted on the same Bun
    HTTP server at `/mcp`. Each tool is a thin typed wrapper over one Bungie
    endpoint (`get_profile`, `transfer_item`, `pull_from_postmaster`, ...).
-4. The app polls `GET /jobs/:id` until the status settles, then shows the result.
-   Items the agent moved are written to `items_seen` and surfaced on Home as
-   "Recently acquired".
+4. The app polls `GET /jobs` while anything is queued or running, then shows the
+   result in the Ghost transcript. Items the agent moved are written to
+   `items_seen` and surfaced on the Recent tab.
+
+Guardian and Vault do not go through the agent. `GET /guardian` and `GET /vault`
+read the profile straight from Bungie and resolve item hashes against a local
+copy of the Destiny manifest (`manifest_items`, downloaded once per manifest
+version, about 30 MB on first use).
 
 ## Design decisions worth knowing
 
@@ -72,12 +94,12 @@ schema on each tool both documents it for the model and validates what the model
 sends back. `vault_cleanup` only lists candidates; nothing is dismantled without
 a list the player sees.
 
-**Native primitives behind a tiny facade.** Screens in the app are written once
-against seven components (`Screen`, `Section`, `Row`, `Button`, `TextField`,
-`Spinner`, `Empty`). Each has a `.ios.tsx` built on `@expo/ui/swift-ui`, an
-`.android.tsx` built on `@expo/ui/jetpack-compose`, and a plain React Native
-fallback. Tabs use `NativeTabs`, so navigation is a real `UITabBarController`
-and a Material bottom bar.
+**Designed screens, native navigation.** The design is a custom dark UI (tier
+colors, mono labels, chat bubbles) that neither SwiftUI's nor Compose's stock
+components produce, so screens are plain React Native views styled from
+`src/theme`. Navigation stays native: tabs use `NativeTabs`, so the bar is a
+real `UITabBarController` on iOS and a Material bottom bar on Android, and the
+settings sheet is a native modal.
 
 ## Status
 
@@ -86,7 +108,11 @@ MCP server, the job completes). What is not done yet:
 
 - Bungie OAuth needs an https redirect URL registered on bungie.net; the
   `/auth/bungie/callback` route exists but has not been exercised against Bungie.
-- Item names are not resolved from the Destiny manifest yet, so "Recently
-  acquired" shows item hashes until the agent records names.
-- The design in the Claude Design project could not be imported from this
-  session, so the screens follow the app map inferred from the project brief.
+- Guardian and Vault have been checked against the Bungie API shapes but not
+  against a live linked account yet.
+- Recent shows the names the agent recorded; it does not resolve hashes through
+  the manifest yet.
+- Plans with per-row ticks (build swaps, postmaster routing) and Undo from
+  History are in the design but not built: the server would need to journal
+  each Bungie call a job makes and expose it. Dismantle is not possible at all,
+  Bungie's API has no endpoint for it.
