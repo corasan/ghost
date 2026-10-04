@@ -26,7 +26,6 @@ export default function VaultScreen() {
   const [filter, setFilter] = useState<Filter>("all")
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set())
 
-  // Only instanced gear can be tagged or dismantled one copy at a time.
   const gear = (vault.data?.items ?? []).flatMap((item) =>
     item.itemInstanceId ? [{ ...item, id: item.itemInstanceId }] : [],
   )
@@ -40,8 +39,6 @@ export default function VaultScreen() {
       return next
     })
 
-  // Chat lives in one place: actions hand the selection to the Ghost tab as
-  // a queued request, which the user still has to send.
   const ask = (prompt: string) => router.navigate({ pathname: "/ghost", params: { prompt } })
   const names = selected.map((item) => item.name).join(", ")
 

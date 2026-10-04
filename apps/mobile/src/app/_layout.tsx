@@ -8,7 +8,8 @@ import { useFonts } from "expo-font"
 import { DarkTheme, Stack, ThemeProvider } from "expo-router"
 import * as SplashScreen from "expo-splash-screen"
 import { StatusBar } from "expo-status-bar"
-import { useState } from "react"
+import * as SecureStore from "expo-secure-store"
+import { useEffect, useState } from "react"
 
 import { AnimatedSplashOverlay } from "@/components/animated-icon"
 import { Ghost } from "@/constants/theme"
@@ -21,12 +22,17 @@ const theme = {
   colors: { ...DarkTheme.colors, background: Ghost.bg, card: Ghost.bg, primary: Ghost.accent },
 }
 
-// Nothing in the app is reachable until the server reports a linked Bungie
-// account. Settings stays open so the server address can be fixed first.
+const LINKED_KEY = "ghost.linked"
+
 function RootStack() {
   const health = useHealth()
-  if (health.isPending) return null
-  const linked = health.data?.bungieLinked === true
+  const known = health.data?.bungieLinked
+  useEffect(() => {
+    if (known !== undefined) SecureStore.setItem(LINKED_KEY, String(known))
+  }, [known])
+  // Until the server answers, trust what it said last time, so a slow or
+  // unreachable server never leaves the app on a blank screen.
+  const linked = known ?? SecureStore.getItem(LINKED_KEY) === "true"
 
   return (
     <Stack>
@@ -37,6 +43,7 @@ function RootStack() {
       <Stack.Protected guard={!linked}>
         <Stack.Screen name="login" options={{ headerShown: false }} />
       </Stack.Protected>
+      <Stack.Screen name="connect" options={{ headerShown: false }} />
       <Stack.Screen
         name="settings"
         options={{

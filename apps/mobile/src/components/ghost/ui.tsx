@@ -27,10 +27,12 @@ export function Mono({
 export function Diamond({
   size,
   filled = true,
+  glow = false,
   color = Ghost.accent,
 }: {
   size: number
   filled?: boolean
+  glow?: boolean
   color?: string
 }) {
   return (
@@ -42,13 +44,12 @@ export function Diamond({
         backgroundColor: filled ? color : undefined,
         borderWidth: filled ? 0 : 1.5,
         borderColor: color,
+        boxShadow: glow ? `0 0 16px ${color}` : undefined,
       }}
     />
   )
 }
 
-// The item's icon framed in its rarity colour. Falls back to a flat tile
-// when the manifest has no icon.
 export function Swatch({
   rarity = "unknown",
   size,

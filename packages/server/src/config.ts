@@ -14,8 +14,7 @@ export interface AppConfigShape {
 
 export class AppConfig extends Context.Service<AppConfig, AppConfigShape>()("AppConfig") {}
 
-// The server listens on loopback only; `bun run serve` puts it on the tailnet
-// over https through Tailscale Serve. Every setting is read once at startup. Config.withDefault keeps local runs
+// Every setting is read once at startup. Config.withDefault keeps local runs
 // zero-config; the Bungie values default to empty so the server boots before
 // you have registered an application, and the health endpoint reports that.
 const config = Config.all({

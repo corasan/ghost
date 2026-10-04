@@ -15,8 +15,6 @@ export default function LoginScreen() {
   const authStart = useBungieAuthStart()
   const online = health.data !== undefined
 
-  // Sign-in finishes in the browser against the server, so the app learns
-  // about it by asking the server again once the browser closes.
   const signIn = () =>
     authStart.mutate(undefined, {
       onSuccess: async ({ url }) => {
@@ -29,7 +27,7 @@ export default function LoginScreen() {
     <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: insets.bottom + 16 }]}>
       <View style={styles.hero}>
         <View style={styles.glow}>
-          <Diamond size={18} />
+          <Diamond size={18} glow />
         </View>
         <Text style={styles.title}>Ghost</Text>
         <Text style={styles.tagline}>
@@ -46,18 +44,35 @@ export default function LoginScreen() {
           />
         </View>
         <Text style={styles.note}>
-          Sign-in happens in the browser. The server keeps the tokens; the app never sees them.
+          {online
+            ? "Sign-in happens in the browser. The server keeps the tokens; the app never sees them."
+            : "Run `bun run serve` on the server and scan its QR code with the camera to connect."}
         </Text>
         <Pressable hitSlop={12} style={styles.server} onPress={() => router.push("/settings")}>
-          <View style={[styles.dot, { backgroundColor: online ? Ghost.good : Ghost.danger }]} />
-          <Mono color={online ? Ghost.muted : Ghost.danger}>
-            {online ? "SERVER · ONLINE" : "SERVER · UNREACHABLE"}
-          </Mono>
-          <Mono color={Ghost.dim} style={{ letterSpacing: 0 }}>
-            {serverUrl.replace(/^https?:\/\//, "")}
+          <View
+            style={[
+              styles.dot,
+              {
+                backgroundColor: online
+                  ? Ghost.good
+                  : health.isPending
+                    ? Ghost.muted
+                    : Ghost.danger,
+              },
+            ]}
+          />
+          <Mono color={online || health.isPending ? Ghost.muted : Ghost.danger}>
+            {online
+              ? "SERVER · ONLINE"
+              : health.isPending
+                ? "SERVER · CONNECTING"
+                : "SERVER · UNREACHABLE"}
           </Mono>
           <Mono color={Ghost.accent}>CHANGE ›</Mono>
         </Pressable>
+        <Mono color={Ghost.dim} style={{ letterSpacing: 0, textAlign: "center" }}>
+          {serverUrl.replace(/^https?:\/\//, "")}
+        </Mono>
       </View>
     </View>
   )
@@ -66,13 +81,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Ghost.bg, paddingHorizontal: 24 },
   hero: { flex: 1, alignItems: "center", justifyContent: "center", gap: 14 },
-  glow: {
-    marginBottom: 14,
-    shadowColor: Ghost.accent,
-    shadowOpacity: 0.9,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 0 },
-  },
+  glow: { marginBottom: 14 },
   title: { fontFamily: Type.semibold, fontSize: 40, letterSpacing: -0.8, color: Ghost.text },
   tagline: {
     fontFamily: Type.light,

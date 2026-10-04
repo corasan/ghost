@@ -5,8 +5,6 @@ import { Ghost, Type } from "@/constants/theme"
 import { errorMessage, useHealth } from "@/lib/api"
 import { ActionButton } from "./ui"
 
-// Shown in place of Bungie-backed content when the server or Bungie fails,
-// so every tab fails the same way.
 export function Unavailable({ error, onRetry }: { error: unknown; onRetry: () => void }) {
   const health = useHealth()
 

@@ -62,7 +62,6 @@ export default function GhostScreen() {
   const createJob = useCreateJob()
   const tabBarInset = useTabBarInset()
 
-  // A banner or the Vault tab queues a request by navigating here with it.
   useEffect(() => {
     if (!prompt) return
     setDraft(prompt)

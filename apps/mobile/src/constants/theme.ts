@@ -63,7 +63,6 @@ export const Spacing = {
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0
 export const MaxContentWidth = 800
 
-// Palette and type from the Ghost app map design. The app is dark only.
 export const Ghost = {
   bg: "#0b0d10",
   card: "#15191f",
@@ -81,7 +80,6 @@ export const Ghost = {
   danger: "#E05C4B",
 } as const
 
-// Keyed by the item tier the server reports.
 export const Rarity = {
   exotic: { color: "#CEAE33", fill: "#3a3118" },
   legendary: { color: "#A365D6", fill: "#2a1f36" },
