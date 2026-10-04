@@ -20,10 +20,10 @@ export default function SettingsScreen() {
     <Screen>
       <Section
         title="Server"
-        footer="The tailnet address of the machine running the Ghost server, for example http://my-mac.tail1234.ts.net:4848."
+        footer="The tailnet address of the machine running the Ghost server, for example https://my-mac.tail1234.ts.net:4848."
       >
         <TextField
-          placeholder="http://host:4848"
+          placeholder="https://host.ts.net:4848"
           initialValue={serverUrl}
           onChange={setDraft}
           keyboard="url"

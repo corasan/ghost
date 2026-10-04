@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "bun run --watch src/main.ts",
     "start": "bun run src/main.ts",
+    "serve": "tailscale serve --bg --https=4848 http://127.0.0.1:4848",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
