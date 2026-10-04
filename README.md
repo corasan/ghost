@@ -21,7 +21,7 @@ bun run server                                          # http://0.0.0.0:4848, d
 
 # app (needs a development build: @expo/ui has native code, so Expo Go won't do)
 cd apps/mobile
-npx expo run:ios      # or: npx expo run:android
+bunx expo run:ios     # or: bunx expo run:android
 ```
 
 In the app, open Home, tap the server row, and enter the server's tailnet
