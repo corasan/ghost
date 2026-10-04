@@ -1,5 +1,6 @@
 import { SqliteClient, SqliteMigrator } from "@effect/sql-sqlite-bun"
 import { Effect, Layer } from "effect"
+import { mkdirSync } from "node:fs"
 import { Reactivity } from "effect/reactivity"
 import { SqlClient } from "effect/sql"
 import { AppConfig } from "../config.ts"
@@ -44,6 +45,9 @@ const migrations = {
 const SqliteLive = Layer.unwrap(
   Effect.gen(function* () {
     const { dataDir } = yield* AppConfig
+    // The data directory is gitignored, so a fresh clone does not have it and
+    // SQLite refuses to create a file inside a missing folder.
+    yield* Effect.sync(() => mkdirSync(dataDir, { recursive: true }))
     return SqliteClient.layer({ filename: `${dataDir}/ghost.sqlite`, create: true })
   }),
 ).pipe(Layer.provide(Reactivity.layer))
