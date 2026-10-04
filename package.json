@@ -1,0 +1,19 @@
+{
+  "name": "ghost",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "server": "bun run --cwd packages/server dev",
+    "mobile": "bun run --cwd apps/mobile start",
+    "typecheck": "bun run --filter '*' typecheck",
+    "lint": "biome check .",
+    "format": "biome format --write ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.15",
+    "typescript": "~6.0.3"
+  }
+}

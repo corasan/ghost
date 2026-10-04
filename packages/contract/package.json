@@ -1,0 +1,19 @@
+{
+  "name": "@ghost/contract",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "effect": "^4.0.0"
+  },
+  "devDependencies": {
+    "effect": "^4.0.0",
+    "typescript": "~6.0.3"
+  }
+}

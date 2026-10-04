@@ -1,0 +1,22 @@
+{
+  "name": "@ghost/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/main.ts",
+    "start": "bun run src/main.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.289",
+    "@effect/platform-bun": "^4.0.0",
+    "@effect/sql-sqlite-bun": "^4.0.0",
+    "@ghost/contract": "workspace:*",
+    "effect": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.14",
+    "typescript": "~6.0.3"
+  }
+}

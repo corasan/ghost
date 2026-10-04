@@ -1,0 +1,18 @@
+node_modules/
+dist/
+build/
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+
+# server data
+packages/server/data/
+
+# expo
+apps/mobile/.expo/
+apps/mobile/expo-env.d.ts
+apps/mobile/ios/
+apps/mobile/android/
+apps/mobile/web-build/
