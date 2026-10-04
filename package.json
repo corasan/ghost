@@ -6,7 +6,7 @@
     "packages/*"
   ],
   "scripts": {
-    "server": "bun run --cwd packages/server dev",
+    "server": "bun run serve && bun run --cwd packages/server dev",
     "serve": "bun run --cwd packages/server serve",
     "mobile": "bun run --cwd apps/mobile start",
     "typecheck": "bun run --filter '*' typecheck",

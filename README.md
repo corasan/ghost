@@ -17,17 +17,16 @@ bun install
 
 # server (on the machine that has `claude` logged in)
 cp packages/server/.env.example packages/server/.env   # fill in Bungie keys
-bun run server                                          # http://127.0.0.1:4848, docs at /docs
-bun run serve                                           # once: https://<machine>.<tailnet>.ts.net:4848 via Tailscale Serve
+bun run server                                          # serves on the tailnet and prints a pairing QR, then starts the server
 
 # app (needs a development build: @expo/ui has native code, so Expo Go won't do)
 cd apps/mobile
 bunx expo run:ios     # or: bunx expo run:android
 ```
 
-In the app, open the Ghost tab, tap the `MCP · LOCAL` pill in the header, and
-enter the server's tailnet address, for example `https://my-mac.tail1234.ts.net:4848`.
-Then link your Bungie account from the same screen.
+`bun run serve` prints the server's tailnet address and a QR code. Scan it with
+the phone's camera to open the app with that address saved, then sign in with
+Bungie. The address can also be changed by hand from the sign-in screen.
 
 ## The four tabs
 

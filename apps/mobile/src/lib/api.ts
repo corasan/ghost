@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Effect } from "effect"
 import { FetchHttpClient } from "effect/http"
 import { HttpApiClient } from "effect/http-api"
-import { getServerUrl } from "./server-url"
+import { getServerUrl, useServerUrl } from "./server-url"
 
 // HttpApiClient reads the same contract the server implements, so every
 // call below is typed end to end: params, payload, success and error
@@ -29,16 +29,23 @@ export const queryKeys = {
 
 // Health doubles as a latency probe: the Ghost tab header shows how far
 // away the server is, like the "MCP · LOCAL · 12ms" pill in the design.
+const HEALTH_TIMEOUT_MS = 8_000
+
 let lastLatencyMs: number | null = null
 export const getLastLatency = () => lastLatencyMs
 
 export function useHealth() {
-  const url = getServerUrl()
+  const url = useServerUrl()
   return useQuery({
     queryKey: queryKeys.health(url),
     queryFn: async () => {
       const started = Date.now()
-      const health = await run((api) => api.health.status())
+      const health = await Promise.race([
+        run((api) => api.health.status()),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Health check timed out")), HEALTH_TIMEOUT_MS),
+        ),
+      ])
       lastLatencyMs = Date.now() - started
       return health
     },
@@ -48,7 +55,7 @@ export function useHealth() {
 }
 
 export function useJobs() {
-  const url = getServerUrl()
+  const url = useServerUrl()
   return useQuery({
     queryKey: queryKeys.jobs(url),
     queryFn: () => run((api) => api.jobs.list()),
@@ -59,7 +66,7 @@ export function useJobs() {
 // A single job is polled quickly while it is queued or running and left
 // alone once it has settled.
 export function useJob(id: string) {
-  const url = getServerUrl()
+  const url = useServerUrl()
   return useQuery({
     queryKey: queryKeys.job(url, id),
     queryFn: () => run((api) => api.jobs.get({ params: { id } })),
@@ -71,7 +78,7 @@ export function useJob(id: string) {
 }
 
 export function useRecentItems() {
-  const url = getServerUrl()
+  const url = useServerUrl()
   return useQuery({
     queryKey: queryKeys.recent(url),
     queryFn: () => run((api) => api.inventory.recent()),
@@ -82,7 +89,7 @@ export function useRecentItems() {
 // Bungie-backed reads are slower (a profile call plus a manifest lookup)
 // and fail with BungieNotLinked until OAuth is done, so they do not retry.
 export function useGuardian() {
-  const url = getServerUrl()
+  const url = useServerUrl()
   return useQuery({
     queryKey: queryKeys.guardian(url),
     queryFn: () => run((api) => api.guardian.snapshot()),
@@ -92,7 +99,7 @@ export function useGuardian() {
 }
 
 export function useVault() {
-  const url = getServerUrl()
+  const url = useServerUrl()
   return useQuery({
     queryKey: queryKeys.vault(url),
     queryFn: () => run((api) => api.guardian.vault()),
