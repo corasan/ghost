@@ -47,3 +47,9 @@ export interface EmptyProps {
   readonly title: string
   readonly description?: string
 }
+
+export interface SegmentedProps<T extends string> {
+  readonly options: readonly { readonly value: T; readonly label: string }[]
+  readonly value: T
+  readonly onChange: (value: T) => void
+}

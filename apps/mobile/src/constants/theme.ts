@@ -61,3 +61,36 @@ export const Spacing = {
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0
 export const MaxContentWidth = 800
+
+// Palette and type from the Ghost app map design. The app is dark only.
+export const Ghost = {
+  bg: "#0b0d10",
+  card: "#15191f",
+  line: "rgba(255,255,255,0.08)",
+  lineStrong: "rgba(255,255,255,0.14)",
+  accentLine: "rgba(79,163,227,0.4)",
+  text: "#e8ecf1",
+  textSoft: "#c5ccd6",
+  muted: "#8a94a3",
+  dim: "#5b6472",
+  accent: "#4FA3E3",
+  onAccent: "#06111a",
+  power: "#F2B01E",
+  good: "#7DD3A8",
+  danger: "#E05C4B",
+} as const
+
+export const Rarity = {
+  exotic: { color: "#CEAE33", fill: "#3a3118" },
+  legendary: { color: "#A365D6", fill: "#2a1f36" },
+  rare: { color: "#5A8FD6", fill: "#1c2838" },
+} as const
+export type Rarity = keyof typeof Rarity
+
+export const Type = {
+  light: "Outfit_300Light",
+  regular: "Outfit_400Regular",
+  medium: "Outfit_500Medium",
+  semibold: "Outfit_600SemiBold",
+  mono: "JetBrainsMono_400Regular",
+} as const

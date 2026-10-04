@@ -24,3 +24,9 @@ export function relativeTime(iso: string) {
   if (hours < 24) return `${hours}h ago`
   return `${Math.round(hours / 24)}d ago`
 }
+
+export function clock(iso: string) {
+  const date = new Date(iso)
+  const two = (value: number) => String(value).padStart(2, "0")
+  return `${two(date.getHours())}:${two(date.getMinutes())}`
+}

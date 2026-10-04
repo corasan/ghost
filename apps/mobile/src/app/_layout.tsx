@@ -1,22 +1,43 @@
+import { JetBrainsMono_400Regular } from "@expo-google-fonts/jetbrains-mono/400Regular"
+import { Outfit_300Light } from "@expo-google-fonts/outfit/300Light"
+import { Outfit_400Regular } from "@expo-google-fonts/outfit/400Regular"
+import { Outfit_500Medium } from "@expo-google-fonts/outfit/500Medium"
+import { Outfit_600SemiBold } from "@expo-google-fonts/outfit/600SemiBold"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from "expo-router"
+import { useFonts } from "expo-font"
+import { DarkTheme, Stack, ThemeProvider } from "expo-router"
 import * as SplashScreen from "expo-splash-screen"
+import { StatusBar } from "expo-status-bar"
 import { useState } from "react"
-import { useColorScheme } from "react-native"
 
 import { AnimatedSplashOverlay } from "@/components/animated-icon"
+import { Ghost } from "@/constants/theme"
 
 SplashScreen.preventAutoHideAsync()
 
+const theme = {
+  ...DarkTheme,
+  colors: { ...DarkTheme.colors, background: Ghost.bg, card: Ghost.bg, primary: Ghost.accent },
+}
+
 export default function RootLayout() {
-  const colorScheme = useColorScheme()
   const [queryClient] = useState(() => new QueryClient())
+  const [fontsLoaded, fontError] = useFonts({
+    Outfit_300Light,
+    Outfit_400Regular,
+    Outfit_500Medium,
+    Outfit_600SemiBold,
+    JetBrainsMono_400Regular,
+  })
+  if (!fontsLoaded && !fontError) return null
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+      <ThemeProvider value={theme}>
+        <StatusBar style="light" />
         <AnimatedSplashOverlay />
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="history" options={{ headerShown: false }} />
           <Stack.Screen name="settings" options={{ title: "Settings", presentation: "modal" }} />
           <Stack.Screen name="jobs/[id]" options={{ title: "Task" }} />
         </Stack>
