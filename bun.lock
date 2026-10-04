@@ -13,6 +13,8 @@
       "name": "@ghost/mobile",
       "version": "1.0.0",
       "dependencies": {
+        "@expo-google-fonts/jetbrains-mono": "0.4.1",
+        "@expo-google-fonts/outfit": "0.4.3",
         "@expo/ui": "~58.0.12",
         "@ghost/contract": "workspace:*",
         "@tanstack/react-query": "^5.104.1",
@@ -262,7 +264,11 @@
 
     "@effect/sql-sqlite-bun": ["@effect/sql-sqlite-bun@4.0.0", "", { "peerDependencies": { "effect": "^4.0.0" } }, "sha512-tUDqqNq4lZMLQkp8YDQej2uuy8BBjmqfMXcJU/KOmrK/WWbzudC8oabZ1TEs1lLSuKzhBEPhnE0cRtAOYe05ew=="],
 
+    "@expo-google-fonts/jetbrains-mono": ["@expo-google-fonts/jetbrains-mono@0.4.1", "", {}, "sha512-CslACrtMOcRwoWXCO7OMEI+9w3fukWSoBtvNz46OqPoogEuuoY0tkDY1O8sFumk8t0pC6Cx0Xr95O0TOQhpkug=="],
+
     "@expo-google-fonts/material-symbols": ["@expo-google-fonts/material-symbols@0.4.48", "", {}, "sha512-aZztj44PyA/sj3TXSwwpLJwqMlTUJ49okbZJYURzEcuERxMQB0KbX7RrLBi8WJnuWz5HFOLlTRxORrJfNnUPNQ=="],
+
+    "@expo-google-fonts/outfit": ["@expo-google-fonts/outfit@0.4.3", "", {}, "sha512-2uQmDVJencWLllxds6SG92E+SjxyZfvg7eZKZ5XLHggmm5AuUyQK7lzMAFOUzT6kheq2kJ7BAiubMdjKT32fJg=="],
 
     "@expo/cli": ["@expo/cli@58.1.2", "", { "dependencies": { "2g": "^0.4.3", "@expo/code-signing-certificates": "^0.0.6", "@expo/config": "~58.0.2", "@expo/config-plugins": "~58.0.5", "@expo/devcert": "^1.2.2", "@expo/env": "~2.5.1", "@expo/image-utils": "^0.12.3", "@expo/inline-modules": "^0.2.2", "@expo/json-file": "^11.2.1", "@expo/log-box": "^58.0.9", "@expo/log-box-utils": "^58.0.1", "@expo/metro": "~58.0.0-rc.0", "@expo/metro-config": "58.0.8", "@expo/metro-file-map": "^58.0.3", "@expo/osascript": "^2.8.1", "@expo/package-manager": "^1.14.1", "@expo/plist": "^0.10.1", "@expo/prebuild-config": "^58.0.8", "@expo/require-utils": "^58.0.2", "@expo/router-server": "^58.0.7", "@expo/schema-utils": "^58.0.1", "@expo/spawn-async": "^1.8.0", "@expo/ws-tunnel": "^2.0.1", "@expo/xcpretty": "^4.4.6", "@react-native/asset-utils": "0.88.0-rc.3", "@react-native/dev-middleware": "0.88.0-rc.3", "@react-native/js-polyfills": "0.88.0-rc.3", "accepts": "^1.3.8", "agent-cli-detector": "0.1.7", "arg": "^5.0.2", "bplist-creator": "0.1.0", "bplist-parser": "^0.3.1", "chalk": "^4.0.0", "ci-info": "^3.3.0", "compression": "^1.7.4", "connect": "^3.7.0", "dnssd-advertise": "^1.1.6", "expo-server": "^58.0.3", "fetch-nodeshim": "^0.4.10", "getenv": "^2.0.0", "glob": "^13.0.0", "lan-network": "^0.2.1", "multitars": "^1.0.2", "node-forge": "^1.3.3", "npm-package-arg": "^11.0.0", "ora": "^3.4.0", "picomatch": "^4.0.4", "pretty-format": "^29.7.0", "progress": "^2.0.3", "prompts": "^2.3.2", "resolve-from": "^5.0.0", "sandbox-cli-detector": "^0.2.0", "semver": "^7.7.4", "send": "^0.19.0", "slugify": "^1.3.4", "stacktrace-parser": "^0.1.10", "structured-headers": "^0.4.1", "terminal-link": "^2.1.1", "toqr": "^0.1.1", "wrap-ansi": "^7.0.0", "ws": "^8.12.1", "zod": "^3.25.76" }, "peerDependencies": { "expo": "*", "expo-router": "*", "react-native": "*" }, "optionalPeers": ["expo-router", "react-native"], "bin": { "expo-internal": "bin/cli.js" } }, "sha512-CyGzvsfSPBS8OrcWL+Xc7rCvjLFWLAtyllCBsTZXSBIVJl5ptqEDU5rO/l5oDHB8u6zBEzBmNk2YYRTVumvujQ=="],
 

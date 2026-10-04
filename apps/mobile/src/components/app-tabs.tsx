@@ -1,40 +1,32 @@
 import { NativeTabs } from "expo-router/unstable-native-tabs"
-import { useColorScheme } from "react-native"
-
-import { Colors } from "@/constants/theme"
+import { colors } from "@/theme"
 
 // NativeTabs renders UITabBarController on iOS and a Material bottom
-// navigation bar on Android. Icons are SF Symbols on iOS and Material
-// drawables on Android, so each platform shows its own icon set.
+// navigation bar on Android. The four tabs and their order come from the
+// design: Ghost (chat), Guardian (home, the initial tab), Vault, Recent.
 export default function AppTabs() {
-  const scheme = useColorScheme()
-  const colors = Colors[scheme === "dark" ? "dark" : "light"]
-
   return (
     <NativeTabs
-      backgroundColor={colors.background}
-      indicatorColor={colors.backgroundElement}
-      labelStyle={{ selected: { color: colors.text } }}
+      backgroundColor={colors.bg}
+      iconColor={{ default: colors.muted, selected: colors.accent }}
+      labelStyle={{ default: { color: colors.muted }, selected: { color: colors.accent } }}
+      indicatorColor={colors.surface}
     >
+      <NativeTabs.Trigger name="ghost">
+        <NativeTabs.Trigger.Label>Ghost</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="diamond.fill" md="auto_awesome" />
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="index">
-        <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="house.fill" md="home" />
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="builds">
-        <NativeTabs.Trigger.Label>Builds</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="figure.run" md="fitness_center" />
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="weapons">
-        <NativeTabs.Trigger.Label>Weapons</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="scope" md="my_location" />
+        <NativeTabs.Trigger.Label>Guardian</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="circle.fill" md="person" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="vault">
         <NativeTabs.Trigger.Label>Vault</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="archivebox.fill" md="inventory_2" />
+        <NativeTabs.Trigger.Icon sf="square.fill" md="inventory_2" />
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="activity">
-        <NativeTabs.Trigger.Label>Activity</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="clock.arrow.circlepath" md="history" />
+      <NativeTabs.Trigger name="recent">
+        <NativeTabs.Trigger.Label>Recent</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="square.fill.on.square" md="new_releases" />
       </NativeTabs.Trigger>
     </NativeTabs>
   )

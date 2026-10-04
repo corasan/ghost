@@ -1,4 +1,4 @@
-import { type CreateJob, GhostApi } from "@ghost/contract"
+import { type CreateJob, GhostApi, type ItemDecision } from "@ghost/contract"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Effect } from "effect"
 import { FetchHttpClient } from "effect/http"
@@ -23,13 +23,25 @@ export const queryKeys = {
   jobs: (url: string) => ["jobs", url] as const,
   job: (url: string, id: string) => ["jobs", url, id] as const,
   recent: (url: string) => ["recent", url] as const,
+  guardian: (url: string) => ["guardian", url] as const,
+  vault: (url: string) => ["vault", url] as const,
 }
+
+// Health doubles as a latency probe: the Ghost tab header shows how far
+// away the server is, like the "MCP · LOCAL · 12ms" pill in the design.
+let lastLatencyMs: number | null = null
+export const getLastLatency = () => lastLatencyMs
 
 export function useHealth() {
   const url = getServerUrl()
   return useQuery({
     queryKey: queryKeys.health(url),
-    queryFn: () => run((api) => api.health.status()),
+    queryFn: async () => {
+      const started = Date.now()
+      const health = await run((api) => api.health.status())
+      lastLatencyMs = Date.now() - started
+      return health
+    },
     refetchInterval: 15_000,
     retry: false,
   })
@@ -65,6 +77,52 @@ export function useRecentItems() {
     queryFn: () => run((api) => api.inventory.recent()),
     refetchInterval: 15_000,
   })
+}
+
+// Bungie-backed reads are slower (a profile call plus a manifest lookup)
+// and fail with BungieNotLinked until OAuth is done, so they do not retry.
+export function useGuardian() {
+  const url = getServerUrl()
+  return useQuery({
+    queryKey: queryKeys.guardian(url),
+    queryFn: () => run((api) => api.guardian.snapshot()),
+    staleTime: 60_000,
+    retry: false,
+  })
+}
+
+export function useVault() {
+  const url = getServerUrl()
+  return useQuery({
+    queryKey: queryKeys.vault(url),
+    queryFn: () => run((api) => api.guardian.vault()),
+    staleTime: 60_000,
+    retry: false,
+  })
+}
+
+export function useSetDecision() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { id: string; decision: ItemDecision | null }) =>
+      run((api) =>
+        api.inventory.decide({ params: { id: input.id }, payload: { decision: input.decision } }),
+      ),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["recent"] }),
+  })
+}
+
+/** True when the error is the server saying the Bungie account is not linked. */
+export const isNotLinked = (error: unknown) =>
+  typeof error === "object" &&
+  error !== null &&
+  (error as { _tag?: string })._tag === "BungieNotLinked"
+
+export const errorMessage = (error: unknown) => {
+  if (typeof error === "object" && error !== null && "message" in error) {
+    return String((error as { message: unknown }).message)
+  }
+  return String(error)
 }
 
 export function useCreateJob() {

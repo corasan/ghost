@@ -1,3 +1,4 @@
+import { BungieNotLinked } from "@ghost/contract"
 import { Context, DateTime, Effect, Layer, Option, Redacted, Schema } from "effect"
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http"
 import { AppConfig } from "../config.ts"
@@ -27,8 +28,6 @@ export class BungieError extends Schema.TaggedError<BungieError>()("BungieError"
   status: Schema.String,
   message: Schema.String,
 }) {}
-
-export class BungieNotLinked extends Schema.TaggedError<BungieNotLinked>()("BungieNotLinked", {}) {}
 
 export interface BungieTokens {
   readonly accessToken: string
