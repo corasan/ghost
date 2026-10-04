@@ -31,7 +31,7 @@ function Weapon({ item }: { item: ItemSummary }) {
     <View style={[styles.card, styles.weapon, { borderTopColor: tone }]}>
       <Swatch rarity={item.tier} icon={item.icon} size={48} />
       <View style={{ flex: 1 }}>
-        <Text numberOfLines={1} style={styles.weaponName}>
+        <Text numberOfLines={2} style={styles.weaponName}>
           {item.name}
         </Text>
         <Mono size={9} color={tone} style={{ marginTop: 2 }}>
@@ -52,6 +52,7 @@ function Armor({ item }: { item: ItemSummary }) {
   const exotic = item.tier === "exotic"
   return (
     <View style={[styles.card, styles.armor, { borderLeftColor: tone }]}>
+      <Swatch rarity={item.tier} icon={item.icon} size={30} />
       <View style={{ flex: 1 }}>
         <Text numberOfLines={1} style={styles.armorName}>
           {item.name}

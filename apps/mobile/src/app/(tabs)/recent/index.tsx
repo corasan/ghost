@@ -54,12 +54,13 @@ export default function RecentScreen() {
             </Mono>
             {group.items.map((item) => (
               <View key={item.itemInstanceId} style={styles.row}>
-                <Swatch size={48} />
+                <Swatch rarity={item.tier} icon={item.icon} size={48} />
                 <View style={{ flex: 1 }}>
                   <Text numberOfLines={1} style={styles.name}>
                     {item.name ?? `Item ${item.itemHash}`}
                   </Text>
                   <Mono size={9} style={{ marginTop: 3 }}>
+                    {item.typeName ? `${item.typeName.toUpperCase()} · ` : ""}
                     {locationLabel(item.location)}
                   </Mono>
                 </View>

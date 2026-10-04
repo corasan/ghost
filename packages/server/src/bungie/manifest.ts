@@ -130,7 +130,6 @@ const rowToItem = (row: ManifestRow): ManifestItem => ({
 })
 
 interface LiteDefinition {
-  readonly hash?: number
   readonly displayProperties?: { readonly name?: string; readonly icon?: string }
   readonly itemTypeDisplayName?: string
   readonly itemType?: number
@@ -174,11 +173,13 @@ export const ManifestLive = Layer.effect(
     const replaceAll = (definitions: Record<string, LiteDefinition>) =>
       Effect.gen(function* () {
         const rows: Array<ManifestRow> = []
-        for (const def of Object.values(definitions)) {
+        // The lite definitions carry no `hash` field; the object key is the hash.
+        for (const [key, def] of Object.entries(definitions)) {
+          const hash = Number(key)
           const name = def.displayProperties?.name ?? ""
-          if (def.hash === undefined || name === "") continue
+          if (!Number.isInteger(hash) || name === "") continue
           rows.push({
-            hash: def.hash,
+            hash,
             name,
             type_name: def.itemTypeDisplayName ?? "",
             icon: def.displayProperties?.icon ?? null,
@@ -201,7 +202,13 @@ export const ManifestLive = Layer.effect(
       }
       const remote = index.Response
       const local = yield* settings.get(VERSION_KEY).pipe(Effect.orDie)
-      if (Option.isSome(local) && local.value === remote.version) return
+      // An empty table means an earlier download stored nothing, so the saved
+      // version cannot be trusted.
+      const [stored] = yield* sql<{ count: number }>`
+        SELECT COUNT(*) AS count FROM manifest_items
+      `.pipe(Effect.orDie)
+      const populated = (stored?.count ?? 0) > 0
+      if (populated && Option.isSome(local) && local.value === remote.version) return
       const path = remote.jsonWorldComponentContentPaths.en?.DestinyInventoryItemLiteDefinition
       if (path === undefined) {
         return yield* new BungieError({ status: "Manifest", message: "no item definitions" })

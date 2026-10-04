@@ -5,11 +5,13 @@ import {
   BungieFailed,
   GhostApi,
   Health,
+  RecentItem,
 } from "@ghost/contract"
 import { Effect, Layer, Option, Schema } from "effect"
 import { HttpApiBuilder, HttpApiScalar } from "effect/http-api"
 import { BungieClient } from "../bungie/client.ts"
 import { Guardian } from "../bungie/guardian.ts"
+import { Manifest } from "../bungie/manifest.ts"
 import { ItemsRepo } from "../db/items.ts"
 import { JobsRepo } from "../db/jobs.ts"
 
@@ -38,9 +40,32 @@ const JobsLive = HttpApiBuilder.group(GhostApi, "jobs", (handlers) =>
     ),
 )
 
+const withDefinitions = (items: ReadonlyArray<RecentItem>) =>
+  Effect.gen(function* () {
+    const manifest = yield* Manifest
+    const defs = yield* manifest.lookup(items.map((item) => item.itemHash))
+    return items.map((item) => {
+      const def = defs.get(item.itemHash)
+      return def === undefined
+        ? item
+        : new RecentItem({
+            ...item,
+            name: def.name,
+            typeName: def.typeName,
+            icon: def.icon,
+            tier: def.tier,
+          })
+    })
+  }).pipe(Effect.catchTag("BungieError", () => Effect.succeed(items)))
+
 const InventoryLive = HttpApiBuilder.group(GhostApi, "inventory", (handlers) =>
   handlers
-    .handle("recent", () => Effect.flatMap(ItemsRepo, (items) => items.recent).pipe(Effect.orDie))
+    .handle("recent", () =>
+      Effect.flatMap(ItemsRepo, (items) => items.recent).pipe(
+        Effect.orDie,
+        Effect.flatMap(withDefinitions),
+      ),
+    )
     .handle("decide", ({ params, payload }) =>
       Effect.gen(function* () {
         const items = yield* ItemsRepo
@@ -49,7 +74,7 @@ const InventoryLive = HttpApiBuilder.group(GhostApi, "inventory", (handlers) =>
         // so an unknown id is a defect (500) rather than a typed failure.
         return yield* Option.match(updated, {
           onNone: () => Effect.die(new Error(`unknown item ${params.id}`)),
-          onSome: Effect.succeed,
+          onSome: (item) => Effect.map(withDefinitions([item]), ([enriched]) => enriched ?? item),
         })
       }),
     ),

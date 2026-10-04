@@ -39,10 +39,17 @@ export class JobNotFound extends Schema.TaggedError<JobNotFound>()("JobNotFound"
 export const ItemLocation = Schema.Literals(["postmaster", "character", "vault"])
 export type ItemLocation = typeof ItemLocation.Type
 
+export const ItemTier = Schema.Literals(["exotic", "legendary", "rare", "common", "unknown"])
+export type ItemTier = typeof ItemTier.Type
+
 export class RecentItem extends Schema.Class<RecentItem>("RecentItem")({
   itemInstanceId: Schema.String,
   itemHash: Schema.Number,
   name: Schema.NullOr(Schema.String),
+  typeName: Schema.String,
+  /** Absolute bungie.net URL of the item's icon, when the manifest has one. */
+  icon: Schema.NullOr(Schema.String),
+  tier: ItemTier,
   location: ItemLocation,
   source: Schema.String,
   decision: Schema.NullOr(Schema.Literals(["keep", "junk"])),
@@ -70,9 +77,6 @@ export class BungieAuthFailed extends Schema.TaggedError<BungieAuthFailed>()("Bu
 }) {}
 
 // ---- Guardian, vault, and manifest-backed item data ----
-
-export const ItemTier = Schema.Literals(["exotic", "legendary", "rare", "common", "unknown"])
-export type ItemTier = typeof ItemTier.Type
 
 export const DamageType = Schema.Literals([
   "kinetic",
