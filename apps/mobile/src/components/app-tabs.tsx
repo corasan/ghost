@@ -8,7 +8,7 @@ import { Colors } from "@/constants/theme"
 // drawables on Android, so each platform shows its own icon set.
 export default function AppTabs() {
   const scheme = useColorScheme()
-  const colors = Colors[scheme === "unspecified" ? "light" : scheme]
+  const colors = Colors[scheme === "dark" ? "dark" : "light"]
 
   return (
     <NativeTabs

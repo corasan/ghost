@@ -5,7 +5,7 @@ running on your own computer; the server lets Claude act on your account through
 the Bungie API using the Claude subscription already logged in on that machine.
 
 ```
-apps/mobile        Expo SDK 57 app, native UI (SwiftUI on iOS, Jetpack Compose on Android)
+apps/mobile        Expo SDK 58 app, native UI (SwiftUI on iOS, Jetpack Compose on Android)
 packages/server    Bun + Effect server: REST API, SQLite, MCP tools, Claude agent runner
 packages/contract  The HTTP API and wire types both sides import
 ```
