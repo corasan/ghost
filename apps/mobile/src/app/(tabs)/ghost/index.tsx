@@ -14,11 +14,9 @@ import {
 
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
-import { ExampleCard } from "@/components/ghost/example-card"
 import { Mono } from "@/components/ghost/ui"
 import { BottomTabInset, Ghost, Type } from "@/constants/theme"
 import { useCreateJob, useHealth, useJobs } from "@/lib/api"
-import { examples } from "@/lib/sample"
 
 // The native tab bar floats over the screen, so the composer has to clear it
 // until the keyboard covers the bar.
@@ -109,24 +107,9 @@ export default function GhostScreen() {
           {health.data ? "MCP · ONLINE" : health.isPending ? "MCP · …" : "MCP · OFFLINE"}
         </Mono>
         {thread.length === 0 ? (
-          <>
-            <Mono size={9} color={Ghost.dim}>
-              EXAMPLES · TAP ONE TO ASK IT
-            </Mono>
-            {examples.map((example) => (
-              <Pressable
-                key={example.prompt}
-                style={{ gap: 8 }}
-                onPress={() => setDraft(example.prompt)}
-              >
-                <Asked>{example.prompt}</Asked>
-                <View style={{ width: "96%", gap: 8 }} pointerEvents="none">
-                  <Answered>{example.reply}</Answered>
-                  <ExampleCard example={example} />
-                </View>
-              </Pressable>
-            ))}
-          </>
+          <Text style={styles.empty}>
+            Ask Ghost about your gear. It proposes a plan and nothing happens until you confirm.
+          </Text>
         ) : (
           thread.map((job) => (
             <View key={job.id} style={{ gap: 8 }}>
@@ -172,6 +155,14 @@ export default function GhostScreen() {
 }
 
 const styles = StyleSheet.create({
+  empty: {
+    fontFamily: Type.light,
+    fontSize: 14,
+    lineHeight: 21,
+    color: Ghost.muted,
+    textAlign: "center",
+    paddingTop: 48,
+  },
   thread: { paddingHorizontal: 16, paddingVertical: 18, gap: 14 },
   bubble: {
     fontFamily: Type.regular,

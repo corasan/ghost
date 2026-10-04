@@ -12,12 +12,42 @@ import { useState } from "react"
 
 import { AnimatedSplashOverlay } from "@/components/animated-icon"
 import { Ghost } from "@/constants/theme"
+import { useHealth } from "@/lib/api"
 
 SplashScreen.preventAutoHideAsync()
 
 const theme = {
   ...DarkTheme,
   colors: { ...DarkTheme.colors, background: Ghost.bg, card: Ghost.bg, primary: Ghost.accent },
+}
+
+// Nothing in the app is reachable until the server reports a linked Bungie
+// account. Settings stays open so the server address can be fixed first.
+function RootStack() {
+  const health = useHealth()
+  if (health.isPending) return null
+  const linked = health.data?.bungieLinked === true
+
+  return (
+    <Stack>
+      <Stack.Protected guard={linked}>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="jobs/[id]" options={{ title: "Task" }} />
+      </Stack.Protected>
+      <Stack.Protected guard={!linked}>
+        <Stack.Screen name="login" options={{ headerShown: false }} />
+      </Stack.Protected>
+      <Stack.Screen
+        name="settings"
+        options={{
+          title: "Settings",
+          presentation: "formSheet",
+          sheetAllowedDetents: [0.6, 1],
+          sheetGrabberVisible: true,
+        }}
+      />
+    </Stack>
+  )
 }
 
 export default function RootLayout() {
@@ -35,12 +65,7 @@ export default function RootLayout() {
       <ThemeProvider value={theme}>
         <StatusBar style="light" />
         <AnimatedSplashOverlay />
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="history" options={{ headerShown: false }} />
-          <Stack.Screen name="settings" options={{ title: "Settings", presentation: "modal" }} />
-          <Stack.Screen name="jobs/[id]" options={{ title: "Task" }} />
-        </Stack>
+        <RootStack />
       </ThemeProvider>
     </QueryClientProvider>
   )

@@ -3,7 +3,6 @@ import type { ReactNode } from "react"
 import { Pressable, type StyleProp, StyleSheet, Text, type TextStyle, View } from "react-native"
 
 import { Ghost, Rarity, Type } from "@/constants/theme"
-import type { Stat } from "@/lib/sample"
 
 export function Mono({
   children,
@@ -107,7 +106,13 @@ export function Banner({
   )
 }
 
-export function StatRow({ stats, size = 18 }: { stats: readonly Stat[]; size?: number }) {
+export function StatRow({
+  stats,
+  size = 18,
+}: {
+  stats: readonly { readonly label: string; readonly value: number }[]
+  size?: number
+}) {
   return (
     <View style={{ flexDirection: "row" }}>
       {stats.map((stat) => (
@@ -116,7 +121,7 @@ export function StatRow({ stats, size = 18 }: { stats: readonly Stat[]; size?: n
             style={{
               fontFamily: Type.medium,
               fontSize: size,
-              color: stat.hit ? Ghost.good : Ghost.text,
+              color: Ghost.text,
             }}
           >
             {stat.value}
@@ -182,5 +187,5 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: Ghost.textSoft,
   },
-  button: { padding: 12, borderRadius: 8, alignItems: "center" },
+  button: { padding: 14, borderRadius: 10, alignItems: "center" },
 })
