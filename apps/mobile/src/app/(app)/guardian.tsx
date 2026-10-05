@@ -1,7 +1,7 @@
 import type { CharacterStats, ItemSummary } from "@ghost/contract"
 import { LegendList } from "@legendapp/list/react-native"
 import { router } from "expo-router"
-import { View } from "react-native"
+import { Pressable, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { ChatHeader } from "@/components/chat/header"
@@ -54,16 +54,25 @@ const weaponMeta = (item: ItemSummary) =>
 function ItemRow({ item, kind }: { item: ItemSummary; kind: "weapon" | "armor" }) {
   const exotic = item.tier === "exotic"
   const weapon = kind === "weapon"
+  const id = item.itemInstanceId
   return (
-    <View
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 12,
-        paddingVertical: weapon ? 8 : 6,
-        borderTopWidth: 1,
-        borderTopColor: Ghost.rule,
-      }}
+    <Pressable
+      accessibilityRole="button"
+      accessibilityHint="Opens the item"
+      disabled={id === null}
+      onPress={() => id && router.push({ pathname: "/item/[id]", params: { id } })}
+      onLongPress={() => id && router.push({ pathname: "/item-actions/[id]", params: { id } })}
+      style={({ pressed }) => [
+        {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 12,
+          paddingVertical: weapon ? 8 : 6,
+          borderTopWidth: 1,
+          borderTopColor: Ghost.rule,
+        },
+        pressed && { opacity: 0.6 },
+      ]}
     >
       <ItemIcon
         icon={item.icon}
@@ -87,7 +96,7 @@ function ItemRow({ item, kind }: { item: ItemSummary; kind: "weapon" | "armor" }
       <Cond size={18} color={Ghost.gold} style={{ letterSpacing: 0 }}>
         {item.power ?? "—"}
       </Cond>
-    </View>
+    </Pressable>
   )
 }
 
