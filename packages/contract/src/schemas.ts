@@ -130,6 +130,8 @@ export class ArmorMod extends Schema.Class<ArmorMod>("ArmorMod")({
   cost: Schema.Number,
   /** Stat changes it brings, counted in the plan's stats. */
   mods: Schema.Array(StatMod),
+  /** Its effect depends on the wearer holding Armor Charge. */
+  charged: Schema.optional(Schema.Boolean),
   /** True when the plan puts this mod in; the rest are already slotted. */
   swap: Schema.optional(Schema.Boolean),
   /** The mod this one takes the place of, when the socket was not free. */

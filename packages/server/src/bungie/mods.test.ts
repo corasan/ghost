@@ -16,6 +16,7 @@ const entry = (hash: number, name: string, patch: Partial<ArmorModEntry> = {}): 
   energyCost: 2,
   category: ARMS,
   artifact: false,
+  charged: false,
   description: "",
   ...patch,
 })
@@ -47,6 +48,7 @@ const socket = (index: number, category: string, holds?: ArmorModEntry): SocketN
           icon: null,
           description: "",
           cost: holds.energyCost,
+          charged: holds.charged,
           mods: holds.mods,
         },
 })

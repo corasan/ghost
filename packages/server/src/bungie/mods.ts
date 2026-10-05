@@ -4,6 +4,7 @@ import {
   type ArmorModEntry,
   BUILD_SOCKET,
   type ManifestItem,
+  modDescription,
   type PlugFacts,
   type StatFacts,
   type StatMods,
@@ -27,6 +28,7 @@ export interface SocketNow {
     readonly icon: string | null
     readonly description: string
     readonly cost: number
+    readonly charged: boolean
     readonly mods: StatMods
   } | null
 }
@@ -49,8 +51,10 @@ export const socketsNow = (
           : {
               name: def.name,
               icon: def.icon,
-              description: def.description || (known?.description ?? ""),
+              description:
+                known === undefined ? def.description : modDescription(def.description, known),
               cost: known?.energyCost ?? 0,
+              charged: known?.charged ?? false,
               mods: known?.mods ?? {},
             },
     }
@@ -163,6 +167,7 @@ export const describeArmorMods = ({
           description: entry.description,
           cost: entry.energyCost,
           mods: statMods(entry.mods, facts),
+          ...(entry.charged ? { charged: true } : {}),
           swap: true,
           replaces: socket.mod?.name ?? null,
           socketIndex: socket.index,
@@ -180,6 +185,7 @@ export const describeArmorMods = ({
             description: socket.mod.description,
             cost: socket.mod.cost,
             mods: statMods(socket.mod.mods, facts),
+            ...(socket.mod.charged ? { charged: true } : {}),
           }),
         ]
   })

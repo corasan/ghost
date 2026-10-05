@@ -100,6 +100,8 @@ export interface PlugFacts {
   readonly category: string
   /** Only usable while unlocked in the Seasonal Artifact. */
   readonly artifact: boolean
+  /** Its effect depends on the wearer holding Armor Charge. */
+  readonly charged: boolean
   readonly description: string
 }
 
@@ -295,9 +297,18 @@ const CAPACITIES_KEY = "manifest.capacities"
 const CAPACITIES_VERSION_KEY = "manifest.capacities.version"
 const STAT_FACTS_KEY = "manifest.statFacts"
 const STAT_FACTS_VERSION_KEY = "manifest.statFacts.version"
-const ARMOR_MODS_KEY = "manifest.armorMods"
+const ARMOR_MODS_KEY = "manifest.armorMods.v2"
 const ARMOR_MODS_VERSION_KEY = "manifest.armorMods.version"
 export const BUILD_SOCKET = /^enhancements\.v2_/
+
+const ARMOR_CHARGE = /armor charge/i
+
+/**
+ * An armor charge mod's own text is the same "gain Armor Charge" line on
+ * every one of them; what the mod does with the charge is in its perk.
+ */
+export const modDescription = (itemText: string, facts: PlugFacts) =>
+  facts.charged ? facts.description : itemText || facts.description
 const ELEMENT_ICONS_KEY = "manifest.elementIcons"
 const ELEMENT_ICONS_VERSION_KEY = "manifest.elementIcons.version"
 const ARMOR_STAT_HASHES = [
@@ -383,10 +394,12 @@ export const ManifestLive = Layer.effect(
           Effect.gen(function* () {
             const definition = yield* entity("DestinyInventoryItemDefinition", hash)
             const perk = definition.perks?.[0]?.perkHash
+            const own = definition.displayProperties?.description ?? ""
             const described =
-              definition.displayProperties?.description || perk === undefined
+              (own && !ARMOR_CHARGE.test(own)) || perk === undefined
                 ? definition
                 : yield* entity("DestinySandboxPerkDefinition", perk)
+            const description = described.displayProperties?.description || own
             plugs.set(hash, {
               mods: statModsFrom(definition, false),
               classMods: statModsFrom(definition, true),
@@ -396,7 +409,8 @@ export const ManifestLive = Layer.effect(
               artifact: (definition.plug?.insertionRules ?? []).some((rule) =>
                 /artifact/i.test(rule.failureMessage ?? ""),
               ),
-              description: described.displayProperties?.description ?? "",
+              charged: ARMOR_CHARGE.test(own) || ARMOR_CHARGE.test(description),
+              description,
             })
           }).pipe(
             Effect.catch((error) =>
@@ -600,7 +614,7 @@ export const ManifestLive = Layer.effect(
             hash: row.hash,
             name: item.name,
             icon: item.icon,
-            description: item.description || known.description,
+            description: modDescription(item.description, known),
           },
         ]
       })
