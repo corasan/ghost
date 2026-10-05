@@ -350,6 +350,18 @@ describe("build card", () => {
     expect(shortStat("WEAPONS")).toBe("WPN")
   })
 
+  test("mod swaps are counted in the verdict and drawn as their own pip", () => {
+    const swap = new ArmorMod({ name: "Firepower", description: "", cost: 2, mods: [], swap: true })
+    const helm = row("helm", { armorMods: [armorMod("Super Mod", [["SUPER", 10]]), swap] })
+    const vaulted = row("arms", { action: "equip", origin: "VAULT", armorMods: [swap] })
+    expect(modPips(helm)).toEqual(["stat", "swap"])
+    expect(verdict(plan({ rows: [helm] }))).toEqual({
+      plain: "Nothing moves.",
+      change: "1 mod changes.",
+    })
+    expect(verdict(plan({ rows: [helm, vaulted] })).change).toBe("1 piece moves, 2 mods change.")
+  })
+
   test("a piece shows a pip per socket: stat mods, other mods, then free slots", () => {
     const helm = row("helm", {
       armorMods: [armorMod("Firepower"), armorMod("Super Mod", [["SUPER", 10]])],
@@ -378,11 +390,11 @@ describe("build card", () => {
     const worn = row("worn")
     const carried = row("carried", { action: "equip" })
     const vaulted = row("vaulted", { action: "equip", origin: "VAULT" })
-    expect(verdict(plan({ rows: [worn] }))).toEqual({ text: "Nothing moves.", moves: false })
-    expect(verdict(plan({ rows: [worn, carried] }))).toEqual({ text: "1 to equip.", moves: false })
+    expect(verdict(plan({ rows: [worn] }))).toEqual({ plain: "Nothing moves.", change: "" })
+    expect(verdict(plan({ rows: [worn, carried] }))).toEqual({ plain: "1 to equip.", change: "" })
     expect(verdict(plan({ rows: [worn, carried, vaulted] }))).toEqual({
-      text: "1 piece moves.",
-      moves: true,
+      plain: "",
+      change: "1 piece moves.",
     })
   })
 })

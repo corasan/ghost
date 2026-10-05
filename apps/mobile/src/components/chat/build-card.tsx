@@ -14,7 +14,6 @@ import {
   hasStatMods,
   headline,
   litTicks,
-  liveLabel,
   type ModPip,
   modPips,
   pendingMasterwork,
@@ -147,12 +146,17 @@ function Stats({ plan }: { plan: Plan }) {
 
 const PIP_OTHER = "#7b828d"
 
-/** A piece's mod sockets at a glance: white for a stat mod, grey for any other, hollow for a free slot. */
+/** A piece's mod sockets at a glance: blue for a mod the plan puts in, white for a stat mod, grey for any other, hollow for a free slot. */
 export function ModPips({ pips, fill = false }: { pips: readonly ModPip[]; fill?: boolean }) {
   return (
     <View style={{ flexDirection: "row", gap: 2 }}>
       {pips.map((pip, i) => {
-        const tone = pip === "stat" ? Ghost.ink : pip === "other" ? PIP_OTHER : Ghost.ruleStrong
+        const tone = {
+          swap: Ghost.accent,
+          stat: Ghost.ink,
+          other: PIP_OTHER,
+          free: Ghost.ruleStrong,
+        }[pip]
         return (
           <View
             key={i}
@@ -263,7 +267,13 @@ function Verdict({ plan }: { plan: Plan }) {
   }
   return (
     <>
-      <Text style={outcome.moves ? { color: Ghost.accent } : undefined}>{outcome.text}</Text>
+      {outcome.plain}
+      {outcome.change ? (
+        <Text style={{ color: Ghost.accent }}>
+          {outcome.plain ? " " : ""}
+          {outcome.change}
+        </Text>
+      ) : null}
       {pending > 0 ? <Text style={{ color: Ghost.gold }}> {pending} not masterworked.</Text> : null}
     </>
   )
@@ -316,7 +326,7 @@ export function BuildCard({ job, plan }: { job: Job; plan: Plan }) {
       {plan.status === "proposed" && selection.actionableCount > 0 ? (
         <View style={styles.action}>
           <Button
-            label={apply.isPending ? "WORKING…" : liveLabel(plan.confirmLabel, selected.length)}
+            label={apply.isPending ? "WORKING…" : plan.confirmLabel}
             tone="solid"
             under={Ghost.panel}
             disabled={selected.length === 0 || apply.isPending}

@@ -9,7 +9,8 @@ import { useSyncExternalStore } from "react"
 const selections = new Map<string, ReadonlySet<string>>()
 const listeners = new Set<() => void>()
 
-const actionable = (plan: Plan) => plan.rows.filter((row) => row.action !== "none")
+const actionable = (plan: Plan) =>
+  plan.rows.filter((row) => row.action !== "none" || row.armorMods?.some((mod) => mod.swap))
 
 const defaults = (plan: Plan) =>
   new Set(actionable(plan).flatMap((row) => (row.selected ? [row.itemInstanceId] : [])))

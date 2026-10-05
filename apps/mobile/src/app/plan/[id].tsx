@@ -13,7 +13,7 @@ import { Body, Button, Chevron, Diamond, Mono } from "@/components/ghost/ui"
 import { ELEMENT_TONE, Ghost, Gutter, Type } from "@/constants/theme"
 import { errorMessage, useApplyPlan, useJob } from "@/lib/api"
 import { firstSentence } from "@/lib/effect-text"
-import { bySlot, liveLabel, modPips, pendingMasterwork, signed } from "@/lib/plan-card"
+import { bySlot, modPips, pendingMasterwork, signed } from "@/lib/plan-card"
 import { usePlanSelection } from "@/lib/selection"
 
 function Described({ plug, kind }: { plug: LoadoutPlug; kind?: string }) {
@@ -80,12 +80,21 @@ function Mods({ row }: { row: PlanRow }) {
         ) : null}
       </View>
       {mods.map((mod, i) => {
-        const effect = firstSentence(mod.description)
+        const effect = [
+          mod.swap && mod.replaces ? `Replaces ${mod.replaces}` : null,
+          firstSentence(mod.description),
+        ]
+          .filter(Boolean)
+          .join(" · ")
         return (
           <View key={`${mod.name}${i}`} style={styles.mod}>
             {mod.icon ? <Image source={mod.icon} style={styles.modIcon} transition={120} /> : null}
             <View style={{ flex: 1, minWidth: 0 }}>
-              <Body size={13} style={{ fontFamily: Type.bodyMedium, lineHeight: 16 }}>
+              <Body
+                size={13}
+                color={mod.swap ? Ghost.accent : Ghost.ink}
+                style={{ fontFamily: Type.bodyMedium, lineHeight: 16 }}
+              >
                 {mod.name}
               </Body>
               {effect ? (
@@ -94,7 +103,9 @@ function Mods({ row }: { row: PlanRow }) {
                 </Body>
               ) : null}
             </View>
-            <Mono style={{ letterSpacing: 0.7 }}>{mod.cost}</Mono>
+            <Mono color={mod.swap ? Ghost.accent : Ghost.dim} style={{ letterSpacing: 0.7 }}>
+              {mod.swap ? `SWAP · ${mod.cost}` : mod.cost}
+            </Mono>
           </View>
         )
       })}
@@ -206,7 +217,7 @@ function Confirm({ job, plan, inset }: { job: Job; plan: Plan; inset: number }) 
       ) : null}
       <View style={{ flexDirection: "row" }}>
         <Button
-          label={apply.isPending ? "WORKING…" : liveLabel(plan.confirmLabel, selected.length)}
+          label={apply.isPending ? "WORKING…" : plan.confirmLabel}
           tone="solid"
           under={Ghost.panel}
           disabled={selected.length === 0 || apply.isPending}

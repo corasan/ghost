@@ -287,6 +287,23 @@ export const PlansLive = Layer.effect(
               finish(null, null)
               continue
             }
+            if (!picked.has(row.itemInstanceId)) {
+              yield* record({
+                jobId,
+                itemInstanceId: row.itemInstanceId,
+                itemHash: row.itemHash,
+                name: row.name,
+                kind: "held",
+                characterId: row.characterId,
+                fromLocation: item?.location ?? null,
+                fromCharacterId: item?.characterId ?? null,
+                previousItemId: null,
+                status: "held",
+                error: null,
+              })
+              finish("skipped", null)
+              continue
+            }
             if (item === undefined) {
               finish("failed", "it is no longer in your inventory")
               continue

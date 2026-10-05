@@ -58,14 +58,16 @@ const SHORT_STAT: Record<string, string> = {
 
 export const shortStat = (label: string) => SHORT_STAT[label] ?? label.slice(0, 3)
 
-export type ModPip = "stat" | "other" | "free"
+export type ModPip = "swap" | "stat" | "other" | "free"
 
-/** One pip per mod socket: a stat mod, any other mod, or a free slot. Undefined when the plan predates mods. */
+/** One pip per mod socket: a mod the plan puts in, a stat mod, any other mod, or a free slot. Undefined when the plan predates mods. */
 export const modPips = (row: PlanRow): ModPip[] | undefined =>
   row.armorMods === undefined
     ? undefined
     : [
-        ...row.armorMods.map((mod): ModPip => (mod.mods.length > 0 ? "stat" : "other")),
+        ...row.armorMods.map((mod): ModPip =>
+          mod.swap ? "swap" : mod.mods.length > 0 ? "stat" : "other",
+        ),
         ...Array.from({ length: row.freeModSlots ?? 0 }, (): ModPip => "free"),
       ]
 
@@ -112,12 +114,26 @@ export const bySlot = (rows: readonly PlanRow[]): PlanRow[] =>
 export const pendingMasterwork = (plan: Plan) =>
   plan.rows.filter((row) => row.stats?.some((stat) => stat.masterworked !== undefined)).length
 
-/** The one line under the tiles: what confirming will do. */
-export const verdict = (plan: Plan): { text: string; moves: boolean } => {
+export const modSwaps = (plan: Plan) =>
+  plan.rows.reduce(
+    (count, row) => count + (row.armorMods?.filter((mod) => mod.swap).length ?? 0),
+    0,
+  )
+
+const modsChange = (count: number) => `${count} ${count === 1 ? "mod changes" : "mods change"}`
+
+/**
+ * The one line under the tiles: what confirming will do. `plain` reads in the
+ * body colour and `change` in blue, so moves and mod swaps stand out.
+ */
+export const verdict = (plan: Plan): { plain: string; change: string } => {
   const acting = plan.rows.filter((row) => row.action !== "none")
   const moving = acting.filter((row) => row.origin !== undefined).length
-  if (moving > 0)
-    return { text: `${moving} ${moving === 1 ? "piece moves" : "pieces move"}.`, moves: true }
-  if (acting.length > 0) return { text: `${acting.length} to equip.`, moves: false }
-  return { text: "Nothing moves.", moves: false }
+  const mods = modSwaps(plan)
+  if (moving > 0) {
+    const pieces = `${moving} ${moving === 1 ? "piece moves" : "pieces move"}`
+    return { plain: "", change: mods > 0 ? `${pieces}, ${modsChange(mods)}.` : `${pieces}.` }
+  }
+  const plain = acting.length > 0 ? `${acting.length} to equip.` : "Nothing moves."
+  return { plain, change: mods > 0 ? `${modsChange(mods)}.` : "" }
 }

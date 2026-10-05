@@ -453,7 +453,10 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
                 score: r.score ?? null,
                 action: r.action,
                 characterId,
-                selected: r.action === "none" ? false : (r.selected ?? true),
+                selected:
+                  r.action === "none" && (swapsFor.get(item.itemInstanceId)?.length ?? 0) === 0
+                    ? false
+                    : (r.selected ?? true),
                 outcome: null,
                 error: null,
                 ...(item.armorStats === null ? {} : { stats: armorStats(item) }),

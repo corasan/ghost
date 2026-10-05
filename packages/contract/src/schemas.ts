@@ -154,7 +154,7 @@ export class PlanRow extends Schema.Class<PlanRow>("PlanRow")({
   action: PlanAction,
   /** Target character for to_character and equip; the owner for pulls. */
   characterId: Schema.NullOr(Schema.String),
-  /** Ghost's default. The player can untick it before confirming. */
+  /** Ghost's default. The player can untick it before confirming. A row's mod swaps run only when it is ticked. */
   selected: Schema.Boolean,
   outcome: Schema.NullOr(RowOutcome),
   error: Schema.NullOr(Schema.String),
