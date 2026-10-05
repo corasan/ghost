@@ -352,16 +352,5 @@ export function useBungieAuthStart() {
   return useMutation({ mutationFn: () => run((api) => api.auth.start()) })
 }
 
-/** True when the error is the server saying the Bungie account is not linked. */
-export const isNotLinked = (error: unknown) =>
-  typeof error === "object" &&
-  error !== null &&
-  (error as { _tag?: string })._tag === "BungieNotLinked"
-
-export const errorMessage = (error: unknown) => {
-  if (typeof error === "object" && error !== null) {
-    if ("reason" in error) return String((error as { reason: unknown }).reason)
-    if ("message" in error) return String((error as { message: unknown }).message)
-  }
-  return String(error)
-}
+export const errorMessage = (error: Error | null) =>
+  error === null ? String(error) : "reason" in error ? String(error.reason) : error.message

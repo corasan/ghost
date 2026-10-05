@@ -5,7 +5,8 @@ import type { DamageType, GuardianClass, ItemSummary, ItemTier } from "@ghost/co
 // on the network. Pure functions so they can be tested with `bun test`.
 
 export type Category = "all" | "weapons" | "armor"
-export type Flag = "dupes" | "junk" | "unlocked" | "new"
+const FLAGS = ["dupes", "junk", "unlocked", "new"] as const
+export type Flag = (typeof FLAGS)[number]
 export type Sort = "power" | "newest" | "stats" | "name"
 
 export interface VaultFilter {
@@ -105,7 +106,7 @@ export function flagCounts(
   const counts: Record<Flag, number> = { dupes: 0, junk: 0, unlocked: 0, new: 0 }
   for (const item of items) {
     if (!inCategory(item, category)) continue
-    for (const flag of Object.keys(counts) as Flag[]) {
+    for (const flag of FLAGS) {
       if (matchesFlag(item, flag, now)) counts[flag]++
     }
   }
@@ -146,7 +147,9 @@ export const activeFilters = (filter: VaultFilter): ActiveFilter[] => [
 
 export const removeFilter = (filter: VaultFilter, id: string): VaultFilter => {
   if (id === "category") return { ...filter, category: "all" }
-  const [facet, value] = id.split(":") as [Facet, string]
+  const facet = FACETS.find((each) => id.startsWith(`${each}:`))
+  if (facet === undefined) return filter
+  const value = id.slice(facet.length + 1)
   return {
     ...filter,
     [facet]: new Set([...filter[facet]].filter((each) => each !== value)),

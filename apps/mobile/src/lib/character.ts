@@ -1,4 +1,3 @@
-import type { GuardianCharacter } from "@ghost/contract"
 import * as SecureStore from "expo-secure-store"
 import { useSyncExternalStore } from "react"
 
@@ -30,10 +29,7 @@ function useSelectedId() {
 }
 
 /** The selected character, falling back to the highest power one. */
-export function useCharacter(): {
-  character: GuardianCharacter | undefined
-  characters: readonly GuardianCharacter[]
-} {
+export function useCharacter() {
   const selected = useSelectedId()
   const guardian = useGuardian()
   const characters = guardian.data?.characters ?? []

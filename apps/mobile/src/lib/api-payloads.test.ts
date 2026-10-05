@@ -11,15 +11,18 @@ type Sent = { method: string; path: string; body: unknown }
 
 const send = async (call: (api: Client) => Effect.Effect<unknown, unknown>) => {
   const sent: Sent[] = []
-  const fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const request = new Request(input, init)
-    sent.push({
-      method: request.method,
-      path: new URL(request.url).pathname,
-      body: await request.json(),
-    })
-    return new Response("{}", { status: 500 })
-  }) as typeof globalThis.fetch
+  const fetch = Object.assign(
+    async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = new Request(input, init)
+      sent.push({
+        method: request.method,
+        path: new URL(request.url).pathname,
+        body: await request.json(),
+      })
+      return new Response("{}", { status: 500 })
+    },
+    { preconnect: globalThis.fetch.preconnect },
+  )
 
   await Effect.runPromise(
     makeClient.pipe(

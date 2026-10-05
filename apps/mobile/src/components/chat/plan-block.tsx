@@ -192,8 +192,15 @@ function Featured({ plan, row }: { plan: Plan; row: PlanRow }) {
   )
 }
 
-export function PlanBlock({ job, onAsk }: { job: Job; onAsk: (prompt: string) => void }) {
-  const plan = job.plan as Plan
+export function PlanBlock({
+  job,
+  plan,
+  onAsk,
+}: {
+  job: Job
+  plan: Plan
+  onAsk: (prompt: string) => void
+}) {
   return plan.kind === "build" ? (
     <BuildCard job={job} plan={plan} />
   ) : (

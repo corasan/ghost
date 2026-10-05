@@ -47,16 +47,16 @@ export const appliedTotals = (plan: Plan): StatMod[] =>
 export const hasStatMods = (plan: Plan) =>
   plan.rows.some((row) => row.armorMods?.some((mod) => mod.mods.length > 0))
 
-const SHORT_STAT: Record<string, string> = {
-  HEALTH: "HLT",
-  MELEE: "MEL",
-  GRENADE: "GRN",
-  SUPER: "SUP",
-  CLASS: "CLS",
-  WEAPONS: "WPN",
-}
+const SHORT_STAT = new Map([
+  ["HEALTH", "HLT"],
+  ["MELEE", "MEL"],
+  ["GRENADE", "GRN"],
+  ["SUPER", "SUP"],
+  ["CLASS", "CLS"],
+  ["WEAPONS", "WPN"],
+])
 
-export const shortStat = (label: string) => SHORT_STAT[label] ?? label.slice(0, 3)
+export const shortStat = (label: string) => SHORT_STAT.get(label) ?? label.slice(0, 3)
 
 export type ModPip = "swap" | "stat" | "other" | "free"
 
@@ -103,12 +103,12 @@ export const slotLabel = (slot: ItemSlot | undefined, classType: GuardianClass |
 
 const SLOT_ORDER = Object.keys(SLOT_LABEL)
 
+const slotRank = (row: PlanRow) => (row.slot === undefined ? -1 : SLOT_ORDER.indexOf(row.slot))
+
 /** Head to toe, then weapons; rows from before plans carried a slot keep their place. */
 export const bySlot = (rows: readonly PlanRow[]): PlanRow[] =>
   rows.every((row) => row.slot !== undefined)
-    ? [...rows].sort(
-        (a, b) => SLOT_ORDER.indexOf(a.slot as ItemSlot) - SLOT_ORDER.indexOf(b.slot as ItemSlot),
-      )
+    ? [...rows].sort((a, b) => slotRank(a) - slotRank(b))
     : [...rows]
 
 export const pendingMasterwork = (plan: Plan) =>
@@ -140,7 +140,7 @@ export const failures = (plan: Plan) =>
  * The one line under the tiles: what confirming will do. `plain` reads in the
  * body colour and `change` in blue, so moves, the subclass and mod swaps stand out.
  */
-export const verdict = (plan: Plan): { plain: string; change: string } => {
+export const verdict = (plan: Plan) => {
   const acting = plan.rows.filter((row) => row.action !== "none")
   const moving = acting.filter((row) => row.origin !== undefined).length
   const mods = modSwaps(plan)

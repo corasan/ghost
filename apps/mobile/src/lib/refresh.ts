@@ -1,3 +1,4 @@
+import type { QueryObserverResult } from "@tanstack/react-query"
 import { useCallback, useState } from "react"
 
 /**
@@ -5,7 +6,7 @@ import { useCallback, useState } from "react"
  * is in flight. Background polling must not drive the spinner, or the list
  * jumps every time a poll starts and ends.
  */
-export function usePullRefresh(...refetch: readonly (() => Promise<unknown>)[]) {
+export function usePullRefresh(...refetch: readonly (() => Promise<QueryObserverResult>)[]) {
   const [refreshing, setRefreshing] = useState(false)
   const onRefresh = useCallback(() => {
     setRefreshing(true)

@@ -7,7 +7,6 @@ import type { ReactNode } from "react"
 
 export interface ScreenProps {
   readonly children: ReactNode
-  readonly onRefresh?: () => Promise<unknown>
 }
 
 export interface SectionProps {

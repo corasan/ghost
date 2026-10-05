@@ -9,7 +9,10 @@ import { useGuardian } from "@/lib/api"
 const MARK_SURFACE = "rgba(10,11,13,0.88)"
 const ELEMENT_HALO = "rgba(10,11,13,0.8)"
 const MAX_TIER = 5
-const TIER_TONE: Record<number, string> = { 5: Ghost.gold, 4: "#a365d6" }
+const TIER_TONE = new Map([
+  [5, Ghost.gold],
+  [4, "#a365d6"],
+])
 
 /** Sizes of the marks for an icon drawn at `size` points; they scale with it. */
 const marks = (size: number, hasPower: boolean) => {
@@ -171,7 +174,7 @@ export function ItemIcon({
           }}
         >
           {Array.from({ length: tier }, (_, i) => (
-            <Pip key={i} size={m.pip} color={TIER_TONE[tier] ?? Ghost.ink} />
+            <Pip key={i} size={m.pip} color={TIER_TONE.get(tier) ?? Ghost.ink} />
           ))}
         </View>
       ) : null}

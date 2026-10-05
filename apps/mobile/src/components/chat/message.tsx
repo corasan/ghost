@@ -62,7 +62,7 @@ function Message({ job, onAsk }: { job: Job; onAsk: (prompt: string) => void }) 
       ) : job.result ? (
         <SaidMarkdown>{job.result}</SaidMarkdown>
       ) : null}
-      {job.plan ? <PlanBlock job={job} onAsk={onAsk} /> : null}
+      {job.plan ? <PlanBlock job={job} plan={job.plan} onAsk={onAsk} /> : null}
       {working ? null : <StepsSummary steps={job.steps} />}
       {job.sources.length > 0 ? <Sources sources={job.sources} /> : null}
     </View>
