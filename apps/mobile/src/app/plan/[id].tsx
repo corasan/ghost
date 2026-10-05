@@ -17,7 +17,6 @@ import { Ghost, Gutter, Type } from "@/constants/theme"
 import { errorMessage, useApplyPlan, useJob } from "@/lib/api"
 import { chargedMods } from "@/lib/charge"
 import { firstSentence } from "@/lib/effect-text"
-import { useFooterHeight } from "@/lib/footer"
 import { bySlot, modPips, pendingMasterwork, signed } from "@/lib/plan-card"
 import { usePlanSelection } from "@/lib/selection"
 
@@ -280,7 +279,6 @@ export default function PlanDetailsScreen() {
   const insets = useSafeAreaInsets()
   const job = useJob(id)
   const [openId, setOpenId] = useState<string>()
-  const footer = useFooterHeight()
   const plan = job.data?.plan
 
   if (!job.data || !plan) {
@@ -300,7 +298,7 @@ export default function PlanDetailsScreen() {
 
   return (
     <View collapsable={false} style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: footer.height + 28 }]}>
+      <ScrollView contentContainerStyle={styles.content}>
         <BuildHeader
           plan={plan}
           eyebrowSize={10}
@@ -350,7 +348,7 @@ export default function PlanDetailsScreen() {
           </View>
         ) : null}
       </ScrollView>
-      <View onLayout={footer.onLayout}>
+      <View collapsable={false}>
         <Confirm job={job.data} plan={plan} inset={insets.bottom} />
       </View>
     </View>
@@ -358,7 +356,7 @@ export default function PlanDetailsScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: Gutter, paddingTop: 28 },
+  content: { paddingHorizontal: Gutter, paddingTop: 28, paddingBottom: 28 },
   section: { marginTop: 18 },
   label: { paddingBottom: 6 },
   entry: { paddingVertical: 6, borderTopWidth: 1, borderTopColor: Ghost.rule },
