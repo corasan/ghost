@@ -1,27 +1,32 @@
-import type { CharacterStats, ItemSummary } from "@ghost/contract"
+import type { CharacterStats, GuardianCharacter, ItemSummary } from "@ghost/contract"
 import { LegendList } from "@legendapp/list/react-native"
-import { View } from "react-native"
+import { Image } from "expo-image"
+import { router } from "expo-router"
+import { Pressable, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
+import { ChatHeader } from "@/components/chat/header"
 import { Unavailable } from "@/components/ghost/unavailable"
-import { Body, Cond, Mono, Nudge, PageHeader, Swatch, TierStats } from "@/components/ghost/ui"
-import { Ghost, Gutter, Rarity, Type } from "@/constants/theme"
+import { Body, Chevron, Cond, Cut, Diamond, Mono, Nudge, TierStats } from "@/components/ghost/ui"
+import { ELEMENT_TONE, Ghost, Gutter, Rarity, Type } from "@/constants/theme"
 import { useGuardian } from "@/lib/api"
 import { useCharacter } from "@/lib/character"
-import { usePullRefresh } from "@/lib/refresh"
 import { upper } from "@/lib/format"
+import { usePullRefresh } from "@/lib/refresh"
 
 const WEAPON_SLOTS: readonly ItemSummary["slot"][] = ["kinetic", "energy", "power"]
 const ARMOR_SLOTS: readonly ItemSummary["slot"][] = ["helmet", "arms", "chest", "legs", "class"]
 
 const STAT_LABELS: readonly (readonly [keyof CharacterStats, string])[] = [
-  ["mobility", "MOB"],
-  ["resilience", "RES"],
-  ["recovery", "REC"],
-  ["discipline", "DIS"],
-  ["intellect", "INT"],
-  ["strength", "STR"],
+  ["resilience", "HLT"],
+  ["strength", "MEL"],
+  ["discipline", "GRN"],
+  ["intellect", "SUP"],
+  ["recovery", "CLS"],
+  ["mobility", "WPN"],
 ]
+
+const STRONG_STAT = 100
 
 type Row =
   | { type: "label"; key: string; label: string }
@@ -30,17 +35,18 @@ type Row =
 const inSlots = (equipment: readonly ItemSummary[], slots: readonly ItemSummary["slot"][]) =>
   slots.flatMap((slot) => equipment.filter((item) => item.slot === slot))
 
-function weaponMeta(item: ItemSummary) {
-  const parts = [
+const dotted = (parts: readonly (string | null)[]) =>
+  parts
+    .filter(Boolean)
+    .map((part) => upper(String(part)))
+    .join(" · ")
+
+const weaponMeta = (item: ItemSummary) =>
+  dotted([
     item.slot,
     item.damageType === "none" || item.damageType === item.slot ? null : item.damageType,
     item.typeName,
-  ]
-  return parts
-    .filter(Boolean)
-    .map((p) => upper(String(p)))
-    .join(" · ")
-}
+  ])
 
 function ItemRow({ item, kind }: { item: ItemSummary; kind: "weapon" | "armor" }) {
   const exotic = item.tier === "exotic"
@@ -56,32 +62,102 @@ function ItemRow({ item, kind }: { item: ItemSummary; kind: "weapon" | "armor" }
         borderTopColor: Ghost.rule,
       }}
     >
-      <Swatch tier={item.tier} icon={item.icon} size={weapon ? 44 : 28} />
       <View
-        style={
-          weapon
-            ? { flex: 1, minWidth: 0 }
-            : { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "baseline", gap: 8 }
-        }
+        style={{
+          width: 48,
+          height: weapon ? 48 : 36,
+          flexDirection: "row",
+          backgroundColor: Ghost.swatch,
+        }}
       >
-        <Body size={15} style={{ fontFamily: Type.bodyMedium, flexShrink: 1 }} lines={1}>
+        <View style={{ width: 3, backgroundColor: Rarity[item.tier] }} />
+        {item.icon ? (
+          <Image
+            source={item.icon}
+            style={{ flex: 1 }}
+            contentFit="contain"
+            recyclingKey={item.icon}
+            transition={120}
+          />
+        ) : null}
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Body size={16} style={{ fontFamily: Type.bodyMedium, lineHeight: 19 }} lines={1}>
           {item.name}
         </Body>
         <Mono
           color={exotic ? Rarity.exotic : Ghost.dim}
-          style={{ marginTop: weapon ? 3 : 0, letterSpacing: 0.7 }}
+          style={{ marginTop: weapon ? 3 : 2, letterSpacing: 0.7 }}
+          lines={1}
         >
-          {weapon ? weaponMeta(item) : exotic ? `${upper(item.slot)} · EXOTIC` : upper(item.slot)}
+          {weapon ? weaponMeta(item) : dotted([item.slot, exotic ? "exotic" : null])}
         </Mono>
       </View>
-      <Cond size={17} color={Ghost.gold} style={{ letterSpacing: 0 }}>
+      <Cond size={18} color={Ghost.gold} style={{ letterSpacing: 0 }}>
         {item.power ?? "—"}
       </Cond>
     </View>
   )
 }
 
-/** The character sheet: weapons and armor as one ledger, stats as tier bars. */
+function SubclassRow({ character, inset }: { character: GuardianCharacter; inset: number }) {
+  const { loadout } = character
+  if (!loadout) return null
+  const tone = ELEMENT_TONE[loadout.element]
+  const fragments = loadout.fragments.length
+  const summary = [
+    ...loadout.aspects.map((aspect) => aspect.name),
+    fragments > 0 ? `${fragments} ${fragments === 1 ? "fragment" : "fragments"}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ")
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityHint="Opens the subclass"
+      onPress={() => router.push("/subclass")}
+      style={({ pressed }) => [
+        { marginHorizontal: Gutter, marginBottom: inset + 12, marginTop: 8 },
+        pressed && { opacity: 0.7 },
+      ]}
+    >
+      <Cut
+        cut={8}
+        fill={`${tone}1a`}
+        border={`${tone}4d`}
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 12,
+          paddingVertical: 13,
+          paddingHorizontal: 14,
+        }}
+      >
+        <Diamond size={10} color={tone} />
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8 }}>
+            <Cond size={20} style={{ letterSpacing: 0.8, lineHeight: 21 }}>
+              {upper(loadout.subclass ?? "Subclass")}
+            </Cond>
+            {loadout.element !== "none" ? (
+              <Mono size={10} color={tone}>
+                {upper(loadout.element)}
+              </Mono>
+            ) : null}
+          </View>
+          {summary ? (
+            <Body size={12} color={Ghost.muted} style={{ lineHeight: 16, marginTop: 4 }} lines={1}>
+              {summary}
+            </Body>
+          ) : null}
+        </View>
+        <Chevron color={tone} />
+      </Cut>
+    </Pressable>
+  )
+}
+
+/** Gear first: stats in one row, weapons and armor down the page, the subclass one tap away. */
 export default function GuardianScreen() {
   const insets = useSafeAreaInsets()
   const guardian = useGuardian()
@@ -90,8 +166,8 @@ export default function GuardianScreen() {
 
   if (!character) {
     return (
-      <View style={{ flex: 1, backgroundColor: Ghost.bg }}>
-        <PageHeader title="GUARDIAN" subtitle="EQUIPPED" figure="—" caption="POWER" />
+      <View style={{ flex: 1, backgroundColor: Ghost.bg, backgroundImage: Ghost.glow }}>
+        <ChatHeader character={undefined} ruled={false} />
         <View style={{ paddingHorizontal: Gutter }}>
           {guardian.isPending ? (
             <Body color={Ghost.dim} style={{ paddingTop: 32 }}>
@@ -124,6 +200,7 @@ export default function GuardianScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: Ghost.bg, backgroundImage: Ghost.glow }}>
+      <ChatHeader character={character} ruled={false} />
       <LegendList
         data={rows}
         keyExtractor={(row) => row.key}
@@ -131,28 +208,38 @@ export default function GuardianScreen() {
         recycleItems
         refreshing={pull.refreshing}
         onRefresh={pull.onRefresh}
-        contentContainerStyle={{ paddingBottom: 24 }}
+        contentContainerStyle={{ paddingBottom: 16 }}
         ListHeaderComponent={
-          <View>
-            <PageHeader
-              title={upper(character.classType)}
-              subtitle={[
-                character.subclass,
-                character.element !== "none" ? character.element : null,
-              ]
-                .filter(Boolean)
-                .map((s) => upper(String(s)))
-                .join(" · ")}
-              figure={character.light}
-              figureColor={Ghost.gold}
-              caption="POWER"
-            />
-            <View style={{ paddingHorizontal: Gutter, paddingTop: 22, paddingBottom: 16 }}>
+          <View style={{ paddingHorizontal: Gutter, paddingTop: 2, paddingBottom: 14 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+              <Mono size={10} color={Ghost.accent} style={{ letterSpacing: 1.4 }}>
+                GUARDIAN
+              </Mono>
+              <Mono size={10} style={{ letterSpacing: 1.4 }}>
+                {upper(character.classType)} · POWER {character.light}
+              </Mono>
+            </View>
+            <View style={{ paddingTop: 16 }}>
               <TierStats
-                stats={STAT_LABELS.map(([key, label]) => ({ label, value: character.stats[key] }))}
+                stats={STAT_LABELS.map(([key, label]) => ({
+                  label,
+                  value: character.stats[key],
+                  target: character.stats[key] >= STRONG_STAT,
+                }))}
               />
             </View>
           </View>
+        }
+        ListFooterComponent={
+          postmaster > 0 ? (
+            <View style={{ paddingTop: 18 }}>
+              <Nudge
+                text={`Postmaster is at ${postmaster} of ${capacity}. Clear it before you lose drops?`}
+                action="ASK"
+                prompt="Empty the postmaster into the vault"
+              />
+            </View>
+          ) : null
         }
         renderItem={({ item: row }) =>
           row.type === "label" ? (
@@ -161,6 +248,7 @@ export default function GuardianScreen() {
                 paddingHorizontal: Gutter,
                 paddingTop: row.key === "armor" ? 16 : 6,
                 paddingBottom: 6,
+                letterSpacing: 1.3,
               }}
             >
               {row.label}
@@ -172,15 +260,7 @@ export default function GuardianScreen() {
           )
         }
       />
-      {postmaster > 0 ? (
-        <View style={{ paddingBottom: insets.bottom + 16, paddingTop: 8 }}>
-          <Nudge
-            text={`Postmaster is at ${postmaster} of ${capacity}. Clear it before you lose drops?`}
-            action="ASK"
-            prompt="Empty the postmaster into the vault"
-          />
-        </View>
-      ) : null}
+      <SubclassRow character={character} inset={insets.bottom} />
     </View>
   )
 }

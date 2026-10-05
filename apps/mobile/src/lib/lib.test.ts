@@ -14,6 +14,7 @@ import {
 import { webUrl } from "./links"
 import { briefingSentence, followUps, sinceLabel } from "./briefing"
 import { orderBuildStats } from "./build-order"
+import { firstParagraph, firstSentence } from "./effect-text"
 import { bySlot, fragmentTotals, headline, litTicks, slotLabel, verdict } from "./plan-card"
 import {
   activeFilters,
@@ -335,5 +336,23 @@ describe("build card", () => {
       text: "1 piece moves.",
       moves: true,
     })
+  })
+})
+
+describe("effect text", () => {
+  const harvest =
+    "Picking up [Stasis] Stasis shards grants stacks of Frost Armor.\n\nWhile you have Frost Armor, defeating combatants may shatter them."
+
+  test("glyph tokens are dropped and only the opening paragraph is kept", () => {
+    expect(firstParagraph(harvest)).toBe("Picking up Stasis shards grants stacks of Frost Armor.")
+    expect(firstParagraph("[Grenade]  : Hold to convert your grenade into a turret.")).toBe(
+      "Hold to convert your grenade into a turret.",
+    )
+  })
+
+  test("a long effect is cut to its first sentence", () => {
+    expect(
+      firstSentence("Summon a [Stasis] Stasis gauntlet. While your Super is active: slam."),
+    ).toBe("Summon a Stasis gauntlet.")
   })
 })

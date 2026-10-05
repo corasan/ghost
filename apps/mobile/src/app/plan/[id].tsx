@@ -9,16 +9,9 @@ import { RowRight } from "@/components/chat/plan-block"
 import { Body, Button, Diamond, Mono } from "@/components/ghost/ui"
 import { ELEMENT_TONE, Ghost, Gutter, Type } from "@/constants/theme"
 import { errorMessage, useApplyPlan, useJob } from "@/lib/api"
+import { firstSentence } from "@/lib/effect-text"
 import { bySlot, liveLabel, pendingMasterwork, signed } from "@/lib/plan-card"
 import { usePlanSelection } from "@/lib/selection"
-
-/** Bungie's effect text opens with the gist; glyph tokens like "[Stasis]" have no icon here. */
-const firstSentence = (text: string) =>
-  text
-    .replace(/\[[^\]]*\]\s*/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/(?<=[.!?]) .*$/, "")
 
 function Described({ plug, kind }: { plug: LoadoutPlug; kind?: string }) {
   const description = firstSentence(plug.description)
@@ -228,5 +221,6 @@ const styles = StyleSheet.create({
     gap: 8,
     borderTopWidth: 1,
     borderTopColor: Ghost.rule,
+    backgroundColor: Ghost.panel,
   },
 })

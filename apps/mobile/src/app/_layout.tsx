@@ -53,6 +53,7 @@ function RootStack() {
           options={{ ...sheet, sheetAllowedDetents: [0.5, 1] }}
         />
         <Stack.Screen name="plan/[id]" options={{ ...sheet, sheetAllowedDetents: [0.85, 1] }} />
+        <Stack.Screen name="subclass" options={{ ...sheet, sheetAllowedDetents: [0.9, 1] }} />
         <Stack.Screen name="vault-filter" options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />
       </Stack.Protected>
       <Stack.Protected guard={!linked}>
