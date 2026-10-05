@@ -5,12 +5,14 @@ import { Pressable, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { ChatHeader } from "@/components/chat/header"
+import { Situational } from "@/components/ghost/charge"
 import { SubclassMark } from "@/components/ghost/subclass-mark"
 import { Unavailable } from "@/components/ghost/unavailable"
 import { ItemIcon } from "@/components/ghost/item-icon"
 import { Body, Chevron, Cond, Cut, Mono, Nudge, TierStats } from "@/components/ghost/ui"
 import { ELEMENT_TONE, Ghost, Gutter, Rarity, Type } from "@/constants/theme"
-import { useGuardian } from "@/lib/api"
+import { useGuardian, useSituational } from "@/lib/api"
+import { chargedMods } from "@/lib/charge"
 import { useCharacter } from "@/lib/character"
 import { upper } from "@/lib/format"
 import { usePullRefresh } from "@/lib/refresh"
@@ -150,8 +152,9 @@ function SubclassRow({ character, inset }: { character: GuardianCharacter; inset
 export default function GuardianScreen() {
   const insets = useSafeAreaInsets()
   const guardian = useGuardian()
-  const pull = usePullRefresh(guardian.refetch)
   const { character } = useCharacter()
+  const situational = useSituational(character?.characterId)
+  const pull = usePullRefresh(guardian.refetch, situational.refetch)
 
   if (!character) {
     return (
@@ -220,15 +223,26 @@ export default function GuardianScreen() {
           </View>
         }
         ListFooterComponent={
-          postmaster > 0 ? (
-            <View style={{ paddingTop: 18 }}>
-              <Nudge
-                text={`Postmaster is at ${postmaster} of ${capacity}. Clear it before you lose drops?`}
-                action="ASK"
-                prompt="Empty the postmaster into the vault"
-              />
-            </View>
-          ) : null
+          <>
+            {situational.data && situational.data.mods.length > 0 ? (
+              <View style={{ paddingHorizontal: Gutter, paddingTop: 22 }}>
+                <Situational
+                  summary={situational.data.summary}
+                  mods={chargedMods(situational.data.mods)}
+                  pending={situational.data.pending}
+                />
+              </View>
+            ) : null}
+            {postmaster > 0 ? (
+              <View style={{ paddingTop: 18 }}>
+                <Nudge
+                  text={`Postmaster is at ${postmaster} of ${capacity}. Clear it before you lose drops?`}
+                  action="ASK"
+                  prompt="Empty the postmaster into the vault"
+                />
+              </View>
+            ) : null}
+          </>
         }
         renderItem={({ item: row }) =>
           row.type === "label" ? (

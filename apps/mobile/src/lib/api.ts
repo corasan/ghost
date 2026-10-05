@@ -50,6 +50,8 @@ export const queryKeys = {
   briefing: (url: string, characterId: string | undefined) =>
     [url, "briefing", characterId] as const,
   history: (url: string) => [url, "history"] as const,
+  situational: (url: string, characterId: string | undefined) =>
+    [url, "situational", characterId] as const,
 }
 
 /** Queries worth keeping on disk so the app opens on real data, not spinners. */
@@ -184,6 +186,22 @@ export function useBriefing(characterId: string | undefined) {
       run((api) => api.guardian.briefing({ query: characterId ? { characterId } : {} })),
     staleTime: 60_000,
     refetchInterval: 5 * 60_000,
+    retry: false,
+  })
+}
+
+const SITUATIONAL_POLL = 5_000
+
+/** Asks again while Ghost is still researching, since the server answers before it is done. */
+export function useSituational(characterId: string | undefined) {
+  const url = useServerUrl()
+  return useQuery({
+    queryKey: queryKeys.situational(url, characterId),
+    queryFn: () =>
+      run((api) => api.guardian.situational({ query: { characterId: characterId ?? "" } })),
+    enabled: characterId !== undefined,
+    staleTime: 60_000,
+    refetchInterval: (query) => (query.state.data?.pending ? SITUATIONAL_POLL : false),
     retry: false,
   })
 }
