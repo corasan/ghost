@@ -29,7 +29,50 @@ export interface ManifestItem {
   readonly description: string
 }
 
+export interface Capacities {
+  readonly vault: number
+  readonly postmaster: number
+}
+
+/** Used only until Bungie's bucket definitions have been read once. */
+export const FALLBACK_CAPACITIES: Capacities = { vault: 700, postmaster: 21 }
+
+interface BucketDefinition {
+  readonly itemCount?: number
+}
+
+export const capacitiesFrom = (
+  buckets: Readonly<Record<string, BucketDefinition | undefined>>,
+): Capacities => ({
+  vault: buckets[BUCKETS.vault]?.itemCount || FALLBACK_CAPACITIES.vault,
+  postmaster: buckets[BUCKETS.postmaster]?.itemCount || FALLBACK_CAPACITIES.postmaster,
+})
+
+/** Name and effect of an armor stat in the current patch, keyed by stat hash. */
+export type StatFacts = Readonly<Record<string, { readonly name: string; readonly effect: string }>>
+
+interface StatDefinition {
+  readonly displayProperties?: { readonly name?: string; readonly description?: string }
+}
+
+export const statFactsFrom = (
+  definitions: Readonly<Record<string, StatDefinition | undefined>>,
+  hashes: ReadonlyArray<string>,
+): StatFacts =>
+  Object.fromEntries(
+    hashes.flatMap((hash) => {
+      const name = definitions[hash]?.displayProperties?.name
+      return name === undefined || name === ""
+        ? []
+        : [[hash, { name, effect: definitions[hash]?.displayProperties?.description ?? "" }]]
+    }),
+  )
+
 export interface ManifestShape {
+  /** What Bungie calls each armor stat and says it does. Empty until first read. Never fails. */
+  readonly statFacts: Effect.Effect<StatFacts>
+  /** How many slots the vault and postmaster hold in the current patch. Never fails. */
+  readonly capacities: Effect.Effect<Capacities>
   /** Make sure the local copy exists and is current. Cheap when nothing changed. */
   readonly ensure: Effect.Effect<void, BungieError>
   readonly lookup: (
@@ -167,6 +210,18 @@ interface ManifestIndex {
 }
 
 const VERSION_KEY = "manifest.version"
+const CAPACITIES_KEY = "manifest.capacities"
+const CAPACITIES_VERSION_KEY = "manifest.capacities.version"
+const STAT_FACTS_KEY = "manifest.statFacts"
+const STAT_FACTS_VERSION_KEY = "manifest.statFacts.version"
+const ARMOR_STAT_HASHES = [
+  "2996146975",
+  "392767087",
+  "1943323491",
+  "1735777505",
+  "144602215",
+  "4244567218",
+]
 const BATCH = 500
 const CHECK_EVERY_MS = 60 * 60 * 1000
 
@@ -227,12 +282,53 @@ export const ManifestLive = Layer.effect(
     // Two lookups racing at startup would otherwise both download the manifest.
     const lock = yield* Semaphore.make(1)
 
+    let capacities: Capacities | null = null
+
+    const refreshCapacities = (remote: ManifestIndex) =>
+      Effect.gen(function* () {
+        const stored = yield* settings.get(CAPACITIES_VERSION_KEY).pipe(Effect.orDie)
+        if (Option.isSome(stored) && stored.value === remote.version) return
+        const path = remote.jsonWorldComponentContentPaths.en?.DestinyInventoryBucketDefinition
+        if (path === undefined) return
+        const buckets = (yield* fetchJson(`https://www.bungie.net${path}`)) as Record<
+          string,
+          BucketDefinition
+        >
+        capacities = capacitiesFrom(buckets)
+        yield* settings.set(CAPACITIES_KEY, JSON.stringify(capacities)).pipe(Effect.orDie)
+        yield* settings.set(CAPACITIES_VERSION_KEY, remote.version).pipe(Effect.orDie)
+        yield* Effect.logInfo(`manifest: vault holds ${capacities.vault}`)
+      }).pipe(
+        Effect.catch((error) => Effect.logWarning(`manifest: capacities failed: ${error.message}`)),
+      )
+
+    let statFacts: StatFacts | null = null
+
+    const refreshStatFacts = (remote: ManifestIndex) =>
+      Effect.gen(function* () {
+        const stored = yield* settings.get(STAT_FACTS_VERSION_KEY).pipe(Effect.orDie)
+        if (Option.isSome(stored) && stored.value === remote.version) return
+        const path = remote.jsonWorldComponentContentPaths.en?.DestinyStatDefinition
+        if (path === undefined) return
+        const definitions = (yield* fetchJson(`https://www.bungie.net${path}`)) as Record<
+          string,
+          StatDefinition
+        >
+        statFacts = statFactsFrom(definitions, ARMOR_STAT_HASHES)
+        yield* settings.set(STAT_FACTS_KEY, JSON.stringify(statFacts)).pipe(Effect.orDie)
+        yield* settings.set(STAT_FACTS_VERSION_KEY, remote.version).pipe(Effect.orDie)
+      }).pipe(
+        Effect.catch((error) => Effect.logWarning(`manifest: stat facts failed: ${error.message}`)),
+      )
+
     const ensure = Effect.gen(function* () {
       if (Date.now() - checkedAt < CHECK_EVERY_MS) return
       const index = (yield* fetchJson("https://www.bungie.net/Platform/Destiny2/Manifest/")) as {
         Response: ManifestIndex
       }
       const remote = index.Response
+      yield* refreshCapacities(remote)
+      yield* refreshStatFacts(remote)
       const local = yield* settings.get(VERSION_KEY).pipe(Effect.orDie)
       // An empty table means an earlier download stored nothing, so the saved
       // version cannot be trusted.
@@ -298,6 +394,29 @@ export const ManifestLive = Layer.effect(
         return rows.map(rowToItem)
       })
 
-    return { ensure, lookup, findByName }
+    const readCapacities = Effect.gen(function* () {
+      yield* Effect.ignore(ensure)
+      if (capacities !== null) return capacities
+      const stored = Option.getOrNull(yield* settings.get(CAPACITIES_KEY).pipe(Effect.orDie))
+      if (stored === null) return FALLBACK_CAPACITIES
+      capacities = { ...FALLBACK_CAPACITIES, ...(JSON.parse(stored) as Partial<Capacities>) }
+      return capacities
+    })
+
+    const readStatFacts = Effect.gen(function* () {
+      yield* Effect.ignore(ensure)
+      if (statFacts !== null) return statFacts
+      const stored = Option.getOrNull(yield* settings.get(STAT_FACTS_KEY).pipe(Effect.orDie))
+      statFacts = stored === null ? {} : (JSON.parse(stored) as StatFacts)
+      return statFacts
+    })
+
+    return {
+      capacities: readCapacities,
+      statFacts: readStatFacts,
+      ensure,
+      lookup,
+      findByName,
+    }
   }),
 ).pipe(Layer.provide(FetchHttpClient.layer))

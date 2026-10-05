@@ -97,6 +97,20 @@ export type PlanAction = typeof PlanAction.Type
 export const RowOutcome = Schema.Literals(["ok", "failed", "skipped"])
 export type RowOutcome = typeof RowOutcome.Type
 
+export class PlanStat extends Schema.Class<PlanStat>("PlanStat")({
+  /** Short label, for example "RES". */
+  label: Schema.String,
+  value: Schema.Number,
+  /** True when this stat is one the player asked for. */
+  target: Schema.Boolean,
+  /** The value once the armor behind it is masterworked, when that is higher. */
+  masterworked: Schema.optional(Schema.Number),
+  /** In a build, what the character has in this stat before the build is applied. */
+  before: Schema.optional(Schema.Number),
+  /** In a build, what the stat does, in Bungie's words for the current patch. */
+  effect: Schema.optional(Schema.String),
+}) {}
+
 export class PlanRow extends Schema.Class<PlanRow>("PlanRow")({
   itemInstanceId: Schema.String,
   itemHash: Schema.Number,
@@ -115,14 +129,8 @@ export class PlanRow extends Schema.Class<PlanRow>("PlanRow")({
   selected: Schema.Boolean,
   outcome: Schema.NullOr(RowOutcome),
   error: Schema.NullOr(Schema.String),
-}) {}
-
-export class PlanStat extends Schema.Class<PlanStat>("PlanStat")({
-  /** Short label, for example "RES". */
-  label: Schema.String,
-  value: Schema.Number,
-  /** True when this stat is one the player asked for. */
-  target: Schema.Boolean,
+  /** The six stats of an armor piece; left out for weapons. */
+  stats: Schema.optional(Schema.Array(PlanStat)),
 }) {}
 
 export class PlanPerk extends Schema.Class<PlanPerk>("PlanPerk")({
@@ -181,17 +189,30 @@ export const JobKind = Schema.Literals([
   "weapon_rolls",
   "vault_cleanup",
   "postmaster_to_vault",
+  /** A move the player made by hand from an item's actions; Ghost never ran. */
+  "item_action",
 ])
 export type JobKind = typeof JobKind.Type
 
 export const JobStatus = Schema.Literals(["queued", "running", "done", "failed"])
 export type JobStatus = typeof JobStatus.Type
 
+/** One tool call Ghost made while answering, in the order it happened. */
+export class JobStep extends Schema.Class<JobStep>("JobStep")({
+  /** For example "Searching your items". */
+  label: Schema.String,
+  /** What it was looking for, for example the search text or a site name. */
+  detail: Schema.NullOr(Schema.String),
+}) {}
+
 export class Job extends Schema.Class<Job>("Job")({
   id: Schema.String,
+  /** The conversation this request belongs to; null for item actions. */
+  sessionId: Schema.NullOr(Schema.String),
   kind: JobKind,
   prompt: Schema.String,
   status: JobStatus,
+  steps: Schema.Array(JobStep),
   result: Schema.NullOr(Schema.String),
   error: Schema.NullOr(Schema.String),
   plan: Schema.NullOr(Plan),
@@ -206,8 +227,19 @@ export const CreateJob = Schema.Struct({
   prompt: Schema.String,
   /** The character selected in the app, so "equip this" has a target. */
   characterId: Schema.optional(Schema.NullOr(Schema.String)),
+  /** The conversation to continue; leave it out to start a new one. */
+  sessionId: Schema.optional(Schema.NullOr(Schema.String)),
 })
 export type CreateJob = typeof CreateJob.Type
+
+/** One conversation with Ghost, named after its first request. */
+export class ChatSession extends Schema.Class<ChatSession>("ChatSession")({
+  id: Schema.String,
+  title: Schema.String,
+  startedAt: Schema.String,
+  lastAt: Schema.String,
+  count: Schema.Number,
+}) {}
 
 export const ApplyPlan = Schema.Struct({
   /** Instance ids of the rows the player left ticked. */
@@ -252,7 +284,49 @@ export const SetDecision = Schema.Struct({
 })
 export type SetDecision = typeof SetDecision.Type
 
+export class ItemPerk extends Schema.Class<ItemPerk>("ItemPerk")({
+  name: Schema.String,
+  /** Effect text from the current patch's manifest. */
+  description: Schema.String,
+  icon: Schema.NullOr(Schema.String),
+  /** A trait perk, the kind that makes a roll, as opposed to a barrel or mod. */
+  trait: Schema.Boolean,
+}) {}
+
+export class ItemDetail extends Schema.Class<ItemDetail>("ItemDetail")({
+  item: ItemSummary,
+  /** Every plug in a weapon's sockets, in socket order. */
+  perks: Schema.Array(ItemPerk),
+  /** The six armor stats; empty for weapons. */
+  stats: Schema.Array(PlanStat),
+}) {}
+
+export class ItemNotFound extends Schema.TaggedError<ItemNotFound>()("ItemNotFound", {
+  id: Schema.String,
+}) {}
+
+/** A move the player asks for directly; it runs at once and can be undone from History. */
+export const ItemAction = Schema.Struct({
+  action: Schema.Literals(["to_vault", "to_character", "equip"]),
+  /** Target character for to_character and equip. */
+  characterId: Schema.optional(Schema.NullOr(Schema.String)),
+})
+export type ItemAction = typeof ItemAction.Type
+
 // ---- Health and Bungie auth ----
+
+export const AgentEffort = Schema.Literals(["low", "medium", "high", "xhigh", "max"])
+export type AgentEffort = typeof AgentEffort.Type
+
+/** How Ghost's agent is set up to answer. */
+export class AgentSettings extends Schema.Class<AgentSettings>("AgentSettings")({
+  model: Schema.String,
+  /** How hard Ghost thinks before answering; higher is slower and more thorough. */
+  effort: AgentEffort,
+}) {}
+
+export const SetAgentSettings = Schema.Struct({ effort: AgentEffort })
+export type SetAgentSettings = typeof SetAgentSettings.Type
 
 export class Health extends Schema.Class<Health>("Health")({
   ok: Schema.Boolean,

@@ -1,4 +1,4 @@
-import type { ItemTier } from "@ghost/contract"
+import type { DamageType, ItemTier } from "@ghost/contract"
 
 // Tokens from "Ghost - App Map v2": near-black surfaces, warm off-white ink,
 // one blue accent, gold for power, and chamfered corners instead of radii.
@@ -31,6 +31,16 @@ export const Rarity = {
   common: "#6b7280",
   unknown: "#6b7280",
 } as const satisfies Record<ItemTier, string>
+
+export const ELEMENT_TONE: Record<DamageType, string> = {
+  kinetic: Ghost.muted,
+  arc: "#7ac6f0",
+  solar: "#f0883e",
+  void: "#b28ce0",
+  stasis: "#6e8ff0",
+  strand: "#4fd58c",
+  none: Ghost.muted,
+}
 
 export const Type = {
   body: "Barlow_400Regular",

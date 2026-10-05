@@ -6,6 +6,7 @@ import { ClaudeAgentLive } from "./agent/claude.ts"
 import { SummarizerLive } from "./agent/summarize.ts"
 import { CurrentJobLive } from "./agent/current-job.ts"
 import { JobRunnerLive } from "./agent/runner.ts"
+import { AgentConfigLive } from "./agent/settings.ts"
 import { ApiLive } from "./api/index.ts"
 import { BungieClientLive } from "./bungie/client.ts"
 import { GuardianLive } from "./bungie/guardian.ts"
@@ -18,6 +19,7 @@ import { DatabaseLive } from "./db/client.ts"
 import { ItemsRepoLive } from "./db/items.ts"
 import { JobsRepoLive } from "./db/jobs.ts"
 import { SettingsLive } from "./db/settings.ts"
+import { ItemsLive } from "./items/items.ts"
 import { McpLive } from "./mcp/server.ts"
 import { PlansLive } from "./plans/executor.ts"
 import { WishlistLive } from "./wishlist/wishlist.ts"
@@ -39,13 +41,15 @@ const Clients = Layer.mergeAll(
   ClaudeAgentLive,
   SummarizerLive,
   CurrentJobLive,
-).pipe(Layer.provideMerge(Repositories))
+).pipe(Layer.provideMerge(AgentConfigLive), Layer.provideMerge(Repositories))
 
 const Profile = Layer.mergeAll(ProfileStoreLive, CreatorNotesLive).pipe(Layer.provideMerge(Clients))
 
 const Services = Layer.mergeAll(GuardianLive, ActivityLive, PlansLive).pipe(
   Layer.provideMerge(Profile),
 )
+
+const Actions = ItemsLive.pipe(Layer.provideMerge(Services))
 
 const Routes = Layer.mergeAll(ApiLive, McpLive)
 
@@ -61,7 +65,7 @@ const Main = HttpRouter.serve(Routes).pipe(
   Layer.merge(JobRunnerLive),
   Layer.merge(ProfileRefreshLive),
   Layer.merge(CreatorRefreshLive),
-  Layer.provide(Services),
+  Layer.provide(Actions),
   Layer.provide(ServerLive),
   Layer.provide(AppConfigLive),
 )

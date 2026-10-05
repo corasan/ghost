@@ -8,10 +8,12 @@ import {
 } from "@ghost/contract"
 import { Effect, Layer, Option, Schema } from "effect"
 import { HttpApiBuilder, HttpApiScalar } from "effect/http-api"
+import { AgentConfig } from "../agent/settings.ts"
 import { Activity } from "../activity/activity.ts"
 import { BungieClient, type BungieError } from "../bungie/client.ts"
 import { Guardian } from "../bungie/guardian.ts"
 import { JobsRepo } from "../db/jobs.ts"
+import { Items } from "../items/items.ts"
 import { Plans } from "../plans/executor.ts"
 
 const VERSION = "0.0.0"
@@ -32,7 +34,12 @@ const toBungieFailed = (e: BungieError) => Effect.fail(new BungieFailed({ messag
 
 const JobsLive = HttpApiBuilder.group(GhostApi, "jobs", (handlers) =>
   handlers
-    .handle("list", () => Effect.flatMap(JobsRepo, (jobs) => jobs.list).pipe(Effect.orDie))
+    .handle("list", ({ query }) =>
+      Effect.flatMap(JobsRepo, (jobs) =>
+        query.sessionId === undefined ? jobs.list : jobs.inSession(query.sessionId),
+      ).pipe(Effect.orDie),
+    )
+    .handle("sessions", () => Effect.flatMap(JobsRepo, (jobs) => jobs.sessions).pipe(Effect.orDie))
     .handle("create", ({ payload }) =>
       Effect.flatMap(JobsRepo, (jobs) => jobs.create(payload)).pipe(Effect.orDie),
     )
@@ -71,6 +78,20 @@ const InventoryLive = HttpApiBuilder.group(GhostApi, "inventory", (handlers) =>
     ),
 )
 
+const ItemsApiLive = HttpApiBuilder.group(GhostApi, "items", (handlers) =>
+  handlers
+    .handle("detail", ({ params }) =>
+      Effect.flatMap(Items, (items) => items.detail(params.id)).pipe(
+        Effect.catchTag("BungieError", toBungieFailed),
+      ),
+    )
+    .handle("act", ({ params, payload }) =>
+      Effect.flatMap(Items, (items) => items.act(params.id, payload)).pipe(
+        Effect.catchTag("BungieError", toBungieFailed),
+      ),
+    ),
+)
+
 const GuardianLive = HttpApiBuilder.group(GhostApi, "guardian", (handlers) =>
   handlers
     .handle("snapshot", () =>
@@ -85,6 +106,14 @@ const GuardianLive = HttpApiBuilder.group(GhostApi, "guardian", (handlers) =>
       Effect.flatMap(Activity, (a) => a.briefing(query.characterId)).pipe(
         Effect.catchTag("BungieError", toBungieFailed),
       ),
+    ),
+)
+
+const AgentLive = HttpApiBuilder.group(GhostApi, "agent", (handlers) =>
+  handlers
+    .handle("settings", () => Effect.flatMap(AgentConfig, (agent) => agent.current))
+    .handle("configure", ({ payload }) =>
+      Effect.flatMap(AgentConfig, (agent) => agent.setEffort(payload.effort)),
     ),
 )
 
@@ -116,6 +145,14 @@ const AuthLive = HttpApiBuilder.group(GhostApi, "auth", (handlers) =>
 // /docs serves an interactive reference generated from the contract, handy
 // for poking the server from a laptop on the tailnet.
 export const ApiLive = HttpApiBuilder.layer(GhostApi, { openapiPath: "/openapi.json" }).pipe(
-  Layer.provide([HealthLive, JobsLive, InventoryLive, GuardianLive, AuthLive]),
+  Layer.provide([
+    HealthLive,
+    JobsLive,
+    InventoryLive,
+    ItemsApiLive,
+    GuardianLive,
+    AgentLive,
+    AuthLive,
+  ]),
   Layer.merge(HttpApiScalar.layer(GhostApi, { path: "/docs" })),
 )

@@ -1,9 +1,19 @@
-import { type CreateJob, Job, JobNotFound, type JobStatus, Plan, Source } from "@ghost/contract"
+import {
+  ChatSession,
+  type CreateJob,
+  Job,
+  JobNotFound,
+  JobStep,
+  type JobStatus,
+  Plan,
+  Source,
+} from "@ghost/contract"
 import { Context, DateTime, Effect, Layer, Option, Schema } from "effect"
 import { SqlClient, type SqlError } from "effect/sql"
 
 interface JobRow {
   readonly id: string
+  readonly session_id: string | null
   readonly kind: string
   readonly prompt: string
   readonly status: string
@@ -11,6 +21,7 @@ interface JobRow {
   readonly error: string | null
   readonly plan: string | null
   readonly sources: string
+  readonly steps: string
   readonly character_id: string | null
   readonly created_at: string
   readonly updated_at: string
@@ -22,14 +33,23 @@ interface JobRow {
 // the contract Plan as JSON (sources likewise), so it decodes with the same schema.
 const PlanJson = Schema.fromJsonString(Plan)
 const SourcesJson = Schema.fromJsonString(Schema.Array(Source))
+const StepsJson = Schema.fromJsonString(Schema.Array(JobStep))
+const StepJson = Schema.fromJsonString(JobStep)
 const encodePlan = Schema.encodeEffect(PlanJson)
 const encodeSources = Schema.encodeEffect(SourcesJson)
+const encodeStep = Schema.encodeEffect(StepJson)
 const decodeRow = Schema.decodeUnknownEffect(
-  Schema.Struct({ ...Job.fields, plan: Schema.NullOr(PlanJson), sources: SourcesJson }),
+  Schema.Struct({
+    ...Job.fields,
+    plan: Schema.NullOr(PlanJson),
+    sources: SourcesJson,
+    steps: StepsJson,
+  }),
 )
 const rowToJob = (row: JobRow) =>
   decodeRow({
     id: row.id,
+    sessionId: row.session_id,
     kind: row.kind,
     prompt: row.prompt,
     status: row.status,
@@ -37,6 +57,7 @@ const rowToJob = (row: JobRow) =>
     error: row.error,
     plan: row.plan,
     sources: row.sources,
+    steps: row.steps,
     characterId: row.character_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -45,10 +66,29 @@ const rowToJob = (row: JobRow) =>
     Effect.orDie,
   )
 
+interface SessionRow {
+  readonly id: string
+  readonly title: string
+  readonly started_at: string
+  readonly last_at: string
+  readonly count: number
+}
+
+export interface ManualJob {
+  readonly prompt: string
+  readonly characterId: string | null
+  readonly plan: Plan
+}
+
 export interface JobsRepoShape {
   readonly list: Effect.Effect<ReadonlyArray<Job>, SqlError.SqlError>
+  readonly inSession: (sessionId: string) => Effect.Effect<ReadonlyArray<Job>, SqlError.SqlError>
+  readonly sessions: Effect.Effect<ReadonlyArray<ChatSession>, SqlError.SqlError>
   readonly get: (id: string) => Effect.Effect<Job, JobNotFound | SqlError.SqlError>
   readonly create: (input: CreateJob) => Effect.Effect<Job, SqlError.SqlError>
+  /** A finished job outside any conversation, holding a plan the player asked for directly. */
+  readonly createManual: (input: ManualJob) => Effect.Effect<Job, SqlError.SqlError>
+  readonly addStep: (id: string, step: JobStep) => Effect.Effect<void, SqlError.SqlError>
   readonly setStatus: (
     id: string,
     status: JobStatus,
@@ -61,6 +101,8 @@ export interface JobsRepoShape {
     sources: ReadonlyArray<Source>,
   ) => Effect.Effect<void, JobNotFound | SqlError.SqlError>
   readonly nextQueued: Effect.Effect<Option.Option<Job>, SqlError.SqlError>
+  /** Fails every job still marked running; only a restart mid-answer leaves one behind. */
+  readonly failInterrupted: Effect.Effect<void, SqlError.SqlError>
 }
 
 export class JobsRepo extends Context.Service<JobsRepo, JobsRepoShape>()("JobsRepo") {}
@@ -72,6 +114,39 @@ export const JobsRepoLive = Layer.effect(
 
     const list = sql<JobRow>`SELECT * FROM jobs ORDER BY created_at DESC LIMIT 100`.pipe(
       Effect.flatMap(Effect.forEach(rowToJob)),
+    )
+
+    const inSession = (sessionId: string) =>
+      sql<JobRow>`
+        SELECT * FROM jobs WHERE session_id = ${sessionId} ORDER BY created_at DESC LIMIT 200
+      `.pipe(Effect.flatMap(Effect.forEach(rowToJob)))
+
+    const sessions = sql<SessionRow>`
+      SELECT session_id AS id,
+             (SELECT prompt FROM jobs first
+              WHERE first.session_id = jobs.session_id
+              ORDER BY created_at ASC LIMIT 1) AS title,
+             MIN(created_at) AS started_at,
+             MAX(created_at) AS last_at,
+             COUNT(*) AS count
+      FROM jobs
+      WHERE session_id IS NOT NULL
+      GROUP BY session_id
+      ORDER BY last_at DESC
+      LIMIT 50
+    `.pipe(
+      Effect.map((rows) =>
+        rows.map(
+          (row) =>
+            new ChatSession({
+              id: row.id,
+              title: row.title,
+              startedAt: row.started_at,
+              lastAt: row.last_at,
+              count: row.count,
+            }),
+        ),
+      ),
     )
 
     const get = (id: string) =>
@@ -86,10 +161,33 @@ export const JobsRepoLive = Layer.effect(
         const id = crypto.randomUUID()
         const now = DateTime.formatIso(yield* DateTime.now)
         yield* sql`
-          INSERT INTO jobs (id, kind, prompt, status, result, error, character_id, created_at, updated_at)
-          VALUES (${id}, ${input.kind}, ${input.prompt}, 'queued', NULL, NULL, ${input.characterId ?? null}, ${now}, ${now})
+          INSERT INTO jobs (id, session_id, kind, prompt, status, result, error, character_id, created_at, updated_at)
+          VALUES (${id}, ${input.sessionId ?? crypto.randomUUID()}, ${input.kind}, ${input.prompt}, 'queued', NULL, NULL, ${input.characterId ?? null}, ${now}, ${now})
         `
         return yield* get(id).pipe(Effect.orDie)
+      })
+
+    const createManual = (input: ManualJob) =>
+      Effect.gen(function* () {
+        const id = crypto.randomUUID()
+        const now = DateTime.formatIso(yield* DateTime.now)
+        const plan = yield* encodePlan(input.plan).pipe(Effect.orDie)
+        yield* sql`
+          INSERT INTO jobs (id, session_id, kind, prompt, status, result, error, plan, character_id, created_at, updated_at)
+          VALUES (${id}, NULL, 'item_action', ${input.prompt}, 'done', NULL, NULL, ${plan}, ${input.characterId}, ${now}, ${now})
+        `
+        return yield* get(id).pipe(Effect.orDie)
+      })
+
+    const addStep = (id: string, step: JobStep) =>
+      Effect.gen(function* () {
+        const now = DateTime.formatIso(yield* DateTime.now)
+        const json = yield* encodeStep(step).pipe(Effect.orDie)
+        yield* sql`
+          UPDATE jobs
+          SET steps = json_insert(steps, '$[#]', json(${json})), updated_at = ${now}
+          WHERE id = ${id}
+        `
       })
 
     const setStatus: JobsRepoShape["setStatus"] = (id, status, patch) =>
@@ -132,6 +230,30 @@ export const JobsRepoLive = Layer.effect(
       ),
     )
 
-    return { list, get, create, setStatus, setPlan, addSources, nextQueued }
+    const failInterrupted = Effect.gen(function* () {
+      const now = DateTime.formatIso(yield* DateTime.now)
+      yield* sql`
+        UPDATE jobs
+        SET status = 'failed',
+            error = 'The server restarted before I finished. Ask again.',
+            updated_at = ${now}
+        WHERE status = 'running'
+      `
+    })
+
+    return {
+      failInterrupted,
+      list,
+      inSession,
+      sessions,
+      get,
+      create,
+      createManual,
+      addStep,
+      setStatus,
+      setPlan,
+      addSources,
+      nextQueued,
+    }
   }),
 )

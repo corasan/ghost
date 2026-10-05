@@ -8,6 +8,7 @@ import { Body, Cond, Mono, Nudge, PageHeader, Swatch, TierStats } from "@/compon
 import { Ghost, Gutter, Rarity, Type } from "@/constants/theme"
 import { useGuardian } from "@/lib/api"
 import { useCharacter } from "@/lib/character"
+import { usePullRefresh } from "@/lib/refresh"
 import { upper } from "@/lib/format"
 
 const WEAPON_SLOTS: readonly ItemSummary["slot"][] = ["kinetic", "energy", "power"]
@@ -84,6 +85,7 @@ function ItemRow({ item, kind }: { item: ItemSummary; kind: "weapon" | "armor" }
 export default function GuardianScreen() {
   const insets = useSafeAreaInsets()
   const guardian = useGuardian()
+  const pull = usePullRefresh(guardian.refetch)
   const { character } = useCharacter()
 
   if (!character) {
@@ -127,8 +129,8 @@ export default function GuardianScreen() {
         keyExtractor={(row) => row.key}
         getItemType={(row) => row.type}
         recycleItems
-        refreshing={guardian.isRefetching}
-        onRefresh={() => void guardian.refetch()}
+        refreshing={pull.refreshing}
+        onRefresh={pull.onRefresh}
         contentContainerStyle={{ paddingBottom: 24 }}
         ListHeaderComponent={
           <View>

@@ -52,6 +52,27 @@ describe("client payloads are plain objects, the way the app sends them", () => 
     ])
   })
 
+  test("continuing a conversation", async () => {
+    const payload = { kind: "chat", prompt: "And the exotics?", sessionId: "s-1" } as const
+    expect(await send((api) => api.jobs.create({ payload }))).toEqual([
+      { method: "POST", path: "/jobs", body: payload },
+    ])
+  })
+
+  test("equipping an item on a character", async () => {
+    const payload = { action: "equip", characterId: "2305843009" } as const
+    expect(await send((api) => api.items.act({ params: { id: "6917529" }, payload }))).toEqual([
+      { method: "POST", path: "/items/6917529/action", body: payload },
+    ])
+  })
+
+  test("choosing an effort level", async () => {
+    const payload = { effort: "xhigh" } as const
+    expect(await send((api) => api.agent.configure({ payload }))).toEqual([
+      { method: "POST", path: "/agent", body: payload },
+    ])
+  })
+
   test("applying a plan", async () => {
     const payload = { selected: ["6917529", "6917530"] }
     expect(await send((api) => api.jobs.apply({ params: { id: "job-1" }, payload }))).toEqual([

@@ -121,7 +121,7 @@ export interface Inventory {
   readonly characters: ReadonlyArray<CharacterInfo>
   /** Instanced items only; materials and consumables are not things Ghost moves. */
   readonly items: ReadonlyArray<OwnedItem>
-  /** Every vault entry, stacks included, since that is what fills the 700 slots. */
+  /** Every vault entry, stacks included, since that is what fills the vault. */
   readonly vaultCount: number
 }
 

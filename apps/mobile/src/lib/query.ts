@@ -27,7 +27,7 @@ export const persistOptions: Omit<PersistQueryClientOptions, "queryClient"> = {
   }),
   maxAge: WEEK,
   // Bump when a contract change makes old cached shapes unreadable.
-  buster: "v2",
+  buster: "v3",
   dehydrateOptions: {
     shouldDehydrateQuery: (query) =>
       query.state.status === "success" && PERSISTED.has(String(query.queryKey[1])),

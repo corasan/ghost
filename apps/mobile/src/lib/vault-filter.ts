@@ -118,5 +118,37 @@ export const toggle = <T>(set: ReadonlySet<T>, value: T): ReadonlySet<T> => {
   return next
 }
 
-export const activeCount = (filter: VaultFilter) =>
-  filter.tiers.size + filter.elements.size + filter.classes.size + filter.flags.size
+export const SORT_LABEL: Record<Sort, string> = {
+  power: "POWER",
+  newest: "NEWEST",
+  stats: "STAT TOTAL",
+  name: "A–Z",
+}
+
+type Facet = "tiers" | "elements" | "classes" | "flags"
+const FACETS: readonly Facet[] = ["tiers", "elements", "classes", "flags"]
+
+export interface ActiveFilter {
+  readonly id: string
+  readonly label: string
+}
+
+/** Everything narrowing the list right now, as chips the player can tap to remove. */
+export const activeFilters = (filter: VaultFilter): ActiveFilter[] => [
+  ...(filter.category === "all" ? [] : [{ id: "category", label: filter.category.toUpperCase() }]),
+  ...FACETS.flatMap((facet) =>
+    [...filter[facet]].map((value) => ({
+      id: `${facet}:${value}`,
+      label: facet === "classes" ? `${value.toUpperCase()} ARMOR` : value.toUpperCase(),
+    })),
+  ),
+]
+
+export const removeFilter = (filter: VaultFilter, id: string): VaultFilter => {
+  if (id === "category") return { ...filter, category: "all" }
+  const [facet, value] = id.split(":") as [Facet, string]
+  return {
+    ...filter,
+    [facet]: new Set([...filter[facet]].filter((each) => each !== value)),
+  }
+}

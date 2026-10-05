@@ -18,9 +18,15 @@ import { Effect, Option, Schema } from "effect"
 import { Tool, Toolkit } from "effect/ai"
 import { CurrentJob } from "../agent/current-job.ts"
 import type { BungieError } from "../bungie/client.ts"
-import { VAULT_CAPACITY, POSTMASTER_CAPACITY } from "../bungie/guardian.ts"
-import { type Inventory, isArmor, isWeapon, type OwnedItem } from "../bungie/inventory.ts"
+import {
+  type ArmorStats,
+  type Inventory,
+  isArmor,
+  isWeapon,
+  type OwnedItem,
+} from "../bungie/inventory.ts"
 import { Manifest } from "../bungie/manifest.ts"
+import { ARMOR_STATS, armorStats, buildStats, withMasterworkTotals } from "../bungie/masterwork.ts"
 import { ProfileStore } from "../bungie/profile.ts"
 import { CreatorNotes } from "../creators/creators.ts"
 import { NOTE_MAX_AGE_DAYS } from "../creators/parse.ts"
@@ -66,7 +72,7 @@ const SearchItems = Tool.make("search_items", {
 
 const PresentPlan = Tool.make("present_plan", {
   description:
-    "Show the player a plan to confirm. Nothing moves until they tap the confirm button; the server then runs the selected rows. Call it once per request, after deciding. Row actions: to_vault, to_character, pull_postmaster, equip, tag_junk, or none (shown for comparison only).",
+    "Show the player a plan to confirm. Nothing moves until they tap the confirm button; the server then runs the selected rows. Call it once per request, after deciding. Row actions: to_vault, to_character, pull_postmaster, equip, tag_junk, or none (shown for comparison only). For a build, list the armor piece for every slot, including pieces that stay equipped (action none). The app works out the build's six stat totals itself from the pieces you equip, before and after, and what masterworking would add, so do not do that arithmetic or repeat those numbers in your reply. Pass stats only to mark the stats the player asked for: label Health, Melee, Grenade, Super, Class or Weapons with target true; the values are ignored for a build.",
   parameters: Schema.Struct({
     kind: PlanKind,
     title: Schema.String,
@@ -164,6 +170,9 @@ const explain = (error: BungieError | BungieNotLinked | { readonly message: stri
     ? "Error: the Bungie account is not linked yet. Tell the player to sign in with Bungie in the app."
     : `Error: ${"message" in error ? error.message : String(error)}`
 
+const named = (stats: ArmorStats) =>
+  Object.fromEntries(ARMOR_STATS.map(([key, label]) => [label.toLowerCase(), stats[key]]))
+
 const compact = (i: OwnedItem) => ({
   id: i.itemInstanceId,
   hash: i.itemHash,
@@ -180,7 +189,7 @@ const compact = (i: OwnedItem) => ({
   masterwork: i.masterwork,
   classType: i.classType ?? undefined,
   statTotal: i.statTotal ?? undefined,
-  stats: i.armorStats ?? undefined,
+  stats: i.armorStats === null ? undefined : named(i.armorStats),
   perks: i.perks.length > 0 ? i.perks : undefined,
   duplicates: i.duplicates,
   decision: i.decision ?? undefined,
@@ -265,7 +274,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
 
     const get_characters = () =>
       withInventory((inv) =>
-        Effect.succeed(
+        Effect.map(manifest.capacities, (capacities) =>
           json({
             characters: inv.characters.map((c) => ({
               id: c.characterId,
@@ -273,19 +282,19 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
               light: c.light,
               subclass: c.subclass,
               element: c.element,
-              stats: c.stats,
+              stats: named(c.stats),
               equipped: inv.items
                 .filter((i) => i.equipped && i.characterId === c.characterId)
                 .map(compact),
               postmaster: {
                 count: c.postmasterCount,
-                capacity: POSTMASTER_CAPACITY,
+                capacity: capacities.postmaster,
                 items: inv.items
                   .filter((i) => i.location === "postmaster" && i.characterId === c.characterId)
                   .map(compact),
               },
             })),
-            vault: { count: inv.vaultCount, capacity: VAULT_CAPACITY },
+            vault: { count: inv.vaultCount, capacity: capacities.vault },
           }),
         ),
       )
@@ -339,13 +348,34 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
                 selected: r.action === "none" ? false : (r.selected ?? true),
                 outcome: null,
                 error: null,
+                ...(item.armorStats === null ? {} : { stats: armorStats(item) }),
               })
             })
+            const equipping = rows.filter((row) => row.action === "equip")
+            const builtFor = inv.characters.find(
+              (c) => c.characterId === (equipping[0]?.characterId ?? fallback),
+            )
+            const planStats =
+              input.kind === "build" && builtFor !== undefined
+                ? buildStats({
+                    character: builtFor,
+                    worn: inv.items.filter(
+                      (i) =>
+                        i.equipped && i.characterId === builtFor.characterId && isArmor(i.slot),
+                    ),
+                    incoming: equipping.map((row) => owned.get(row.itemInstanceId) as OwnedItem),
+                    targets: (input.stats ?? []).filter((s) => s.target).map((s) => s.label),
+                    facts: yield* manifest.statFacts,
+                  })
+                : withMasterworkTotals(
+                    (input.stats ?? []).map((s) => new PlanStat(s)),
+                    input.rows.map((r) => owned.get(r.itemInstanceId) as OwnedItem),
+                  )
             const plan = new Plan({
               kind: input.kind,
               title: input.title,
               subtitle: input.subtitle ?? null,
-              stats: (input.stats ?? []).map((s) => new PlanStat(s)),
+              stats: planStats,
               featured:
                 input.featured === undefined
                   ? null

@@ -156,6 +156,13 @@ const migrations = {
     `
     yield* sql`CREATE INDEX IF NOT EXISTS creator_notes_video ON creator_notes (video_id)`
   }),
+  "0005_sessions_and_steps": Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    yield* sql`ALTER TABLE jobs ADD COLUMN session_id TEXT`
+    yield* sql`ALTER TABLE jobs ADD COLUMN steps TEXT NOT NULL DEFAULT '[]'`
+    yield* sql`UPDATE jobs SET session_id = 'first'`
+    yield* sql`CREATE INDEX IF NOT EXISTS jobs_session ON jobs (session_id, created_at)`
+  }),
 }
 
 const SqliteLive = Layer.unwrap(

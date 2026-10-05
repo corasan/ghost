@@ -1,11 +1,23 @@
 import type { Job, Plan, PlanRow } from "@ghost/contract"
+import { router } from "expo-router"
 import { useState } from "react"
 import { Alert, Pressable, StyleSheet, View } from "react-native"
 
-import { Body, Button, Cond, Cut, Mono, Swatch, TierStats, Tick } from "@/components/ghost/ui"
+import {
+  ArmorStatLine,
+  Body,
+  Button,
+  Cond,
+  Cut,
+  Mono,
+  Swatch,
+  TierStats,
+  Tick,
+} from "@/components/ghost/ui"
 import { Ghost, Rarity, Type } from "@/constants/theme"
 import { errorMessage, useApplyPlan, useUndoPlan } from "@/lib/api"
 import { usePlanSelection } from "@/lib/selection"
+import { BuildStrip } from "./build-stats"
 
 // A plan is a block in the conversation, not a modal: the resulting stats,
 // one row per change that can be unticked, and one confirm. After it runs,
@@ -17,6 +29,8 @@ const COLLAPSE_OVER = 6
 /** "MOVE 8 TO VAULT" follows the ticks: the first number tracks the selection. */
 export const liveLabel = (label: string, count: number) =>
   /\d+/.test(label) ? label.replace(/\d+/, String(count)) : label
+
+const openItem = (id: string) => router.push({ pathname: "/item/[id]", params: { id } })
 
 const outcomeTone = { ok: Ghost.good, failed: Ghost.danger, skipped: Ghost.dim } as const
 
@@ -57,6 +71,7 @@ export function PlanRowView({
   applied,
   under = Ghost.panel,
   inset = 14,
+  detailed = false,
 }: {
   row: PlanRow
   ticked: boolean
@@ -64,32 +79,51 @@ export function PlanRowView({
   applied: boolean
   under?: string
   inset?: number
+  /** Also show an armor piece's six stats; the chat card leaves them to the details sheet. */
+  detailed?: boolean
 }) {
   const actionable = row.action !== "none"
+  const tickable = actionable && !applied && onToggle !== undefined
   return (
-    <Pressable
-      accessibilityRole={actionable && !applied ? "checkbox" : undefined}
-      accessibilityState={{ checked: ticked }}
-      disabled={!actionable || applied || !onToggle}
-      onPress={onToggle}
+    <View
       style={[
         styles.row,
-        { paddingHorizontal: inset },
+        { paddingLeft: tickable ? 0 : inset, paddingRight: inset },
         actionable && !applied && !ticked && { opacity: 0.45 },
       ]}
     >
-      {actionable && !applied ? <Tick on={ticked} under={under} /> : null}
-      <Swatch tier={row.tier} icon={row.icon} size={40} />
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Body size={15} style={{ fontFamily: Type.bodyMedium, lineHeight: 18 }} lines={1}>
-          {row.name}
-        </Body>
-        <Mono style={{ marginTop: 3, letterSpacing: 0.7 }} lines={1}>
-          {row.error ?? row.meta}
-        </Mono>
-      </View>
-      <RowRight row={row} applied={applied} />
-    </Pressable>
+      {tickable ? (
+        <Pressable
+          accessibilityRole="checkbox"
+          accessibilityLabel={row.name}
+          accessibilityState={{ checked: ticked }}
+          onPress={onToggle}
+          style={{ alignSelf: "stretch", justifyContent: "center", paddingHorizontal: inset }}
+        >
+          <Tick on={ticked} under={under} />
+        </Pressable>
+      ) : null}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityHint="Opens item details"
+        onPress={() => openItem(row.itemInstanceId)}
+        style={({ pressed }) => [styles.rowBody, pressed && { opacity: 0.6 }]}
+      >
+        <View style={styles.rowHead}>
+          <Swatch tier={row.tier} icon={row.icon} size={40} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Body size={15} style={{ fontFamily: Type.bodyMedium, lineHeight: 18 }} lines={1}>
+              {row.name}
+            </Body>
+            <Mono style={{ marginTop: 3, letterSpacing: 0.7 }} lines={1}>
+              {row.error ?? row.meta}
+            </Mono>
+          </View>
+          <RowRight row={row} applied={applied} />
+        </View>
+        {detailed && row.stats && row.stats.length > 0 ? <ArmorStatLine stats={row.stats} /> : null}
+      </Pressable>
+    </View>
   )
 }
 
@@ -99,7 +133,15 @@ function Featured({ plan, row }: { plan: Plan; row: PlanRow }) {
   const tone = Rarity[row.tier]
   return (
     <View>
-      <View style={{ flexDirection: "row", gap: 14, padding: 14 }}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityHint="Opens item details"
+        onPress={() => openItem(row.itemInstanceId)}
+        style={({ pressed }) => [
+          { flexDirection: "row", gap: 14, padding: 14 },
+          pressed && { opacity: 0.6 },
+        ]}
+      >
         <Swatch tier={row.tier} icon={row.icon} size={72} />
         <View style={{ flex: 1, minWidth: 0 }}>
           <View style={styles.between}>
@@ -128,7 +170,7 @@ function Featured({ plan, row }: { plan: Plan; row: PlanRow }) {
             ))}
           </View>
         </View>
-      </View>
+      </Pressable>
       {featured.stats.length > 0 ? (
         <View style={{ paddingHorizontal: 14, paddingBottom: 14, gap: 7 }}>
           {featured.stats.map((stat, i) => (
@@ -162,6 +204,10 @@ export function PlanBlock({ job, onAsk }: { job: Job; onAsk: (prompt: string) =>
   const [expanded, setExpanded] = useState(false)
 
   const applied = plan.status !== "proposed"
+  const isBuild = plan.stats.some((stat) => stat.before !== undefined)
+  const pendingMasterwork = plan.rows.filter((row) =>
+    row.stats?.some((stat) => stat.masterworked !== undefined),
+  ).length
   const featuredRow = plan.featured
     ? plan.rows.find((row) => row.itemInstanceId === plan.featured?.itemInstanceId)
     : undefined
@@ -210,7 +256,9 @@ export function PlanBlock({ job, onAsk }: { job: Job; onAsk: (prompt: string) =>
         ) : null}
       </View>
 
-      {plan.stats.length > 0 ? (
+      {isBuild ? (
+        <BuildStrip stats={plan.stats} />
+      ) : plan.stats.length > 0 ? (
         <View style={{ paddingHorizontal: 14, paddingBottom: 12 }}>
           <TierStats stats={plan.stats} />
         </View>
@@ -236,6 +284,20 @@ export function PlanBlock({ job, onAsk }: { job: Job; onAsk: (prompt: string) =>
               : hiddenTicked === hidden.length
                 ? "ALL MOVING"
                 : `${hiddenTicked} MOVING`}
+          </Mono>
+        </Pressable>
+      ) : null}
+
+      {isBuild ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Build details"
+          onPress={() => router.push({ pathname: "/plan/[id]", params: { id: job.id } })}
+          style={({ pressed }) => [styles.details, pressed && { backgroundColor: Ghost.swatch }]}
+        >
+          <Mono color={Ghost.accent}>BUILD DETAILS</Mono>
+          <Mono color={pendingMasterwork > 0 ? Ghost.gold : Ghost.dim}>
+            {pendingMasterwork > 0 ? `${pendingMasterwork} NOT MASTERWORKED ›` : "STATS · PIECES ›"}
           </Mono>
         </Pressable>
       ) : null}
@@ -299,14 +361,23 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: Ghost.rule,
+  },
+  rowBody: { flex: 1, gap: 9, paddingVertical: 10 },
+  rowHead: { flexDirection: "row", alignItems: "center", gap: 12 },
+  more: {
+    paddingHorizontal: 14,
     paddingVertical: 10,
     borderTopWidth: 1,
     borderTopColor: Ghost.rule,
   },
-  more: {
+  details: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: Ghost.rule,
   },

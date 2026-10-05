@@ -1,5 +1,6 @@
-import type { DamageType, GuardianClass, ItemSummary, ItemTier, Job, Plan } from "@ghost/contract"
+import type { ItemSummary, Job, Plan } from "@ghost/contract"
 import { LegendList } from "@legendapp/list/react-native"
+import { router } from "expo-router"
 import { useMemo, useState } from "react"
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
@@ -16,46 +17,24 @@ import {
   PageHeader,
   Said,
   Swatch,
+  Tick,
 } from "@/components/ghost/ui"
-import { Ghost, Gutter, Rarity, Type } from "@/constants/theme"
+import { Ghost, Gutter, Type } from "@/constants/theme"
 import { useApplyPlan, useCreateJob, useJobs, useSetDecision, useVault } from "@/lib/api"
 import { useCharacter } from "@/lib/character"
 import { upper } from "@/lib/format"
+import { usePullRefresh } from "@/lib/refresh"
 import { usePlanSelection } from "@/lib/selection"
+import { useSessionId } from "@/lib/session"
+import { activeFilters, filterVault, isWeapon, removeFilter, SORT_LABEL } from "@/lib/vault-filter"
 import {
-  activeCount,
-  type Category,
-  emptyFilter,
-  type Flag,
-  filterVault,
-  flagCounts,
-  isWeapon,
-  type Sort,
-  toggle,
-  type VaultFilter,
-} from "@/lib/vault-filter"
-
-const SORTS: readonly Sort[] = ["power", "newest", "stats", "name"]
-const SORT_LABEL: Record<Sort, string> = {
-  power: "POWER",
-  newest: "NEWEST",
-  stats: "STAT TOTAL",
-  name: "A–Z",
-}
-const TIERS: readonly ItemTier[] = ["exotic", "legendary", "rare"]
-const ELEMENTS: readonly DamageType[] = ["kinetic", "arc", "solar", "void", "stasis", "strand"]
-const CLASSES: readonly GuardianClass[] = ["hunter", "titan", "warlock"]
-const FLAGS: readonly Flag[] = ["dupes", "junk", "new", "unlocked"]
-
-const ELEMENT_TONE: Record<DamageType, string> = {
-  kinetic: Ghost.muted,
-  arc: "#7ac6f0",
-  solar: "#f0883e",
-  void: "#b28ce0",
-  stasis: "#6e8ff0",
-  strand: "#4fd58c",
-  none: Ghost.muted,
-}
+  clearPicked,
+  replaceVaultFilter,
+  setVaultFilter,
+  togglePicked,
+  usePicked,
+  useVaultFilter,
+} from "@/lib/vault-store"
 
 function itemMeta(item: ItemSummary) {
   if (isWeapon(item)) {
@@ -73,20 +52,27 @@ function itemMeta(item: ItemSummary) {
 
 function VaultRow({
   item,
+  selecting,
   picked,
   onPress,
+  onLongPress,
 }: {
   item: ItemSummary
+  selecting: boolean
   picked: boolean
   onPress: () => void
+  onLongPress: () => void
 }) {
   return (
     <Pressable
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked: picked }}
+      accessibilityRole={selecting ? "checkbox" : "button"}
+      accessibilityState={selecting ? { checked: picked } : undefined}
+      accessibilityHint={selecting ? undefined : "Opens details. Long press for actions."}
       onPress={onPress}
-      style={[styles.row, picked && { backgroundColor: Ghost.panel }]}
+      onLongPress={onLongPress}
+      style={({ pressed }) => [styles.row, (picked || pressed) && { backgroundColor: Ghost.panel }]}
     >
+      {selecting ? <Tick on={picked} under={Ghost.bg} /> : null}
       <Swatch tier={item.tier} icon={item.icon} size={44} />
       <View style={{ flex: 1, minWidth: 0 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -188,27 +174,16 @@ function Cleanup({ job, plan }: { job: Job; plan: Plan }) {
   )
 }
 
-function Filters({
-  filter,
-  setFilter,
-  items,
-}: {
-  filter: VaultFilter
-  setFilter: (next: VaultFilter) => void
-  items: readonly ItemSummary[]
-}) {
-  const counts = useMemo(() => flagCounts(items, filter.category), [items, filter.category])
-  const [open, setOpen] = useState(false)
-  const set = (patch: Partial<VaultFilter>) => setFilter({ ...filter, ...patch })
-  const active = activeCount(filter)
-
+function Filters({ shown }: { shown: number }) {
+  const filter = useVaultFilter()
+  const active = activeFilters(filter)
   return (
     <View style={{ paddingTop: 16, gap: 10 }}>
       <View style={{ flexDirection: "row", gap: 8, paddingHorizontal: Gutter }}>
         <Cut fill={Ghost.panel} border={Ghost.line} style={{ flex: 1 }}>
           <TextInput
             value={filter.query}
-            onChangeText={(query) => set({ query })}
+            onChangeText={(query) => setVaultFilter({ query })}
             placeholder="Name, perk or type"
             placeholderTextColor={Ghost.dim}
             keyboardAppearance="dark"
@@ -219,93 +194,32 @@ function Filters({
         </Cut>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Sort by ${SORT_LABEL[filter.sort]}`}
-          onPress={() => set({ sort: SORTS[(SORTS.indexOf(filter.sort) + 1) % SORTS.length] })}
-          style={styles.sort}
+          accessibilityLabel={`Filter and sort, ${active.length} filters on, sorted by ${SORT_LABEL[filter.sort]}`}
+          onPress={() => router.push("/vault-filter")}
+          style={[styles.filter, active.length > 0 && { borderColor: Ghost.accent }]}
         >
-          <Mono size={8}>SORT</Mono>
+          <Mono size={8} color={active.length > 0 ? Ghost.accent : Ghost.dim}>
+            {active.length > 0 ? `FILTER · ${active.length}` : "FILTER"}
+          </Mono>
           <Cond size={13}>{SORT_LABEL[filter.sort]}</Cond>
         </Pressable>
       </View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: 6, paddingHorizontal: Gutter }}
-      >
-        {(["all", "weapons", "armor"] as const satisfies readonly Category[]).map((category) => (
-          <Chip
-            key={category}
-            label={upper(category)}
-            active={filter.category === category}
-            onPress={() => set({ category })}
-          />
-        ))}
-        <Chip
-          label={active > 0 ? `FILTERS · ${active}` : "FILTERS"}
-          active={open}
-          tone={Ghost.accent}
-          onPress={() => setOpen(!open)}
-        />
-        {FLAGS.map((flag) =>
-          counts[flag] > 0 || filter.flags.has(flag) ? (
+      {active.length > 0 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 6, paddingHorizontal: Gutter, alignItems: "center" }}
+        >
+          {active.map((each) => (
             <Chip
-              key={flag}
-              label={`${upper(flag)} ${counts[flag]}`}
-              active={filter.flags.has(flag)}
-              onPress={() => set({ flags: toggle(filter.flags, flag) })}
+              key={each.id}
+              label={`${each.label} ×`}
+              active
+              onPress={() => replaceVaultFilter(removeFilter(filter, each.id))}
             />
-          ) : null,
-        )}
-      </ScrollView>
-      {open ? (
-        <View style={{ gap: 8, paddingHorizontal: Gutter }}>
-          <View style={styles.wrap}>
-            {TIERS.map((tier) => (
-              <Chip
-                key={tier}
-                label={upper(tier)}
-                tone={Rarity[tier]}
-                active={filter.tiers.has(tier)}
-                onPress={() => set({ tiers: toggle(filter.tiers, tier) })}
-              />
-            ))}
-          </View>
-          <View style={styles.wrap}>
-            {ELEMENTS.map((element) => (
-              <Chip
-                key={element}
-                label={upper(element)}
-                tone={ELEMENT_TONE[element]}
-                active={filter.elements.has(element)}
-                onPress={() => set({ elements: toggle(filter.elements, element) })}
-              />
-            ))}
-          </View>
-          <View style={styles.wrap}>
-            {CLASSES.map((each) => (
-              <Chip
-                key={each}
-                label={`${upper(each)} ARMOR`}
-                active={filter.classes.has(each)}
-                onPress={() => set({ classes: toggle(filter.classes, each) })}
-              />
-            ))}
-            {active > 0 ? (
-              <Chip
-                label="RESET"
-                active={false}
-                onPress={() =>
-                  setFilter({
-                    ...emptyFilter,
-                    query: filter.query,
-                    category: filter.category,
-                    sort: filter.sort,
-                  })
-                }
-              />
-            ) : null}
-          </View>
-        </View>
+          ))}
+          <Mono style={{ marginLeft: 6 }}>{shown} SHOWN</Mono>
+        </ScrollView>
       ) : null}
     </View>
   )
@@ -318,8 +232,10 @@ export default function VaultScreen() {
   const createJob = useCreateJob()
   const setDecision = useSetDecision()
   const { character } = useCharacter()
-  const [filter, setFilter] = useState<VaultFilter>(emptyFilter)
-  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set())
+  const sessionId = useSessionId()
+  const filter = useVaultFilter()
+  const picked = usePicked()
+  const pull = usePullRefresh(vault.refetch)
 
   const items = vault.data?.items ?? []
   const shown = useMemo(() => filterVault(items, filter), [items, filter])
@@ -340,12 +256,14 @@ export default function VaultScreen() {
   const capacity = vault.data?.capacity ?? 0
   const fill = capacity > 0 ? count / capacity : 0
   const pickedItems = items.filter((item) => item.itemInstanceId && picked.has(item.itemInstanceId))
+  const selecting = pickedItems.length > 0
 
   const startCleanup = () =>
     createJob.mutate({
       kind: "vault_cleanup",
       prompt: "Clean up my vault: flag duplicates with a better copy and low rolls.",
       characterId: character?.characterId ?? null,
+      sessionId,
     })
 
   return (
@@ -401,7 +319,7 @@ export default function VaultScreen() {
               )}
             </Said>
           </Pressable>
-          <Filters filter={filter} setFilter={setFilter} items={items} />
+          <Filters shown={shown.length} />
           <LegendList
             style={{ flex: 1 }}
             data={shown}
@@ -410,8 +328,8 @@ export default function VaultScreen() {
             estimatedItemSize={63}
             extraData={picked}
             keyboardDismissMode="on-drag"
-            refreshing={vault.isRefetching}
-            onRefresh={() => void vault.refetch()}
+            refreshing={pull.refreshing}
+            onRefresh={pull.onRefresh}
             contentContainerStyle={{ paddingTop: 8, paddingBottom: insets.bottom + 16 }}
             ListEmptyComponent={
               <Body color={Ghost.dim} style={{ paddingHorizontal: Gutter, paddingTop: 24 }}>
@@ -422,17 +340,28 @@ export default function VaultScreen() {
               <View style={{ paddingHorizontal: Gutter }}>
                 <VaultRow
                   item={item}
+                  selecting={selecting}
                   picked={item.itemInstanceId !== null && picked.has(item.itemInstanceId)}
-                  onPress={() =>
-                    item.itemInstanceId && setPicked(toggle(picked, item.itemInstanceId))
-                  }
+                  onPress={() => {
+                    if (item.itemInstanceId === null) return
+                    if (selecting) togglePicked(item.itemInstanceId)
+                    else
+                      router.push({ pathname: "/item/[id]", params: { id: item.itemInstanceId } })
+                  }}
+                  onLongPress={() => {
+                    if (item.itemInstanceId === null) return
+                    router.push({
+                      pathname: "/item-actions/[id]",
+                      params: { id: item.itemInstanceId, select: "1" },
+                    })
+                  }}
                 />
               </View>
             )}
           />
           {pickedItems.length > 0 ? (
             <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
-              <Button label="CLEAR" flex={0.7} onPress={() => setPicked(new Set())} />
+              <Button label="CLEAR" flex={0.7} onPress={clearPicked} />
               <Button
                 label={`ASK ABOUT ${pickedItems.length}`}
                 onPress={() =>
@@ -440,6 +369,7 @@ export default function VaultScreen() {
                     kind: "chat",
                     prompt: `Are these worth keeping? ${pickedItems.map((item) => item.name).join(", ")}`,
                     characterId: character?.characterId ?? null,
+                    sessionId,
                   })
                 }
               />
@@ -451,7 +381,7 @@ export default function VaultScreen() {
                     if (item.itemInstanceId)
                       setDecision.mutate({ id: item.itemInstanceId, decision: "junk" })
                   }
-                  setPicked(new Set())
+                  clearPicked()
                 }}
               />
             </View>
@@ -465,7 +395,6 @@ export default function VaultScreen() {
 const styles = StyleSheet.create({
   meter: { marginTop: 14, height: 3, backgroundColor: Ghost.rule, flexDirection: "row" },
   chips: { flexDirection: "row", gap: 6, paddingHorizontal: Gutter, paddingTop: 16 },
-  wrap: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   search: {
     height: 40,
     paddingHorizontal: 12,
@@ -473,12 +402,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: Ghost.ink,
   },
-  sort: {
+  filter: {
     borderWidth: 1,
     borderColor: Ghost.ruleStrong,
     paddingHorizontal: 10,
     justifyContent: "center",
-    minWidth: 76,
+    minWidth: 92,
   },
   row: {
     flexDirection: "row",

@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { Body, Cond, Mono, PageHeader } from "@/components/ghost/ui"
+import { usePullRefresh } from "@/lib/refresh"
 import { Ghost, Gutter, Type } from "@/constants/theme"
 import { useHistory, useUndoPlan } from "@/lib/api"
 import { clock, isToday } from "@/lib/format"
@@ -68,6 +69,7 @@ function Group({ group }: { group: HistoryGroup }) {
 export default function HistoryScreen() {
   const insets = useSafeAreaInsets()
   const history = useHistory()
+  const pull = usePullRefresh(history.refetch)
   const groups = history.data ?? []
   const today = groups
     .filter((group) => isToday(group.at))
@@ -79,8 +81,8 @@ export default function HistoryScreen() {
         data={groups}
         keyExtractor={(group) => group.jobId}
         recycleItems
-        refreshing={history.isRefetching}
-        onRefresh={() => void history.refetch()}
+        refreshing={pull.refreshing}
+        onRefresh={pull.onRefresh}
         contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
         ListHeaderComponent={
           <View style={{ paddingBottom: 26 }}>

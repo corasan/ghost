@@ -27,8 +27,12 @@ const theme = {
 
 const LINKED_KEY = "ghost.linked"
 
-// Chat is the whole app. Guardian, Vault, Recent and History are pages that
-// push over it from the menu and swipe back to it; there is no tab bar.
+const sheet = {
+  presentation: "formSheet",
+  sheetGrabberVisible: true,
+  contentStyle: { backgroundColor: Ghost.panel },
+} as const
+
 function RootStack() {
   const health = useHealth()
   const known = health.data?.bungieLinked
@@ -42,11 +46,14 @@ function RootStack() {
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Ghost.bg } }}>
       <Stack.Protected guard={linked}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="guardian" />
-        <Stack.Screen name="vault" />
-        <Stack.Screen name="recent" />
-        <Stack.Screen name="history" />
+        <Stack.Screen name="(app)" />
+        <Stack.Screen name="item/[id]" options={{ ...sheet, sheetAllowedDetents: [0.7, 1] }} />
+        <Stack.Screen
+          name="item-actions/[id]"
+          options={{ ...sheet, sheetAllowedDetents: [0.5, 1] }}
+        />
+        <Stack.Screen name="plan/[id]" options={{ ...sheet, sheetAllowedDetents: [0.85, 1] }} />
+        <Stack.Screen name="vault-filter" options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />
       </Stack.Protected>
       <Stack.Protected guard={!linked}>
         <Stack.Screen name="login" />

@@ -53,7 +53,7 @@ export function BriefingView({
               onPress={() =>
                 step.kind === "prompt"
                   ? onAsk(step.prompt)
-                  : router.push({ pathname: "/recent", params: { filter: step.filter } })
+                  : router.navigate({ pathname: "/recent", params: { filter: step.filter } })
               }
             />
           ))}

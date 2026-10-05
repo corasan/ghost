@@ -9,6 +9,7 @@ import { Body, Chip, Mono, Nudge, PageHeader, Swatch } from "@/components/ghost/
 import { Ghost, Gutter, Type } from "@/constants/theme"
 import { useJobs, useRecentItems, useSetDecision, useUndoPlan } from "@/lib/api"
 import { useCharacter } from "@/lib/character"
+import { usePullRefresh } from "@/lib/refresh"
 import { clock, groupRecent, locationLabel, sourceLabel, upper } from "@/lib/format"
 
 type Filter = "all" | "undecided" | "upgrades"
@@ -85,6 +86,7 @@ export default function RecentScreen() {
   const [filter, setFilter] = useState<Filter>(initial ?? "all")
   const { character } = useCharacter()
   const recent = useRecentItems(character?.characterId)
+  const pull = usePullRefresh(recent.refetch)
   const jobs = useJobs()
   const undo = useUndoPlan()
 
@@ -146,8 +148,8 @@ export default function RecentScreen() {
         keyExtractor={(row) => row.key}
         getItemType={(row) => row.type}
         recycleItems
-        refreshing={recent.isRefetching}
-        onRefresh={() => void recent.refetch()}
+        refreshing={pull.refreshing}
+        onRefresh={pull.onRefresh}
         contentContainerStyle={{ paddingHorizontal: Gutter, paddingTop: 14, paddingBottom: 16 }}
         ListEmptyComponent={
           <Body color={Ghost.dim} style={{ paddingTop: 24 }}>

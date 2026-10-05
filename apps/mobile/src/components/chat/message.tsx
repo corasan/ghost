@@ -6,7 +6,9 @@ import { Pressable, View } from "react-native"
 import { Body, Mono, Said } from "@/components/ghost/ui"
 import { Ghost } from "@/constants/theme"
 import { age, clock } from "@/lib/format"
+import { SaidMarkdown } from "./markdown"
 import { PlanBlock } from "./plan-block"
+import { StepsSummary, Working } from "./steps"
 
 // Roll, build and meta calls are only as good as the data behind them, so
 // every answer lists what it was based on and how old that data is.
@@ -54,15 +56,12 @@ function Message({ job, onAsk }: { job: Job; onAsk: (prompt: string) => void }) 
           </Body>
         </Said>
       ) : working ? (
-        <Said>
-          <Body size={16} color={Ghost.dim}>
-            {job.status === "queued" ? "Queued…" : "Working on it…"}
-          </Body>
-        </Said>
+        <Working job={job} />
       ) : job.result ? (
-        <Said>{job.result}</Said>
+        <SaidMarkdown>{job.result}</SaidMarkdown>
       ) : null}
       {job.plan ? <PlanBlock job={job} onAsk={onAsk} /> : null}
+      {working ? null : <StepsSummary steps={job.steps} />}
       {job.sources.length > 0 ? <Sources sources={job.sources} /> : null}
     </View>
   )
@@ -76,6 +75,7 @@ export const MessageView = memo(
     a.job.id === b.job.id &&
     a.job.updatedAt === b.job.updatedAt &&
     a.job.status === b.job.status &&
+    a.job.steps.length === b.job.steps.length &&
     a.job.plan?.status === b.job.plan?.status &&
     a.onAsk === b.onAsk,
 )

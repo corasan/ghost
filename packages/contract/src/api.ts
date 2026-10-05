@@ -1,6 +1,7 @@
 import { Schema } from "effect"
 import { HttpApi, HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "effect/http-api"
 import {
+  AgentSettings,
   ApplyPlan,
   Briefing,
   BungieAuthFailed,
@@ -8,14 +9,19 @@ import {
   BungieAuthStart,
   BungieFailed,
   BungieNotLinked,
+  ChatSession,
   CreateJob,
   GuardianSnapshot,
   Health,
   HistoryGroup,
+  ItemAction,
+  ItemDetail,
+  ItemNotFound,
   Job,
   JobNotFound,
   PlanNotApplicable,
   RecentItem,
+  SetAgentSettings,
   SetDecision,
   VaultSnapshot,
 } from "./schemas"
@@ -42,7 +48,13 @@ const planErrors = [
 ] as const
 
 export const jobsGroup = HttpApiGroup.make("jobs")
-  .add(HttpApiEndpoint.get("list", "/jobs", { success: Schema.Array(Job) }))
+  .add(
+    HttpApiEndpoint.get("list", "/jobs", {
+      query: { sessionId: Schema.optional(Schema.String) },
+      success: Schema.Array(Job),
+    }),
+  )
+  .add(HttpApiEndpoint.get("sessions", "/sessions", { success: Schema.Array(ChatSession) }))
   .add(HttpApiEndpoint.post("create", "/jobs", { payload: CreateJob, success: Job }))
   .add(
     HttpApiEndpoint.get("get", "/jobs/:id", {
@@ -85,6 +97,23 @@ export const inventoryGroup = HttpApiGroup.make("inventory")
     }),
   )
 
+export const itemsGroup = HttpApiGroup.make("items")
+  .add(
+    HttpApiEndpoint.get("detail", "/items/:id", {
+      params: { id: Schema.String },
+      success: ItemDetail,
+      error: [ItemNotFound.pipe(HttpApiSchema.status(404)), ...bungieErrors],
+    }),
+  )
+  .add(
+    HttpApiEndpoint.post("act", "/items/:id/action", {
+      params: { id: Schema.String },
+      payload: ItemAction,
+      success: Job,
+      error: [ItemNotFound.pipe(HttpApiSchema.status(404)), ...planErrors],
+    }),
+  )
+
 export const guardianGroup = HttpApiGroup.make("guardian")
   .add(
     HttpApiEndpoint.get("snapshot", "/guardian", {
@@ -98,6 +127,15 @@ export const guardianGroup = HttpApiGroup.make("guardian")
       query: { characterId: Schema.optional(Schema.String) },
       success: Briefing,
       error: bungieErrors,
+    }),
+  )
+
+export const agentGroup = HttpApiGroup.make("agent")
+  .add(HttpApiEndpoint.get("settings", "/agent", { success: AgentSettings }))
+  .add(
+    HttpApiEndpoint.post("configure", "/agent", {
+      payload: SetAgentSettings,
+      success: AgentSettings,
     }),
   )
 
@@ -115,6 +153,8 @@ export const GhostApi = HttpApi.make("ghost")
   .add(healthGroup)
   .add(jobsGroup)
   .add(inventoryGroup)
+  .add(itemsGroup)
   .add(guardianGroup)
+  .add(agentGroup)
   .add(authGroup)
 export type GhostApi = typeof GhostApi

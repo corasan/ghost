@@ -7,12 +7,13 @@ import { Keyboard, KeyboardAvoidingView, Platform, View } from "react-native"
 import { BriefingView } from "@/components/chat/briefing"
 import { Composer, Starters } from "@/components/chat/composer"
 import { ChatHeader } from "@/components/chat/header"
-import { GuardianMenu } from "@/components/chat/menu"
 import { MessageView } from "@/components/chat/message"
 import { Body } from "@/components/ghost/ui"
 import { Ghost } from "@/constants/theme"
 import { errorMessage, useBriefing, useCreateJob, useJobs } from "@/lib/api"
 import { useCharacter } from "@/lib/character"
+import { usePullRefresh } from "@/lib/refresh"
+import { continueSession, startFreshSession, useSessionId } from "@/lib/session"
 
 type Entry = { type: "job"; job: Job } | { type: "briefing" }
 
@@ -30,22 +31,24 @@ function useKeyboardOpen() {
 }
 
 /**
- * Chat is the app. The conversation is every request you've made, oldest at
- * the top, with Ghost's briefing placed where this session starts: on open
- * you land on what changed since last time, with older requests above it.
+ * Chat is home. It shows one conversation, oldest request at the top, with
+ * Ghost's briefing placed where this visit starts: on open you land on what
+ * changed since last time, with the conversation's older requests above it.
+ * A fresh chat is the briefing alone.
  */
 export default function ChatScreen() {
   const { draft: queued } = useLocalSearchParams<{ draft?: string }>()
   const [draft, setDraft] = useState("")
-  const [menuOpen, setMenuOpen] = useState(false)
   const list = useRef<LegendListRef>(null)
   const keyboardOpen = useKeyboardOpen()
 
-  const { character, characters } = useCharacter()
+  const { character } = useCharacter()
   const characterId = character?.characterId
   const briefing = useBriefing(characterId)
-  const jobs = useJobs()
+  const sessionId = useSessionId()
+  const jobs = useJobs(sessionId)
   const createJob = useCreateJob()
+  const pull = usePullRefresh(jobs.refetch, briefing.refetch)
 
   // A page's "ASK ›" returns here with its suggestion queued in the composer.
   useEffect(() => {
@@ -74,16 +77,17 @@ export default function ChatScreen() {
       const text = prompt.trim()
       if (text === "") return
       createJob.mutate(
-        { kind: "chat", prompt: text, characterId: characterId ?? null },
+        { kind: "chat", prompt: text, characterId: characterId ?? null, sessionId },
         {
-          onSuccess: () => {
+          onSuccess: (job) => {
+            if (job.sessionId !== null) continueSession(job.sessionId)
             setDraft("")
             list.current?.scrollToEnd({ animated: true })
           },
         },
       )
     },
-    [createJob, characterId],
+    [createJob, characterId, sessionId],
   )
 
   const renderItem = useCallback(
@@ -103,13 +107,18 @@ export default function ChatScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: Ghost.bg, backgroundImage: Ghost.glow }}>
-      <ChatHeader character={character} ruled={asked} onMenu={() => setMenuOpen(true)} />
+      <ChatHeader
+        character={character}
+        ruled={asked}
+        onNewChat={hasHistory ? startFreshSession : undefined}
+      />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <LegendList
           ref={list}
+          key={sessionId ?? "fresh"}
           data={entries}
           renderItem={renderItem}
           extraData={renderItem}
@@ -127,11 +136,8 @@ export default function ChatScreen() {
           keyboardDismissMode="interactive"
           contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 22, paddingBottom: 12 }}
           ItemSeparatorComponent={Gap}
-          refreshing={jobs.isRefetching || briefing.isRefetching}
-          onRefresh={() => {
-            void jobs.refetch()
-            void briefing.refetch()
-          }}
+          refreshing={pull.refreshing}
+          onRefresh={pull.onRefresh}
         />
         {!asked ? <Starters onAsk={ask} /> : null}
         {createJob.isError ? (
@@ -147,13 +153,6 @@ export default function ChatScreen() {
           keyboardOpen={keyboardOpen}
         />
       </KeyboardAvoidingView>
-      <GuardianMenu
-        open={menuOpen}
-        onClose={() => setMenuOpen(false)}
-        character={character}
-        characters={characters}
-        briefing={briefing.data}
-      />
     </View>
   )
 }

@@ -1,4 +1,14 @@
-import { type CreateJob, GhostApi, type ItemDecision, type Job, RecentItem } from "@ghost/contract"
+import {
+  type AgentEffort,
+  type CreateJob,
+  GhostApi,
+  type ItemAction,
+  type ItemDecision,
+  ItemSummary,
+  type Job,
+  RecentItem,
+  VaultSnapshot,
+} from "@ghost/contract"
 import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Effect } from "effect"
 import { FetchHttpClient } from "effect/http"
@@ -30,7 +40,10 @@ const run = async <A, E>(f: (api: Api) => Effect.Effect<A, E>) =>
 // server never shows the old server's cached data.
 export const queryKeys = {
   health: (url: string) => [url, "health"] as const,
-  jobs: (url: string) => [url, "jobs"] as const,
+  jobs: (url: string, sessionId?: string | null) => [url, "jobs", sessionId ?? "all"] as const,
+  sessions: (url: string) => [url, "sessions"] as const,
+  item: (url: string, id: string) => [url, "item", id] as const,
+  agent: (url: string) => [url, "agent"] as const,
   recent: (url: string, characterId: string | undefined) => [url, "recent", characterId] as const,
   guardian: (url: string) => [url, "guardian"] as const,
   vault: (url: string) => [url, "vault"] as const,
@@ -40,7 +53,15 @@ export const queryKeys = {
 }
 
 /** Queries worth keeping on disk so the app opens on real data, not spinners. */
-export const PERSISTED = new Set(["jobs", "recent", "guardian", "vault", "briefing", "history"])
+export const PERSISTED = new Set([
+  "jobs",
+  "sessions",
+  "recent",
+  "guardian",
+  "vault",
+  "briefing",
+  "history",
+])
 
 const HEALTH_TIMEOUT_MS = 8_000
 
@@ -71,15 +92,54 @@ export function useHealth() {
 const busy = (jobs: readonly Job[] | undefined) =>
   jobs?.some((job) => job.status === "queued" || job.status === "running") ?? false
 
+const NO_JOBS: readonly Job[] = []
+
 // The chat polls quickly only while Ghost is thinking; an idle chat checks
 // in rarely, so the phone isn't waking the server every few seconds.
-export function useJobs() {
+export function useJobs(sessionId?: string | null) {
   const url = useServerUrl()
   return useQuery({
-    queryKey: queryKeys.jobs(url),
-    queryFn: () => run((api) => api.jobs.list()),
+    queryKey: queryKeys.jobs(url, sessionId),
+    queryFn: () =>
+      sessionId === null
+        ? NO_JOBS
+        : run((api) => api.jobs.list({ query: sessionId === undefined ? {} : { sessionId } })),
     refetchInterval: (query) => (busy(query.state.data) ? 1_500 : 30_000),
     staleTime: 5_000,
+  })
+}
+
+export function useJob(id: string) {
+  const url = useServerUrl()
+  const queryClient = useQueryClient()
+  return useQuery({
+    queryKey: [url, "job", id] as const,
+    queryFn: () => run((api) => api.jobs.get({ params: { id } })),
+    initialData: () =>
+      queryClient
+        .getQueriesData<readonly Job[]>({ queryKey: [url, "jobs"] })
+        .flatMap(([, jobs]) => jobs ?? [])
+        .find((job) => job.id === id),
+    staleTime: 5_000,
+  })
+}
+
+export function useSessions() {
+  const url = useServerUrl()
+  return useQuery({
+    queryKey: queryKeys.sessions(url),
+    queryFn: () => run((api) => api.jobs.sessions()),
+    staleTime: 15_000,
+  })
+}
+
+export function useItemDetail(id: string) {
+  const url = useServerUrl()
+  return useQuery({
+    queryKey: queryKeys.item(url, id),
+    queryFn: () => run((api) => api.items.detail({ params: { id } })),
+    staleTime: 30_000,
+    retry: false,
   })
 }
 
@@ -164,10 +224,22 @@ export function useSetDecision() {
               : item,
           ),
       )
+      queryClient.setQueriesData<VaultSnapshot>({ queryKey: [getServerUrl(), "vault"] }, (vault) =>
+        vault
+          ? new VaultSnapshot({
+              ...vault,
+              items: vault.items.map((item) =>
+                item.itemInstanceId === input.id
+                  ? new ItemSummary({ ...item, decision: input.decision })
+                  : item,
+              ),
+            })
+          : vault,
+      )
     },
     onSettled: () =>
       Promise.all(
-        ["recent", "vault", "briefing"].map((key) =>
+        ["recent", "vault", "briefing", "item"].map((key) =>
           queryClient.invalidateQueries({ queryKey: [getServerUrl(), key] }),
         ),
       ),
@@ -179,17 +251,21 @@ export function useCreateJob() {
   return useMutation({
     mutationFn: (input: CreateJob) => run((api) => api.jobs.create({ payload: input })),
     onSuccess: (job) => {
-      queryClient.setQueryData<readonly Job[]>(queryKeys.jobs(getServerUrl()), (jobs) => [
+      const url = getServerUrl()
+      queryClient.setQueryData<readonly Job[]>(queryKeys.jobs(url, job.sessionId), (jobs) => [
         job,
         ...(jobs ?? []),
       ])
-      return queryClient.invalidateQueries({ queryKey: queryKeys.jobs(getServerUrl()) })
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: [url, "jobs"] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.sessions(url) }),
+      ])
     },
   })
 }
 
 const replaceJob = (queryClient: QueryClient, job: Job) =>
-  queryClient.setQueryData<readonly Job[]>(queryKeys.jobs(getServerUrl()), (jobs) =>
+  queryClient.setQueriesData<readonly Job[]>({ queryKey: [getServerUrl(), "jobs"] }, (jobs) =>
     jobs?.map((each) => (each.id === job.id ? job : each)),
   )
 
@@ -215,6 +291,42 @@ export function useUndoPlan() {
       replaceJob(queryClient, job)
       return invalidateInventory(queryClient)
     },
+  })
+}
+
+export function useItemAction() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { id: string } & ItemAction) =>
+      run((api) =>
+        api.items.act({
+          params: { id: input.id },
+          payload: { action: input.action, characterId: input.characterId ?? null },
+        }),
+      ),
+    onSuccess: () =>
+      Promise.all([
+        invalidateInventory(queryClient),
+        queryClient.invalidateQueries({ queryKey: [getServerUrl(), "item"] }),
+      ]),
+  })
+}
+
+export function useAgentSettings() {
+  const url = useServerUrl()
+  return useQuery({
+    queryKey: queryKeys.agent(url),
+    queryFn: () => run((api) => api.agent.settings()),
+    staleTime: 60_000,
+    retry: false,
+  })
+}
+
+export function useSetAgentEffort() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (effort: AgentEffort) => run((api) => api.agent.configure({ payload: { effort } })),
+    onSuccess: (settings) => queryClient.setQueryData(queryKeys.agent(getServerUrl()), settings),
   })
 }
 

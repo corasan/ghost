@@ -7,7 +7,6 @@ import {
 } from "@ghost/contract"
 import { Context, DateTime, Effect, Layer, Option } from "effect"
 import type { BungieError } from "../bungie/client.ts"
-import { POSTMASTER_CAPACITY, VAULT_CAPACITY } from "../bungie/guardian.ts"
 import { type Inventory, isUpgrade, type OwnedItem, pickCharacter } from "../bungie/inventory.ts"
 import { Manifest } from "../bungie/manifest.ts"
 import { ProfileStore } from "../bungie/profile.ts"
@@ -140,14 +139,15 @@ export const ActivityLive = Layer.effect(
         })
         const recentRows = yield* items.recent.pipe(Effect.orDie)
         const actionsToday = yield* actions.countOkSince(startOfLocalDay(nowMs)).pipe(Effect.orDie)
+        const capacities = yield* manifest.capacities
         return new Briefing({
           since,
           newCount: fresh.length,
           upgrades,
           postmasterCount: character?.postmasterCount ?? 0,
-          postmasterCapacity: POSTMASTER_CAPACITY,
+          postmasterCapacity: capacities.postmaster,
           vaultCount: inv.vaultCount,
-          vaultCapacity: VAULT_CAPACITY,
+          vaultCapacity: capacities.vault,
           recentCount: recentRows.length,
           undecidedCount: recentRows.filter((r) => r.decision === null).length,
           actionsToday,
