@@ -60,7 +60,7 @@ export function Composer({
     <View
       style={{
         flexDirection: "row",
-        alignItems: "flex-end",
+        alignItems: "flex-start",
         gap: 8,
         paddingTop: 12,
         paddingHorizontal: 16,
