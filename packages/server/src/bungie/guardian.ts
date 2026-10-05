@@ -41,8 +41,6 @@ export const GuardianLive = Layer.effect(
     const chargeEffects = yield* ChargeEffects
     const settings = yield* Settings
     const writer = yield* SituationalWriter
-    // Research takes longer than a request may stay open, so it runs on its
-    // own and the app asks again; this keeps one run per set of mods.
     const writing = new Set<string>()
 
     const snapshot = Effect.gen(function* () {

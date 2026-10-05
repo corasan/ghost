@@ -49,8 +49,6 @@ Return only a JSON object: {"effects":[{"mod":"...","effect":"...","source":{"la
 - effects lists only the mods whose known value was null, with the mod name exactly as given. effect is one line in numbers, for example "+10% Arc weapon damage; 17% with two copies, 22% with three".
 - If you cannot find numbers for a mod, leave it out of effects rather than guess.`
 
-// Runs once per set of equipped mods, not per screen view: the caller keeps
-// the summary and the numbers, so this only fires when the gear changes.
 export const SituationalWriterLive = Layer.effect(
   SituationalWriter,
   Effect.gen(function* () {

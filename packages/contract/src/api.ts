@@ -122,8 +122,6 @@ export const guardianGroup = HttpApiGroup.make("guardian")
       error: bungieErrors,
     }),
   )
-  // The first ask for a set of mods starts Ghost researching and answers
-  // pending; the numbers and summary are kept for that set once written.
   .add(
     HttpApiEndpoint.get("situational", "/guardian/situational", {
       query: { characterId: Schema.String },

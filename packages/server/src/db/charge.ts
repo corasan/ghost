@@ -12,9 +12,6 @@ export interface ChargeEffectsShape {
   ) => Effect.Effect<void, SqlError.SqlError>
 }
 
-// Bungie's text for an armor charge mod says "a small bonus"; the numbers come
-// from Ghost's research and are kept per mod so every screen showing that mod
-// can say how much, without looking it up again.
 export class ChargeEffects extends Context.Service<ChargeEffects, ChargeEffectsShape>()(
   "ChargeEffects",
 ) {}
