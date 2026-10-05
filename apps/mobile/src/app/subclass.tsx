@@ -4,6 +4,7 @@ import { router } from "expo-router"
 import { ScrollView, StyleSheet, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
+import { PlugIcon } from "@/components/ghost/plug-icon"
 import { SubclassMark } from "@/components/ghost/subclass-mark"
 import { Body, Button, Cond, Cut, Mono } from "@/components/ghost/ui"
 import { ELEMENT_TONE, Ghost, Gutter, Type } from "@/constants/theme"
@@ -51,6 +52,7 @@ function Aspect({ aspect, tone }: { aspect: LoadoutPlug; tone: string }) {
   const effect = firstParagraph(aspect.description)
   return (
     <View style={[styles.entry, { paddingVertical: 11 }]}>
+      <PlugIcon icon={aspect.icon} size={40} />
       <View style={{ flex: 1, minWidth: 0 }}>
         <Cond size={19} style={{ letterSpacing: 0.8, lineHeight: 20 }}>
           {upper(aspect.name)}
@@ -74,6 +76,7 @@ function Fragment({ fragment }: { fragment: LoadoutPlug }) {
   const effect = firstParagraph(fragment.description)
   return (
     <View style={styles.entry}>
+      <PlugIcon icon={fragment.icon} size={32} />
       <View style={{ flex: 1, minWidth: 0 }}>
         <Body size={15} style={{ fontFamily: Type.bodyMedium, lineHeight: 18 }}>
           {fragment.name}

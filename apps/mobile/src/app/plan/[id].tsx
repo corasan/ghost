@@ -10,8 +10,10 @@ import { BuildStats } from "@/components/chat/build-stats"
 import { RowRight } from "@/components/chat/plan-block"
 import { ChargeNote, ChargeTag, Situational } from "@/components/ghost/charge"
 import { ItemIcon } from "@/components/ghost/item-icon"
-import { Body, Button, Chevron, Diamond, Mono } from "@/components/ghost/ui"
-import { ELEMENT_TONE, Ghost, Gutter, Type } from "@/constants/theme"
+import { PlugIcon } from "@/components/ghost/plug-icon"
+import { SubclassBanner } from "@/components/ghost/subclass-banner"
+import { Body, Button, Chevron, Mono } from "@/components/ghost/ui"
+import { Ghost, Gutter, Type } from "@/constants/theme"
 import { errorMessage, useApplyPlan, useJob } from "@/lib/api"
 import { chargedMods } from "@/lib/charge"
 import { firstSentence } from "@/lib/effect-text"
@@ -21,47 +23,58 @@ import { usePlanSelection } from "@/lib/selection"
 function Described({ plug, kind }: { plug: LoadoutPlug; kind?: string }) {
   const description = firstSentence(plug.description)
   return (
-    <View style={styles.entry}>
-      <Body size={14} style={{ fontFamily: Type.bodyMedium, lineHeight: 18 }}>
-        {plug.name}
-      </Body>
-      {kind || description ? (
-        <Body size={11} color={Ghost.dim} style={{ lineHeight: 15, marginTop: 1 }} lines={2}>
-          {[kind, description].filter(Boolean).join(" · ")}
+    <View style={[styles.entry, styles.plug]}>
+      <PlugIcon icon={plug.icon} size={28} />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Body size={14} style={{ fontFamily: Type.bodyMedium, lineHeight: 18 }}>
+          {plug.name}
         </Body>
-      ) : null}
+        {kind || description ? (
+          <Body size={11} color={Ghost.dim} style={{ lineHeight: 15, marginTop: 1 }} lines={2}>
+            {[kind, description].filter(Boolean).join(" · ")}
+          </Body>
+        ) : null}
+      </View>
     </View>
   )
 }
 
 function Loadout({ loadout }: { loadout: SubclassLoadout }) {
-  const tone = ELEMENT_TONE[loadout.element]
-  if (!loadout.super && loadout.aspects.length === 0 && loadout.fragments.length === 0) return null
+  const [open, setOpen] = useState(false)
   return (
-    <View style={styles.section}>
-      <Mono style={styles.label}>LOADOUT</Mono>
-      {loadout.super ? <Described plug={loadout.super} kind="Super" /> : null}
-      {loadout.aspects.map((aspect) => (
-        <Described key={aspect.name} plug={aspect} />
-      ))}
-      {loadout.fragments.map((fragment) => (
-        <View key={fragment.name} style={[styles.entry, styles.fragment]}>
-          <Diamond size={6} color={tone} />
-          <Body size={13} color={Ghost.soft} style={{ flex: 1, lineHeight: 17 }}>
-            {fragment.name}
-          </Body>
-          {fragment.mods.length === 0 ? (
-            <Mono size={10}>—</Mono>
-          ) : (
-            fragment.mods.map((mod) => (
-              <Mono key={mod.label} size={10} color={mod.delta > 0 ? Ghost.good : Ghost.danger}>
-                {signed(mod.delta)} {mod.label}
-              </Mono>
-            ))
-          )}
+    <SubclassBanner
+      loadout={loadout}
+      chevron={open ? "up" : "down"}
+      hint="Shows the super, aspects and fragments"
+      expanded={open}
+      onPress={() => setOpen((was) => !was)}
+    >
+      {open ? (
+        <View style={styles.loadoutBody}>
+          {loadout.super ? <Described plug={loadout.super} kind="Super" /> : null}
+          {loadout.aspects.map((aspect) => (
+            <Described key={aspect.name} plug={aspect} />
+          ))}
+          {loadout.fragments.map((fragment) => (
+            <View key={fragment.name} style={[styles.entry, styles.plug]}>
+              <PlugIcon icon={fragment.icon} size={22} />
+              <Body size={13} color={Ghost.soft} style={{ flex: 1, lineHeight: 17 }}>
+                {fragment.name}
+              </Body>
+              {fragment.mods.length === 0 ? (
+                <Mono size={10}>—</Mono>
+              ) : (
+                fragment.mods.map((mod) => (
+                  <Mono key={mod.label} size={10} color={mod.delta > 0 ? Ghost.good : Ghost.danger}>
+                    {signed(mod.delta)} {mod.label}
+                  </Mono>
+                ))
+              )}
+            </View>
+          ))}
         </View>
-      ))}
-    </View>
+      ) : null}
+    </SubclassBanner>
   )
 }
 
@@ -294,15 +307,14 @@ export default function PlanDetailsScreen() {
             .join(" · ")
             .toUpperCase()}
         />
-        {loadout ? <Loadout loadout={loadout} /> : null}
+        {loadout ? (
+          <View style={styles.section}>
+            <Loadout loadout={loadout} />
+          </View>
+        ) : null}
         <View style={styles.section}>
           <BuildStats stats={plan.stats} />
         </View>
-        {plan.situational || charged.length > 0 ? (
-          <View style={styles.section}>
-            <Situational summary={plan.situational} mods={charged} />
-          </View>
-        ) : null}
         <View style={styles.section}>
           <View style={[styles.label, { flexDirection: "row", justifyContent: "space-between" }]}>
             <Mono>PIECES</Mono>
@@ -330,6 +342,11 @@ export default function PlanDetailsScreen() {
             {plan.note}
           </Body>
         ) : null}
+        {plan.situational || charged.length > 0 ? (
+          <View style={[styles.section, { marginTop: 24 }]}>
+            <Situational summary={plan.situational} mods={charged} />
+          </View>
+        ) : null}
       </ScrollView>
       <Confirm job={job.data} plan={plan} inset={insets.bottom} />
     </View>
@@ -341,7 +358,8 @@ const styles = StyleSheet.create({
   section: { marginTop: 18 },
   label: { paddingBottom: 6 },
   entry: { paddingVertical: 6, borderTopWidth: 1, borderTopColor: Ghost.rule },
-  fragment: { flexDirection: "row", alignItems: "center", gap: 10 },
+  plug: { flexDirection: "row", alignItems: "center", gap: 10 },
+  loadoutBody: { paddingHorizontal: 14, paddingBottom: 8 },
   piece: { borderTopWidth: 1, borderTopColor: Ghost.rule },
   pieceHead: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 },
   pieceBody: { paddingLeft: 60, paddingTop: 2, paddingBottom: 12, gap: 10 },

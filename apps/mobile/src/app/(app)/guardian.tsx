@@ -1,16 +1,16 @@
 import type { CharacterStats, GuardianCharacter, ItemSummary } from "@ghost/contract"
 import { LegendList } from "@legendapp/list/react-native"
 import { router } from "expo-router"
-import { Pressable, View } from "react-native"
+import { View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { ChatHeader } from "@/components/chat/header"
 import { Situational } from "@/components/ghost/charge"
-import { SubclassMark } from "@/components/ghost/subclass-mark"
+import { SubclassBanner } from "@/components/ghost/subclass-banner"
 import { Unavailable } from "@/components/ghost/unavailable"
 import { ItemIcon } from "@/components/ghost/item-icon"
-import { Body, Chevron, Cond, Cut, Mono, Nudge, TierStats } from "@/components/ghost/ui"
-import { ELEMENT_TONE, Ghost, Gutter, Rarity, Type } from "@/constants/theme"
+import { Body, Cond, Mono, Nudge, TierStats } from "@/components/ghost/ui"
+import { Ghost, Gutter, Rarity, Type } from "@/constants/theme"
 import { useGuardian, useSituational } from "@/lib/api"
 import { chargedMods } from "@/lib/charge"
 import { useCharacter } from "@/lib/character"
@@ -94,57 +94,15 @@ function ItemRow({ item, kind }: { item: ItemSummary; kind: "weapon" | "armor" }
 function SubclassRow({ character, inset }: { character: GuardianCharacter; inset: number }) {
   const { loadout } = character
   if (!loadout) return null
-  const tone = ELEMENT_TONE[loadout.element]
-  const fragments = loadout.fragments.length
-  const summary = [
-    ...loadout.aspects.map((aspect) => aspect.name),
-    fragments > 0 ? `${fragments} ${fragments === 1 ? "fragment" : "fragments"}` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ")
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityHint="Opens the subclass"
-      onPress={() => router.push("/subclass")}
-      style={({ pressed }) => [
-        { marginHorizontal: Gutter, marginBottom: inset + 12, marginTop: 8 },
-        pressed && { opacity: 0.7 },
-      ]}
-    >
-      <Cut
-        cut={8}
-        fill={`${tone}1a`}
-        border={`${tone}4d`}
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 12,
-          paddingVertical: 13,
-          paddingHorizontal: 14,
-        }}
-      >
-        <SubclassMark loadout={loadout} size={30} />
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8 }}>
-            <Cond size={20} style={{ letterSpacing: 0.8, lineHeight: 21 }}>
-              {upper(loadout.subclass ?? "Subclass")}
-            </Cond>
-            {loadout.element !== "none" ? (
-              <Mono size={10} color={tone}>
-                {upper(loadout.element)}
-              </Mono>
-            ) : null}
-          </View>
-          {summary ? (
-            <Body size={12} color={Ghost.muted} style={{ lineHeight: 16, marginTop: 4 }} lines={1}>
-              {summary}
-            </Body>
-          ) : null}
-        </View>
-        <Chevron color={tone} />
-      </Cut>
-    </Pressable>
+    <View style={{ marginHorizontal: Gutter, marginBottom: inset + 12, marginTop: 8 }}>
+      <SubclassBanner
+        loadout={loadout}
+        chevron="right"
+        hint="Opens the subclass"
+        onPress={() => router.push("/subclass")}
+      />
+    </View>
   )
 }
 

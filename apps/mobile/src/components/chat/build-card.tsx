@@ -3,6 +3,7 @@ import { router } from "expo-router"
 import { Pressable, StyleSheet, Text, View } from "react-native"
 
 import { ItemIcon } from "@/components/ghost/item-icon"
+import { PlugIcon } from "@/components/ghost/plug-icon"
 import { SubclassMark } from "@/components/ghost/subclass-mark"
 import { Body, Button, Cond, Cut, Mono } from "@/components/ghost/ui"
 import { Ghost, Type } from "@/constants/theme"
@@ -58,38 +59,50 @@ export function BuildHeader({
   )
 }
 
-function Dotted({ names }: { names: readonly string[] }) {
+function Plugs({ plugs }: { plugs: readonly { name: string; icon: string | null }[] }) {
   return (
-    <Body size={14} color={Ghost.soft} style={{ flex: 1, lineHeight: 19 }}>
-      {names.map((name, i) => (
-        <Text key={name}>
-          {i > 0 ? <Text style={{ color: Ghost.dim }}> · </Text> : null}
-          {name}
-        </Text>
+    <View style={styles.plugs}>
+      {plugs.map((plug) => (
+        <View key={plug.name} style={styles.plug}>
+          <PlugIcon icon={plug.icon} size={16} />
+          <Body size={13} color={Ghost.soft} style={{ lineHeight: 17 }}>
+            {plug.name}
+          </Body>
+        </View>
       ))}
-    </Body>
+    </View>
   )
 }
 
 function Loadout({ loadout }: { loadout: SubclassLoadout }) {
   const lines = [
-    { label: "SUPER", names: loadout.super ? [loadout.super.name] : [] },
-    { label: "ASPECTS", names: loadout.aspects.map((aspect) => aspect.name) },
-    { label: "FRAGMENTS", names: loadout.fragments.map((each) => shortPlugName(each.name)) },
-  ].filter((line) => line.names.length > 0)
-  if (lines.length === 0) return null
+    {
+      label: "ASPECTS",
+      plugs: loadout.aspects.map((aspect) => ({ name: aspect.name, icon: aspect.icon ?? null })),
+    },
+    {
+      label: "FRAGMENTS",
+      plugs: loadout.fragments.map((each) => ({
+        name: shortPlugName(each.name),
+        icon: each.icon ?? null,
+      })),
+    },
+  ].filter((line) => line.plugs.length > 0)
+  if (!loadout.super && lines.length === 0) return null
   return (
     <View style={{ marginTop: 14, gap: 7 }}>
+      {loadout.super ? (
+        <View style={styles.loadoutLine}>
+          <Mono style={styles.loadoutLabel}>SUPER</Mono>
+          <Body size={14} style={{ flex: 1, fontFamily: Type.bodyMedium, lineHeight: 19 }}>
+            {loadout.super.name}
+          </Body>
+        </View>
+      ) : null}
       {lines.map((line) => (
         <View key={line.label} style={styles.loadoutLine}>
-          <Mono style={{ width: 72 }}>{line.label}</Mono>
-          {line.label === "SUPER" ? (
-            <Body size={14} style={{ flex: 1, fontFamily: Type.bodyMedium, lineHeight: 19 }}>
-              {line.names[0]}
-            </Body>
-          ) : (
-            <Dotted names={line.names} />
-          )}
+          <Mono style={[styles.loadoutLabel, { marginTop: 4 }]}>{line.label}</Mono>
+          <Plugs plugs={line.plugs} />
         </View>
       ))}
     </View>
@@ -350,7 +363,10 @@ export function BuildCard({ job, plan }: { job: Job; plan: Plan }) {
 const styles = StyleSheet.create({
   card: { marginLeft: 14, padding: 16, paddingTop: 14 },
   header: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
-  loadoutLine: { flexDirection: "row", alignItems: "baseline", gap: 10 },
+  loadoutLine: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  loadoutLabel: { width: 72, marginTop: 5 },
+  plugs: { flex: 1, flexDirection: "row", flexWrap: "wrap", columnGap: 12, rowGap: 6 },
+  plug: { flexDirection: "row", alignItems: "center", gap: 6 },
   band: { marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: Ghost.rule },
   verdict: { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 12 },
   action: { flexDirection: "row", marginTop: 12 },
