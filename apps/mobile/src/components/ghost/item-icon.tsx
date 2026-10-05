@@ -8,12 +8,14 @@ import { useGuardian } from "@/lib/api"
 
 const MARK_SURFACE = "rgba(10,11,13,0.88)"
 const ELEMENT_HALO = "rgba(10,11,13,0.8)"
+const MAX_TIER = 5
 const TIER_TONE: Record<number, string> = { 5: Ghost.gold, 4: "#a365d6" }
 
 /** Sizes of the marks for an icon drawn at `size` points; they scale with it. */
 const marks = (size: number, hasPower: boolean) => {
   const inset = size >= 70 ? 6 : 4
   const bar = hasPower ? Math.round(Math.max(13, size * 0.27)) : 0
+  const pipGap = size < 50 ? 1 : 2
   return {
     inset,
     glyph: Math.max(12, Math.round(size * 0.26)),
@@ -21,8 +23,12 @@ const marks = (size: number, hasPower: boolean) => {
     barText: Math.round(bar * 0.74),
     barGlyph: Math.round(bar * 0.62),
     barGap: Math.max(2, Math.round(bar * 0.2)),
-    pip: Math.min(14, Math.max(4, Math.floor(size * 0.105))),
-    pipGap: size < 50 ? 1 : 2,
+    pip: Math.min(
+      14,
+      Math.max(4, Math.floor(size * 0.105)),
+      Math.floor((size - bar - 2 * inset - (MAX_TIER - 1) * pipGap) / MAX_TIER),
+    ),
+    pipGap,
     frame: size >= 70 ? 2 : 1.5,
     scrim: Math.round(size * 0.3),
   }
@@ -72,7 +78,7 @@ export function ItemIcon({
   const elementIcon = useGuardian().data?.elementIcons?.[element]
   const hasPower = power !== undefined && power !== null
   const m = marks(size, hasPower)
-  const tier = Math.max(0, Math.min(5, gearTier ?? 0))
+  const tier = Math.max(0, Math.min(MAX_TIER, gearTier ?? 0))
   return (
     <View
       style={{
