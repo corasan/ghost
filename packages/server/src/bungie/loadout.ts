@@ -21,7 +21,7 @@ export const plugStatMods = (known: PlugFacts | undefined, classType: GuardianCl
   if (known === undefined) return {}
   const own = STAT[CLASS_STAT[classType]]
   const conditional = known.classMods[own]
-  return { ...(conditional === undefined ? {} : { [own]: conditional }), ...known.mods }
+  return conditional === undefined ? known.mods : { [own]: conditional, ...known.mods }
 }
 
 /**
@@ -70,7 +70,7 @@ export const describeLoadout = ({
   readonly plugs: ReadonlyMap<number, PlugFacts>
   readonly facts: StatFacts
   readonly swapped?: ReadonlyMap<number, string | null>
-  readonly change?: SubclassChange
+  readonly change?: SubclassChange | undefined
 }): SubclassLoadout => {
   const plug = (from: SubclassPlug) => {
     const known = plugs.get(from.hash)
@@ -86,10 +86,10 @@ export const describeLoadout = ({
           ? []
           : [new StatMod({ label: statLabel(key, label, facts), delta })]
       }),
-      ...(known !== undefined && known.fragmentSlots > 0
-        ? { fragmentSlots: known.fragmentSlots }
-        : {}),
-      ...(replaces === undefined ? {} : { swap: true, replaces }),
+      fragmentSlots:
+        known !== undefined && known.fragmentSlots > 0 ? known.fragmentSlots : undefined,
+      swap: replaces === undefined ? undefined : true,
+      replaces,
     })
   }
   const { loadout } = character
@@ -101,11 +101,11 @@ export const describeLoadout = ({
     super: loadout.super === null ? null : plug(loadout.super),
     abilities: loadout.abilities.map(
       ({ kind, name, icon, hash }) =>
-        new LoadoutAbility({ kind, name, icon, ...(swapped.has(hash) ? { swap: true } : {}) }),
+        new LoadoutAbility({ kind, name, icon, swap: swapped.has(hash) ? true : undefined }),
     ),
     aspects: loadout.aspects.map(plug),
     fragments: loadout.fragments.map(plug),
-    ...(change === undefined ? {} : { change }),
+    change,
   })
 }
 

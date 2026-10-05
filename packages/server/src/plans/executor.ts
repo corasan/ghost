@@ -436,7 +436,7 @@ export const PlansLive = Layer.effect(
             new Plan({
               ...plan,
               rows,
-              ...(loadout === undefined ? {} : { loadout }),
+              loadout,
               status: "applied",
             }),
           )

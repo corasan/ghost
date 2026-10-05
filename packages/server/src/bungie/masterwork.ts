@@ -53,7 +53,7 @@ export const armorStats = (
         label,
         value: stats[key],
         target: false,
-        ...(preview !== null && preview[key] !== stats[key] ? { masterworked: preview[key] } : {}),
+        masterworked: preview !== null && preview[key] !== stats[key] ? preview[key] : undefined,
       }),
   )
 }
@@ -139,8 +139,8 @@ export const buildStats = ({
       label: statLabel(key, label, facts),
       value,
       target: wanted.has(key),
-      ...(gain(key) > 0 ? { masterworked: value + gain(key) } : {}),
-      ...(fact !== undefined && fact.effect !== "" ? { effect: fact.effect } : {}),
+      masterworked: gain(key) > 0 ? value + gain(key) : undefined,
+      effect: fact !== undefined && fact.effect !== "" ? fact.effect : undefined,
     })
   })
 }

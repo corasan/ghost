@@ -864,7 +864,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
             swapped: new Map(
               planned.swaps.map((swap) => [swap.plug.hash, swap.previous?.name ?? null]),
             ),
-            ...(change === undefined ? {} : { change }),
+            change,
           }),
           statChange: loadoutStatChange({
             from: worn,
@@ -1029,18 +1029,18 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
                     : (r.selected ?? true),
                 outcome: null,
                 error: null,
-                ...(item.armorStats === null ? {} : { stats: armorStats(item) }),
+                stats: item.armorStats === null ? undefined : armorStats(item),
                 slot: item.slot,
                 masterwork: item.masterwork,
                 damageType: item.damageType,
                 gearTier: item.gearTier ?? null,
-                ...(mods === undefined
-                  ? {}
-                  : { armorMods: mods.armorMods, freeModSlots: mods.freeModSlots }),
-                ...(item.energy === null || mods === undefined
-                  ? {}
-                  : { energy: { used: mods.energyUsed, capacity: item.energy.capacity } }),
-                ...(origin === undefined ? {} : { origin }),
+                armorMods: mods?.armorMods,
+                freeModSlots: mods?.freeModSlots,
+                energy:
+                  item.energy === null || mods === undefined
+                    ? undefined
+                    : { used: mods.energyUsed, capacity: item.energy.capacity },
+                origin,
               })
             })
             const effects = yield* chargeEffects
@@ -1120,10 +1120,10 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
                       perks: input.featured.perks.map((p) => new PlanPerk(p)),
                       stats: input.featured.stats.map((s) => new PlanStat({ ...s, target: false })),
                     }),
-              ...(loadout === undefined ? {} : { loadout }),
+              loadout,
               rows,
               note,
-              ...(input.situational === undefined ? {} : { situational: input.situational }),
+              situational: input.situational,
               confirmLabel: input.confirmLabel,
               status: "proposed",
             })

@@ -1,4 +1,4 @@
-import { query } from "@anthropic-ai/claude-agent-sdk"
+import { query, type Options } from "@anthropic-ai/claude-agent-sdk"
 import type { AgentEffort, JobKind, JobStep } from "@ghost/contract"
 import { Context, Effect, Layer, Schema } from "effect"
 import { AppConfig } from "../config.ts"
@@ -107,23 +107,21 @@ export const ClaudeAgentLive = Layer.effect(
           const fullPrompt = [KIND_PROMPTS[kind], selected, prompt]
             .filter((part) => part !== "")
             .join("\n\n")
+          const options: Options = {
+            model: config.model,
+            effort,
+            systemPrompt: SYSTEM_PROMPT,
+            mcpServers: { ghost: { type: "http", url: mcpUrl } },
+            tools: ["WebSearch", "WebFetch"],
+            allowedTools: ["mcp__ghost__*", "WebSearch", "WebFetch"],
+            permissionMode: "bypassPermissions",
+            allowDangerouslySkipPermissions: true,
+            maxTurns: 40,
+          }
+          if (resume !== null) options.resume = resume
           let lastText = ""
           let conversation: string | null = null
-          for await (const message of query({
-            prompt: fullPrompt,
-            options: {
-              model: config.model,
-              effort,
-              systemPrompt: SYSTEM_PROMPT,
-              mcpServers: { ghost: { type: "http", url: mcpUrl } },
-              tools: ["WebSearch", "WebFetch"],
-              allowedTools: ["mcp__ghost__*", "WebSearch", "WebFetch"],
-              permissionMode: "bypassPermissions",
-              allowDangerouslySkipPermissions: true,
-              maxTurns: 40,
-              ...(resume === null ? {} : { resume }),
-            },
-          })) {
+          for await (const message of query({ prompt: fullPrompt, options })) {
             if (message.type === "assistant") {
               conversation = message.session_id
               for (const block of message.message.content) {

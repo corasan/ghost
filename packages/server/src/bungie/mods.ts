@@ -167,7 +167,7 @@ export const describeArmorMods = ({
           description: entry.description,
           cost: entry.energyCost,
           mods: statMods(entry.mods, facts),
-          ...(entry.charged ? { charged: true } : {}),
+          charged: entry.charged ? true : undefined,
           swap: true,
           replaces: socket.mod?.name ?? null,
           socketIndex: socket.index,
@@ -185,7 +185,7 @@ export const describeArmorMods = ({
             description: socket.mod.description,
             cost: socket.mod.cost,
             mods: statMods(socket.mod.mods, facts),
-            ...(socket.mod.charged ? { charged: true } : {}),
+            charged: socket.mod.charged ? true : undefined,
           }),
         ]
   })
