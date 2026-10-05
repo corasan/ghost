@@ -201,17 +201,19 @@ export class Job extends Schema.Class<Job>("Job")({
   updatedAt: Schema.String,
 }) {}
 
-export class CreateJob extends Schema.Class<CreateJob>("CreateJob")({
+export const CreateJob = Schema.Struct({
   kind: JobKind,
   prompt: Schema.String,
   /** The character selected in the app, so "equip this" has a target. */
   characterId: Schema.optional(Schema.NullOr(Schema.String)),
-}) {}
+})
+export type CreateJob = typeof CreateJob.Type
 
-export class ApplyPlan extends Schema.Class<ApplyPlan>("ApplyPlan")({
+export const ApplyPlan = Schema.Struct({
   /** Instance ids of the rows the player left ticked. */
   selected: Schema.Array(Schema.String),
-}) {}
+})
+export type ApplyPlan = typeof ApplyPlan.Type
 
 export class JobNotFound extends Schema.TaggedError<JobNotFound>()("JobNotFound", {
   id: Schema.String,
@@ -245,9 +247,10 @@ export class RecentItem extends Schema.Class<RecentItem>("RecentItem")({
   lastSeenAt: Schema.String,
 }) {}
 
-export class SetDecision extends Schema.Class<SetDecision>("SetDecision")({
+export const SetDecision = Schema.Struct({
   decision: Schema.NullOr(ItemDecision),
-}) {}
+})
+export type SetDecision = typeof SetDecision.Type
 
 // ---- Health and Bungie auth ----
 
