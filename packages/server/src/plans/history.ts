@@ -11,7 +11,8 @@ const CALL_NAMES: Record<Exclude<ActionKind, "held">, string> = {
   pull_postmaster: "pullFromPostmaster",
   equip: "equipItem",
   tag_junk: "tagJunk",
-  insert_mod: "insertSocketPlugFree",
+  insert_mod: "insertSocketPlugFree → mod",
+  insert_subclass_plug: "insertSocketPlugFree → subclass",
 }
 
 type Grouped = Pick<ActionRecord, "kind" | "status" | "name" | "characterId">

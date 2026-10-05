@@ -313,7 +313,7 @@ export const PlansLive = Layer.effect(
             for (const swap of change.swaps) {
               yield* call(
                 subclass,
-                "insert_mod",
+                "insert_subclass_plug",
                 {
                   ...fields,
                   socketIndex: swap.socketIndex,
@@ -482,7 +482,7 @@ export const PlansLive = Layer.effect(
                       characterId: action.characterId,
                       membershipType,
                     })
-                  : action.kind === "insert_mod" &&
+                  : (action.kind === "insert_mod" || action.kind === "insert_subclass_plug") &&
                       action.characterId !== null &&
                       typeof action.socketIndex === "number" &&
                       typeof action.previousPlugHash === "number"
