@@ -122,8 +122,8 @@ export const guardianGroup = HttpApiGroup.make("guardian")
       error: bungieErrors,
     }),
   )
-  // Slow the first time for a set of mods: Ghost looks up what each charge
-  // mod adds and writes the summary, which is then kept for that set.
+  // The first ask for a set of mods starts Ghost researching and answers
+  // pending; the numbers and summary are kept for that set once written.
   .add(
     HttpApiEndpoint.get("situational", "/guardian/situational", {
       query: { characterId: Schema.String },

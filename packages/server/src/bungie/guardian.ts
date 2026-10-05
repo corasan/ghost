@@ -9,7 +9,7 @@ import {
   Source,
   VaultSnapshot,
 } from "@ghost/contract"
-import { Context, Effect, Layer, Option, Semaphore } from "effect"
+import { Context, Effect, Layer, Option } from "effect"
 import { SituationalWriter } from "../agent/situational.ts"
 import { ChargeEffects } from "../db/charge.ts"
 import { Settings } from "../db/settings.ts"
@@ -41,8 +41,9 @@ export const GuardianLive = Layer.effect(
     const chargeEffects = yield* ChargeEffects
     const settings = yield* Settings
     const writer = yield* SituationalWriter
-    // Two screens asking at once would otherwise both send Ghost to research.
-    const writing = yield* Semaphore.make(1)
+    // Research takes longer than a request may stay open, so it runs on its
+    // own and the app asks again; this keeps one run per set of mods.
+    const writing = new Set<string>()
 
     const snapshot = Effect.gen(function* () {
       const inv = yield* profile.inventory
@@ -84,7 +85,8 @@ export const GuardianLive = Layer.effect(
       Effect.gen(function* () {
         const inv = yield* profile.inventory
         const character = inv.characters.find((c) => c.characterId === characterId)
-        if (character === undefined) return new GuardianSituational({ mods: [], summary: null })
+        if (character === undefined)
+          return new GuardianSituational({ mods: [], summary: null, pending: false })
         const armor = inv.items.filter(
           (i) => i.equipped && i.characterId === characterId && isArmor(i.slot),
         )
@@ -101,7 +103,8 @@ export const GuardianLive = Layer.effect(
             facts,
           }).armorMods.filter((mod) => mod.charged),
         )
-        if (charged.length === 0) return new GuardianSituational({ mods: [], summary: null })
+        if (charged.length === 0)
+          return new GuardianSituational({ mods: [], summary: null, pending: false })
         const loadout = describeLoadout({
           character,
           plugs: yield* manifest.plugFacts(loadoutPlugHashes(character)),
@@ -126,14 +129,13 @@ export const GuardianLive = Layer.effect(
           return { effects, summary }
         })
 
-        const known = yield* writing.withPermits(1)(
-          Effect.gen(function* () {
-            const stored = yield* read
-            const missing = [...copies.keys()].filter(
-              (name) => !stored.effects.has(name.toLowerCase()),
-            )
-            if (stored.summary !== null && missing.length === 0) return stored
-            const written = yield* writer.write({
+        const stored = yield* read
+        const missing = [...copies.keys()].filter((name) => !stored.effects.has(name.toLowerCase()))
+        const complete = stored.summary !== null && missing.length === 0
+        if (!complete && !writing.has(key)) {
+          writing.add(key)
+          yield* writer
+            .write({
               subclass: [loadout.subclass, loadout.element].filter(Boolean).join(", "),
               conditions: conditions.map((c) => ({ name: c.name, description: c.description })),
               mods: [...copies].map(([name, count]) => ({
@@ -143,27 +145,32 @@ export const GuardianLive = Layer.effect(
                 known: stored.effects.get(name.toLowerCase())?.effect ?? null,
               })),
             })
-            yield* chargeEffects
-              .record(
-                written.effects
-                  .filter((e) => copies.has(e.mod))
-                  .map((e) => ({
-                    mod: e.mod,
-                    effect: new ChargeEffect({ effect: e.effect, source: new Source(e.source) }),
-                  })),
-              )
-              .pipe(Effect.orDie)
-            yield* settings.set(key, written.summary).pipe(Effect.orDie)
-            return yield* read
-          }).pipe(
-            Effect.catchTag("AgentFailed", (error) =>
-              Effect.logWarning(`situational: ${error.message}`).pipe(Effect.andThen(read)),
-            ),
-          ),
-        )
+            .pipe(
+              Effect.flatMap((written) =>
+                Effect.all([
+                  chargeEffects.record(
+                    written.effects
+                      .filter((e) => copies.has(e.mod))
+                      .map((e) => ({
+                        mod: e.mod,
+                        effect: new ChargeEffect({
+                          effect: e.effect,
+                          source: new Source(e.source),
+                        }),
+                      })),
+                  ),
+                  settings.set(key, written.summary),
+                ]),
+              ),
+              Effect.catchCause((cause) => Effect.logWarning("situational: not written", cause)),
+              Effect.ensuring(Effect.sync(() => writing.delete(key))),
+              Effect.forkDetach,
+            )
+        }
         return new GuardianSituational({
-          mods: withChargeEffects(charged, known.effects),
-          summary: known.summary,
+          mods: withChargeEffects(charged, stored.effects),
+          summary: stored.summary,
+          pending: writing.has(key),
         })
       })
 
