@@ -1,4 +1,11 @@
-import type { GuardianClass, ItemSlot, Plan, PlanLoadout, PlanRow, StatMod } from "@ghost/contract"
+import type {
+  GuardianClass,
+  ItemSlot,
+  Plan,
+  SubclassLoadout,
+  PlanRow,
+  StatMod,
+} from "@ghost/contract"
 
 /** "MOVE 8 TO VAULT" follows the ticks: the first number tracks the selection. */
 export const liveLabel = (label: string, count: number) =>
@@ -16,7 +23,7 @@ export const litTicks = (value: number) =>
   Math.max(0, Math.min(STAT_TICKS, Math.floor(value / POINTS_PER_TICK)))
 
 /** What the slotted fragments add up to per stat, gains first; stats that net to zero are left out. */
-export const fragmentTotals = (loadout: PlanLoadout): StatMod[] => {
+export const fragmentTotals = (loadout: SubclassLoadout): StatMod[] => {
   const totals = new Map<string, number>()
   for (const fragment of loadout.fragments) {
     for (const mod of fragment.mods) totals.set(mod.label, (totals.get(mod.label) ?? 0) + mod.delta)

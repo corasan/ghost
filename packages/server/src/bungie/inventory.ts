@@ -1,4 +1,5 @@
 import {
+  type AbilityKind,
   CharacterStats,
   type DamageType,
   type GuardianClass,
@@ -107,19 +108,28 @@ export interface SubclassPlug {
   readonly hash: number
   readonly name: string
   readonly description: string
+  readonly icon: string | null
 }
 
-export interface SubclassLoadout {
+export interface SlottedPlugs {
   readonly super: SubclassPlug | null
+  readonly abilities: ReadonlyArray<SubclassPlug & { readonly kind: AbilityKind }>
   readonly aspects: ReadonlyArray<SubclassPlug>
   readonly fragments: ReadonlyArray<SubclassPlug>
 }
 
-/** Sorts a subclass's slotted plugs into super, aspects and fragments; empty sockets are dropped. */
-export const subclassLoadout = (
+const ABILITY_TYPES: ReadonlyArray<readonly [AbilityKind, RegExp]> = [
+  ["class", /\bclass ability\b/i],
+  ["jump", /\bmovement\b/i],
+  ["melee", /\bmelee\b/i],
+  ["grenade", /\bgrenade\b/i],
+]
+
+/** Sorts a subclass's slotted plugs into super, abilities, aspects and fragments; empty sockets are dropped. */
+export const slottedPlugs = (
   plugHashes: ReadonlyArray<number>,
   defs: ReadonlyMap<number, ManifestItem>,
-): SubclassLoadout => {
+): SlottedPlugs => {
   const plugs = plugHashes.flatMap((hash) => {
     const def = defs.get(hash)
     return def === undefined || /^empty /i.test(def.name) ? [] : [def]
@@ -127,9 +137,13 @@ export const subclassLoadout = (
   const ofType = (type: RegExp): ReadonlyArray<SubclassPlug> =>
     plugs
       .filter((plug) => type.test(plug.typeName))
-      .map(({ hash, name, description }) => ({ hash, name, description }))
+      .map(({ hash, name, description, icon }) => ({ hash, name, description, icon }))
   return {
     super: ofType(/\bsuper\b/i)[0] ?? null,
+    abilities: ABILITY_TYPES.flatMap(([kind, type]) => {
+      const plug = ofType(type)[0]
+      return plug === undefined ? [] : [{ ...plug, kind }]
+    }),
     aspects: ofType(/\baspect\b/i),
     fragments: ofType(/\bfragment\b/i),
   }
@@ -141,7 +155,7 @@ export interface CharacterInfo {
   readonly light: number
   readonly subclass: string | null
   readonly element: DamageType
-  readonly loadout: SubclassLoadout
+  readonly loadout: SlottedPlugs
   readonly stats: CharacterStats
   /** Everything in the postmaster, stackables included, since all of it counts toward 21. */
   readonly postmasterCount: number
@@ -274,7 +288,7 @@ export const buildInventory = (
       light: c.light,
       subclass: subclass?.name ?? null,
       element: subclassElement ?? "none",
-      loadout: subclassLoadout(
+      loadout: slottedPlugs(
         (sockets[subclassItem?.itemInstanceId ?? ""]?.sockets ?? []).flatMap((socket) =>
           socket.plugHash === undefined ? [] : [socket.plugHash],
         ),

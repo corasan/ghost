@@ -5,7 +5,7 @@ import {
   ItemSummary,
   LoadoutPlug,
   Plan,
-  PlanLoadout,
+  SubclassLoadout,
   PlanRow,
   PlanStat,
   StatMod,
@@ -291,7 +291,7 @@ describe("build card", () => {
   })
 
   test("fragment changes add up per stat, gains first, and cancel out", () => {
-    const loadout = new PlanLoadout({
+    const loadout = new SubclassLoadout({
       classType: "titan",
       subclass: "Sunbreaker",
       element: "solar",

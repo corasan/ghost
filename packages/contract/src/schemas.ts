@@ -161,15 +161,28 @@ export class LoadoutPlug extends Schema.Class<LoadoutPlug>("LoadoutPlug")({
   name: Schema.String,
   /** Effect text from the current patch's manifest. */
   description: Schema.String,
+  icon: Schema.optional(Schema.NullOr(Schema.String)),
   mods: Schema.Array(StatMod),
+  /** How many fragment slots an aspect brings. */
+  fragmentSlots: Schema.optional(Schema.Number),
 }) {}
 
-/** The subclass a build sits on: what the character has slotted when the plan is made. */
-export class PlanLoadout extends Schema.Class<PlanLoadout>("PlanLoadout")({
+export const AbilityKind = Schema.Literals(["class", "jump", "melee", "grenade"])
+export type AbilityKind = typeof AbilityKind.Type
+
+export class LoadoutAbility extends Schema.Class<LoadoutAbility>("LoadoutAbility")({
+  kind: AbilityKind,
+  name: Schema.String,
+  icon: Schema.NullOr(Schema.String),
+}) {}
+
+/** What a character has slotted on its subclass, read from the game. */
+export class SubclassLoadout extends Schema.Class<SubclassLoadout>("SubclassLoadout")({
   classType: GuardianClass,
   subclass: Schema.NullOr(Schema.String),
   element: DamageType,
   super: Schema.NullOr(LoadoutPlug),
+  abilities: Schema.optional(Schema.Array(LoadoutAbility)),
   aspects: Schema.Array(LoadoutPlug),
   fragments: Schema.Array(LoadoutPlug),
 }) {}
@@ -189,7 +202,7 @@ export class Plan extends Schema.Class<Plan>("Plan")({
   stats: Schema.Array(PlanStat),
   featured: Schema.NullOr(PlanFeatured),
   /** Present on builds made since the card started showing the subclass. */
-  loadout: Schema.optional(PlanLoadout),
+  loadout: Schema.optional(SubclassLoadout),
   rows: Schema.Array(PlanRow),
   /** A closing line such as "Mods: 2× Discipline (chest, legs)." */
   note: Schema.NullOr(Schema.String),
@@ -401,6 +414,7 @@ export class GuardianCharacter extends Schema.Class<GuardianCharacter>("Guardian
   /** Name of the equipped subclass, for example "Nightstalker". */
   subclass: Schema.NullOr(Schema.String),
   element: DamageType,
+  loadout: SubclassLoadout,
   stats: CharacterStats,
   equipment: Schema.Array(ItemSummary),
   postmasterCount: Schema.Number,

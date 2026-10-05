@@ -7,6 +7,7 @@ import {
 } from "@ghost/contract"
 import { Context, Effect, Layer } from "effect"
 import type { BungieError } from "./client.ts"
+import { describeLoadout, loadoutPlugHashes } from "./loadout.ts"
 import { Manifest } from "./manifest.ts"
 import { ProfileStore } from "./profile.ts"
 
@@ -29,11 +30,14 @@ export const GuardianLive = Layer.effect(
     const snapshot = Effect.gen(function* () {
       const inv = yield* profile.inventory
       const capacities = yield* manifest.capacities
+      const facts = yield* manifest.statFacts
+      const plugs = yield* manifest.plugFacts(inv.characters.flatMap(loadoutPlugHashes))
       return new GuardianSnapshot({
         characters: inv.characters.map(
           (c) =>
             new GuardianCharacter({
               ...c,
+              loadout: describeLoadout({ character: c, plugs, facts }),
               equipment: inv.items
                 .filter((i) => i.equipped && i.characterId === c.characterId && i.slot !== "other")
                 .map((i) => new ItemSummary(i)),

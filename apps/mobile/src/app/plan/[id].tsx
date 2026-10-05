@@ -1,4 +1,4 @@
-import type { Job, LoadoutPlug, Plan, PlanLoadout, PlanRow } from "@ghost/contract"
+import type { Job, LoadoutPlug, Plan, SubclassLoadout, PlanRow } from "@ghost/contract"
 import { router, useLocalSearchParams } from "expo-router"
 import { Pressable, ScrollView, StyleSheet, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
@@ -36,7 +36,7 @@ function Described({ plug, kind }: { plug: LoadoutPlug; kind?: string }) {
   )
 }
 
-function Loadout({ loadout }: { loadout: PlanLoadout }) {
+function Loadout({ loadout }: { loadout: SubclassLoadout }) {
   const tone = ELEMENT_TONE[loadout.element]
   if (!loadout.super && loadout.aspects.length === 0 && loadout.fragments.length === 0) return null
   return (

@@ -1,4 +1,11 @@
-import type { DamageType, GuardianClass, Job, Plan, PlanLoadout, PlanRow } from "@ghost/contract"
+import type {
+  DamageType,
+  GuardianClass,
+  Job,
+  Plan,
+  SubclassLoadout,
+  PlanRow,
+} from "@ghost/contract"
 import { Image } from "expo-image"
 import { router } from "expo-router"
 import { Pressable, StyleSheet, Text, View } from "react-native"
@@ -84,7 +91,7 @@ function Dotted({ names }: { names: readonly string[] }) {
   )
 }
 
-function Loadout({ loadout }: { loadout: PlanLoadout }) {
+function Loadout({ loadout }: { loadout: SubclassLoadout }) {
   const lines = [
     { label: "SUPER", names: loadout.super ? [loadout.super.name] : [] },
     { label: "ASPECTS", names: loadout.aspects.map((aspect) => aspect.name) },

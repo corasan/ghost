@@ -2,13 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { PlanStat } from "@ghost/contract"
 import { type ArmorStats, STAT } from "./inventory.ts"
 import { statModsFrom } from "./manifest.ts"
-import {
-  armorStats,
-  buildStats,
-  masterworked,
-  planLoadout,
-  withMasterworkTotals,
-} from "./masterwork.ts"
+import { armorStats, buildStats, masterworked, withMasterworkTotals } from "./masterwork.ts"
 
 const stats = (patch: Partial<ArmorStats>): ArmorStats =>
   ({
@@ -237,44 +231,18 @@ describe("buildStats", () => {
   })
 })
 
-describe("planLoadout", () => {
-  const searing = { hash: 1, name: "Ember of Searing", description: "Scorch." }
-  const solace = { hash: 2, name: "Ember of Solace", description: "Longer buffs." }
-  const loadout = planLoadout({
-    character: {
-      classType: "titan",
-      subclass: "Sunbreaker",
-      element: "solar",
-      loadout: { super: null, aspects: [], fragments: [searing, solace] },
-    },
-    mods: new Map([
-      [1, { [STAT.mobility]: 10, [STAT.resilience]: -10 }],
-      [2, {}],
-    ]),
-    facts: { [STAT.mobility]: { name: "Weapons", effect: "" } },
-  })
-
-  test("names each fragment's stat changes the way the build's stats are named", () => {
-    expect(loadout.fragments.map((f) => f.mods.map((m) => [m.label, m.delta]))).toEqual([
-      [
-        ["HEALTH", -10],
-        ["WEAPONS", 10],
-      ],
-      [],
-    ])
-  })
-})
-
 describe("statModsFrom", () => {
-  test("keeps only the armor stats a plug actually moves", () => {
-    expect(
-      statModsFrom({
-        investmentStats: [
-          { statTypeHash: Number(STAT.mobility), value: 10 },
-          { statTypeHash: Number(STAT.strength), value: 0 },
-          { statTypeHash: 123, value: 5 },
-        ],
-      }),
-    ).toEqual({ [STAT.mobility]: 10 })
+  const definition = {
+    investmentStats: [
+      { statTypeHash: Number(STAT.mobility), value: 10 },
+      { statTypeHash: Number(STAT.strength), value: 0 },
+      { statTypeHash: Number(STAT.recovery), value: -10, isConditionallyActive: true },
+      { statTypeHash: 123, value: 5 },
+    ],
+  }
+
+  test("keeps the armor stats a plug moves and sets the class-conditional ones apart", () => {
+    expect(statModsFrom(definition, false)).toEqual({ [STAT.mobility]: 10 })
+    expect(statModsFrom(definition, true)).toEqual({ [STAT.recovery]: -10 })
   })
 })

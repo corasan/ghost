@@ -26,13 +26,8 @@ import {
   type OwnedItem,
 } from "../bungie/inventory.ts"
 import { Manifest } from "../bungie/manifest.ts"
-import {
-  ARMOR_STATS,
-  armorStats,
-  buildStats,
-  planLoadout,
-  withMasterworkTotals,
-} from "../bungie/masterwork.ts"
+import { ARMOR_STATS, armorStats, buildStats, withMasterworkTotals } from "../bungie/masterwork.ts"
+import { describeLoadout, loadoutPlugHashes } from "../bungie/loadout.ts"
 import { ProfileStore } from "../bungie/profile.ts"
 import { CreatorNotes } from "../creators/creators.ts"
 import { NOTE_MAX_AGE_DAYS } from "../creators/parse.ts"
@@ -375,9 +370,9 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
             const facts = yield* manifest.statFacts
             const loadout =
               input.kind === "build" && builtFor !== undefined
-                ? planLoadout({
+                ? describeLoadout({
                     character: builtFor,
-                    mods: yield* manifest.statMods(builtFor.loadout.fragments.map((f) => f.hash)),
+                    plugs: yield* manifest.plugFacts(loadoutPlugHashes(builtFor)),
                     facts,
                   })
                 : undefined

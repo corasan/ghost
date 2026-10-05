@@ -145,12 +145,14 @@ describe("buildInventory", () => {
   test("sorts the subclass's plugs into super, aspects and fragments, without empty sockets", () => {
     const titan = inv.characters[1] as CharacterInfo
     expect(titan.loadout).toEqual({
-      super: { hash: 30, name: "Ward of Dawn", description: "A dome." },
-      aspects: [{ hash: 31, name: "Bastion", description: "" }],
-      fragments: [{ hash: 32, name: "Echo of Persistence", description: "" }],
+      super: { hash: 30, name: "Ward of Dawn", description: "A dome.", icon: null },
+      abilities: [{ hash: 34, name: "Shield Bash", description: "", icon: null, kind: "melee" }],
+      aspects: [{ hash: 31, name: "Bastion", description: "", icon: null }],
+      fragments: [{ hash: 32, name: "Echo of Persistence", description: "", icon: null }],
     })
     expect((inv.characters[0] as CharacterInfo).loadout).toEqual({
       super: null,
+      abilities: [],
       aspects: [],
       fragments: [],
     })

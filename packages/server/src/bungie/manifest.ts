@@ -71,17 +71,33 @@ export const statFactsFrom = (
 /** What a plug adds to or takes from each armor stat, keyed by stat hash. */
 export type StatMods = Readonly<Record<string, number>>
 
-interface PlugDefinition {
+export interface PlugDefinition {
+  readonly displayProperties?: { readonly description?: string }
   readonly investmentStats?: ReadonlyArray<{
     readonly statTypeHash?: number
     readonly value?: number
+    readonly isConditionallyActive?: boolean
   }>
+  readonly plug?: { readonly energyCapacity?: { readonly capacityValue?: number } }
+  readonly perks?: ReadonlyArray<{ readonly perkHash?: number }>
 }
 
-export const statModsFrom = (definition: PlugDefinition): StatMods =>
+/** What the lite definitions leave out about a subclass plug. */
+export interface PlugFacts {
+  readonly mods: StatMods
+  /** Changes Bungie marks conditional: of these, only the one to the wearer's class stat applies. */
+  readonly classMods: StatMods
+  /** Fragment slots an aspect brings; zero for anything else. */
+  readonly fragmentSlots: number
+  readonly description: string
+}
+
+export const statModsFrom = (definition: PlugDefinition, conditional: boolean): StatMods =>
   Object.fromEntries(
     (definition.investmentStats ?? []).flatMap((stat) =>
-      ARMOR_STAT_HASHES.includes(String(stat.statTypeHash)) && stat.value
+      ARMOR_STAT_HASHES.includes(String(stat.statTypeHash)) &&
+      stat.value &&
+      (stat.isConditionallyActive ?? false) === conditional
         ? [[String(stat.statTypeHash), stat.value]]
         : [],
     ),
@@ -90,8 +106,10 @@ export const statModsFrom = (definition: PlugDefinition): StatMods =>
 export interface ManifestShape {
   /** What Bungie calls each armor stat and says it does. Empty until first read. Never fails. */
   readonly statFacts: Effect.Effect<StatFacts>
-  /** The armor stats each plug moves; fragments are the plugs that do. A plug Bungie cannot be asked about is left out. Never fails. */
-  readonly statMods: (hashes: ReadonlyArray<number>) => Effect.Effect<ReadonlyMap<number, StatMods>>
+  /** Stat changes, fragment slots and effect text of subclass plugs. A plug Bungie cannot be asked about is left out. Never fails. */
+  readonly plugFacts: (
+    hashes: ReadonlyArray<number>,
+  ) => Effect.Effect<ReadonlyMap<number, PlugFacts>>
   /** How many slots the vault and postmaster hold in the current patch. Never fails. */
   readonly capacities: Effect.Effect<Capacities>
   /** Make sure the local copy exists and is current. Cheap when nothing changed. */
@@ -303,28 +321,44 @@ export const ManifestLive = Layer.effect(
     // Two lookups racing at startup would otherwise both download the manifest.
     const lock = yield* Semaphore.make(1)
 
-    const mods = new Map<number, StatMods>()
+    const plugs = new Map<number, PlugFacts>()
 
-    const statMods = (hashes: ReadonlyArray<number>) =>
+    const entity = (table: string, hash: number) =>
+      fetchJson(`https://www.bungie.net/Platform/Destiny2/Manifest/${table}/${hash}/`).pipe(
+        Effect.map((json) => (json as { Response?: PlugDefinition }).Response ?? {}),
+      )
+
+    const plugFacts = (hashes: ReadonlyArray<number>) =>
       Effect.forEach(
-        hashes.filter((hash) => !mods.has(hash)),
+        hashes.filter((hash) => !plugs.has(hash)),
         (hash) =>
-          fetchJson(
-            `https://www.bungie.net/Platform/Destiny2/Manifest/DestinyInventoryItemDefinition/${hash}/`,
-          ).pipe(
-            Effect.map((json) => {
-              mods.set(hash, statModsFrom((json as { Response?: PlugDefinition }).Response ?? {}))
-            }),
+          Effect.gen(function* () {
+            const definition = yield* entity("DestinyInventoryItemDefinition", hash)
+            const perk = definition.perks?.[0]?.perkHash
+            const described =
+              definition.displayProperties?.description || perk === undefined
+                ? definition
+                : yield* entity("DestinySandboxPerkDefinition", perk)
+            plugs.set(hash, {
+              mods: statModsFrom(definition, false),
+              classMods: statModsFrom(definition, true),
+              fragmentSlots: definition.plug?.energyCapacity?.capacityValue ?? 0,
+              description: described.displayProperties?.description ?? "",
+            })
+          }).pipe(
             Effect.catch((error) =>
-              Effect.logWarning(`manifest: stat mods for ${hash} failed: ${error.message}`),
+              Effect.logWarning(`manifest: plug ${hash} failed: ${error.message}`),
             ),
           ),
-        { concurrency: 4, discard: true },
+        { concurrency: 6, discard: true },
       ).pipe(
         Effect.map(
-          (): ReadonlyMap<number, StatMods> =>
+          (): ReadonlyMap<number, PlugFacts> =>
             new Map(
-              hashes.flatMap((hash) => (mods.has(hash) ? [[hash, mods.get(hash) ?? {}]] : [])),
+              hashes.flatMap((hash) => {
+                const facts = plugs.get(hash)
+                return facts === undefined ? [] : [[hash, facts]]
+              }),
             ),
         ),
       )
@@ -400,7 +434,7 @@ export const ManifestLive = Layer.effect(
       yield* settings.set(VERSION_KEY, remote.version).pipe(Effect.orDie)
       cache.clear()
       missing.clear()
-      mods.clear()
+      plugs.clear()
       checkedAt = Date.now()
       yield* Effect.logInfo(`manifest: stored ${count} items`)
     }).pipe(lock.withPermits(1))
@@ -462,7 +496,7 @@ export const ManifestLive = Layer.effect(
     return {
       capacities: readCapacities,
       statFacts: readStatFacts,
-      statMods,
+      plugFacts,
       ensure,
       lookup,
       findByName,
