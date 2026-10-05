@@ -5,7 +5,8 @@ import { useMemo, useState } from "react"
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
-import { liveLabel, PlanRowView } from "@/components/chat/plan-block"
+import { PlanRowView } from "@/components/chat/plan-block"
+import { liveLabel } from "@/lib/plan-card"
 import { Unavailable } from "@/components/ghost/unavailable"
 import {
   Body,

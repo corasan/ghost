@@ -3,21 +3,12 @@ import { router } from "expo-router"
 import { useState } from "react"
 import { Alert, Pressable, StyleSheet, View } from "react-native"
 
-import {
-  ArmorStatLine,
-  Body,
-  Button,
-  Cond,
-  Cut,
-  Mono,
-  Swatch,
-  TierStats,
-  Tick,
-} from "@/components/ghost/ui"
+import { Body, Button, Cond, Cut, Mono, Swatch, TierStats, Tick } from "@/components/ghost/ui"
 import { Ghost, Rarity, Type } from "@/constants/theme"
 import { errorMessage, useApplyPlan, useUndoPlan } from "@/lib/api"
+import { liveLabel } from "@/lib/plan-card"
 import { usePlanSelection } from "@/lib/selection"
-import { BuildStrip } from "./build-stats"
+import { BuildCard } from "./build-card"
 
 // A plan is a block in the conversation, not a modal: the resulting stats,
 // one row per change that can be unticked, and one confirm. After it runs,
@@ -26,15 +17,11 @@ import { BuildStrip } from "./build-stats"
 const COLLAPSED_ROWS = 4
 const COLLAPSE_OVER = 6
 
-/** "MOVE 8 TO VAULT" follows the ticks: the first number tracks the selection. */
-export const liveLabel = (label: string, count: number) =>
-  /\d+/.test(label) ? label.replace(/\d+/, String(count)) : label
-
 const openItem = (id: string) => router.push({ pathname: "/item/[id]", params: { id } })
 
 const outcomeTone = { ok: Ghost.good, failed: Ghost.danger, skipped: Ghost.dim } as const
 
-function RowRight({ row, applied }: { row: PlanRow; applied: boolean }) {
+export function RowRight({ row, applied }: { row: PlanRow; applied: boolean }) {
   if (applied && row.outcome) {
     return (
       <Mono color={outcomeTone[row.outcome]}>
@@ -71,7 +58,6 @@ export function PlanRowView({
   applied,
   under = Ghost.panel,
   inset = 14,
-  detailed = false,
 }: {
   row: PlanRow
   ticked: boolean
@@ -79,8 +65,6 @@ export function PlanRowView({
   applied: boolean
   under?: string
   inset?: number
-  /** Also show an armor piece's six stats; the chat card leaves them to the details sheet. */
-  detailed?: boolean
 }) {
   const actionable = row.action !== "none"
   const tickable = actionable && !applied && onToggle !== undefined
@@ -121,7 +105,6 @@ export function PlanRowView({
           </View>
           <RowRight row={row} applied={applied} />
         </View>
-        {detailed && row.stats && row.stats.length > 0 ? <ArmorStatLine stats={row.stats} /> : null}
       </Pressable>
     </View>
   )
@@ -198,16 +181,20 @@ function Featured({ plan, row }: { plan: Plan; row: PlanRow }) {
 
 export function PlanBlock({ job, onAsk }: { job: Job; onAsk: (prompt: string) => void }) {
   const plan = job.plan as Plan
+  return plan.stats.some((stat) => stat.before !== undefined) ? (
+    <BuildCard job={job} plan={plan} />
+  ) : (
+    <ItemPlan job={job} plan={plan} onAsk={onAsk} />
+  )
+}
+
+function ItemPlan({ job, plan, onAsk }: { job: Job; plan: Plan; onAsk: (prompt: string) => void }) {
   const selection = usePlanSelection(job.id, plan)
   const apply = useApplyPlan()
   const undo = useUndoPlan()
   const [expanded, setExpanded] = useState(false)
 
   const applied = plan.status !== "proposed"
-  const isBuild = plan.stats.some((stat) => stat.before !== undefined)
-  const pendingMasterwork = plan.rows.filter((row) =>
-    row.stats?.some((stat) => stat.masterworked !== undefined),
-  ).length
   const featuredRow = plan.featured
     ? plan.rows.find((row) => row.itemInstanceId === plan.featured?.itemInstanceId)
     : undefined
@@ -256,9 +243,7 @@ export function PlanBlock({ job, onAsk }: { job: Job; onAsk: (prompt: string) =>
         ) : null}
       </View>
 
-      {isBuild ? (
-        <BuildStrip stats={plan.stats} />
-      ) : plan.stats.length > 0 ? (
+      {plan.stats.length > 0 ? (
         <View style={{ paddingHorizontal: 14, paddingBottom: 12 }}>
           <TierStats stats={plan.stats} />
         </View>
@@ -284,20 +269,6 @@ export function PlanBlock({ job, onAsk }: { job: Job; onAsk: (prompt: string) =>
               : hiddenTicked === hidden.length
                 ? "ALL MOVING"
                 : `${hiddenTicked} MOVING`}
-          </Mono>
-        </Pressable>
-      ) : null}
-
-      {isBuild ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Build details"
-          onPress={() => router.push({ pathname: "/plan/[id]", params: { id: job.id } })}
-          style={({ pressed }) => [styles.details, pressed && { backgroundColor: Ghost.swatch }]}
-        >
-          <Mono color={Ghost.accent}>BUILD DETAILS</Mono>
-          <Mono color={pendingMasterwork > 0 ? Ghost.gold : Ghost.dim}>
-            {pendingMasterwork > 0 ? `${pendingMasterwork} NOT MASTERWORKED ›` : "STATS · PIECES ›"}
           </Mono>
         </Pressable>
       ) : null}
@@ -369,15 +340,6 @@ const styles = StyleSheet.create({
   more: {
     paddingHorizontal: 14,
     paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: Ghost.rule,
-  },
-  details: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: Ghost.rule,
   },

@@ -1,10 +1,20 @@
 // Pure helpers only: these files import contract types, never React Native.
 import { describe, expect, test } from "bun:test"
-import { Briefing, ItemSummary, PlanStat } from "@ghost/contract"
+import {
+  Briefing,
+  ItemSummary,
+  LoadoutPlug,
+  Plan,
+  PlanLoadout,
+  PlanRow,
+  PlanStat,
+  StatMod,
+} from "@ghost/contract"
 
 import { webUrl } from "./links"
 import { briefingSentence, followUps, sinceLabel } from "./briefing"
 import { orderBuildStats } from "./build-order"
+import { bySlot, fragmentTotals, headline, litTicks, slotLabel, verdict } from "./plan-card"
 import {
   activeFilters,
   emptyFilter,
@@ -225,5 +235,105 @@ describe("webUrl", () => {
   test("is not fooled by a scheme hidden behind case or whitespace", () => {
     expect(webUrl("JaVaScRiPt:alert(1)")).toBeNull()
     expect(webUrl("  javascript:alert(1)")).toBeNull()
+  })
+})
+
+describe("build card", () => {
+  const row = (id: string, patch: Partial<PlanRow> = {}) =>
+    new PlanRow({
+      itemInstanceId: id,
+      itemHash: 1,
+      name: id,
+      icon: null,
+      tier: "legendary",
+      meta: "",
+      power: 530,
+      score: null,
+      action: "none",
+      characterId: "c1",
+      selected: false,
+      outcome: null,
+      error: null,
+      ...patch,
+    })
+  const plan = (patch: Partial<Plan> = {}) =>
+    new Plan({
+      kind: "build",
+      title: "Build plan",
+      subtitle: "Sunbreaker",
+      stats: [],
+      featured: null,
+      rows: [],
+      note: null,
+      confirmLabel: "EQUIP BUILD",
+      status: "proposed",
+      ...patch,
+    })
+  const fragment = (name: string, mods: Array<[string, number]>) =>
+    new LoadoutPlug({
+      name,
+      description: "",
+      mods: mods.map(([label, delta]) => new StatMod({ label, delta })),
+    })
+
+  test("the headline is the stats the player asked for, else what Ghost called the build", () => {
+    const stats = [
+      new PlanStat({ label: "SUPER", value: 165, target: true }),
+      new PlanStat({ label: "MELEE", value: 95, target: false }),
+      new PlanStat({ label: "WEAPONS", value: 150, target: true }),
+    ]
+    expect(headline(plan({ stats }))).toBe("SUPER + WEAPONS")
+    expect(headline(plan())).toBe("SUNBREAKER")
+  })
+
+  test("a stat lights one tick per twenty points and tops out at two hundred", () => {
+    expect([17, 42, 165, 230].map(litTicks)).toEqual([0, 2, 8, 10])
+  })
+
+  test("fragment changes add up per stat, gains first, and cancel out", () => {
+    const loadout = new PlanLoadout({
+      classType: "titan",
+      subclass: "Sunbreaker",
+      element: "solar",
+      super: null,
+      aspects: [],
+      fragments: [
+        fragment("Ember of Torches", [["HEALTH", -10]]),
+        fragment("Ember of Searing", [["WEAPONS", 10]]),
+        fragment("Ember of Char", [["CLASS", 10]]),
+        fragment("Ember of Ashes", [["CLASS", -10]]),
+      ],
+    })
+    expect(fragmentTotals(loadout).map((mod) => [mod.label, mod.delta])).toEqual([
+      ["WEAPONS", 10],
+      ["HEALTH", -10],
+    ])
+  })
+
+  test("the class slot is named for the class that wears it", () => {
+    expect(slotLabel("class", "titan")).toBe("MARK")
+    expect(slotLabel("class", "hunter")).toBe("CLOAK")
+    expect(slotLabel("legs", "hunter")).toBe("LEGS")
+  })
+
+  test("tiles run head to toe whatever order Ghost listed the pieces in", () => {
+    const rows = [
+      row("mark", { slot: "class" }),
+      row("helm", { slot: "helmet" }),
+      row("legs", { slot: "legs" }),
+    ]
+    expect(bySlot(rows).map((each) => each.name)).toEqual(["helm", "legs", "mark"])
+  })
+
+  test("the verdict counts pieces that come from elsewhere before pieces that only get equipped", () => {
+    const worn = row("worn")
+    const carried = row("carried", { action: "equip" })
+    const vaulted = row("vaulted", { action: "equip", origin: "VAULT" })
+    expect(verdict(plan({ rows: [worn] }))).toEqual({ text: "Nothing moves.", moves: false })
+    expect(verdict(plan({ rows: [worn, carried] }))).toEqual({ text: "1 to equip.", moves: false })
+    expect(verdict(plan({ rows: [worn, carried, vaulted] }))).toEqual({
+      text: "1 piece moves.",
+      moves: true,
+    })
   })
 })
