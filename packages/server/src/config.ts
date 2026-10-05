@@ -5,6 +5,8 @@ export interface AppConfigShape {
   readonly port: number
   readonly dataDir: string
   readonly model: string
+  /** Comma-separated @handles, UC… channel ids or names to search; empty turns creator notes off. */
+  readonly youtubeChannels: string
   readonly bungie: {
     readonly apiKey: Redacted.Redacted<string>
     readonly clientId: string
@@ -22,6 +24,9 @@ const config = Config.all({
   port: Config.Port("GHOST_PORT").pipe(Config.withDefault(4848)),
   dataDir: Config.String("GHOST_DATA_DIR").pipe(Config.withDefault("./data")),
   model: Config.String("GHOST_MODEL").pipe(Config.withDefault("claude-sonnet-5-5")),
+  youtubeChannels: Config.String("GHOST_YOUTUBE_CHANNELS").pipe(
+    Config.withDefault("@Datto,@CammyCakes,@FalloutPlays,Aegis Destiny 2"),
+  ),
   bungie: Config.all({
     apiKey: Config.Redacted("BUNGIE_API_KEY").pipe(Config.withDefault(Redacted.make(""))),
     clientId: Config.String("BUNGIE_CLIENT_ID").pipe(Config.withDefault("")),

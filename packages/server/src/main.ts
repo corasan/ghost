@@ -3,6 +3,7 @@ import { Effect, Layer } from "effect"
 import { HttpRouter, HttpServer } from "effect/http"
 import { ActivityLive } from "./activity/activity.ts"
 import { ClaudeAgentLive } from "./agent/claude.ts"
+import { SummarizerLive } from "./agent/summarize.ts"
 import { CurrentJobLive } from "./agent/current-job.ts"
 import { JobRunnerLive } from "./agent/runner.ts"
 import { ApiLive } from "./api/index.ts"
@@ -11,6 +12,7 @@ import { GuardianLive } from "./bungie/guardian.ts"
 import { ManifestLive } from "./bungie/manifest.ts"
 import { ProfileRefreshLive, ProfileStoreLive } from "./bungie/profile.ts"
 import { AppConfig, AppConfigLive } from "./config.ts"
+import { CreatorNotesLive, CreatorRefreshLive } from "./creators/creators.ts"
 import { ActionsRepoLive } from "./db/actions.ts"
 import { DatabaseLive } from "./db/client.ts"
 import { ItemsRepoLive } from "./db/items.ts"
@@ -35,10 +37,11 @@ const Clients = Layer.mergeAll(
   ManifestLive,
   WishlistLive,
   ClaudeAgentLive,
+  SummarizerLive,
   CurrentJobLive,
 ).pipe(Layer.provideMerge(Repositories))
 
-const Profile = ProfileStoreLive.pipe(Layer.provideMerge(Clients))
+const Profile = Layer.mergeAll(ProfileStoreLive, CreatorNotesLive).pipe(Layer.provideMerge(Clients))
 
 const Services = Layer.mergeAll(GuardianLive, ActivityLive, PlansLive).pipe(
   Layer.provideMerge(Profile),
@@ -57,6 +60,7 @@ const Main = HttpRouter.serve(Routes).pipe(
   Layer.provide(HttpServer.layerServices),
   Layer.merge(JobRunnerLive),
   Layer.merge(ProfileRefreshLive),
+  Layer.merge(CreatorRefreshLive),
   Layer.provide(Services),
   Layer.provide(ServerLive),
   Layer.provide(AppConfigLive),
