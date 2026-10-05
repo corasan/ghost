@@ -48,7 +48,7 @@ function RootStack() {
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Ghost.bg } }}>
       <Stack.Protected guard={linked}>
         <Stack.Screen name="(app)" />
-        <Stack.Screen name="item/[id]" options={{ ...sheet, sheetAllowedDetents: [0.7, 1] }} />
+        <Stack.Screen name="item/[id]" options={{ ...sheet, sheetAllowedDetents: [1] }} />
         <Stack.Screen
           name="item-actions/[id]"
           options={{ ...sheet, sheetAllowedDetents: [0.5, 1] }}
