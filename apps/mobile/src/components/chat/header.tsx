@@ -49,7 +49,7 @@ export function ChatHeader({
           {character?.ghostIcon ? (
             <Image
               source={character.ghostIcon}
-              style={{ width: 26, height: 26, borderRadius: 13 }}
+              style={{ width: 28, height: 28, borderRadius: 14 }}
               transition={120}
             />
           ) : (
