@@ -2,7 +2,13 @@ import { describe, expect, test } from "bun:test"
 import { PlanStat } from "@ghost/contract"
 import { type ArmorStats, STAT } from "./inventory.ts"
 import { statModsFrom } from "./manifest.ts"
-import { armorStats, buildStats, masterworked, withMasterworkTotals } from "./masterwork.ts"
+import {
+  armorStats,
+  buildStats,
+  masterworked,
+  missedTargets,
+  withMasterworkTotals,
+} from "./masterwork.ts"
 
 const stats = (patch: Partial<ArmorStats>): ArmorStats =>
   ({
@@ -244,5 +250,37 @@ describe("statModsFrom", () => {
   test("keeps the armor stats a plug moves and sets the class-conditional ones apart", () => {
     expect(statModsFrom(definition, false)).toEqual({ [STAT.mobility]: 10 })
     expect(statModsFrom(definition, true)).toEqual({ [STAT.recovery]: -10 })
+  })
+})
+
+describe("missedTargets", () => {
+  const totals = [
+    new PlanStat({ label: "HEALTH", value: 104, target: true }),
+    new PlanStat({ label: "CLASS", value: 92, target: true }),
+    new PlanStat({ label: "WEAPONS", value: 30, target: false }),
+  ]
+
+  test("names each asked-for stat the build leaves short, with the number asked and the total", () => {
+    expect(
+      missedTargets(totals, [
+        { label: "Health", value: 100 },
+        { label: "Class", value: 100 },
+      ]),
+    ).toEqual([{ label: "CLASS", requested: 100, value: 92 }])
+  })
+
+  test("passes a build whose totals reach every number asked", () => {
+    expect(
+      missedTargets(totals, [
+        { label: "health", value: 104 },
+        { label: "Class", value: 92 },
+      ]),
+    ).toEqual([])
+  })
+
+  test("matches a stat by its armor name as buildStats does", () => {
+    expect(missedTargets(totals, [{ label: " recovery ", value: 100 }])).toEqual([
+      { label: "CLASS", requested: 100, value: 92 },
+    ])
   })
 })

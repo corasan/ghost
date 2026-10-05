@@ -14,6 +14,7 @@ import {
   PlanRow,
   PlanStat,
   Source,
+  type StatMod,
   SubclassChange,
   SubclassSwap,
 } from "@ghost/contract"
@@ -42,7 +43,14 @@ import {
   type PlugFacts,
   type StatFacts,
 } from "../bungie/manifest.ts"
-import { ARMOR_STATS, armorStats, buildStats, withMasterworkTotals } from "../bungie/masterwork.ts"
+import {
+  ARMOR_STATS,
+  armorStats,
+  buildStats,
+  type MissedTarget,
+  missedTargets,
+  withMasterworkTotals,
+} from "../bungie/masterwork.ts"
 import {
   describeLoadout,
   loadoutPlugHashes,
@@ -142,7 +150,7 @@ const ListSubclasses = Tool.make("list_subclasses", {
 
 const PresentPlan = Tool.make("present_plan", {
   description:
-    "Show the player a plan to confirm. Nothing moves until they tap the confirm button; the server then runs the selected rows. Call it once per request, after deciding. Row actions: to_vault, to_character, pull_postmaster, equip, tag_junk, or none (shown for comparison only). For a build, list the armor piece for every slot, including pieces that stay equipped (action none). The app works out the build's six stat totals itself from the pieces you equip, before and after, and what masterworking would add, so do not do that arithmetic or repeat those numbers in your reply. For a build, also pick the subclass in subclass: its name (from list_subclasses) and the super, class ability, jump, melee, grenade, aspects and fragments you want, by the names list_subclasses gives. Anything you leave out stays as that subclass has it. Name the fragments the build needs; they go into empty slots first, then replace from the last slot back, and slots you leave spare keep their fragment. The aspects' fragment slots cap the fragments. The server checks the picks and tells you what to fix; on confirm it equips the subclass and slots the plugs, and the build's stats count the chosen fragments. Leave subclass out only when the equipped subclass and its plugs already fit. For a build, also recommend armor mods in mods: one entry per mod to put in, naming the piece (it must be a row) and the mod exactly as list_armor_mods gives it, with replaces when the piece has no free socket of that kind. Only list mods that change; what is already slotted stays. The server checks sockets and energy and tells you what to fix. Every armor charge mod the build will run (charged true in get_armor_mods or list_armor_mods, already slotted or swapped in) needs its numbers: if it has no chargeEffect yet, look up what it adds while charged and how extra copies stack, and pass it in chargeEffects with the source, for example '+10% Arc weapon damage; 17% with two copies, 22% with three'. For a build, also write situational: one to three sentences on what the build's conditional bonuses (armor charge mods, and fragments or aspects that only work under a condition) add together once they are up, how the player keeps them up, and what they lose when they drop. Pass stats only to mark the stats the player asked for: label Health, Melee, Grenade, Super, Class or Weapons with target true; the values are ignored for a build.",
+    "Show the player a plan to confirm. Nothing moves until they tap the confirm button; the server then runs the selected rows. Call it once per request, after deciding. Row actions: to_vault, to_character, pull_postmaster, equip, tag_junk, or none (shown for comparison only). For a build, list the armor piece for every slot, including pieces that stay equipped (action none). The app works out the build's six stat totals itself from the pieces you equip, before and after, and what masterworking would add, so do not do that arithmetic or repeat those numbers in your reply. For a build, also pick the subclass in subclass: its name (from list_subclasses) and the super, class ability, jump, melee, grenade, aspects and fragments you want, by the names list_subclasses gives. Anything you leave out stays as that subclass has it. Name the fragments the build needs; they go into empty slots first, then replace from the last slot back, and slots you leave spare keep their fragment. The aspects' fragment slots cap the fragments. The server checks the picks and tells you what to fix; on confirm it equips the subclass and slots the plugs, and the build's stats count the chosen fragments. Leave subclass out only when the equipped subclass and its plugs already fit. For a build, also recommend armor mods in mods: one entry per mod to put in, naming the piece (it must be a row) and the mod exactly as list_armor_mods gives it, with replaces when the piece has no free socket of that kind. Only list mods that change; what is already slotted stays. The server checks sockets and energy and tells you what to fix. Every armor charge mod the build will run (charged true in get_armor_mods or list_armor_mods, already slotted or swapped in) needs its numbers: if it has no chargeEffect yet, look up what it adds while charged and how extra copies stack, and pass it in chargeEffects with the source, for example '+10% Arc weapon damage; 17% with two copies, 22% with three'. For a build, also write situational: one to three sentences on what the build's conditional bonuses (armor charge mods, and fragments or aspects that only work under a condition) add together once they are up, how the player keeps them up, and what they lose when they drop. For a build, pass stats only for the stat goals the player names: one entry each, label Health, Melee, Grenade, Super, Class or Weapons (Resilience is Health, Recovery is Class), target true, and value the number they asked for. The server refuses a build whose totals, after armor, mods and fragments, fall short of a goal; if the owned gear truly cannot reach it, pass shortfall with one sentence on why.",
   parameters: Schema.Struct({
     kind: PlanKind,
     title: Schema.String,
@@ -186,6 +194,7 @@ const PresentPlan = Tool.make("present_plan", {
       ),
     ),
     situational: Schema.optional(Schema.String),
+    shortfall: Schema.optional(Schema.String),
     subclass: Schema.optional(SubclassInput),
     sources: Schema.optional(Schema.Array(SourceInput)),
   }),
@@ -430,6 +439,18 @@ export const findItems = (inv: Inventory, f: SearchFilters): Effect.Effect<Found
   })
 
 const oneLine = (text: string) => text.replace(/\s+/g, " ").trim()
+
+const describeMiss = (
+  miss: MissedTarget,
+  fragments: ReadonlyArray<{ readonly name: string; readonly mods: ReadonlyArray<StatMod> }>,
+) => {
+  const lowering = fragments.flatMap((fragment) =>
+    fragment.mods
+      .filter((mod) => mod.label === miss.label && mod.delta < 0)
+      .map((mod) => `${fragment.name} ${mod.delta}`),
+  )
+  return `${miss.label} ${miss.value}, asked ${miss.requested}${lowering.length > 0 ? ` (lowered by ${lowering.join(", ")})` : ""}`
+}
 
 const statChanges = (mods: Readonly<Record<string, number>>) =>
   Object.entries(namedMods(mods) ?? {})
@@ -1077,6 +1098,15 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
                     (input.stats ?? []).map((s) => new PlanStat(s)),
                     input.rows.map((r) => owned.get(r.itemInstanceId) as OwnedItem),
                   )
+            const goals = (input.stats ?? []).filter((s) => s.target)
+            const misses = input.kind === "build" ? missedTargets(planStats, goals) : []
+            if (misses.length > 0 && input.shortfall === undefined) {
+              return `Error: the build misses stat goals: ${misses.map((miss) => describeMiss(miss, loadout?.fragments ?? [])).join("; ")}. Raise them with other armor pieces, stat mods, or fragments that do not lower them, then call present_plan again. If the owned gear truly cannot reach a goal, call again with shortfall saying why in one sentence.`
+            }
+            const note =
+              misses.length > 0 && input.shortfall !== undefined
+                ? [input.shortfall, input.note].filter((part) => part !== undefined).join(" ")
+                : (input.note ?? null)
             const plan = new Plan({
               kind: input.kind,
               title: input.title,
@@ -1092,7 +1122,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
                     }),
               ...(loadout === undefined ? {} : { loadout }),
               rows,
-              note: input.note ?? null,
+              note,
               ...(input.situational === undefined ? {} : { situational: input.situational }),
               confirmLabel: input.confirmLabel,
               status: "proposed",

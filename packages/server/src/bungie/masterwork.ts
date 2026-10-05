@@ -144,3 +144,22 @@ export const buildStats = ({
     })
   })
 }
+
+/** A stat the player asked for that the build's totals leave below the number they named. */
+export interface MissedTarget {
+  readonly label: string
+  readonly requested: number
+  readonly value: number
+}
+
+export const missedTargets = (
+  stats: ReadonlyArray<PlanStat>,
+  requested: ReadonlyArray<{ readonly label: string; readonly value: number }>,
+): ReadonlyArray<MissedTarget> =>
+  requested.flatMap((goal) => {
+    const key = ALIASES[goal.label.trim().toLowerCase()]
+    const stat = stats.find((s) => ALIASES[s.label.trim().toLowerCase()] === key)
+    return key === undefined || stat === undefined || stat.value >= goal.value
+      ? []
+      : [{ label: stat.label, requested: goal.value, value: stat.value }]
+  })
