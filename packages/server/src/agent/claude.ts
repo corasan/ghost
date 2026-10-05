@@ -2,7 +2,7 @@ import { query } from "@anthropic-ai/claude-agent-sdk"
 import type { AgentEffort, JobKind, JobStep } from "@ghost/contract"
 import { Context, Effect, Layer, Schema } from "effect"
 import { AppConfig } from "../config.ts"
-import { MCP_PATH } from "../mcp/server.ts"
+import { MCP_PATH } from "../mcp/path.ts"
 import { AgentConfig } from "./settings.ts"
 import { describeStep } from "./steps.ts"
 

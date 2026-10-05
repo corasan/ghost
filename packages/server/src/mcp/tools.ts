@@ -20,6 +20,7 @@ import {
 import { Effect, Option, Schema } from "effect"
 import { Tool, Toolkit } from "effect/ai"
 import { CurrentJob } from "../agent/current-job.ts"
+import { Jev } from "../agent/jev.ts"
 import type { BungieError } from "../bungie/client.ts"
 import {
   type ArmorStats,
@@ -78,8 +79,14 @@ const GetCharacters = Tool.make("get_characters", {
 
 const SearchItems = Tool.make("search_items", {
   description:
-    "Search owned items (vault, characters, postmaster). All filters are optional and combine. text matches name, type and perk names. Returns compact JSON rows; item ids are what present_plan and check_rolls take.",
+    "Search owned items (vault, characters, postmaster). All filters are optional and combine. text matches name, type and perk names. Returns compact JSON rows; item ids are what present_plan and check_rolls take. With purpose, the matches are ranked against it and you get the best few per slot, each with a relevance from 0 to 1, and limit is the count per slot (default 6, max 20). If the result says ranking unavailable, the list is unranked; judge the rows yourself.",
   parameters: Schema.Struct({
+    purpose: Schema.optional(
+      Schema.String.annotate({
+        description:
+          "What the player is trying to do with these items, in plain words, for example 'Void Titan build prioritizing Health and grenade uptime' or 'best hand cannon for Trials PvP'. Pass it whenever you are shopping for build gear or picking the best copy of a weapon; leave it out to list everything that matches.",
+      }),
+    ),
     text: Schema.optional(Schema.String),
     category: Schema.optional(Schema.Literals(["weapon", "armor"])),
     slot: Schema.optional(ItemSlot),
@@ -298,10 +305,9 @@ const compact = (i: OwnedItem) => ({
 
 type SearchFilters = (typeof SearchItems)["parametersSchema"]["Type"]
 
-export const searchItems = (inv: Inventory, f: SearchFilters) => {
+const matchingItems = (inv: Inventory, f: SearchFilters) => {
   const text = f.text?.toLowerCase()
-  const limit = Math.min(Math.max(f.limit ?? 60, 1), 200)
-  const matches = inv.items.filter(
+  return inv.items.filter(
     (i) =>
       (text === undefined ||
         i.name.toLowerCase().includes(text) ||
@@ -316,8 +322,84 @@ export const searchItems = (inv: Inventory, f: SearchFilters) => {
       (f.damageType === undefined || i.damageType === f.damageType) &&
       (f.duplicatesOnly !== true || i.duplicates > 0),
   )
+}
+
+export const searchItems = (inv: Inventory, f: SearchFilters) => {
+  const limit = Math.min(Math.max(f.limit ?? 60, 1), 200)
+  const matches = matchingItems(inv, f)
   return { total: matches.length, items: matches.slice(0, limit).map(compact) }
 }
+
+const statLabel = (label: string) => `${label.charAt(0)}${label.slice(1).toLowerCase()}`
+
+const statsHighestFirst = (stats: ArmorStats) =>
+  ARMOR_STATS.map(([key, label]) => [statLabel(label), stats[key]] as const)
+    .filter(([, value]) => value > 0)
+    .toSorted((a, b) => b[1] - a[1])
+    .map(([label, value]) => `${label} ${value}`)
+
+export const rankingText = (i: OwnedItem) => {
+  const stats = i.armorStats === null ? [] : statsHighestFirst(i.armorStats)
+  return [
+    i.name,
+    [i.tier, i.classType, i.typeName].filter((part) => part !== null).join(" "),
+    `${i.slot} slot`,
+    i.damageType === "none" ? null : `${i.damageType} element`,
+    i.masterwork ? "masterworked" : null,
+    stats.length > 0 ? `stats, highest first: ${stats.join(", ")} (total ${i.statTotal})` : null,
+    i.perks.length > 0 ? `perks: ${i.perks.join(", ")}` : null,
+  ]
+    .filter((part) => part !== null)
+    .join("; ")
+}
+
+const round2 = (n: number) => Math.round(n * 100) / 100
+
+export const topPerSlot = (
+  matches: ReadonlyArray<OwnedItem>,
+  relevance: ReadonlyMap<string, number>,
+  perSlot: number,
+) => {
+  const scored = matches
+    .map((item) => ({ item, relevance: relevance.get(item.itemInstanceId) ?? 0 }))
+    .toSorted((a, b) => b.relevance - a.relevance)
+  const taken = new Map<string, number>()
+  return scored
+    .filter(({ item }) => {
+      const count = taken.get(item.slot) ?? 0
+      taken.set(item.slot, count + 1)
+      return count < perSlot
+    })
+    .map(({ item, relevance }) => ({ ...compact(item), relevance: round2(relevance) }))
+}
+
+interface Found {
+  readonly total: number
+  readonly items: ReadonlyArray<ReturnType<typeof compact> & { readonly relevance?: number }>
+  readonly ranking?: "unavailable"
+}
+
+export const findItems = (inv: Inventory, f: SearchFilters): Effect.Effect<Found, never, Jev> =>
+  Effect.gen(function* () {
+    if (f.purpose === undefined) return searchItems(inv, f)
+    const jev = yield* Jev
+    const matches = matchingItems(inv, f)
+    const perSlot = Math.min(Math.max(f.limit ?? 6, 1), 20)
+    return yield* jev
+      .rank(
+        f.purpose,
+        matches.map((i) => ({ id: i.itemInstanceId, text: rankingText(i) })),
+      )
+      .pipe(
+        Effect.map((relevance) => ({
+          total: matches.length,
+          items: topPerSlot(matches, relevance, perSlot),
+        })),
+        Effect.catchTag("JevUnavailable", () =>
+          Effect.succeed({ ...searchItems(inv, f), ranking: "unavailable" as const }),
+        ),
+      )
+  })
 
 const DEFAULT_META: Record<PlanAction, (item: OwnedItem, className: string) => string> = {
   to_vault: (i) => `${i.typeName} → VAULT`,
@@ -362,6 +444,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
     const wishlist = yield* Wishlist
     const creators = yield* CreatorNotes
     const chargeEffects = yield* ChargeEffects
+    const jev = yield* Jev
 
     const withInventory = (f: (inv: Inventory) => Effect.Effect<string>) =>
       profile.inventory.pipe(
@@ -519,7 +602,9 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
       )
 
     const search_items = (filters: SearchFilters) =>
-      withInventory((inv) => Effect.succeed(json(searchItems(inv, filters))))
+      withInventory((inv) =>
+        findItems(inv, filters).pipe(Effect.map(json), Effect.provideService(Jev, jev)),
+      )
 
     const present_plan = (input: (typeof PresentPlan)["parametersSchema"]["Type"]) =>
       Effect.gen(function* () {
