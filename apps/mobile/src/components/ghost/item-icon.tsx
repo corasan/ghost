@@ -7,17 +7,16 @@ import { Ghost } from "@/constants/theme"
 import { useGuardian } from "@/lib/api"
 
 const MARK_SURFACE = "rgba(10,11,13,0.88)"
+const ELEMENT_HALO = "rgba(10,11,13,0.6)"
 const TIER_TONE: Record<number, string> = { 5: Ghost.gold, 4: "#a365d6" }
 
 /** Sizes of the marks for an icon drawn at `size` points; they scale with it. */
 const marks = (size: number, hasPower: boolean) => {
   const inset = size >= 70 ? 6 : 4
-  const chip = Math.max(15, Math.round(size * 0.3))
   const bar = hasPower ? Math.round(Math.max(13, size * 0.27)) : 0
   return {
     inset,
-    chip,
-    glyph: Math.round(chip * 0.66),
+    glyph: Math.max(12, Math.round(size * 0.26)),
     bar,
     barText: Math.round(bar * 0.74),
     barGlyph: Math.round(bar * 0.62),
@@ -47,7 +46,7 @@ function Pip({ size, color }: { size: number; color: string }) {
 
 /**
  * The one icon used wherever an item appears. Each mark owns an edge: gear
- * tier as diamonds up the left, damage type bottom-right, and a gold frame
+ * tier as diamonds up the left, the damage type's icon bottom-right, and a gold frame
  * once masterworked. Pass `power` where no row prints it beside the icon and
  * it moves into a bar along the bottom, taking the damage type with it.
  */
@@ -102,13 +101,9 @@ export function ItemIcon({
             position: "absolute",
             right: m.inset,
             bottom: m.inset,
-            width: m.chip,
-            height: m.chip,
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: MARK_SURFACE,
-            borderWidth: 1,
-            borderColor: Ghost.ruleStrong,
+            borderRadius: m.glyph,
+            backgroundColor: ELEMENT_HALO,
+            boxShadow: `0 0 ${Math.round(m.glyph / 2)}px ${Math.round(m.glyph / 5)}px ${ELEMENT_HALO}`,
           }}
         >
           <Image source={elementIcon} style={{ width: m.glyph, height: m.glyph }} />
