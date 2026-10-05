@@ -33,7 +33,12 @@ import {
   STAT,
   type SubclassPlug,
 } from "../bungie/inventory.ts"
-import { Manifest, type ManifestItem, type StatFacts } from "../bungie/manifest.ts"
+import {
+  type ArmorModEntry,
+  Manifest,
+  type ManifestItem,
+  type StatFacts,
+} from "../bungie/manifest.ts"
 import { ARMOR_STATS, armorStats, buildStats, withMasterworkTotals } from "../bungie/masterwork.ts"
 import {
   describeLoadout,
@@ -208,10 +213,17 @@ const GetArmorMods = Tool.make("get_armor_mods", {
 
 const ListArmorMods = Tool.make("list_armor_mods", {
   description:
-    "Armor mods from the current patch's Bungie manifest that can go in a build socket: name, the slot they fit (general fits every piece), energy cost, effect text and stat changes. artifactOnly mods work only while unlocked in the Seasonal Artifact, so prefer the others unless the player says they have them. Filter by slot and by words in the name or effect. Use these names exactly in present_plan mods.",
+    "Armor mods from the current patch's Bungie manifest that can go in a build socket: name, the slot they fit (general fits every piece), energy cost, effect text and stat changes. artifactOnly mods work only while unlocked in the Seasonal Artifact, so prefer the others unless the player says they have them. Filter by slot and by words in the name or effect. Use these names exactly in present_plan mods. With purpose, you get every stat mod that matches plus the other matches most relevant to the build, each with a relevance from 0 to 1, and limit is how many of those (default 15, max 40); to find a mod the ranking left out, call again with text. If the result says ranking unavailable, the list is unranked.",
   parameters: Schema.Struct({
+    purpose: Schema.optional(
+      Schema.String.annotate({
+        description:
+          "What the build does, in plain words: subclass and element, activity, stat goals and playstyle, for example 'Void Sentinel Titan build, 100 Health and 100 Class, overshields and Devour'. Pass it when picking a build's mods; leave it out to list everything that matches.",
+      }),
+    ),
     slot: Schema.optional(ModSlot),
     text: Schema.optional(Schema.String),
+    limit: Schema.optional(Schema.Number),
   }),
   success: Json,
 })
@@ -399,6 +411,97 @@ export const findItems = (inv: Inventory, f: SearchFilters): Effect.Effect<Found
         })),
         Effect.catchTag("JevUnavailable", () =>
           Effect.succeed({ ...searchItems(inv, f), ranking: "unavailable" as const }),
+        ),
+      )
+  })
+
+const oneLine = (text: string) => text.replace(/\s+/g, " ").trim()
+
+const statChanges = (mods: Readonly<Record<string, number>>) =>
+  Object.entries(namedMods(mods) ?? {})
+    .map(([stat, delta]) => `${stat} ${delta > 0 ? "+" : ""}${delta}`)
+    .join(", ")
+
+type ModFilters = (typeof ListArmorMods)["parametersSchema"]["Type"]
+
+const isStatMod = (entry: ArmorModEntry) => Object.keys(entry.mods).length > 0
+
+const armorModCatalog = (catalog: ReadonlyArray<ArmorModEntry>, f: ModFilters) => {
+  const text = f.text?.toLowerCase()
+  const byName = new Map<string, ArmorModEntry>()
+  for (const entry of catalog) {
+    const key = `${entry.category}|${entry.name.toLowerCase()}`
+    const kept = byName.get(key)
+    if (kept === undefined || (kept.artifact && !entry.artifact)) byName.set(key, entry)
+  }
+  return [...byName.values()].filter(
+    (entry) =>
+      (f.slot === undefined || modSlotOf(entry.category) === f.slot) &&
+      (text === undefined ||
+        entry.name.toLowerCase().includes(text) ||
+        entry.description.toLowerCase().includes(text)),
+  )
+}
+
+const modRankingText = (entry: ArmorModEntry) =>
+  [
+    entry.name,
+    `${modSlotOf(entry.category)} armor mod`,
+    `costs ${entry.energyCost} energy`,
+    entry.artifact ? "Seasonal Artifact only" : null,
+    entry.charged ? "uses Armor Charge" : null,
+    isStatMod(entry) ? `stats: ${statChanges(entry.mods)}` : null,
+    `effect: ${oneLine(clip(entry.description, 300) ?? "")}`,
+  ]
+    .filter((part) => part !== null)
+    .join("; ")
+
+interface FoundMod {
+  readonly entry: ArmorModEntry
+  readonly relevance?: number
+}
+
+const topMods = (
+  mods: ReadonlyArray<ArmorModEntry>,
+  relevance: ReadonlyMap<string, number>,
+  limit: number,
+): ReadonlyArray<FoundMod> => [
+  ...mods.filter(isStatMod).map((entry) => ({ entry })),
+  ...mods
+    .filter((entry) => !isStatMod(entry))
+    .map((entry) => ({ entry, relevance: relevance.get(String(entry.hash)) ?? 0 }))
+    .toSorted((a, b) => b.relevance - a.relevance)
+    .slice(0, limit)
+    .map(({ entry, relevance }) => ({ entry, relevance: round2(relevance) })),
+]
+
+interface FoundMods {
+  readonly total: number
+  readonly mods: ReadonlyArray<FoundMod>
+  readonly ranking?: "unavailable"
+}
+
+export const findArmorMods = (
+  catalog: ReadonlyArray<ArmorModEntry>,
+  f: ModFilters,
+): Effect.Effect<FoundMods, never, Jev> =>
+  Effect.gen(function* () {
+    const mods = armorModCatalog(catalog, f)
+    const unranked = { total: mods.length, mods: mods.map((entry) => ({ entry })) }
+    if (f.purpose === undefined) return unranked
+    const jev = yield* Jev
+    const limit = Math.min(Math.max(f.limit ?? 15, 1), 40)
+    return yield* jev
+      .rank(
+        f.purpose,
+        mods
+          .filter((entry) => !isStatMod(entry))
+          .map((entry) => ({ id: String(entry.hash), text: modRankingText(entry) })),
+      )
+      .pipe(
+        Effect.map((relevance) => ({ total: mods.length, mods: topMods(mods, relevance, limit) })),
+        Effect.catchTag("JevUnavailable", () =>
+          Effect.succeed({ ...unranked, ranking: "unavailable" as const }),
         ),
       )
   })
@@ -972,32 +1075,19 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
         }),
       )
 
-    const list_armor_mods = (input: {
-      readonly slot?: typeof ModSlot.Type | undefined
-      readonly text?: string | undefined
-    }) =>
+    const list_armor_mods = (input: ModFilters) =>
       Effect.gen(function* () {
-        const catalog = yield* manifest.armorMods
-        const text = input.text?.toLowerCase()
-        const byName = new Map<string, (typeof catalog)[number]>()
-        for (const entry of catalog) {
-          const key = `${entry.category}|${entry.name.toLowerCase()}`
-          const kept = byName.get(key)
-          if (kept === undefined || (kept.artifact && !entry.artifact)) byName.set(key, entry)
-        }
-        const mods = [...byName.values()].filter(
-          (entry) =>
-            (input.slot === undefined || modSlotOf(entry.category) === input.slot) &&
-            (text === undefined ||
-              entry.name.toLowerCase().includes(text) ||
-              entry.description.toLowerCase().includes(text)),
+        const found = yield* findArmorMods(yield* manifest.armorMods, input).pipe(
+          Effect.provideService(Jev, jev),
         )
+        const charged = found.mods.filter(({ entry }) => entry.charged)
         const effects = yield* chargeEffects
-          .forMods(mods.filter((entry) => entry.charged).map((entry) => entry.name))
+          .forMods(charged.map(({ entry }) => entry.name))
           .pipe(Effect.orDie)
         return json({
-          total: mods.length,
-          mods: mods.map((entry) => ({
+          total: found.total,
+          ranking: found.ranking,
+          mods: found.mods.map(({ entry, relevance }) => ({
             name: entry.name,
             slot: modSlotOf(entry.category),
             cost: entry.energyCost,
@@ -1008,6 +1098,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
             chargeEffect: entry.charged
               ? (effects.get(entry.name.toLowerCase())?.effect ?? null)
               : undefined,
+            relevance,
           })),
         })
       })
