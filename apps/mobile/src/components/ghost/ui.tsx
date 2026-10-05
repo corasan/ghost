@@ -8,7 +8,7 @@ import {
   Text,
   type TextStyle,
   View,
-  type ViewStyle,
+  type ViewProps,
 } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
@@ -140,7 +140,7 @@ export function Cut({
   fill?: string
   border?: string
   under?: string
-  style?: StyleProp<ViewStyle>
+  style?: ViewProps["style"]
   children?: ReactNode
 }) {
   const inset = border ? 1 : 0
@@ -477,7 +477,7 @@ export function PageHeader({
   )
 }
 
-export function Rule({ style }: { style?: StyleProp<ViewStyle> }) {
+export function Rule({ style }: { style?: ViewProps["style"] }) {
   return <View style={[{ height: 1, backgroundColor: Ghost.rule }, style]} />
 }
 
