@@ -1,4 +1,4 @@
-import type { Job, LoadoutPlug, Plan, SubclassLoadout, PlanRow } from "@ghost/contract"
+import type { ArmorMod, Job, LoadoutPlug, Plan, SubclassLoadout, PlanRow } from "@ghost/contract"
 import { Image } from "expo-image"
 import { router, useLocalSearchParams } from "expo-router"
 import { useState } from "react"
@@ -8,10 +8,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { BuildHeader, ModPips } from "@/components/chat/build-card"
 import { BuildStats } from "@/components/chat/build-stats"
 import { RowRight } from "@/components/chat/plan-block"
+import { ChargeNote, ChargeTag, Situational } from "@/components/ghost/charge"
 import { ItemIcon } from "@/components/ghost/item-icon"
 import { Body, Button, Chevron, Diamond, Mono } from "@/components/ghost/ui"
 import { ELEMENT_TONE, Ghost, Gutter, Type } from "@/constants/theme"
 import { errorMessage, useApplyPlan, useJob } from "@/lib/api"
+import { chargedMods } from "@/lib/charge"
 import { firstSentence } from "@/lib/effect-text"
 import { bySlot, modPips, pendingMasterwork, signed } from "@/lib/plan-card"
 import { usePlanSelection } from "@/lib/selection"
@@ -65,7 +67,57 @@ function Loadout({ loadout }: { loadout: SubclassLoadout }) {
 
 const NONE_OPEN = ""
 
-function Mods({ row }: { row: PlanRow }) {
+function ModLine({ mod, copies }: { mod: ArmorMod; copies: number }) {
+  const [open, setOpen] = useState(false)
+  const effect = [
+    mod.swap && mod.replaces ? `Replaces ${mod.replaces}` : null,
+    firstSentence(mod.description),
+  ]
+    .filter(Boolean)
+    .join(" · ")
+  const body = (
+    <>
+      {mod.icon ? <Image source={mod.icon} style={styles.modIcon} transition={120} /> : null}
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Body
+          size={13}
+          color={mod.swap ? Ghost.accent : Ghost.ink}
+          style={{ fontFamily: Type.bodyMedium, lineHeight: 16 }}
+        >
+          {mod.name}
+        </Body>
+        {effect ? (
+          <Body size={11} color={Ghost.dim} style={{ lineHeight: 14, marginTop: 1 }}>
+            {effect}
+          </Body>
+        ) : null}
+      </View>
+      <View style={{ alignItems: "flex-end", gap: 4 }}>
+        <Mono color={mod.swap ? Ghost.accent : Ghost.dim} style={{ letterSpacing: 0.7 }}>
+          {mod.swap ? `SWAP · ${mod.cost}` : mod.cost}
+        </Mono>
+        {mod.charged ? <ChargeTag /> : null}
+      </View>
+    </>
+  )
+  if (!mod.charged) return <View style={[styles.mod, styles.modHead]}>{body}</View>
+  return (
+    <View style={styles.mod}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityHint="Shows what the mod adds with Armor Charge"
+        onPress={() => setOpen((was) => !was)}
+        style={({ pressed }) => [styles.modHead, pressed && { opacity: 0.6 }]}
+      >
+        {body}
+      </Pressable>
+      {open ? <ChargeNote mod={mod} copies={copies} /> : null}
+    </View>
+  )
+}
+
+function Mods({ row, copies }: { row: PlanRow; copies: ReadonlyMap<string, number> }) {
   const mods = row.armorMods
   if (mods === undefined) return null
   const free = row.freeModSlots ?? 0
@@ -79,38 +131,11 @@ function Mods({ row }: { row: PlanRow }) {
           </Mono>
         ) : null}
       </View>
-      {mods.map((mod, i) => {
-        const effect = [
-          mod.swap && mod.replaces ? `Replaces ${mod.replaces}` : null,
-          firstSentence(mod.description),
-        ]
-          .filter(Boolean)
-          .join(" · ")
-        return (
-          <View key={`${mod.name}${i}`} style={styles.mod}>
-            {mod.icon ? <Image source={mod.icon} style={styles.modIcon} transition={120} /> : null}
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Body
-                size={13}
-                color={mod.swap ? Ghost.accent : Ghost.ink}
-                style={{ fontFamily: Type.bodyMedium, lineHeight: 16 }}
-              >
-                {mod.name}
-              </Body>
-              {effect ? (
-                <Body size={11} color={Ghost.dim} style={{ lineHeight: 14, marginTop: 1 }}>
-                  {effect}
-                </Body>
-              ) : null}
-            </View>
-            <Mono color={mod.swap ? Ghost.accent : Ghost.dim} style={{ letterSpacing: 0.7 }}>
-              {mod.swap ? `SWAP · ${mod.cost}` : mod.cost}
-            </Mono>
-          </View>
-        )
-      })}
+      {mods.map((mod, i) => (
+        <ModLine key={`${mod.name}${i}`} mod={mod} copies={copies.get(mod.name) ?? 1} />
+      ))}
       {free > 0 ? (
-        <View style={styles.mod}>
+        <View style={[styles.mod, styles.modHead]}>
           <Body size={13} color={Ghost.dim} style={{ lineHeight: 16 }}>
             {free} {free === 1 ? "slot free" : "slots free"}
           </Body>
@@ -122,11 +147,13 @@ function Mods({ row }: { row: PlanRow }) {
 
 function Piece({
   row,
+  copies,
   applied,
   open,
   onToggle,
 }: {
   row: PlanRow
+  copies: ReadonlyMap<string, number>
   applied: boolean
   open: boolean
   onToggle: () => void
@@ -196,7 +223,7 @@ function Piece({
               ))}
             </View>
           ) : null}
-          <Mods row={row} />
+          <Mods row={row} copies={copies} />
         </View>
       ) : null}
     </View>
@@ -253,6 +280,8 @@ export default function PlanDetailsScreen() {
   const pending = pendingMasterwork(plan)
   const loadout = plan.loadout
   const pieces = bySlot(plan.rows)
+  const charged = chargedMods(plan.rows.flatMap((row) => row.armorMods ?? []))
+  const copies = new Map(charged.map((entry) => [entry.mod.name, entry.copies]))
 
   return (
     <View collapsable={false} style={{ flex: 1 }}>
@@ -269,6 +298,11 @@ export default function PlanDetailsScreen() {
         <View style={styles.section}>
           <BuildStats stats={plan.stats} />
         </View>
+        {plan.situational || charged.length > 0 ? (
+          <View style={styles.section}>
+            <Situational summary={plan.situational} mods={charged} />
+          </View>
+        ) : null}
         <View style={styles.section}>
           <View style={[styles.label, { flexDirection: "row", justifyContent: "space-between" }]}>
             <Mono>PIECES</Mono>
@@ -278,6 +312,7 @@ export default function PlanDetailsScreen() {
             <Piece
               key={row.itemInstanceId}
               row={row}
+              copies={copies}
               applied={applied}
               open={(openId ?? pieces[0]?.itemInstanceId) === row.itemInstanceId}
               onToggle={() =>
@@ -312,14 +347,8 @@ const styles = StyleSheet.create({
   pieceBody: { paddingLeft: 60, paddingTop: 2, paddingBottom: 12, gap: 10 },
   modsHead: { flexDirection: "row", justifyContent: "space-between", paddingBottom: 4 },
   modIcon: { width: 28, height: 28, backgroundColor: Ghost.swatch },
-  mod: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingVertical: 5,
-    borderTopWidth: 1,
-    borderTopColor: Ghost.rule,
-  },
+  mod: { paddingVertical: 5, borderTopWidth: 1, borderTopColor: Ghost.rule },
+  modHead: { flexDirection: "row", alignItems: "center", gap: 10 },
   footer: {
     paddingHorizontal: Gutter,
     paddingTop: 12,

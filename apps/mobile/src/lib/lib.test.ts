@@ -3,18 +3,21 @@ import { describe, expect, test } from "bun:test"
 import {
   ArmorMod,
   Briefing,
+  ChargeEffect,
   ItemSummary,
   LoadoutPlug,
   Plan,
   SubclassLoadout,
   PlanRow,
   PlanStat,
+  Source,
   StatMod,
 } from "@ghost/contract"
 
 import { webUrl } from "./links"
 import { briefingSentence, followUps, sinceLabel } from "./briefing"
 import { orderBuildStats } from "./build-order"
+import { chargedMods } from "./charge"
 import { firstParagraph, firstSentence } from "./effect-text"
 import {
   appliedTotals,
@@ -414,5 +417,27 @@ describe("effect text", () => {
     expect(
       firstSentence("Summon a [Stasis] Stasis gauntlet. While your Super is active: slam."),
     ).toBe("Summon a Stasis gauntlet.")
+  })
+})
+
+describe("chargedMods", () => {
+  const mod = (name: string, patch: Partial<ArmorMod> = {}) =>
+    new ArmorMod({ name, description: "", cost: 1, mods: [], ...patch })
+  const effect = new ChargeEffect({
+    effect: "+10% Arc weapon damage",
+    source: new Source({ label: "test", url: null, asOf: null }),
+  })
+
+  test("groups charged mods by name, counts copies, and keeps the copy with numbers", () => {
+    const grouped = chargedMods([
+      mod("Arc Weapon Surge", { charged: true }),
+      mod("Weapons Mod"),
+      mod("Arc Weapon Surge", { charged: true, chargeEffect: effect }),
+      mod("Melee Font", { charged: true }),
+    ])
+    expect(grouped.map((g) => [g.mod.name, g.copies, g.mod.chargeEffect?.effect])).toEqual([
+      ["Arc Weapon Surge", 2, "+10% Arc weapon damage"],
+      ["Melee Font", 1, undefined],
+    ])
   })
 })

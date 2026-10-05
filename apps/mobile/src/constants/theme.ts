@@ -19,6 +19,7 @@ export const Ghost = {
   dim: "#6b7280",
   accent: "#5aa9e6",
   gold: "#e3b341",
+  charge: "#e8a15a",
   good: "#7dd3a8",
   danger: "#e06a5a",
   scrim: "rgba(6,7,9,0.72)",
