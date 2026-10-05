@@ -22,17 +22,52 @@ export const STAT_TICKS = 10
 export const litTicks = (value: number) =>
   Math.max(0, Math.min(STAT_TICKS, Math.floor(value / POINTS_PER_TICK)))
 
-/** What the slotted fragments add up to per stat, gains first; stats that net to zero are left out. */
-export const fragmentTotals = (loadout: SubclassLoadout): StatMod[] => {
-  const totals = new Map<string, number>()
-  for (const fragment of loadout.fragments) {
-    for (const mod of fragment.mods) totals.set(mod.label, (totals.get(mod.label) ?? 0) + mod.delta)
+const totals = (lists: readonly (readonly StatMod[])[]): StatMod[] => {
+  const sums = new Map<string, number>()
+  for (const mods of lists) {
+    for (const mod of mods) sums.set(mod.label, (sums.get(mod.label) ?? 0) + mod.delta)
   }
-  return [...totals]
+  return [...sums]
     .filter(([, delta]) => delta !== 0)
     .map(([label, delta]) => ({ label, delta }))
     .sort((a, b) => b.delta - a.delta)
 }
+
+/** What the slotted fragments add up to per stat, gains first; stats that net to zero are left out. */
+export const fragmentTotals = (loadout: SubclassLoadout): StatMod[] =>
+  totals(loadout.fragments.map((fragment) => fragment.mods))
+
+/** What fragments and armor mods together add to the build's stats. */
+export const appliedTotals = (plan: Plan): StatMod[] =>
+  totals([
+    ...(plan.loadout?.fragments ?? []).map((fragment) => fragment.mods),
+    ...plan.rows.flatMap((row) => (row.armorMods ?? []).map((mod) => mod.mods)),
+  ])
+
+export const hasStatMods = (plan: Plan) =>
+  plan.rows.some((row) => row.armorMods?.some((mod) => mod.mods.length > 0))
+
+const SHORT_STAT: Record<string, string> = {
+  HEALTH: "HLT",
+  MELEE: "MEL",
+  GRENADE: "GRN",
+  SUPER: "SUP",
+  CLASS: "CLS",
+  WEAPONS: "WPN",
+}
+
+export const shortStat = (label: string) => SHORT_STAT[label] ?? label.slice(0, 3)
+
+export type ModPip = "stat" | "other" | "free"
+
+/** One pip per mod socket: a stat mod, any other mod, or a free slot. Undefined when the plan predates mods. */
+export const modPips = (row: PlanRow): ModPip[] | undefined =>
+  row.armorMods === undefined
+    ? undefined
+    : [
+        ...row.armorMods.map((mod): ModPip => (mod.mods.length > 0 ? "stat" : "other")),
+        ...Array.from({ length: row.freeModSlots ?? 0 }, (): ModPip => "free"),
+      ]
 
 export const signed = (delta: number) => (delta > 0 ? `+${delta}` : `−${Math.abs(delta)}`)
 

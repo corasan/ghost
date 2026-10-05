@@ -88,11 +88,11 @@ export function Chevron({
   size = 7,
   color = Ghost.dim,
 }: {
-  direction?: "right" | "down" | "left"
+  direction?: "right" | "down" | "left" | "up"
   size?: number
   color?: string
 }) {
-  const rotate = direction === "right" ? "45deg" : direction === "down" ? "135deg" : "225deg"
+  const rotate = { right: "45deg", down: "135deg", left: "225deg", up: "-45deg" }[direction]
   return (
     <View
       style={{

@@ -1,6 +1,7 @@
 // Pure helpers only: these files import contract types, never React Native.
 import { describe, expect, test } from "bun:test"
 import {
+  ArmorMod,
   Briefing,
   ItemSummary,
   LoadoutPlug,
@@ -15,7 +16,17 @@ import { webUrl } from "./links"
 import { briefingSentence, followUps, sinceLabel } from "./briefing"
 import { orderBuildStats } from "./build-order"
 import { firstParagraph, firstSentence } from "./effect-text"
-import { bySlot, fragmentTotals, headline, litTicks, slotLabel, verdict } from "./plan-card"
+import {
+  appliedTotals,
+  bySlot,
+  fragmentTotals,
+  headline,
+  litTicks,
+  modPips,
+  shortStat,
+  slotLabel,
+  verdict,
+} from "./plan-card"
 import {
   activeFilters,
   emptyFilter,
@@ -309,6 +320,43 @@ describe("build card", () => {
       ["WEAPONS", 10],
       ["HEALTH", -10],
     ])
+  })
+
+  const armorMod = (name: string, mods: Array<[string, number]> = []) =>
+    new ArmorMod({
+      name,
+      description: "",
+      cost: 3,
+      mods: mods.map(([label, delta]) => new StatMod({ label, delta })),
+    })
+
+  test("armor mods count toward what the footnote says was applied, alongside fragments", () => {
+    const loadout = new SubclassLoadout({
+      classType: "titan",
+      subclass: "Sunbreaker",
+      element: "solar",
+      super: null,
+      aspects: [],
+      fragments: [fragment("Ember of Torches", [["HEALTH", -10]])],
+    })
+    const rows = [
+      row("helm", { armorMods: [armorMod("Super Mod", [["SUPER", 10]]), armorMod("Firepower")] }),
+      row("arms", { armorMods: [armorMod("Super Mod", [["SUPER", 10]])] }),
+    ]
+    expect(appliedTotals(plan({ loadout, rows })).map((mod) => [mod.label, mod.delta])).toEqual([
+      ["SUPER", 20],
+      ["HEALTH", -10],
+    ])
+    expect(shortStat("WEAPONS")).toBe("WPN")
+  })
+
+  test("a piece shows a pip per socket: stat mods, other mods, then free slots", () => {
+    const helm = row("helm", {
+      armorMods: [armorMod("Firepower"), armorMod("Super Mod", [["SUPER", 10]])],
+      freeModSlots: 2,
+    })
+    expect(modPips(helm)).toEqual(["other", "stat", "free", "free"])
+    expect(modPips(row("old"))).toBeUndefined()
   })
 
   test("the class slot is named for the class that wears it", () => {

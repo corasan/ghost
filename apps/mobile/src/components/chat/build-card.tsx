@@ -9,13 +9,17 @@ import { Ghost, Type } from "@/constants/theme"
 import { errorMessage, useApplyPlan, useUndoPlan } from "@/lib/api"
 import { orderBuildStats } from "@/lib/build-order"
 import {
+  appliedTotals,
   bySlot,
-  fragmentTotals,
+  hasStatMods,
   headline,
   litTicks,
   liveLabel,
+  type ModPip,
+  modPips,
   pendingMasterwork,
   shortPlugName,
+  shortStat,
   signed,
   slotLabel,
   STAT_TICKS,
@@ -94,7 +98,7 @@ function Loadout({ loadout }: { loadout: SubclassLoadout }) {
 }
 
 function Stats({ plan }: { plan: Plan }) {
-  const fragments = plan.loadout ? fragmentTotals(plan.loadout) : []
+  const applied = appliedTotals(plan)
   return (
     <View style={styles.band}>
       <View style={{ flexDirection: "row", gap: 6 }}>
@@ -124,19 +128,45 @@ function Stats({ plan }: { plan: Plan }) {
           )
         })}
       </View>
-      {fragments.length > 0 ? (
+      {applied.length > 0 ? (
         <Mono style={{ marginTop: 8, letterSpacing: 0.9 }}>
-          FRAGMENTS APPLIED
-          {fragments.map((mod) => (
+          {hasStatMods(plan) ? "FRAGMENTS + MODS APPLIED" : "FRAGMENTS APPLIED"}
+          {applied.map((mod) => (
             <Text key={mod.label}>
               {" · "}
               <Text style={{ color: mod.delta > 0 ? Ghost.good : Ghost.danger }}>
-                {signed(mod.delta)} {mod.label}
+                {signed(mod.delta)} {shortStat(mod.label)}
               </Text>
             </Text>
           ))}
         </Mono>
       ) : null}
+    </View>
+  )
+}
+
+const PIP_OTHER = "#7b828d"
+
+/** A piece's mod sockets at a glance: white for a stat mod, grey for any other, hollow for a free slot. */
+export function ModPips({ pips, fill = false }: { pips: readonly ModPip[]; fill?: boolean }) {
+  return (
+    <View style={{ flexDirection: "row", gap: 2 }}>
+      {pips.map((pip, i) => {
+        const tone = pip === "stat" ? Ghost.ink : pip === "other" ? PIP_OTHER : Ghost.ruleStrong
+        return (
+          <View
+            key={i}
+            style={{
+              flex: fill ? 1 : undefined,
+              width: fill ? undefined : 10,
+              height: 5,
+              borderWidth: 1,
+              borderColor: tone,
+              backgroundColor: pip === "free" ? undefined : tone,
+            }}
+          />
+        )
+      })}
     </View>
   )
 }
@@ -154,6 +184,7 @@ function Tile({
 }) {
   const arriving = !applied && row.origin !== undefined && row.action !== "none"
   const result = applied && row.outcome ? outcomeLabel[row.outcome] : null
+  const pips = modPips(row)
   return (
     <Pressable
       accessibilityRole="button"
@@ -162,15 +193,22 @@ function Tile({
       onPress={() => router.push({ pathname: "/item/[id]", params: { id: row.itemInstanceId } })}
       style={({ pressed }) => [{ flex: 1 }, pressed && { opacity: 0.6 }]}
     >
-      <ItemIcon
-        icon={row.icon}
-        size={58}
-        fill
-        element={row.damageType}
-        gearTier={row.gearTier}
-        masterwork={row.masterwork}
-        power={row.power}
-      />
+      <View style={arriving ? { boxShadow: `0 0 0 1px ${Ghost.accent}` } : undefined}>
+        <ItemIcon
+          icon={row.icon}
+          size={58}
+          fill
+          element={row.damageType}
+          gearTier={row.gearTier}
+          masterwork={row.masterwork}
+          power={row.power}
+        />
+      </View>
+      {pips ? (
+        <View style={{ marginTop: 6 }}>
+          <ModPips pips={pips} fill />
+        </View>
+      ) : null}
       <Mono
         size={8}
         color={result ? Ghost.danger : arriving ? Ghost.accent : Ghost.dim}
