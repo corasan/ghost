@@ -10,7 +10,8 @@
     "ios": {
       "icon": "./assets/expo.icon",
       "bundleIdentifier": "com.henrypl.ghost",
-      "supportsTablet": false
+      "supportsTablet": false,
+      "appleTeamId": "M52W2L8ZQV"
     },
     "android": {
       "adaptiveIcon": {
