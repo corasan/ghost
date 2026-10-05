@@ -47,7 +47,10 @@ export default function VaultFilterScreen() {
 
   return (
     <View collapsable={false} style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 28, gap: 22 }}>
+      <ScrollView
+        nestedScrollEnabled
+        contentContainerStyle={{ padding: 20, paddingTop: 28, gap: 22 }}
+      >
         <Cond size={24} style={{ letterSpacing: 0.5 }}>
           FILTER & SORT
         </Cond>
