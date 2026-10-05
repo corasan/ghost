@@ -205,25 +205,25 @@ describe("active vault filters", () => {
 })
 
 describe("orderBuildStats", () => {
-  const stat = (label: string, before: number, value: number, target = false) =>
-    new PlanStat({ label, value, target, before })
+  const stat = (label: string, value: number, target = false) =>
+    new PlanStat({ label, value, target })
 
-  test("asked-for stats lead, then gains by size, then losses, then unchanged", () => {
+  test("asked-for stats lead, then the rest from highest to lowest", () => {
     const ordered = orderBuildStats([
-      stat("HEALTH", 40, 40),
-      stat("MELEE", 95, 80),
-      stat("GRENADE", 17, 27),
-      stat("SUPER", 122, 165),
-      stat("CLASS", 17, 17, true),
-      stat("WEAPONS", 130, 140),
+      stat("HEALTH", 40),
+      stat("MELEE", 80),
+      stat("GRENADE", 27),
+      stat("SUPER", 165),
+      stat("CLASS", 17, true),
+      stat("WEAPONS", 140),
     ])
     expect(ordered.map((each) => each.label)).toEqual([
       "CLASS",
       "SUPER",
-      "GRENADE",
       "WEAPONS",
       "MELEE",
       "HEALTH",
+      "GRENADE",
     ])
   })
 })

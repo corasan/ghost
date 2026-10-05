@@ -6,15 +6,14 @@ import { Ghost } from "@/constants/theme"
 import { orderBuildStats } from "@/lib/build-order"
 
 /**
- * The six stats as a table: what the character has now, with the build on,
- * and with every piece masterworked, so the upgrade left is obvious.
+ * The six stats as a table: with the build on, and with every piece
+ * masterworked, so the upgrade left is obvious.
  */
 export function BuildStats({ stats }: { stats: readonly PlanStat[] }) {
   return (
     <View>
       <View style={[styles.line, { paddingBottom: 6 }]}>
         <Mono style={styles.name}>STATS</Mono>
-        <Mono style={styles.cell}>NOW</Mono>
         <Mono color={Ghost.muted} style={styles.cell}>
           BUILD
         </Mono>
@@ -30,9 +29,6 @@ export function BuildStats({ stats }: { stats: readonly PlanStat[] }) {
                 {stat.label}
               </Cond>
             </View>
-            <Cond size={15} color={Ghost.dim} style={[styles.cell, { letterSpacing: 0 }]}>
-              {stat.before ?? stat.value}
-            </Cond>
             <Cond size={18} color={tone} style={[styles.cell, { letterSpacing: 0 }]}>
               {stat.value}
             </Cond>

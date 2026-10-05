@@ -95,9 +95,8 @@ export const statLabel = (key: StatKey, label: string, facts: StatFacts) =>
 type Piece = Pick<OwnedItem, "itemInstanceId" | "slot" | "armorStats" | "masterwork">
 
 /**
- * The six stats of a build: what the character has now, what it has with the
- * incoming pieces worn, and what that becomes with every worn piece
- * masterworked. It starts from the character's own totals and swaps only the
+ * The six stats of a build: what the character has with the incoming pieces
+ * worn, and what that becomes with every worn piece masterworked. It starts from the character's own totals and swaps only the
  * armor that changes, so everything else that feeds a stat is kept.
  */
 export const buildStats = ({
@@ -133,14 +132,13 @@ export const buildStats = ({
     }, 0)
 
   return ARMOR_STATS.map(([key, label]) => {
-    const before = character.stats[key]
-    const value = before - sum(leaving, key) + sum(arriving, key) + (modChange?.[STAT[key]] ?? 0)
+    const value =
+      character.stats[key] - sum(leaving, key) + sum(arriving, key) + (modChange?.[STAT[key]] ?? 0)
     const fact = facts[STAT[key]]
     return new PlanStat({
       label: statLabel(key, label, facts),
       value,
       target: wanted.has(key),
-      before,
       ...(gain(key) > 0 ? { masterworked: value + gain(key) } : {}),
       ...(fact !== undefined && fact.effect !== "" ? { effect: fact.effect } : {}),
     })

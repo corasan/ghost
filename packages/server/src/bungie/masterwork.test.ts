@@ -178,8 +178,8 @@ describe("buildStats", () => {
 
   test("with nothing to equip the build is what the character already has", () => {
     const result = byLabel(buildStats({ character, worn, incoming: [], targets: [], facts: {} }))
-    expect([result.SUPER?.before, result.SUPER?.value]).toEqual([165, 165])
-    expect([result.WEAPONS?.before, result.WEAPONS?.value]).toEqual([140, 140])
+    expect(result.SUPER?.value).toBe(165)
+    expect(result.WEAPONS?.value).toBe(140)
   })
 
   test("swapping a piece removes the old piece's stats and adds the new one's", () => {

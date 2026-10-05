@@ -107,8 +107,6 @@ export class PlanStat extends Schema.Class<PlanStat>("PlanStat")({
   target: Schema.Boolean,
   /** The value once the armor behind it is masterworked, when that is higher. */
   masterworked: Schema.optional(Schema.Number),
-  /** In a build, what the character has in this stat before the build is applied. */
-  before: Schema.optional(Schema.Number),
   /** In a build, what the stat does, in Bungie's words for the current patch. */
   effect: Schema.optional(Schema.String),
 }) {}

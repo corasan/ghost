@@ -194,7 +194,7 @@ function Featured({ plan, row }: { plan: Plan; row: PlanRow }) {
 
 export function PlanBlock({ job, onAsk }: { job: Job; onAsk: (prompt: string) => void }) {
   const plan = job.plan as Plan
-  return plan.stats.some((stat) => stat.before !== undefined) ? (
+  return plan.kind === "build" ? (
     <BuildCard job={job} plan={plan} />
   ) : (
     <ItemPlan job={job} plan={plan} onAsk={onAsk} />
