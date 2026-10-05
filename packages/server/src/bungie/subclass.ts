@@ -241,6 +241,19 @@ export const planSubclass = ({
     )
   }
   if (errors.length > 0) return { errors }
+  const empty = (part: SubclassPart, within = of(part)) =>
+    within.filter((socket) => plugOf(final.get(socket.index) ?? socket.current) === null).length
+  if (empty("super") > 0) errors.push(`${name} would have no super; name one in super`)
+  const noAspect = empty("aspect")
+  if (noAspect > 0)
+    errors.push(`${noAspect} aspect sockets on ${name} would be empty; name the aspects`)
+  const noFragment = empty("fragment", open)
+  if (noFragment > 0) {
+    errors.push(
+      `${noFragment} of ${open.length} fragment slots on ${name} would be empty; name the fragments`,
+    )
+  }
+  if (errors.length > 0) return { errors }
 
   const swaps = sockets
     .filter((socket) => final.has(socket.index) && final.get(socket.index) !== socket.current)

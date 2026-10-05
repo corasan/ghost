@@ -116,16 +116,37 @@ describe("planSubclass", () => {
   })
 
   test("a new fragment takes an empty slot before it replaces one that is slotted", () => {
-    const result = plan([1, 11, 12, 21, 20, 22, 20], { fragments: ["Echo of Persistence"] })
+    const result = plan([1, 11, 12, 21, 20, 22, 20], {
+      fragments: ["Echo of Persistence", "Echo of Undermining"],
+    })
     if ("errors" in result) throw new Error(result.errors.join())
     expect(result.swaps.map((swap) => [swap.socketIndex, swap.plug.name])).toEqual([
       [4, "Echo of Persistence"],
+      [6, "Echo of Undermining"],
     ])
     expect(result.loadout.fragments.map((p) => p.name)).toEqual([
       "Echo of Starvation",
       "Echo of Persistence",
       "Echo of Harvest",
+      "Echo of Undermining",
     ])
+  })
+
+  test("a subclass named with nothing slotted asks for its super, aspects and fragments", () => {
+    const result = plan([0, 10, 10, 20, 20, 20, 20], {})
+    expect(result).toEqual({
+      errors: [
+        "Sentinel would have no super; name one in super",
+        "2 aspect sockets on Sentinel would be empty; name the aspects",
+      ],
+    })
+  })
+
+  test("open fragment slots left empty are refused", () => {
+    const result = plan([1, 11, 12, 21, 20, 22, 20], { fragments: ["Echo of Persistence"] })
+    expect(result).toEqual({
+      errors: ["1 of 4 fragment slots on Sentinel would be empty; name the fragments"],
+    })
   })
 
   test("with every slot taken, a new fragment replaces the last one", () => {
