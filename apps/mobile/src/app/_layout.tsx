@@ -9,10 +9,12 @@ import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client
 import { useFonts } from "expo-font"
 import { DarkTheme, Stack, ThemeProvider } from "expo-router"
 import { KeyboardProvider } from "react-native-keyboard-controller"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 import * as SecureStore from "expo-secure-store"
 import * as SplashScreen from "expo-splash-screen"
 import { StatusBar } from "expo-status-bar"
 import { useEffect } from "react"
+import { Platform } from "react-native"
 
 import { AnimatedSplashOverlay } from "@/components/animated-icon"
 import { Ghost } from "@/constants/theme"
@@ -28,13 +30,18 @@ const theme = {
 
 const LINKED_KEY = "ghost.linked"
 
-const sheet = {
-  presentation: "formSheet",
-  sheetGrabberVisible: true,
-  contentStyle: { backgroundColor: Ghost.panel },
-} as const
+const presentation = Platform.OS === "ios" ? "formSheet" : "modal"
 
 function RootStack() {
+  const { top } = useSafeAreaInsets()
+  const sheet = {
+    presentation,
+    sheetGrabberVisible: true,
+    contentStyle: {
+      backgroundColor: Ghost.panel,
+      paddingTop: Platform.OS === "android" ? top : 0,
+    },
+  } as const
   const health = useHealth()
   const known = health.data?.bungieLinked
   useEffect(() => {
@@ -66,7 +73,7 @@ function RootStack() {
         options={{
           headerShown: true,
           title: "Settings",
-          presentation: "formSheet",
+          presentation,
           sheetAllowedDetents: [0.6, 1],
           sheetGrabberVisible: true,
         }}
