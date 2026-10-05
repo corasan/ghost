@@ -4,6 +4,7 @@ import { HttpRouter, HttpServer } from "effect/http"
 import { ActivityLive } from "./activity/activity.ts"
 import { ClaudeAgentLive } from "./agent/claude.ts"
 import { SummarizerLive } from "./agent/summarize.ts"
+import { SituationalWriterLive } from "./agent/situational.ts"
 import { CurrentJobLive } from "./agent/current-job.ts"
 import { JobRunnerLive } from "./agent/runner.ts"
 import { AgentConfigLive } from "./agent/settings.ts"
@@ -42,6 +43,7 @@ const Clients = Layer.mergeAll(
   WishlistLive,
   ClaudeAgentLive,
   SummarizerLive,
+  SituationalWriterLive,
   CurrentJobLive,
 ).pipe(Layer.provideMerge(AgentConfigLive), Layer.provideMerge(Repositories))
 

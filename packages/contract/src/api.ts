@@ -11,6 +11,7 @@ import {
   BungieNotLinked,
   ChatSession,
   CreateJob,
+  GuardianSituational,
   GuardianSnapshot,
   Health,
   HistoryGroup,
@@ -118,6 +119,15 @@ export const guardianGroup = HttpApiGroup.make("guardian")
   .add(
     HttpApiEndpoint.get("snapshot", "/guardian", {
       success: GuardianSnapshot,
+      error: bungieErrors,
+    }),
+  )
+  // Slow the first time for a set of mods: Ghost looks up what each charge
+  // mod adds and writes the summary, which is then kept for that set.
+  .add(
+    HttpApiEndpoint.get("situational", "/guardian/situational", {
+      query: { characterId: Schema.String },
+      success: GuardianSituational,
       error: bungieErrors,
     }),
   )

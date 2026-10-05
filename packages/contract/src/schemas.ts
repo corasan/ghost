@@ -468,6 +468,13 @@ export class GuardianCharacter extends Schema.Class<GuardianCharacter>("Guardian
   postmasterCount: Schema.Number,
 }) {}
 
+/** The armor charge mods a character has on, and Ghost's read on what its conditional bonuses add. */
+export class GuardianSituational extends Schema.Class<GuardianSituational>("GuardianSituational")({
+  mods: Schema.Array(ArmorMod),
+  /** Null when nothing on the character is conditional, or Ghost could not write it. */
+  summary: Schema.NullOr(Schema.String),
+}) {}
+
 export class GuardianSnapshot extends Schema.Class<GuardianSnapshot>("GuardianSnapshot")({
   characters: Schema.Array(GuardianCharacter),
   vaultCount: Schema.Number,
