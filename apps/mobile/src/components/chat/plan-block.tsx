@@ -1,0 +1,328 @@
+import type { Job, Plan, PlanRow } from "@ghost/contract"
+import { useState } from "react"
+import { Alert, Pressable, StyleSheet, View } from "react-native"
+
+import { Body, Button, Cond, Cut, Mono, Swatch, TierStats, Tick } from "@/components/ghost/ui"
+import { Ghost, Rarity, Type } from "@/constants/theme"
+import { errorMessage, useApplyPlan, useUndoPlan } from "@/lib/api"
+import { usePlanSelection } from "@/lib/selection"
+
+// A plan is a block in the conversation, not a modal: the resulting stats,
+// one row per change that can be unticked, and one confirm. After it runs,
+// the same block shows what happened to each row and offers undo.
+
+const COLLAPSED_ROWS = 4
+const COLLAPSE_OVER = 6
+
+/** "MOVE 8 TO VAULT" follows the ticks: the first number tracks the selection. */
+export const liveLabel = (label: string, count: number) =>
+  /\d+/.test(label) ? label.replace(/\d+/, String(count)) : label
+
+const outcomeTone = { ok: Ghost.good, failed: Ghost.danger, skipped: Ghost.dim } as const
+
+function RowRight({ row, applied }: { row: PlanRow; applied: boolean }) {
+  if (applied && row.outcome) {
+    return (
+      <Mono color={outcomeTone[row.outcome]}>
+        {row.outcome === "ok" ? "DONE" : row.outcome === "failed" ? "FAILED" : "HELD"}
+      </Mono>
+    )
+  }
+  if (row.score !== null) {
+    const color = row.score >= 70 ? Ghost.good : row.score >= 40 ? Ghost.gold : Ghost.danger
+    return (
+      <View style={{ alignItems: "flex-end" }}>
+        <Cond size={20} color={color} style={{ letterSpacing: 0, lineHeight: 20 }}>
+          {row.score}
+        </Cond>
+        <Mono size={8}>ROLL</Mono>
+      </View>
+    )
+  }
+  return (
+    <Cond
+      size={16}
+      color={row.power === null ? Ghost.dim : Ghost.gold}
+      style={{ letterSpacing: 0 }}
+    >
+      {row.power ?? "—"}
+    </Cond>
+  )
+}
+
+export function PlanRowView({
+  row,
+  ticked,
+  onToggle,
+  applied,
+  under = Ghost.panel,
+  inset = 14,
+}: {
+  row: PlanRow
+  ticked: boolean
+  onToggle?: () => void
+  applied: boolean
+  under?: string
+  inset?: number
+}) {
+  const actionable = row.action !== "none"
+  return (
+    <Pressable
+      accessibilityRole={actionable && !applied ? "checkbox" : undefined}
+      accessibilityState={{ checked: ticked }}
+      disabled={!actionable || applied || !onToggle}
+      onPress={onToggle}
+      style={[
+        styles.row,
+        { paddingHorizontal: inset },
+        actionable && !applied && !ticked && { opacity: 0.45 },
+      ]}
+    >
+      {actionable && !applied ? <Tick on={ticked} under={under} /> : null}
+      <Swatch tier={row.tier} icon={row.icon} size={40} />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Body size={15} style={{ fontFamily: Type.bodyMedium, lineHeight: 18 }} lines={1}>
+          {row.name}
+        </Body>
+        <Mono style={{ marginTop: 3, letterSpacing: 0.7 }} lines={1}>
+          {row.error ?? row.meta}
+        </Mono>
+      </View>
+      <RowRight row={row} applied={applied} />
+    </Pressable>
+  )
+}
+
+function Featured({ plan, row }: { plan: Plan; row: PlanRow }) {
+  const featured = plan.featured
+  if (featured === null) return null
+  const tone = Rarity[row.tier]
+  return (
+    <View>
+      <View style={{ flexDirection: "row", gap: 14, padding: 14 }}>
+        <Swatch tier={row.tier} icon={row.icon} size={72} />
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <View style={styles.between}>
+            <Cond size={24} style={{ letterSpacing: 0.5, flexShrink: 1 }} lines={1}>
+              {row.name.toUpperCase()}
+            </Cond>
+            {row.score !== null ? (
+              <Cond size={24} color={Ghost.good} style={{ letterSpacing: 0 }}>
+                {row.score}
+              </Cond>
+            ) : null}
+          </View>
+          <Mono color={tone} style={{ marginTop: 5 }} lines={1}>
+            {row.meta}
+          </Mono>
+          <View style={styles.perks}>
+            {featured.perks.map((perk) => (
+              <View
+                key={perk.name}
+                style={[styles.perk, { borderColor: perk.good ? Ghost.good : Ghost.ruleStrong }]}
+              >
+                <Body size={12} color={perk.good ? Ghost.good : Ghost.muted}>
+                  {perk.name}
+                </Body>
+              </View>
+            ))}
+          </View>
+        </View>
+      </View>
+      {featured.stats.length > 0 ? (
+        <View style={{ paddingHorizontal: 14, paddingBottom: 14, gap: 7 }}>
+          {featured.stats.map((stat, i) => (
+            <View key={stat.label} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <Mono style={{ width: 66 }}>{stat.label}</Mono>
+              <View style={{ flex: 1, height: 3, backgroundColor: Ghost.rule }}>
+                <View
+                  style={{
+                    width: `${Math.max(0, Math.min(100, stat.value))}%`,
+                    height: 3,
+                    backgroundColor: i === 0 || stat.target ? Ghost.ink : Ghost.dim,
+                  }}
+                />
+              </View>
+              <Mono color={Ghost.ink} style={{ width: 28, textAlign: "right" }}>
+                {stat.value}
+              </Mono>
+            </View>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  )
+}
+
+export function PlanBlock({ job, onAsk }: { job: Job; onAsk: (prompt: string) => void }) {
+  const plan = job.plan as Plan
+  const selection = usePlanSelection(job.id, plan)
+  const apply = useApplyPlan()
+  const undo = useUndoPlan()
+  const [expanded, setExpanded] = useState(false)
+
+  const applied = plan.status !== "proposed"
+  const featuredRow = plan.featured
+    ? plan.rows.find((row) => row.itemInstanceId === plan.featured?.itemInstanceId)
+    : undefined
+  const rows = plan.rows.filter((row) => row !== featuredRow)
+  const collapsed = !expanded && rows.length > COLLAPSE_OVER
+  const shown = collapsed ? rows.slice(0, COLLAPSED_ROWS) : rows
+  const hidden = rows.slice(COLLAPSED_ROWS)
+  const hiddenTicked = hidden.filter((row) => selection.selected.has(row.itemInstanceId)).length
+
+  const selected = [...selection.selected]
+  const ticked = selected.length
+  const held = selection.actionableCount - ticked
+  const failed = plan.rows.filter((row) => row.outcome === "failed").length
+
+  const right = applied
+    ? plan.status === "undone"
+      ? "UNDONE"
+      : failed > 0
+        ? `APPLIED · ${failed} FAILED`
+        : "APPLIED"
+    : (plan.subtitle ?? (selection.actionableCount > 0 ? `${ticked} MOVING · ${held} HELD` : null))
+
+  const confirm = () => {
+    // Junk tags and equips are easy to reverse, but a big batch deserves a
+    // second look before Ghost starts moving things.
+    if (ticked >= 15) {
+      Alert.alert(liveLabel(plan.confirmLabel, ticked), `Ghost will act on ${ticked} items.`, [
+        { text: "Cancel", style: "cancel" },
+        { text: "Go", onPress: () => apply.mutate({ jobId: job.id, selected }) },
+      ])
+    } else {
+      apply.mutate({ jobId: job.id, selected })
+    }
+  }
+
+  return (
+    <Cut cut={12} fill={Ghost.panel} border={Ghost.line} style={{ marginLeft: 14 }}>
+      <View style={[styles.between, { padding: 14, paddingBottom: 10 }]}>
+        <Mono size={10} color={Ghost.accent}>
+          {plan.title}
+        </Mono>
+        {right ? (
+          <Mono size={10} color={applied && failed > 0 ? Ghost.danger : Ghost.dim} lines={1}>
+            {right}
+          </Mono>
+        ) : null}
+      </View>
+
+      {plan.stats.length > 0 ? (
+        <View style={{ paddingHorizontal: 14, paddingBottom: 12 }}>
+          <TierStats stats={plan.stats} />
+        </View>
+      ) : null}
+
+      {featuredRow ? <Featured plan={plan} row={featuredRow} /> : null}
+
+      {shown.map((row) => (
+        <PlanRowView
+          key={row.itemInstanceId}
+          row={row}
+          applied={applied}
+          ticked={selection.selected.has(row.itemInstanceId)}
+          onToggle={() => selection.toggle(row.itemInstanceId)}
+        />
+      ))}
+      {collapsed ? (
+        <Pressable onPress={() => setExpanded(true)} style={styles.more}>
+          <Mono>
+            + {hidden.length} MORE ·{" "}
+            {applied
+              ? "TAP TO SHOW"
+              : hiddenTicked === hidden.length
+                ? "ALL MOVING"
+                : `${hiddenTicked} MOVING`}
+          </Mono>
+        </Pressable>
+      ) : null}
+
+      {plan.note ? (
+        <View style={styles.note}>
+          <Body size={13} color={Ghost.muted} style={{ lineHeight: 18 }}>
+            {plan.note}
+          </Body>
+        </View>
+      ) : null}
+
+      {apply.isError || undo.isError ? (
+        <View style={styles.note}>
+          <Body size={13} color={Ghost.danger}>
+            {errorMessage(apply.error ?? undo.error)}
+          </Body>
+        </View>
+      ) : null}
+
+      <View style={styles.buttons}>
+        {plan.status === "proposed" ? (
+          <>
+            {plan.kind === "weapon" ? (
+              <Button
+                label={`COMPARE ${plan.rows.length}`}
+                under={Ghost.panel}
+                onPress={() => onAsk(`Compare those ${plan.rows.length} side by side`)}
+              />
+            ) : selection.actionableCount > 1 ? (
+              <Button
+                label={held === selection.actionableCount ? "SELECT ALL" : "HOLD ALL"}
+                under={Ghost.panel}
+                onPress={() => selection.setAll(held === selection.actionableCount)}
+              />
+            ) : null}
+            <Button
+              label={apply.isPending ? "WORKING…" : liveLabel(plan.confirmLabel, ticked)}
+              tone={plan.kind === "cleanup" ? "danger" : "solid"}
+              flex={1.4}
+              under={Ghost.panel}
+              disabled={ticked === 0 || apply.isPending}
+              onPress={confirm}
+            />
+          </>
+        ) : plan.status === "applied" ? (
+          <Button
+            label={undo.isPending ? "UNDOING…" : "UNDO"}
+            under={Ghost.panel}
+            disabled={undo.isPending}
+            onPress={() => undo.mutate(job.id)}
+          />
+        ) : null}
+      </View>
+    </Cut>
+  )
+}
+
+const styles = StyleSheet.create({
+  between: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: Ghost.rule,
+  },
+  more: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: Ghost.rule,
+  },
+  note: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: Ghost.rule,
+  },
+  buttons: {
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingBottom: 14,
+    paddingTop: 4,
+  },
+  perks: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 10 },
+  perk: { paddingVertical: 4, paddingHorizontal: 8, borderWidth: 1 },
+})

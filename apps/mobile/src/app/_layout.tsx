@@ -1,19 +1,22 @@
+import { Barlow_400Regular } from "@expo-google-fonts/barlow/400Regular"
+import { Barlow_500Medium } from "@expo-google-fonts/barlow/500Medium"
+import { Barlow_600SemiBold } from "@expo-google-fonts/barlow/600SemiBold"
+import { BarlowCondensed_500Medium } from "@expo-google-fonts/barlow-condensed/500Medium"
+import { BarlowCondensed_600SemiBold } from "@expo-google-fonts/barlow-condensed/600SemiBold"
 import { JetBrainsMono_400Regular } from "@expo-google-fonts/jetbrains-mono/400Regular"
-import { Outfit_300Light } from "@expo-google-fonts/outfit/300Light"
-import { Outfit_400Regular } from "@expo-google-fonts/outfit/400Regular"
-import { Outfit_500Medium } from "@expo-google-fonts/outfit/500Medium"
-import { Outfit_600SemiBold } from "@expo-google-fonts/outfit/600SemiBold"
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { JetBrainsMono_500Medium } from "@expo-google-fonts/jetbrains-mono/500Medium"
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client"
 import { useFonts } from "expo-font"
 import { DarkTheme, Stack, ThemeProvider } from "expo-router"
+import * as SecureStore from "expo-secure-store"
 import * as SplashScreen from "expo-splash-screen"
 import { StatusBar } from "expo-status-bar"
-import * as SecureStore from "expo-secure-store"
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 
 import { AnimatedSplashOverlay } from "@/components/animated-icon"
 import { Ghost } from "@/constants/theme"
 import { useHealth } from "@/lib/api"
+import { persistOptions, queryClient } from "@/lib/query"
 
 SplashScreen.preventAutoHideAsync()
 
@@ -24,6 +27,8 @@ const theme = {
 
 const LINKED_KEY = "ghost.linked"
 
+// Chat is the whole app. Guardian, Vault, Recent and History are pages that
+// push over it from the menu and swipe back to it; there is no tab bar.
 function RootStack() {
   const health = useHealth()
   const known = health.data?.bungieLinked
@@ -35,18 +40,22 @@ function RootStack() {
   const linked = known ?? SecureStore.getItem(LINKED_KEY) === "true"
 
   return (
-    <Stack>
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Ghost.bg } }}>
       <Stack.Protected guard={linked}>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="jobs/[id]" options={{ title: "Task" }} />
+        <Stack.Screen name="index" />
+        <Stack.Screen name="guardian" />
+        <Stack.Screen name="vault" />
+        <Stack.Screen name="recent" />
+        <Stack.Screen name="history" />
       </Stack.Protected>
       <Stack.Protected guard={!linked}>
-        <Stack.Screen name="login" options={{ headerShown: false }} />
+        <Stack.Screen name="login" />
       </Stack.Protected>
-      <Stack.Screen name="connect" options={{ headerShown: false }} />
+      <Stack.Screen name="connect" />
       <Stack.Screen
         name="settings"
         options={{
+          headerShown: true,
           title: "Settings",
           presentation: "formSheet",
           sheetAllowedDetents: [0.6, 1],
@@ -58,22 +67,23 @@ function RootStack() {
 }
 
 export default function RootLayout() {
-  const [queryClient] = useState(() => new QueryClient())
   const [fontsLoaded, fontError] = useFonts({
-    Outfit_300Light,
-    Outfit_400Regular,
-    Outfit_500Medium,
-    Outfit_600SemiBold,
+    Barlow_400Regular,
+    Barlow_500Medium,
+    Barlow_600SemiBold,
+    BarlowCondensed_500Medium,
+    BarlowCondensed_600SemiBold,
     JetBrainsMono_400Regular,
+    JetBrainsMono_500Medium,
   })
   if (!fontsLoaded && !fontError) return null
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
       <ThemeProvider value={theme}>
         <StatusBar style="light" />
         <AnimatedSplashOverlay />
         <RootStack />
       </ThemeProvider>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   )
 }

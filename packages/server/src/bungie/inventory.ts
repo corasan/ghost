@@ -1,0 +1,362 @@
+import {
+  CharacterStats,
+  type DamageType,
+  type GuardianClass,
+  type ItemDecision,
+  type ItemLocation,
+  type ItemSlot,
+  type ItemSummary,
+} from "@ghost/contract"
+import { Schema } from "effect"
+import { BUCKETS, damageForType, type ManifestItem, slotForBucket } from "./manifest.ts"
+
+// Turns one GetProfile response into the flat list of owned items and the
+// per-character facts every screen and tool reads. Pure on purpose: the
+// profile, the item definitions and what Ghost remembers about each instance
+// all come in as arguments, so tests can hand it a fixture.
+
+const RawItem = Schema.Struct({
+  itemHash: Schema.Number,
+  itemInstanceId: Schema.optional(Schema.String),
+  quantity: Schema.Number,
+  bucketHash: Schema.Number,
+  /** ItemState bitmask: 1 locked, 4 masterwork. */
+  state: Schema.optional(Schema.Number),
+})
+export type RawItem = typeof RawItem.Type
+
+const Instance = Schema.Struct({
+  damageType: Schema.optional(Schema.Number),
+  primaryStat: Schema.optional(Schema.Struct({ value: Schema.Number })),
+})
+
+const ItemStats = Schema.Struct({
+  stats: Schema.optional(Schema.Record(Schema.String, Schema.Struct({ value: Schema.Number }))),
+})
+
+const ItemSockets = Schema.Struct({
+  sockets: Schema.Array(
+    Schema.Struct({
+      plugHash: Schema.optional(Schema.Number),
+      isEnabled: Schema.optional(Schema.Boolean),
+      isVisible: Schema.optional(Schema.Boolean),
+    }),
+  ),
+})
+
+const Character = Schema.Struct({
+  characterId: Schema.String,
+  classType: Schema.Number,
+  light: Schema.Number,
+  stats: Schema.Record(Schema.String, Schema.Number),
+})
+
+const ItemList = Schema.Struct({ items: Schema.Array(RawItem) })
+
+const component = <S extends Schema.Top>(data: S) =>
+  Schema.optional(Schema.Struct({ data: Schema.optional(data) }))
+
+const byInstance = <S extends Schema.Top>(value: S) =>
+  Schema.optional(Schema.Struct({ data: Schema.optional(Schema.Record(Schema.String, value)) }))
+
+// Components: 100 profile, 102 vault, 200 characters, 201 character
+// inventories (incl. postmaster), 205 equipment, 300 instances (power,
+// element), 304 item stats (armor totals), 305 sockets (weapon perks).
+export const PROFILE_COMPONENTS = [100, 102, 200, 201, 205, 300, 304, 305]
+
+export const Profile = Schema.Struct({
+  profile: component(
+    Schema.Struct({
+      userInfo: Schema.Struct({ membershipType: Schema.Number, membershipId: Schema.String }),
+    }),
+  ),
+  profileInventory: component(ItemList),
+  characters: component(Schema.Record(Schema.String, Character)),
+  characterInventories: component(Schema.Record(Schema.String, ItemList)),
+  characterEquipment: component(Schema.Record(Schema.String, ItemList)),
+  itemComponents: Schema.optional(
+    Schema.Struct({
+      instances: byInstance(Instance),
+      stats: byInstance(ItemStats),
+      sockets: byInstance(ItemSockets),
+    }),
+  ),
+})
+export type Profile = typeof Profile.Type
+
+export const STAT = {
+  mobility: "2996146975",
+  resilience: "392767087",
+  recovery: "1943323491",
+  discipline: "1735777505",
+  intellect: "144602215",
+  strength: "4244567218",
+} as const
+
+export type ArmorStats = typeof CharacterStats.Type
+
+/** Everything the contract's ItemSummary has, plus the six armor stats. */
+export type OwnedItem = Schema.Struct.Type<typeof ItemSummary.fields> & {
+  readonly itemInstanceId: string
+  readonly armorStats: ArmorStats | null
+  /** Every plug in the weapon's sockets, in order; what wishlist rolls are matched against. */
+  readonly plugHashes: ReadonlyArray<number>
+}
+
+export interface CharacterInfo {
+  readonly characterId: string
+  readonly classType: GuardianClass
+  readonly light: number
+  readonly subclass: string | null
+  readonly element: DamageType
+  readonly stats: CharacterStats
+  /** Everything in the postmaster, stackables included, since all of it counts toward 21. */
+  readonly postmasterCount: number
+}
+
+export interface Inventory {
+  readonly membershipType: number
+  readonly membershipId: string
+  /** Highest light first. */
+  readonly characters: ReadonlyArray<CharacterInfo>
+  /** Instanced items only; materials and consumables are not things Ghost moves. */
+  readonly items: ReadonlyArray<OwnedItem>
+  /** Every vault entry, stacks included, since that is what fills the 700 slots. */
+  readonly vaultCount: number
+}
+
+export interface SeenInfo {
+  readonly decision: ItemDecision | null
+  readonly firstSeenAt: string
+  readonly baseline: boolean
+}
+
+export const classFor = (classType: number): GuardianClass =>
+  classType === 0 ? "titan" : classType === 1 ? "hunter" : "warlock"
+
+const ARMOR_SLOTS: ReadonlySet<ItemSlot> = new Set(["helmet", "arms", "chest", "legs", "class"])
+const WEAPON_SLOTS: ReadonlySet<ItemSlot> = new Set(["kinetic", "energy", "power"])
+export const isArmor = (slot: ItemSlot) => ARMOR_SLOTS.has(slot)
+export const isWeapon = (slot: ItemSlot) => WEAPON_SLOTS.has(slot)
+
+// Older subclass definitions carry no damage type; their names do.
+const SUBCLASS_ELEMENTS: Record<string, DamageType> = {
+  Arcstrider: "arc",
+  Striker: "arc",
+  Stormcaller: "arc",
+  Gunslinger: "solar",
+  Sunbreaker: "solar",
+  Dawnblade: "solar",
+  Nightstalker: "void",
+  Sentinel: "void",
+  Voidwalker: "void",
+  Revenant: "stasis",
+  Behemoth: "stasis",
+  Shadebinder: "stasis",
+  Threadrunner: "strand",
+  Berserker: "strand",
+  Broodweaver: "strand",
+}
+
+const statsFrom = (stats: Readonly<Record<string, number>>) =>
+  new CharacterStats({
+    mobility: stats[STAT.mobility] ?? 0,
+    resilience: stats[STAT.resilience] ?? 0,
+    recovery: stats[STAT.recovery] ?? 0,
+    discipline: stats[STAT.discipline] ?? 0,
+    intellect: stats[STAT.intellect] ?? 0,
+    strength: stats[STAT.strength] ?? 0,
+  })
+
+/** Every hash the profile mentions, plugs included, so one manifest lookup covers it. */
+export const profileHashes = (profile: Profile): Set<number> => {
+  const hashes = new Set<number>()
+  const add = (list: { readonly items: ReadonlyArray<RawItem> } | undefined) => {
+    for (const item of list?.items ?? []) hashes.add(item.itemHash)
+  }
+  add(profile.profileInventory?.data)
+  for (const list of Object.values(profile.characterInventories?.data ?? {})) add(list)
+  for (const list of Object.values(profile.characterEquipment?.data ?? {})) add(list)
+  for (const entry of Object.values(profile.itemComponents?.sockets?.data ?? {})) {
+    for (const socket of entry.sockets)
+      if (socket.plugHash !== undefined) hashes.add(socket.plugHash)
+  }
+  return hashes
+}
+
+interface Placed {
+  readonly raw: RawItem & { readonly itemInstanceId: string }
+  readonly location: ItemLocation
+  readonly characterId: string | null
+  readonly equipped: boolean
+}
+
+export const buildInventory = (
+  profile: Profile,
+  defs: ReadonlyMap<number, ManifestItem>,
+  seen: ReadonlyMap<string, SeenInfo>,
+): Inventory => {
+  const instances = profile.itemComponents?.instances?.data ?? {}
+  const itemStats = profile.itemComponents?.stats?.data ?? {}
+  const sockets = profile.itemComponents?.sockets?.data ?? {}
+  const vault = (profile.profileInventory?.data?.items ?? []).filter(
+    (i) => i.bucketHash === BUCKETS.vault,
+  )
+
+  const placed: Array<Placed> = []
+  const place = (
+    raw: RawItem,
+    location: ItemLocation,
+    characterId: string | null,
+    equipped: boolean,
+  ) => {
+    const id = raw.itemInstanceId
+    if (id === undefined || raw.bucketHash === BUCKETS.subclass) return
+    placed.push({ raw: { ...raw, itemInstanceId: id }, location, characterId, equipped })
+  }
+  for (const raw of vault) place(raw, "vault", null, false)
+
+  const characters: Array<CharacterInfo> = []
+  for (const c of Object.values(profile.characters?.data ?? {})) {
+    const inventory = profile.characterInventories?.data?.[c.characterId]?.items ?? []
+    const equipment = profile.characterEquipment?.data?.[c.characterId]?.items ?? []
+    for (const raw of inventory) {
+      place(
+        raw,
+        raw.bucketHash === BUCKETS.postmaster ? "postmaster" : "character",
+        c.characterId,
+        false,
+      )
+    }
+    for (const raw of equipment) place(raw, "character", c.characterId, true)
+    const subclassHash = equipment.find((i) => i.bucketHash === BUCKETS.subclass)?.itemHash
+    const subclass = subclassHash === undefined ? undefined : defs.get(subclassHash)
+    const subclassElement =
+      subclass === undefined || subclass.damageType !== "none"
+        ? subclass?.damageType
+        : SUBCLASS_ELEMENTS[subclass.name]
+    characters.push({
+      characterId: c.characterId,
+      classType: classFor(c.classType),
+      light: c.light,
+      subclass: subclass?.name ?? null,
+      element: subclassElement ?? "none",
+      stats: statsFrom(c.stats),
+      postmasterCount: inventory.filter((i) => i.bucketHash === BUCKETS.postmaster).length,
+    })
+  }
+  characters.sort((a, b) => b.light - a.light)
+
+  const copies = new Map<number, number>()
+  for (const p of placed) copies.set(p.raw.itemHash, (copies.get(p.raw.itemHash) ?? 0) + 1)
+
+  const items = placed.map(({ raw, location, characterId, equipped }): OwnedItem => {
+    const def = defs.get(raw.itemHash)
+    const id = raw.itemInstanceId
+    const instance = instances[id]
+    // Vault and postmaster items sit in a shared bucket, so the slot comes
+    // from the definition; character items carry their real bucket.
+    const bucket =
+      raw.bucketHash === BUCKETS.vault || raw.bucketHash === BUCKETS.postmaster
+        ? (def?.bucketHash ?? 0)
+        : raw.bucketHash
+    const slot = slotForBucket(bucket)
+    const armor = isArmor(slot)
+    const rawStats = itemStats[id]?.stats
+    const armorStats =
+      armor && rawStats !== undefined
+        ? statsFrom(Object.fromEntries(Object.entries(rawStats).map(([k, v]) => [k, v.value])))
+        : null
+    const plugHashes = isWeapon(slot)
+      ? (sockets[id]?.sockets ?? []).flatMap((socket) =>
+          socket.plugHash === undefined || socket.isEnabled === false || socket.isVisible === false
+            ? []
+            : [socket.plugHash],
+        )
+      : []
+    const perks = plugHashes.flatMap((hash) => {
+      const plug = defs.get(hash)
+      return plug !== undefined && plug.typeName.includes("Trait") ? [plug.name] : []
+    })
+    const state = raw.state ?? 0
+    const memory = seen.get(id)
+    return {
+      itemInstanceId: id,
+      itemHash: raw.itemHash,
+      name: def?.name ?? `#${raw.itemHash}`,
+      typeName: def?.typeName ?? "",
+      icon: def?.icon ?? null,
+      tier: def?.tier ?? "unknown",
+      slot,
+      damageType:
+        instance?.damageType !== undefined
+          ? damageForType(instance.damageType)
+          : (def?.damageType ?? "none"),
+      power: instance?.primaryStat?.value ?? null,
+      quantity: raw.quantity,
+      location,
+      characterId,
+      equipped,
+      classType: armor && def !== undefined && def.classType < 3 ? classFor(def.classType) : null,
+      locked: (state & 1) !== 0,
+      masterwork: (state & 4) !== 0,
+      statTotal:
+        armorStats === null
+          ? null
+          : armorStats.mobility +
+            armorStats.resilience +
+            armorStats.recovery +
+            armorStats.discipline +
+            armorStats.intellect +
+            armorStats.strength,
+      perks,
+      duplicates: (copies.get(raw.itemHash) ?? 1) - 1,
+      decision: memory?.decision ?? null,
+      acquiredAt: memory === undefined || memory.baseline ? null : memory.firstSeenAt,
+      armorStats,
+      plugHashes,
+    }
+  })
+
+  const userInfo = profile.profile?.data?.userInfo
+  return {
+    membershipType: userInfo?.membershipType ?? 0,
+    membershipId: userInfo?.membershipId ?? "",
+    characters,
+    items,
+    vaultCount: vault.length,
+  }
+}
+
+/** The selected character, or the highest-light one when none (or an unknown one) is given. */
+export const pickCharacter = (
+  inventory: Inventory,
+  characterId?: string | null,
+): CharacterInfo | undefined =>
+  inventory.characters.find((c) => c.characterId === characterId) ?? inventory.characters[0]
+
+// An upgrade has to beat what the character wears in that slot today, so a
+// slot with nothing equipped (or a class that cannot use the item) never
+// counts. Weapons compare power. Armor compares stat totals with a margin of
+// 2, since a point or two is noise. Only one exotic armor piece can be worn,
+// so an exotic only counts when it would replace the exotic already on.
+export const isUpgrade = (
+  item: OwnedItem,
+  character: CharacterInfo,
+  items: ReadonlyArray<OwnedItem>,
+): boolean => {
+  if (item.equipped && item.characterId === character.characterId) return false
+  if (!isWeapon(item.slot) && !isArmor(item.slot)) return false
+  if (item.classType !== null && item.classType !== character.classType) return false
+  const current = items.find(
+    (i) => i.equipped && i.characterId === character.characterId && i.slot === item.slot,
+  )
+  if (current === undefined) return false
+  if (isWeapon(item.slot)) {
+    return item.power !== null && current.power !== null && item.power > current.power
+  }
+  if (item.tier === "exotic" && current.tier !== "exotic") return false
+  return (
+    item.statTotal !== null && current.statTotal !== null && item.statTotal > current.statTotal + 2
+  )
+}

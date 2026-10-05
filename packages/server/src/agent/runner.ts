@@ -1,6 +1,7 @@
 import { Effect, Layer, Option } from "effect"
 import { JobsRepo } from "../db/jobs.ts"
 import { ClaudeAgent } from "./claude.ts"
+import { CurrentJob } from "./current-job.ts"
 
 // One daemon fiber drains the queue. Polling SQLite every two seconds is
 // deliberately boring: a job row is the unit of work, so a crash mid-run
@@ -10,12 +11,15 @@ import { ClaudeAgent } from "./claude.ts"
 const tick = Effect.gen(function* () {
   const jobs = yield* JobsRepo
   const agent = yield* ClaudeAgent
+  const current = yield* CurrentJob
   const next = yield* jobs.nextQueued
   if (Option.isNone(next)) return
   const job = next.value
   yield* jobs.setStatus(job.id, "running")
   yield* Effect.logInfo(`job ${job.id} (${job.kind}) started`)
-  const outcome = yield* agent.run(job.kind, job.prompt).pipe(Effect.result)
+  const outcome = yield* agent
+    .run(job.kind, job.prompt, job.characterId)
+    .pipe(current.around({ id: job.id, characterId: job.characterId }), Effect.result)
   if (outcome._tag === "Success") {
     yield* jobs.setStatus(job.id, "done", { result: outcome.success })
     yield* Effect.logInfo(`job ${job.id} done`)

@@ -61,6 +61,64 @@ const migrations = {
       )
     `
   }),
+  // Plans are what the agent proposes; actions journal every call the server
+  // made after the player confirmed, so a request can be shown and undone.
+  // Baseline rows were already owned on the very first sync, so they are not
+  // "new". The manifest gains class_type and descriptions, so stored copies
+  // are re-downloaded. wishlist_rolls is the community roll list the agent
+  // judges rolls against, and jobs keep the sources an answer relied on.
+  "0003_plans_sync_actions": Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    yield* sql`ALTER TABLE jobs ADD COLUMN plan TEXT`
+    yield* sql`ALTER TABLE jobs ADD COLUMN character_id TEXT`
+    yield* sql`ALTER TABLE jobs ADD COLUMN sources TEXT NOT NULL DEFAULT '[]'`
+    yield* sql`ALTER TABLE items_seen ADD COLUMN baseline INTEGER NOT NULL DEFAULT 0`
+    yield* sql`ALTER TABLE items_seen ADD COLUMN job_id TEXT`
+    yield* sql`
+      CREATE TABLE IF NOT EXISTS actions (
+        id TEXT PRIMARY KEY,
+        job_id TEXT NOT NULL,
+        item_instance_id TEXT NOT NULL,
+        item_hash INTEGER,
+        name TEXT,
+        kind TEXT NOT NULL,
+        character_id TEXT,
+        from_location TEXT,
+        from_character_id TEXT,
+        previous_item_id TEXT,
+        status TEXT NOT NULL,
+        error TEXT,
+        created_at TEXT NOT NULL
+      )
+    `
+    yield* sql`CREATE INDEX IF NOT EXISTS actions_job ON actions (job_id)`
+    yield* sql`CREATE INDEX IF NOT EXISTS items_seen_first_seen ON items_seen (first_seen_at)`
+    yield* sql`ALTER TABLE manifest_items ADD COLUMN class_type INTEGER NOT NULL DEFAULT 3`
+    yield* sql`ALTER TABLE manifest_items ADD COLUMN description TEXT`
+    // Notes are shared by hundreds of roll lines, so they live once per block.
+    yield* sql`
+      CREATE TABLE IF NOT EXISTS wishlist_blocks (
+        id INTEGER PRIMARY KEY,
+        notes TEXT,
+        tags TEXT NOT NULL,
+        section_title TEXT,
+        section_description TEXT,
+        section_url TEXT,
+        section_date TEXT
+      )
+    `
+    yield* sql`
+      CREATE TABLE IF NOT EXISTS wishlist_rolls (
+        position INTEGER PRIMARY KEY,
+        item_hash INTEGER NOT NULL,
+        perk_hashes TEXT NOT NULL,
+        trash INTEGER NOT NULL,
+        block_id INTEGER NOT NULL
+      )
+    `
+    yield* sql`CREATE INDEX IF NOT EXISTS wishlist_rolls_item ON wishlist_rolls (item_hash)`
+    yield* sql`DELETE FROM settings WHERE key = 'manifest.version'`
+  }),
 }
 
 const SqliteLive = Layer.unwrap(

@@ -1,5 +1,5 @@
 import type { DamageType, ItemSlot, ItemTier } from "@ghost/contract"
-import { Context, Effect, Layer, Option, Redacted } from "effect"
+import { Context, Effect, Layer, Option, Redacted, Semaphore } from "effect"
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http"
 import { SqlClient } from "effect/sql"
 import { AppConfig } from "../config.ts"
@@ -11,6 +11,8 @@ import { BungieError } from "./client.ts"
 // patch. We download the lite item definitions once (roughly 30 MB), keep the
 // handful of fields we need in SQLite, and refresh when Bungie's version
 // string changes. Lookups are then a local query, not a network call per item.
+// The version check itself runs at most hourly, and looked-up definitions stay
+// in memory, so a profile load does not touch the network or SQLite for them.
 
 export interface ManifestItem {
   readonly hash: number
@@ -21,6 +23,10 @@ export interface ManifestItem {
   readonly slot: ItemSlot
   readonly damageType: DamageType
   readonly bucketHash: number
+  /** Bungie's DestinyClass: 0 titan, 1 hunter, 2 warlock, 3 any. */
+  readonly classType: number
+  /** Effect text from the current patch, for perks, mods and fragments. */
+  readonly description: string
 }
 
 export interface ManifestShape {
@@ -29,6 +35,10 @@ export interface ManifestShape {
   readonly lookup: (
     hashes: Iterable<number>,
   ) => Effect.Effect<ReadonlyMap<number, ManifestItem>, BungieError>
+  /** Definitions whose name matches exactly (case-insensitive); several per name are common. */
+  readonly findByName: (
+    names: ReadonlyArray<string>,
+  ) => Effect.Effect<ReadonlyArray<ManifestItem>, BungieError>
 }
 
 export class Manifest extends Context.Service<Manifest, ManifestShape>()("Manifest") {}
@@ -45,6 +55,7 @@ export const BUCKETS = {
   class: 1585787867,
   postmaster: 215593132,
   vault: 138197802,
+  subclass: 3284755031,
 } as const
 
 export const slotForBucket = (bucketHash: number): ItemSlot => {
@@ -116,6 +127,8 @@ type ManifestRow = {
   readonly bucket_hash: number
   readonly item_type: number
   readonly damage_type: number
+  readonly class_type: number
+  readonly description: string | null
 }
 
 const rowToItem = (row: ManifestRow): ManifestItem => ({
@@ -127,13 +140,21 @@ const rowToItem = (row: ManifestRow): ManifestItem => ({
   slot: slotForBucket(row.bucket_hash),
   damageType: damageForType(row.damage_type),
   bucketHash: row.bucket_hash,
+  classType: row.class_type,
+  description: row.description ?? "",
 })
 
 interface LiteDefinition {
-  readonly displayProperties?: { readonly name?: string; readonly icon?: string }
+  readonly displayProperties?: {
+    readonly name?: string
+    readonly icon?: string
+    readonly description?: string
+  }
   readonly itemTypeDisplayName?: string
   readonly itemType?: number
   readonly defaultDamageType?: number
+  readonly classType?: number
+  readonly talentGrid?: { readonly hudDamageType?: number }
   readonly inventory?: { readonly tierType?: number; readonly bucketTypeHash?: number }
 }
 
@@ -147,6 +168,7 @@ interface ManifestIndex {
 
 const VERSION_KEY = "manifest.version"
 const BATCH = 500
+const CHECK_EVERY_MS = 60 * 60 * 1000
 
 export const ManifestLive = Layer.effect(
   Manifest,
@@ -186,7 +208,10 @@ export const ManifestLive = Layer.effect(
             tier_type: def.inventory?.tierType ?? 0,
             bucket_hash: def.inventory?.bucketTypeHash ?? 0,
             item_type: def.itemType ?? 0,
-            damage_type: def.defaultDamageType ?? 0,
+            // Subclasses carry their element on the talent grid instead.
+            damage_type: def.defaultDamageType || (def.talentGrid?.hudDamageType ?? 0),
+            class_type: def.classType ?? 3,
+            description: def.displayProperties?.description || null,
           })
         }
         yield* sql`DELETE FROM manifest_items`
@@ -196,7 +221,14 @@ export const ManifestLive = Layer.effect(
         return rows.length
       }).pipe(sql.withTransaction)
 
+    const cache = new Map<number, ManifestItem>()
+    const missing = new Set<number>()
+    let checkedAt = 0
+    // Two lookups racing at startup would otherwise both download the manifest.
+    const lock = yield* Semaphore.make(1)
+
     const ensure = Effect.gen(function* () {
+      if (Date.now() - checkedAt < CHECK_EVERY_MS) return
       const index = (yield* fetchJson("https://www.bungie.net/Platform/Destiny2/Manifest/")) as {
         Response: ManifestIndex
       }
@@ -208,7 +240,10 @@ export const ManifestLive = Layer.effect(
         SELECT COUNT(*) AS count FROM manifest_items
       `.pipe(Effect.orDie)
       const populated = (stored?.count ?? 0) > 0
-      if (populated && Option.isSome(local) && local.value === remote.version) return
+      if (populated && Option.isSome(local) && local.value === remote.version) {
+        checkedAt = Date.now()
+        return
+      }
       const path = remote.jsonWorldComponentContentPaths.en?.DestinyInventoryItemLiteDefinition
       if (path === undefined) {
         return yield* new BungieError({ status: "Manifest", message: "no item definitions" })
@@ -220,23 +255,49 @@ export const ManifestLive = Layer.effect(
       >
       const count = yield* replaceAll(definitions).pipe(Effect.orDie)
       yield* settings.set(VERSION_KEY, remote.version).pipe(Effect.orDie)
+      cache.clear()
+      missing.clear()
+      checkedAt = Date.now()
       yield* Effect.logInfo(`manifest: stored ${count} items`)
-    })
+    }).pipe(lock.withPermits(1))
 
     const lookup = (hashes: Iterable<number>) =>
       Effect.gen(function* () {
         yield* ensure
-        const unique = Array.from(new Set(hashes))
         const result = new Map<number, ManifestItem>()
-        for (let i = 0; i < unique.length; i += BATCH) {
+        const unknown: Array<number> = []
+        for (const hash of new Set(hashes)) {
+          const hit = cache.get(hash)
+          if (hit !== undefined) result.set(hash, hit)
+          else if (!missing.has(hash)) unknown.push(hash)
+        }
+        for (let i = 0; i < unknown.length; i += BATCH) {
+          const batch = unknown.slice(i, i + BATCH)
           const rows = yield* sql<ManifestRow>`
-            SELECT * FROM manifest_items WHERE ${sql.in("hash", unique.slice(i, i + BATCH))}
+            SELECT * FROM manifest_items WHERE ${sql.in("hash", batch)}
           `.pipe(Effect.orDie)
-          for (const row of rows) result.set(row.hash, rowToItem(row))
+          for (const row of rows) {
+            const item = rowToItem(row)
+            cache.set(row.hash, item)
+            result.set(row.hash, item)
+          }
+          for (const hash of batch) if (!cache.has(hash)) missing.add(hash)
         }
         return result as ReadonlyMap<number, ManifestItem>
       })
 
-    return { ensure, lookup }
+    const findByName = (names: ReadonlyArray<string>) =>
+      Effect.gen(function* () {
+        yield* ensure
+        if (names.length === 0) return []
+        const lowered = names.map((n) => n.toLowerCase())
+        const rows = yield* sql<ManifestRow>`
+          SELECT * FROM manifest_items WHERE lower(name) IN ${sql.in(lowered)}
+          AND description IS NOT NULL LIMIT 200
+        `.pipe(Effect.orDie)
+        return rows.map(rowToItem)
+      })
+
+    return { ensure, lookup, findByName }
   }),
 ).pipe(Layer.provide(FetchHttpClient.layer))

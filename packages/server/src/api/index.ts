@@ -5,15 +5,14 @@ import {
   BungieFailed,
   GhostApi,
   Health,
-  RecentItem,
 } from "@ghost/contract"
 import { Effect, Layer, Option, Schema } from "effect"
 import { HttpApiBuilder, HttpApiScalar } from "effect/http-api"
-import { BungieClient } from "../bungie/client.ts"
+import { Activity } from "../activity/activity.ts"
+import { BungieClient, type BungieError } from "../bungie/client.ts"
 import { Guardian } from "../bungie/guardian.ts"
-import { Manifest } from "../bungie/manifest.ts"
-import { ItemsRepo } from "../db/items.ts"
 import { JobsRepo } from "../db/jobs.ts"
+import { Plans } from "../plans/executor.ts"
 
 const VERSION = "0.0.0"
 
@@ -27,6 +26,10 @@ const HealthLive = HttpApiBuilder.group(GhostApi, "health", (handlers) =>
   ),
 )
 
+// BungieError carries Bungie's status and message; the contract exposes it
+// as BungieFailed so the app can show the text without knowing the shape.
+const toBungieFailed = (e: BungieError) => Effect.fail(new BungieFailed({ message: e.message }))
+
 const JobsLive = HttpApiBuilder.group(GhostApi, "jobs", (handlers) =>
   handlers
     .handle("list", () => Effect.flatMap(JobsRepo, (jobs) => jobs.list).pipe(Effect.orDie))
@@ -37,61 +40,50 @@ const JobsLive = HttpApiBuilder.group(GhostApi, "jobs", (handlers) =>
       Effect.flatMap(JobsRepo, (jobs) => jobs.get(params.id)).pipe(
         Effect.catchTag("SqlError", Effect.die),
       ),
-    ),
+    )
+    .handle("apply", ({ params, payload }) =>
+      Effect.flatMap(Plans, (plans) => plans.apply(params.id, payload.selected)).pipe(
+        Effect.catchTag("BungieError", toBungieFailed),
+      ),
+    )
+    .handle("undo", ({ params }) =>
+      Effect.flatMap(Plans, (plans) => plans.undo(params.id)).pipe(
+        Effect.catchTag("BungieError", toBungieFailed),
+      ),
+    )
+    .handle("history", () => Effect.flatMap(Plans, (plans) => plans.history)),
 )
-
-const withDefinitions = (items: ReadonlyArray<RecentItem>) =>
-  Effect.gen(function* () {
-    const manifest = yield* Manifest
-    const defs = yield* manifest.lookup(items.map((item) => item.itemHash))
-    return items.map((item) => {
-      const def = defs.get(item.itemHash)
-      return def === undefined
-        ? item
-        : new RecentItem({
-            ...item,
-            name: def.name,
-            typeName: def.typeName,
-            icon: def.icon,
-            tier: def.tier,
-          })
-    })
-  }).pipe(Effect.catchTag("BungieError", () => Effect.succeed(items)))
 
 const InventoryLive = HttpApiBuilder.group(GhostApi, "inventory", (handlers) =>
   handlers
-    .handle("recent", () =>
-      Effect.flatMap(ItemsRepo, (items) => items.recent).pipe(
-        Effect.orDie,
-        Effect.flatMap(withDefinitions),
-      ),
-    )
+    .handle("recent", ({ query }) => Effect.flatMap(Activity, (a) => a.recent(query.characterId)))
     .handle("decide", ({ params, payload }) =>
       Effect.gen(function* () {
-        const items = yield* ItemsRepo
-        const updated = yield* items.setDecision(params.id, payload.decision).pipe(Effect.orDie)
+        const activity = yield* Activity
+        const updated = yield* activity.decide(params.id, payload.decision)
         // The contract does not declare a not-found error for this route,
         // so an unknown id is a defect (500) rather than a typed failure.
         return yield* Option.match(updated, {
           onNone: () => Effect.die(new Error(`unknown item ${params.id}`)),
-          onSome: (item) => Effect.map(withDefinitions([item]), ([enriched]) => enriched ?? item),
+          onSome: Effect.succeed,
         })
       }),
     ),
 )
 
-// BungieError carries Bungie's status and message; the contract exposes it
-// as BungieFailed so the app can show the text without knowing the shape.
 const GuardianLive = HttpApiBuilder.group(GhostApi, "guardian", (handlers) =>
   handlers
     .handle("snapshot", () =>
       Effect.flatMap(Guardian, (g) => g.snapshot).pipe(
-        Effect.catchTag("BungieError", (e) => new BungieFailed({ message: e.message })),
+        Effect.catchTag("BungieError", toBungieFailed),
       ),
     )
     .handle("vault", () =>
-      Effect.flatMap(Guardian, (g) => g.vault).pipe(
-        Effect.catchTag("BungieError", (e) => new BungieFailed({ message: e.message })),
+      Effect.flatMap(Guardian, (g) => g.vault).pipe(Effect.catchTag("BungieError", toBungieFailed)),
+    )
+    .handle("briefing", ({ query }) =>
+      Effect.flatMap(Activity, (a) => a.briefing(query.characterId)).pipe(
+        Effect.catchTag("BungieError", toBungieFailed),
       ),
     ),
 )

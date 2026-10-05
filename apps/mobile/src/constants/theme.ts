@@ -1,98 +1,46 @@
-/**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
- */
-
 import type { ItemTier } from "@ghost/contract"
-import { Platform } from "react-native"
 
-export const Colors = {
-  light: {
-    text: "#000000",
-    background: "#ffffff",
-    backgroundElement: "#F0F0F3",
-    backgroundSelected: "#E0E1E6",
-    textSecondary: "#60646C",
-  },
-  dark: {
-    text: "#ffffff",
-    background: "#000000",
-    backgroundElement: "#212225",
-    backgroundSelected: "#2E3135",
-    textSecondary: "#B0B4BA",
-  },
-} as const
-
-export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark
-
-export const Fonts = Platform.select({
-  ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: "system-ui",
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: "ui-serif",
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: "ui-rounded",
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: "ui-monospace",
-  },
-  default: {
-    sans: "normal",
-    serif: "serif",
-    rounded: "normal",
-    mono: "monospace",
-  },
-  web: {
-    sans: "var(--font-display)",
-    serif: "var(--font-serif)",
-    rounded: "var(--font-rounded)",
-    mono: "var(--font-mono)",
-  },
-})
-
-export const Spacing = {
-  half: 2,
-  one: 4,
-  two: 8,
-  three: 16,
-  four: 24,
-  five: 32,
-  six: 64,
-} as const
-
-export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0
-export const MaxContentWidth = 800
+// Tokens from "Ghost - App Map v2": near-black surfaces, warm off-white ink,
+// one blue accent, gold for power, and chamfered corners instead of radii.
 
 export const Ghost = {
-  bg: "#0b0d10",
-  card: "#15191f",
-  line: "rgba(255,255,255,0.08)",
-  lineStrong: "rgba(255,255,255,0.14)",
-  accentLine: "rgba(79,163,227,0.4)",
-  text: "#e8ecf1",
-  textSoft: "#c5ccd6",
-  muted: "#8a94a3",
-  dim: "#5b6472",
-  accent: "#4FA3E3",
-  onAccent: "#06111a",
-  power: "#F2B01E",
-  good: "#7DD3A8",
-  danger: "#E05C4B",
+  bg: "#0c0d0f",
+  /** The faint glow behind the chat header and page titles. */
+  glow: "radial-gradient(120% 50% at 50% -8%, #151a21 0%, #0c0d0f 60%)",
+  panel: "#121418",
+  swatch: "#181b20",
+  line: "#23272e",
+  rule: "#1e2228",
+  ruleStrong: "#2c313a",
+  headerRule: "#1a1d22",
+  ink: "#ecebe6",
+  soft: "#d6d9dd",
+  muted: "#a7adb5",
+  dim: "#6b7280",
+  accent: "#5aa9e6",
+  gold: "#e3b341",
+  good: "#7dd3a8",
+  danger: "#e06a5a",
+  scrim: "rgba(6,7,9,0.72)",
 } as const
 
 export const Rarity = {
-  exotic: { color: "#CEAE33", fill: "#3a3118" },
-  legendary: { color: "#A365D6", fill: "#2a1f36" },
-  rare: { color: "#5A8FD6", fill: "#1c2838" },
-  common: { color: "#5b6472", fill: "#15191f" },
-  unknown: { color: "#5b6472", fill: "#15191f" },
-} as const satisfies Record<ItemTier, { color: string; fill: string }>
-export type Rarity = ItemTier
+  exotic: "#ceae33",
+  legendary: "#a365d6",
+  rare: "#5a8fd6",
+  common: "#6b7280",
+  unknown: "#6b7280",
+} as const satisfies Record<ItemTier, string>
 
 export const Type = {
-  light: "Outfit_300Light",
-  regular: "Outfit_400Regular",
-  medium: "Outfit_500Medium",
-  semibold: "Outfit_600SemiBold",
+  body: "Barlow_400Regular",
+  bodyMedium: "Barlow_500Medium",
+  bodySemi: "Barlow_600SemiBold",
+  cond: "BarlowCondensed_600SemiBold",
+  condMedium: "BarlowCondensed_500Medium",
   mono: "JetBrainsMono_400Regular",
+  monoMedium: "JetBrainsMono_500Medium",
 } as const
+
+/** Horizontal page padding used by every screen in the design. */
+export const Gutter = 20
