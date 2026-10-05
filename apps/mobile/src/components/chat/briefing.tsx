@@ -15,11 +15,13 @@ export function BriefingView({
   briefing,
   character,
   failed,
+  greet,
   onAsk,
 }: {
   briefing: Briefing | undefined
   character: GuardianCharacter | undefined
   failed: boolean
+  greet: boolean
   onAsk: (prompt: string) => void
 }) {
   const who = character
@@ -35,10 +37,12 @@ export function BriefingView({
   return (
     <View style={{ paddingTop: 8 }}>
       <Mono size={10}>{[dayStamp(), ...who].join(" · ")}</Mono>
-      <Cond size={44} style={{ letterSpacing: 0.4, lineHeight: 42, marginTop: 10 }}>
-        {"EYES UP,\nGUARDIAN."}
-      </Cond>
-      <View style={{ marginTop: 28 }}>
+      {greet ? (
+        <Cond size={44} style={{ letterSpacing: 0.4, lineHeight: 42, marginTop: 10 }}>
+          {"EYES UP,\nGUARDIAN."}
+        </Cond>
+      ) : null}
+      <View style={{ marginTop: greet ? 28 : 10 }}>
         <Said>{sentence}</Said>
       </View>
       {next.length > 0 ? (

@@ -84,12 +84,13 @@ export default function ChatScreen() {
           briefing={briefing.data}
           character={character}
           failed={briefing.isError}
+          greet={!hasHistory}
           onAsk={ask}
         />
       ) : (
         <MessageView job={item.job} onAsk={ask} />
       ),
-    [briefing.data, briefing.isError, character, ask],
+    [briefing.data, briefing.isError, character, hasHistory, ask],
   )
 
   return (
@@ -124,7 +125,7 @@ export default function ChatScreen() {
           refreshing={pull.refreshing}
           onRefresh={pull.onRefresh}
         />
-        {!asked ? <Starters onAsk={ask} /> : null}
+        {hasHistory ? null : <Starters onAsk={ask} />}
         {createJob.isError ? (
           <Body size={13} color={Ghost.danger} style={{ paddingHorizontal: 20, paddingTop: 8 }}>
             Couldn't reach Ghost: {errorMessage(createJob.error)}
