@@ -8,18 +8,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { PlanRowView } from "@/components/chat/plan-block"
 import { liveLabel } from "@/lib/plan-card"
 import { Unavailable } from "@/components/ghost/unavailable"
-import {
-  Body,
-  Button,
-  Chip,
-  Cond,
-  Cut,
-  Mono,
-  PageHeader,
-  Said,
-  Swatch,
-  Tick,
-} from "@/components/ghost/ui"
+import { ItemIcon } from "@/components/ghost/item-icon"
+import { Body, Button, Chip, Cond, Cut, Mono, PageHeader, Said, Tick } from "@/components/ghost/ui"
 import { Ghost, Gutter, Type } from "@/constants/theme"
 import { useApplyPlan, useCreateJob, useJobs, useSetDecision, useVault } from "@/lib/api"
 import { useCharacter } from "@/lib/character"
@@ -74,7 +64,13 @@ function VaultRow({
       style={({ pressed }) => [styles.row, (picked || pressed) && { backgroundColor: Ghost.panel }]}
     >
       {selecting ? <Tick on={picked} under={Ghost.bg} /> : null}
-      <Swatch tier={item.tier} icon={item.icon} size={44} />
+      <ItemIcon
+        icon={item.icon}
+        size={48}
+        element={item.damageType}
+        gearTier={item.gearTier}
+        masterwork={item.masterwork}
+      />
       <View style={{ flex: 1, minWidth: 0 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <Body size={15} style={{ fontFamily: Type.bodyMedium, flexShrink: 1 }} lines={1}>

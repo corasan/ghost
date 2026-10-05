@@ -360,6 +360,8 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
                 ...(item.armorStats === null ? {} : { stats: armorStats(item) }),
                 slot: item.slot,
                 masterwork: item.masterwork,
+                damageType: item.damageType,
+                gearTier: item.gearTier ?? null,
                 ...(origin === undefined ? {} : { origin }),
               })
             })

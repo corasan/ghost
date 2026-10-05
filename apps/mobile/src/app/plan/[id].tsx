@@ -6,7 +6,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { BuildHeader } from "@/components/chat/build-card"
 import { BuildStats } from "@/components/chat/build-stats"
 import { RowRight } from "@/components/chat/plan-block"
-import { Body, Button, Diamond, Mono, Swatch } from "@/components/ghost/ui"
+import { ItemIcon } from "@/components/ghost/item-icon"
+import { Body, Button, Diamond, Mono } from "@/components/ghost/ui"
 import { ELEMENT_TONE, Ghost, Gutter, Type } from "@/constants/theme"
 import { errorMessage, useApplyPlan, useJob } from "@/lib/api"
 import { firstSentence } from "@/lib/effect-text"
@@ -72,13 +73,11 @@ function Piece({ row, applied }: { row: PlanRow; applied: boolean }) {
       style={({ pressed }) => [styles.piece, pressed && { opacity: 0.6 }]}
     >
       <View style={styles.pieceHead}>
-        <Swatch
-          tier={row.tier}
+        <ItemIcon
           icon={row.icon}
-          size={44}
-          edge={
-            !applied && row.origin !== undefined && row.action !== "none" ? Ghost.accent : undefined
-          }
+          size={48}
+          element={row.damageType}
+          gearTier={row.gearTier}
           masterwork={row.masterwork}
         />
         <View style={{ flex: 1, minWidth: 0 }}>
@@ -216,7 +215,7 @@ const styles = StyleSheet.create({
   fragment: { flexDirection: "row", alignItems: "center", gap: 10 },
   piece: { paddingVertical: 10, borderTopWidth: 1, borderTopColor: Ghost.rule, gap: 9 },
   pieceHead: { flexDirection: "row", alignItems: "center", gap: 12 },
-  pieceStats: { flexDirection: "row", gap: 6, paddingLeft: 56 },
+  pieceStats: { flexDirection: "row", gap: 6, paddingLeft: 60 },
   footer: {
     paddingHorizontal: Gutter,
     paddingTop: 12,

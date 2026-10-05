@@ -46,6 +46,7 @@ export const GuardianLive = Layer.effect(
         vaultCount: inv.vaultCount,
         vaultCapacity: capacities.vault,
         postmasterCapacity: capacities.postmaster,
+        elementIcons: yield* manifest.elementIcons,
       })
     })
 

@@ -103,6 +103,25 @@ export const statModsFrom = (definition: PlugDefinition, conditional: boolean): 
     ),
   )
 
+/** Bungie's own icon for each damage type, as an absolute URL. */
+export type ElementIcons = Partial<Record<DamageType, string>>
+
+interface DamageTypeDefinition {
+  readonly enumValue?: number
+  readonly displayProperties?: { readonly icon?: string }
+}
+
+export const elementIconsFrom = (
+  definitions: Readonly<Record<string, DamageTypeDefinition | undefined>>,
+): ElementIcons =>
+  Object.fromEntries(
+    Object.values(definitions).flatMap((definition) => {
+      const element = damageForType(definition?.enumValue ?? 0)
+      const icon = definition?.displayProperties?.icon
+      return element === "none" || !icon ? [] : [[element, `https://www.bungie.net${icon}`]]
+    }),
+  )
+
 export interface ManifestShape {
   /** What Bungie calls each armor stat and says it does. Empty until first read. Never fails. */
   readonly statFacts: Effect.Effect<StatFacts>
@@ -110,6 +129,8 @@ export interface ManifestShape {
   readonly plugFacts: (
     hashes: ReadonlyArray<number>,
   ) => Effect.Effect<ReadonlyMap<number, PlugFacts>>
+  /** Empty until first read. Never fails. */
+  readonly elementIcons: Effect.Effect<ElementIcons>
   /** How many slots the vault and postmaster hold in the current patch. Never fails. */
   readonly capacities: Effect.Effect<Capacities>
   /** Make sure the local copy exists and is current. Cheap when nothing changed. */
@@ -254,6 +275,8 @@ const CAPACITIES_KEY = "manifest.capacities"
 const CAPACITIES_VERSION_KEY = "manifest.capacities.version"
 const STAT_FACTS_KEY = "manifest.statFacts"
 const STAT_FACTS_VERSION_KEY = "manifest.statFacts.version"
+const ELEMENT_ICONS_KEY = "manifest.elementIcons"
+const ELEMENT_ICONS_VERSION_KEY = "manifest.elementIcons.version"
 const ARMOR_STAT_HASHES = [
   "2996146975",
   "392767087",
@@ -403,6 +426,28 @@ export const ManifestLive = Layer.effect(
         Effect.catch((error) => Effect.logWarning(`manifest: stat facts failed: ${error.message}`)),
       )
 
+    let elementIcons: ElementIcons | null = null
+
+    const refreshElementIcons = (remote: ManifestIndex) =>
+      Effect.gen(function* () {
+        const stored = yield* settings.get(ELEMENT_ICONS_VERSION_KEY).pipe(Effect.orDie)
+        if (Option.isSome(stored) && stored.value === remote.version) return
+        const path = remote.jsonWorldComponentContentPaths.en?.DestinyDamageTypeDefinition
+        if (path === undefined) return
+        elementIcons = elementIconsFrom(
+          (yield* fetchJson(`https://www.bungie.net${path}`)) as Record<
+            string,
+            DamageTypeDefinition
+          >,
+        )
+        yield* settings.set(ELEMENT_ICONS_KEY, JSON.stringify(elementIcons)).pipe(Effect.orDie)
+        yield* settings.set(ELEMENT_ICONS_VERSION_KEY, remote.version).pipe(Effect.orDie)
+      }).pipe(
+        Effect.catch((error) =>
+          Effect.logWarning(`manifest: element icons failed: ${error.message}`),
+        ),
+      )
+
     const ensure = Effect.gen(function* () {
       if (Date.now() - checkedAt < CHECK_EVERY_MS) return
       const index = (yield* fetchJson("https://www.bungie.net/Platform/Destiny2/Manifest/")) as {
@@ -411,6 +456,7 @@ export const ManifestLive = Layer.effect(
       const remote = index.Response
       yield* refreshCapacities(remote)
       yield* refreshStatFacts(remote)
+      yield* refreshElementIcons(remote)
       const local = yield* settings.get(VERSION_KEY).pipe(Effect.orDie)
       // An empty table means an earlier download stored nothing, so the saved
       // version cannot be trusted.
@@ -494,7 +540,16 @@ export const ManifestLive = Layer.effect(
       return statFacts
     })
 
+    const readElementIcons = Effect.gen(function* () {
+      yield* Effect.ignore(ensure)
+      if (elementIcons !== null) return elementIcons
+      const stored = Option.getOrNull(yield* settings.get(ELEMENT_ICONS_KEY).pipe(Effect.orDie))
+      elementIcons = stored === null ? {} : (JSON.parse(stored) as ElementIcons)
+      return elementIcons
+    })
+
     return {
+      elementIcons: readElementIcons,
       capacities: readCapacities,
       statFacts: readStatFacts,
       plugFacts,

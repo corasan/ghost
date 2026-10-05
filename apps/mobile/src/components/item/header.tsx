@@ -1,7 +1,8 @@
 import type { ItemSummary } from "@ghost/contract"
 import { View } from "react-native"
 
-import { Cond, Mono, Swatch } from "@/components/ghost/ui"
+import { ItemIcon } from "@/components/ghost/item-icon"
+import { Cond, Mono } from "@/components/ghost/ui"
 import { Ghost, Rarity } from "@/constants/theme"
 import { useCharacter } from "@/lib/character"
 import { upper } from "@/lib/format"
@@ -29,7 +30,13 @@ export function ItemHeader({ item, size = 64 }: { item: ItemSummary; size?: numb
   ].filter(Boolean)
   return (
     <View style={{ flexDirection: "row", gap: 14, paddingHorizontal: 20 }}>
-      <Swatch tier={item.tier} icon={item.icon} size={size} />
+      <ItemIcon
+        icon={item.icon}
+        size={size}
+        element={item.damageType}
+        gearTier={item.gearTier}
+        masterwork={item.masterwork}
+      />
       <View style={{ flex: 1, minWidth: 0 }}>
         <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 8 }}>
           <Cond size={24} style={{ letterSpacing: 0.5, flexShrink: 1, lineHeight: 26 }} lines={2}>

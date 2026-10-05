@@ -1,5 +1,3 @@
-import type { ItemTier } from "@ghost/contract"
-import { Image } from "expo-image"
 import { router, useNavigation } from "expo-router"
 import type { DrawerNavigationProp } from "expo-router/drawer"
 import type { ReactNode } from "react"
@@ -14,7 +12,7 @@ import {
 } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
-import { Ghost, Gutter, Rarity, Type } from "@/constants/theme"
+import { Ghost, Gutter, Type } from "@/constants/theme"
 
 // The design's three voices: JetBrains Mono for labels and numbers that are
 // data, Barlow Condensed for headings and buttons, Barlow for sentences.
@@ -263,58 +261,6 @@ export function Tick({ on, under = Ghost.panel }: { on: boolean; under?: string 
       under={under}
       style={{ width: 14, height: 14 }}
     />
-  )
-}
-
-const SWATCH_EDGE = 3
-
-/**
- * Item art, always square so nothing is cropped, with its rarity on the left
- * edge and a gold corner once masterworked. Without a size it fills its column.
- */
-export function Swatch({
-  tier,
-  icon,
-  size,
-  edge,
-  masterwork,
-}: {
-  tier: ItemTier
-  icon?: string | null
-  size?: number
-  edge?: string
-  masterwork?: boolean
-}) {
-  const corner = size === undefined ? 12 : Math.round(size / 4)
-  return (
-    <View
-      style={{
-        width: size === undefined ? undefined : size + SWATCH_EDGE,
-        backgroundColor: Ghost.swatch,
-        flexDirection: "row",
-      }}
-    >
-      <View style={{ width: SWATCH_EDGE, backgroundColor: edge ?? Rarity[tier] }} />
-      <Image
-        source={icon}
-        style={{ flex: 1, aspectRatio: 1 }}
-        recyclingKey={icon}
-        transition={120}
-      />
-      {masterwork ? (
-        <View
-          style={{
-            position: "absolute",
-            top: 0,
-            right: 0,
-            borderTopWidth: corner,
-            borderTopColor: Ghost.gold,
-            borderLeftWidth: corner,
-            borderLeftColor: "transparent",
-          }}
-        />
-      ) : null}
-    </View>
   )
 }
 

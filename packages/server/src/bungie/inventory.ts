@@ -29,6 +29,7 @@ export type RawItem = typeof RawItem.Type
 const Instance = Schema.Struct({
   damageType: Schema.optional(Schema.Number),
   primaryStat: Schema.optional(Schema.Struct({ value: Schema.Number })),
+  gearTier: Schema.optional(Schema.Number),
 })
 
 const ItemStats = Schema.Struct({
@@ -359,6 +360,7 @@ export const buildInventory = (
       classType: armor && def !== undefined && def.classType < 3 ? classFor(def.classType) : null,
       locked: (state & 1) !== 0,
       masterwork: (state & 4) !== 0,
+      gearTier: instance?.gearTier || null,
       statTotal:
         armorStats === null
           ? null

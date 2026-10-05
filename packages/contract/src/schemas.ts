@@ -67,6 +67,8 @@ export class ItemSummary extends Schema.Class<ItemSummary>("ItemSummary")({
   classType: Schema.NullOr(GuardianClass),
   locked: Schema.Boolean,
   masterwork: Schema.Boolean,
+  /** The gear tier, 1 to 5, on items that have one. */
+  gearTier: Schema.optional(Schema.NullOr(Schema.Number)),
   /** Sum of the six armor stats, null for weapons. */
   statTotal: Schema.NullOr(Schema.Number),
   /** Weapon trait names (the perks that make a roll), in socket order. */
@@ -133,6 +135,8 @@ export class PlanRow extends Schema.Class<PlanRow>("PlanRow")({
   stats: Schema.optional(Schema.Array(PlanStat)),
   slot: Schema.optional(ItemSlot),
   masterwork: Schema.optional(Schema.Boolean),
+  damageType: Schema.optional(DamageType),
+  gearTier: Schema.optional(Schema.NullOr(Schema.Number)),
   /** Where a piece comes from when it is not already on the character, for example "VAULT" or "HUNTER". */
   origin: Schema.optional(Schema.String),
 }) {}
@@ -313,6 +317,9 @@ export class RecentItem extends Schema.Class<RecentItem>("RecentItem")({
   tier: ItemTier,
   slot: ItemSlot,
   power: Schema.NullOr(Schema.Number),
+  damageType: Schema.optional(DamageType),
+  masterwork: Schema.optional(Schema.Boolean),
+  gearTier: Schema.optional(Schema.NullOr(Schema.Number)),
   location: ItemLocation,
   source: Schema.String,
   decision: Schema.NullOr(ItemDecision),
@@ -430,6 +437,8 @@ export class GuardianSnapshot extends Schema.Class<GuardianSnapshot>("GuardianSn
   vaultCount: Schema.Number,
   vaultCapacity: Schema.Number,
   postmasterCapacity: Schema.Number,
+  /** Bungie's icon for each damage type, keyed by element name. */
+  elementIcons: Schema.optional(Schema.Record(Schema.String, Schema.String)),
 }) {}
 
 export class VaultSnapshot extends Schema.Class<VaultSnapshot>("VaultSnapshot")({

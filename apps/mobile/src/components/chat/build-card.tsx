@@ -2,8 +2,9 @@ import type { GuardianClass, Job, Plan, SubclassLoadout, PlanRow } from "@ghost/
 import { router } from "expo-router"
 import { Pressable, StyleSheet, Text, View } from "react-native"
 
+import { ItemIcon } from "@/components/ghost/item-icon"
 import { SubclassMark } from "@/components/ghost/subclass-mark"
-import { Body, Button, Cond, Cut, Mono, Swatch } from "@/components/ghost/ui"
+import { Body, Button, Cond, Cut, Mono } from "@/components/ghost/ui"
 import { Ghost, Type } from "@/constants/theme"
 import { errorMessage, useApplyPlan, useUndoPlan } from "@/lib/api"
 import { orderBuildStats } from "@/lib/build-order"
@@ -161,25 +162,23 @@ function Tile({
       onPress={() => router.push({ pathname: "/item/[id]", params: { id: row.itemInstanceId } })}
       style={({ pressed }) => [{ flex: 1 }, pressed && { opacity: 0.6 }]}
     >
-      <Swatch
-        tier={row.tier}
+      <ItemIcon
         icon={row.icon}
-        edge={arriving ? Ghost.accent : undefined}
+        size={58}
+        fill
+        element={row.damageType}
+        gearTier={row.gearTier}
         masterwork={row.masterwork}
+        power={row.power}
       />
-      <View style={styles.tileFoot}>
-        <Mono
-          size={8}
-          color={result ? Ghost.danger : arriving ? Ghost.accent : Ghost.dim}
-          style={{ letterSpacing: 0.8, flexShrink: 1 }}
-          lines={1}
-        >
-          {result ?? (arriving ? row.origin : slotLabel(row.slot, classType))}
-        </Mono>
-        <Cond size={15} color={Ghost.gold} style={{ letterSpacing: 0, lineHeight: 15 }}>
-          {row.power ?? "—"}
-        </Cond>
-      </View>
+      <Mono
+        size={8}
+        color={result ? Ghost.danger : arriving ? Ghost.accent : Ghost.dim}
+        style={{ letterSpacing: 0.8, marginTop: 6 }}
+        lines={1}
+      >
+        {result ?? (arriving ? row.origin : slotLabel(row.slot, classType))}
+      </Mono>
     </Pressable>
   )
 }
@@ -305,13 +304,6 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
   loadoutLine: { flexDirection: "row", alignItems: "baseline", gap: 10 },
   band: { marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: Ghost.rule },
-  tileFoot: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "baseline",
-    gap: 4,
-    marginTop: 6,
-  },
   verdict: { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 12 },
   action: { flexDirection: "row", marginTop: 12 },
 })

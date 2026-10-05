@@ -5,7 +5,8 @@ import { useMemo, useState } from "react"
 import { Pressable, StyleSheet, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
-import { Body, Chip, Mono, Nudge, PageHeader, Swatch } from "@/components/ghost/ui"
+import { ItemIcon } from "@/components/ghost/item-icon"
+import { Body, Chip, Mono, Nudge, PageHeader } from "@/components/ghost/ui"
 import { Ghost, Gutter, Type } from "@/constants/theme"
 import { useJobs, useRecentItems, useSetDecision, useUndoPlan } from "@/lib/api"
 import { useCharacter } from "@/lib/character"
@@ -53,7 +54,13 @@ function ItemRow({ item }: { item: RecentItem }) {
   ].filter(Boolean)
   return (
     <View style={styles.row}>
-      <Swatch tier={item.tier} icon={item.icon} size={44} />
+      <ItemIcon
+        icon={item.icon}
+        size={48}
+        element={item.damageType}
+        gearTier={item.gearTier}
+        masterwork={item.masterwork}
+      />
       <View style={{ flex: 1, minWidth: 0 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <Body size={15} style={{ fontFamily: Type.bodyMedium, flexShrink: 1 }} lines={1}>

@@ -3,7 +3,8 @@ import { router } from "expo-router"
 import { useState } from "react"
 import { Alert, Pressable, StyleSheet, View } from "react-native"
 
-import { Body, Button, Cond, Cut, Mono, Swatch, TierStats, Tick } from "@/components/ghost/ui"
+import { ItemIcon } from "@/components/ghost/item-icon"
+import { Body, Button, Cond, Cut, Mono, TierStats, Tick } from "@/components/ghost/ui"
 import { Ghost, Rarity, Type } from "@/constants/theme"
 import { errorMessage, useApplyPlan, useUndoPlan } from "@/lib/api"
 import { liveLabel } from "@/lib/plan-card"
@@ -94,7 +95,13 @@ export function PlanRowView({
         style={({ pressed }) => [styles.rowBody, pressed && { opacity: 0.6 }]}
       >
         <View style={styles.rowHead}>
-          <Swatch tier={row.tier} icon={row.icon} size={40} />
+          <ItemIcon
+            icon={row.icon}
+            size={48}
+            element={row.damageType}
+            gearTier={row.gearTier}
+            masterwork={row.masterwork}
+          />
           <View style={{ flex: 1, minWidth: 0 }}>
             <Body size={15} style={{ fontFamily: Type.bodyMedium, lineHeight: 18 }} lines={1}>
               {row.name}
@@ -125,7 +132,13 @@ function Featured({ plan, row }: { plan: Plan; row: PlanRow }) {
           pressed && { opacity: 0.6 },
         ]}
       >
-        <Swatch tier={row.tier} icon={row.icon} size={72} />
+        <ItemIcon
+          icon={row.icon}
+          size={72}
+          element={row.damageType}
+          gearTier={row.gearTier}
+          masterwork={row.masterwork}
+        />
         <View style={{ flex: 1, minWidth: 0 }}>
           <View style={styles.between}>
             <Cond size={24} style={{ letterSpacing: 0.5, flexShrink: 1 }} lines={1}>

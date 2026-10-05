@@ -7,7 +7,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { ChatHeader } from "@/components/chat/header"
 import { SubclassMark } from "@/components/ghost/subclass-mark"
 import { Unavailable } from "@/components/ghost/unavailable"
-import { Body, Chevron, Cond, Cut, Mono, Nudge, Swatch, TierStats } from "@/components/ghost/ui"
+import { ItemIcon } from "@/components/ghost/item-icon"
+import { Body, Chevron, Cond, Cut, Mono, Nudge, TierStats } from "@/components/ghost/ui"
 import { ELEMENT_TONE, Ghost, Gutter, Rarity, Type } from "@/constants/theme"
 import { useGuardian } from "@/lib/api"
 import { useCharacter } from "@/lib/character"
@@ -62,7 +63,13 @@ function ItemRow({ item, kind }: { item: ItemSummary; kind: "weapon" | "armor" }
         borderTopColor: Ghost.rule,
       }}
     >
-      <Swatch tier={item.tier} icon={item.icon} size={44} />
+      <ItemIcon
+        icon={item.icon}
+        size={48}
+        element={item.damageType}
+        gearTier={item.gearTier}
+        masterwork={item.masterwork}
+      />
       <View style={{ flex: 1, minWidth: 0 }}>
         <Body size={16} style={{ fontFamily: Type.bodyMedium, lineHeight: 19 }} lines={1}>
           {item.name}

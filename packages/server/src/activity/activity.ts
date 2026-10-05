@@ -44,6 +44,9 @@ const fromOwned = (row: SeenRow, item: OwnedItem, upgrade: boolean) =>
     tier: item.tier,
     slot: item.slot,
     power: item.power,
+    damageType: item.damageType,
+    masterwork: item.masterwork,
+    gearTier: item.gearTier ?? null,
     location: item.location,
     upgrade,
   })
