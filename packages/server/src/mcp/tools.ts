@@ -26,7 +26,13 @@ import {
   type OwnedItem,
 } from "../bungie/inventory.ts"
 import { Manifest } from "../bungie/manifest.ts"
-import { ARMOR_STATS, armorStats, buildStats, withMasterworkTotals } from "../bungie/masterwork.ts"
+import {
+  ARMOR_STATS,
+  armorStats,
+  buildStats,
+  planLoadout,
+  withMasterworkTotals,
+} from "../bungie/masterwork.ts"
 import { ProfileStore } from "../bungie/profile.ts"
 import { CreatorNotes } from "../creators/creators.ts"
 import { NOTE_MAX_AGE_DAYS } from "../creators/parse.ts"
@@ -72,7 +78,7 @@ const SearchItems = Tool.make("search_items", {
 
 const PresentPlan = Tool.make("present_plan", {
   description:
-    "Show the player a plan to confirm. Nothing moves until they tap the confirm button; the server then runs the selected rows. Call it once per request, after deciding. Row actions: to_vault, to_character, pull_postmaster, equip, tag_junk, or none (shown for comparison only). For a build, list the armor piece for every slot, including pieces that stay equipped (action none). The app works out the build's six stat totals itself from the pieces you equip, before and after, and what masterworking would add, so do not do that arithmetic or repeat those numbers in your reply. Pass stats only to mark the stats the player asked for: label Health, Melee, Grenade, Super, Class or Weapons with target true; the values are ignored for a build.",
+    "Show the player a plan to confirm. Nothing moves until they tap the confirm button; the server then runs the selected rows. Call it once per request, after deciding. Row actions: to_vault, to_character, pull_postmaster, equip, tag_junk, or none (shown for comparison only). For a build, list the armor piece for every slot, including pieces that stay equipped (action none). The app works out the build's six stat totals itself from the pieces you equip, before and after, and what masterworking would add, so do not do that arithmetic or repeat those numbers in your reply. A build card also shows the super, aspects and fragments the character has slotted, read from the game; you cannot change the subclass, so if the build needs a different one, say so in your reply. Pass stats only to mark the stats the player asked for: label Health, Melee, Grenade, Super, Class or Weapons with target true; the values are ignored for a build.",
   parameters: Schema.Struct({
     kind: PlanKind,
     title: Schema.String,
@@ -334,6 +340,14 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
                     ? (r.characterId ?? fallback)
                     : (r.characterId ?? null)
               const className = (classOf.get(characterId ?? "") ?? "character").toUpperCase()
+              const arrives = r.action === "equip" || r.action === "to_character"
+              const origin = !arrives
+                ? undefined
+                : item.location !== "character"
+                  ? item.location.toUpperCase()
+                  : item.characterId !== characterId
+                    ? classOf.get(item.characterId ?? "")?.toUpperCase()
+                    : undefined
               return new PlanRow({
                 itemInstanceId: item.itemInstanceId,
                 itemHash: item.itemHash,
@@ -349,12 +363,24 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
                 outcome: null,
                 error: null,
                 ...(item.armorStats === null ? {} : { stats: armorStats(item) }),
+                slot: item.slot,
+                masterwork: item.masterwork,
+                ...(origin === undefined ? {} : { origin }),
               })
             })
             const equipping = rows.filter((row) => row.action === "equip")
             const builtFor = inv.characters.find(
               (c) => c.characterId === (equipping[0]?.characterId ?? fallback),
             )
+            const facts = yield* manifest.statFacts
+            const loadout =
+              input.kind === "build" && builtFor !== undefined
+                ? planLoadout({
+                    character: builtFor,
+                    mods: yield* manifest.statMods(builtFor.loadout.fragments.map((f) => f.hash)),
+                    facts,
+                  })
+                : undefined
             const planStats =
               input.kind === "build" && builtFor !== undefined
                 ? buildStats({
@@ -365,7 +391,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
                     ),
                     incoming: equipping.map((row) => owned.get(row.itemInstanceId) as OwnedItem),
                     targets: (input.stats ?? []).filter((s) => s.target).map((s) => s.label),
-                    facts: yield* manifest.statFacts,
+                    facts,
                   })
                 : withMasterworkTotals(
                     (input.stats ?? []).map((s) => new PlanStat(s)),
@@ -384,6 +410,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
                       perks: input.featured.perks.map((p) => new PlanPerk(p)),
                       stats: input.featured.stats.map((s) => new PlanStat({ ...s, target: false })),
                     }),
+              ...(loadout === undefined ? {} : { loadout }),
               rows,
               note: input.note ?? null,
               confirmLabel: input.confirmLabel,

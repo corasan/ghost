@@ -68,9 +68,30 @@ export const statFactsFrom = (
     }),
   )
 
+/** What a plug adds to or takes from each armor stat, keyed by stat hash. */
+export type StatMods = Readonly<Record<string, number>>
+
+interface PlugDefinition {
+  readonly investmentStats?: ReadonlyArray<{
+    readonly statTypeHash?: number
+    readonly value?: number
+  }>
+}
+
+export const statModsFrom = (definition: PlugDefinition): StatMods =>
+  Object.fromEntries(
+    (definition.investmentStats ?? []).flatMap((stat) =>
+      ARMOR_STAT_HASHES.includes(String(stat.statTypeHash)) && stat.value
+        ? [[String(stat.statTypeHash), stat.value]]
+        : [],
+    ),
+  )
+
 export interface ManifestShape {
   /** What Bungie calls each armor stat and says it does. Empty until first read. Never fails. */
   readonly statFacts: Effect.Effect<StatFacts>
+  /** The armor stats each plug moves; fragments are the plugs that do. A plug Bungie cannot be asked about is left out. Never fails. */
+  readonly statMods: (hashes: ReadonlyArray<number>) => Effect.Effect<ReadonlyMap<number, StatMods>>
   /** How many slots the vault and postmaster hold in the current patch. Never fails. */
   readonly capacities: Effect.Effect<Capacities>
   /** Make sure the local copy exists and is current. Cheap when nothing changed. */
@@ -282,6 +303,32 @@ export const ManifestLive = Layer.effect(
     // Two lookups racing at startup would otherwise both download the manifest.
     const lock = yield* Semaphore.make(1)
 
+    const mods = new Map<number, StatMods>()
+
+    const statMods = (hashes: ReadonlyArray<number>) =>
+      Effect.forEach(
+        hashes.filter((hash) => !mods.has(hash)),
+        (hash) =>
+          fetchJson(
+            `https://www.bungie.net/Platform/Destiny2/Manifest/DestinyInventoryItemDefinition/${hash}/`,
+          ).pipe(
+            Effect.map((json) => {
+              mods.set(hash, statModsFrom((json as { Response?: PlugDefinition }).Response ?? {}))
+            }),
+            Effect.catch((error) =>
+              Effect.logWarning(`manifest: stat mods for ${hash} failed: ${error.message}`),
+            ),
+          ),
+        { concurrency: 4, discard: true },
+      ).pipe(
+        Effect.map(
+          (): ReadonlyMap<number, StatMods> =>
+            new Map(
+              hashes.flatMap((hash) => (mods.has(hash) ? [[hash, mods.get(hash) ?? {}]] : [])),
+            ),
+        ),
+      )
+
     let capacities: Capacities | null = null
 
     const refreshCapacities = (remote: ManifestIndex) =>
@@ -353,6 +400,7 @@ export const ManifestLive = Layer.effect(
       yield* settings.set(VERSION_KEY, remote.version).pipe(Effect.orDie)
       cache.clear()
       missing.clear()
+      mods.clear()
       checkedAt = Date.now()
       yield* Effect.logInfo(`manifest: stored ${count} items`)
     }).pipe(lock.withPermits(1))
@@ -414,6 +462,7 @@ export const ManifestLive = Layer.effect(
     return {
       capacities: readCapacities,
       statFacts: readStatFacts,
+      statMods,
       ensure,
       lookup,
       findByName,

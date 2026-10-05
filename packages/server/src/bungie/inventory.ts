@@ -103,12 +103,45 @@ export type OwnedItem = Schema.Struct.Type<typeof ItemSummary.fields> & {
   readonly plugHashes: ReadonlyArray<number>
 }
 
+export interface SubclassPlug {
+  readonly hash: number
+  readonly name: string
+  readonly description: string
+}
+
+export interface SubclassLoadout {
+  readonly super: SubclassPlug | null
+  readonly aspects: ReadonlyArray<SubclassPlug>
+  readonly fragments: ReadonlyArray<SubclassPlug>
+}
+
+/** Sorts a subclass's slotted plugs into super, aspects and fragments; empty sockets are dropped. */
+export const subclassLoadout = (
+  plugHashes: ReadonlyArray<number>,
+  defs: ReadonlyMap<number, ManifestItem>,
+): SubclassLoadout => {
+  const plugs = plugHashes.flatMap((hash) => {
+    const def = defs.get(hash)
+    return def === undefined || /^empty /i.test(def.name) ? [] : [def]
+  })
+  const ofType = (type: RegExp): ReadonlyArray<SubclassPlug> =>
+    plugs
+      .filter((plug) => type.test(plug.typeName))
+      .map(({ hash, name, description }) => ({ hash, name, description }))
+  return {
+    super: ofType(/\bsuper\b/i)[0] ?? null,
+    aspects: ofType(/\baspect\b/i),
+    fragments: ofType(/\bfragment\b/i),
+  }
+}
+
 export interface CharacterInfo {
   readonly characterId: string
   readonly classType: GuardianClass
   readonly light: number
   readonly subclass: string | null
   readonly element: DamageType
+  readonly loadout: SubclassLoadout
   readonly stats: CharacterStats
   /** Everything in the postmaster, stackables included, since all of it counts toward 21. */
   readonly postmasterCount: number
@@ -229,8 +262,8 @@ export const buildInventory = (
       )
     }
     for (const raw of equipment) place(raw, "character", c.characterId, true)
-    const subclassHash = equipment.find((i) => i.bucketHash === BUCKETS.subclass)?.itemHash
-    const subclass = subclassHash === undefined ? undefined : defs.get(subclassHash)
+    const subclassItem = equipment.find((i) => i.bucketHash === BUCKETS.subclass)
+    const subclass = subclassItem === undefined ? undefined : defs.get(subclassItem.itemHash)
     const subclassElement =
       subclass === undefined || subclass.damageType !== "none"
         ? subclass?.damageType
@@ -241,6 +274,12 @@ export const buildInventory = (
       light: c.light,
       subclass: subclass?.name ?? null,
       element: subclassElement ?? "none",
+      loadout: subclassLoadout(
+        (sockets[subclassItem?.itemInstanceId ?? ""]?.sockets ?? []).flatMap((socket) =>
+          socket.plugHash === undefined ? [] : [socket.plugHash],
+        ),
+        defs,
+      ),
       stats: statsFrom(c.stats),
       postmasterCount: inventory.filter((i) => i.bucketHash === BUCKETS.postmaster).length,
     })

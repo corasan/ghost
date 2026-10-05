@@ -1,6 +1,13 @@
-import { PlanStat } from "@ghost/contract"
-import { type ArmorStats, type CharacterInfo, isArmor, type OwnedItem, STAT } from "./inventory.ts"
-import type { StatFacts } from "./manifest.ts"
+import { LoadoutPlug, PlanLoadout, PlanStat, StatMod } from "@ghost/contract"
+import {
+  type ArmorStats,
+  type CharacterInfo,
+  isArmor,
+  type OwnedItem,
+  STAT,
+  type SubclassPlug,
+} from "./inventory.ts"
+import type { StatFacts, StatMods } from "./manifest.ts"
 
 const OFF_STAT_AT_MASTERWORK = 5
 
@@ -89,6 +96,43 @@ export const withMasterworkTotals = (
   })
 }
 
+const statLabel = (key: StatKey, label: string, facts: StatFacts) =>
+  facts[STAT[key]]?.name.toUpperCase() ?? label
+
+/**
+ * The subclass a build sits on, with each plug's stat changes under the same
+ * labels the build's stats use. The character's totals already include them.
+ */
+export const planLoadout = ({
+  character,
+  mods,
+  facts,
+}: {
+  readonly character: Pick<CharacterInfo, "classType" | "subclass" | "element" | "loadout">
+  readonly mods: ReadonlyMap<number, StatMods>
+  readonly facts: StatFacts
+}): PlanLoadout => {
+  const plug = (from: SubclassPlug) =>
+    new LoadoutPlug({
+      name: from.name,
+      description: from.description,
+      mods: ARMOR_STATS.flatMap(([key, label]) => {
+        const delta = mods.get(from.hash)?.[STAT[key]]
+        return delta === undefined
+          ? []
+          : [new StatMod({ label: statLabel(key, label, facts), delta })]
+      }),
+    })
+  return new PlanLoadout({
+    classType: character.classType,
+    subclass: character.subclass,
+    element: character.element,
+    super: character.loadout.super === null ? null : plug(character.loadout.super),
+    aspects: character.loadout.aspects.map(plug),
+    fragments: character.loadout.fragments.map(plug),
+  })
+}
+
 type Piece = Pick<OwnedItem, "itemInstanceId" | "slot" | "armorStats" | "masterwork">
 
 /**
@@ -131,7 +175,7 @@ export const buildStats = ({
     const value = before - sum(leaving, key) + sum(arriving, key)
     const fact = facts[STAT[key]]
     return new PlanStat({
-      label: fact?.name.toUpperCase() ?? label,
+      label: statLabel(key, label, facts),
       value,
       target: wanted.has(key),
       before,

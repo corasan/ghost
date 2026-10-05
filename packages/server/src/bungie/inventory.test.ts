@@ -39,6 +39,11 @@ const defs = new Map<number, ManifestItem>([
   [11, def(11, { name: "Firefly", typeName: "Enhanced Trait" })],
   [12, def(12, { name: "Arrowhead Brake", typeName: "Barrel" })],
   [20, def(20, { name: "Sentinel", typeName: "Void Subclass", damageType: "void" })],
+  [30, def(30, { name: "Ward of Dawn", typeName: "Super Ability", description: "A dome." })],
+  [31, def(31, { name: "Bastion", typeName: "Void Aspect" })],
+  [32, def(32, { name: "Echo of Persistence", typeName: "Void Fragment" })],
+  [33, def(33, { name: "Empty Fragment Socket", typeName: "Void Fragment" })],
+  [34, def(34, { name: "Shield Bash", typeName: "Void Melee" })],
 ])
 
 const armorStats = (each: number) =>
@@ -93,6 +98,15 @@ const profile: Profile = {
     stats: { data: { e1: { stats: armorStats(10) }, v2: { stats: armorStats(12) } } },
     sockets: {
       data: {
+        s1: {
+          sockets: [
+            { plugHash: 34 },
+            { plugHash: 30 },
+            { plugHash: 31 },
+            { plugHash: 32 },
+            { plugHash: 33 },
+          ],
+        },
         v1: {
           sockets: [
             { plugHash: 12, isEnabled: true, isVisible: true },
@@ -126,6 +140,20 @@ describe("buildInventory", () => {
     expect(titan.element).toBe("void")
     expect(titan.stats.resilience).toBe(100)
     expect(titan.postmasterCount).toBe(2)
+  })
+
+  test("sorts the subclass's plugs into super, aspects and fragments, without empty sockets", () => {
+    const titan = inv.characters[1] as CharacterInfo
+    expect(titan.loadout).toEqual({
+      super: { hash: 30, name: "Ward of Dawn", description: "A dome." },
+      aspects: [{ hash: 31, name: "Bastion", description: "" }],
+      fragments: [{ hash: 32, name: "Echo of Persistence", description: "" }],
+    })
+    expect((inv.characters[0] as CharacterInfo).loadout).toEqual({
+      super: null,
+      aspects: [],
+      fragments: [],
+    })
   })
 
   test("keeps instanced items only and never the subclass", () => {

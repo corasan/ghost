@@ -131,6 +131,10 @@ export class PlanRow extends Schema.Class<PlanRow>("PlanRow")({
   error: Schema.NullOr(Schema.String),
   /** The six stats of an armor piece; left out for weapons. */
   stats: Schema.optional(Schema.Array(PlanStat)),
+  slot: Schema.optional(ItemSlot),
+  masterwork: Schema.optional(Schema.Boolean),
+  /** Where a piece comes from when it is not already on the character, for example "VAULT" or "HUNTER". */
+  origin: Schema.optional(Schema.String),
 }) {}
 
 export class PlanPerk extends Schema.Class<PlanPerk>("PlanPerk")({
@@ -144,6 +148,30 @@ export class PlanFeatured extends Schema.Class<PlanFeatured>("PlanFeatured")({
   itemInstanceId: Schema.String,
   perks: Schema.Array(PlanPerk),
   stats: Schema.Array(PlanStat),
+}) {}
+
+/** How far one subclass plug moves one stat. */
+export class StatMod extends Schema.Class<StatMod>("StatMod")({
+  /** The stat's label as it appears in the plan's stats. */
+  label: Schema.String,
+  delta: Schema.Number,
+}) {}
+
+export class LoadoutPlug extends Schema.Class<LoadoutPlug>("LoadoutPlug")({
+  name: Schema.String,
+  /** Effect text from the current patch's manifest. */
+  description: Schema.String,
+  mods: Schema.Array(StatMod),
+}) {}
+
+/** The subclass a build sits on: what the character has slotted when the plan is made. */
+export class PlanLoadout extends Schema.Class<PlanLoadout>("PlanLoadout")({
+  classType: GuardianClass,
+  subclass: Schema.NullOr(Schema.String),
+  element: DamageType,
+  super: Schema.NullOr(LoadoutPlug),
+  aspects: Schema.Array(LoadoutPlug),
+  fragments: Schema.Array(LoadoutPlug),
 }) {}
 
 export const PlanKind = Schema.Literals(["build", "weapon", "postmaster", "cleanup", "transfer"])
@@ -160,6 +188,8 @@ export class Plan extends Schema.Class<Plan>("Plan")({
   subtitle: Schema.NullOr(Schema.String),
   stats: Schema.Array(PlanStat),
   featured: Schema.NullOr(PlanFeatured),
+  /** Present on builds made since the card started showing the subclass. */
+  loadout: Schema.optional(PlanLoadout),
   rows: Schema.Array(PlanRow),
   /** A closing line such as "Mods: 2× Discipline (chest, legs)." */
   note: Schema.NullOr(Schema.String),
