@@ -29,14 +29,17 @@ import {
   isArmor,
   isWeapon,
   type OwnedItem,
+  type OwnedSubclass,
   pickCharacter,
   STAT,
+  type SubclassPart,
   type SubclassPlug,
 } from "../bungie/inventory.ts"
 import {
   type ArmorModEntry,
   Manifest,
   type ManifestItem,
+  type PlugFacts,
   type StatFacts,
 } from "../bungie/manifest.ts"
 import { ARMOR_STATS, armorStats, buildStats, withMasterworkTotals } from "../bungie/masterwork.ts"
@@ -55,7 +58,12 @@ import {
   withChargeEffects,
 } from "../bungie/mods.ts"
 import { ProfileStore } from "../bungie/profile.ts"
-import { planSubclass, subclassSockets, unlockedPlugs } from "../bungie/subclass.ts"
+import {
+  planSubclass,
+  type SubclassSocket,
+  subclassSockets,
+  unlockedPlugs,
+} from "../bungie/subclass.ts"
 import { CreatorNotes } from "../creators/creators.ts"
 import { NOTE_MAX_AGE_DAYS } from "../creators/parse.ts"
 import { ChargeEffects } from "../db/charge.ts"
@@ -118,10 +126,16 @@ const SubclassInput = Schema.Struct({
 
 const ListSubclasses = Tool.make("list_subclasses", {
   description:
-    "The subclasses a character owns and what the player has unlocked for each. Without subclass: each one's name, element and what is slotted now. With subclass (a name or an element): every super, class ability, jump, melee and grenade it can take, its aspects with the fragment slots each brings and effect text, and its fragments with stat changes and effect text. Use these names exactly in present_plan subclass.",
+    "The subclasses a character owns and what the player has unlocked for each. Without subclass: each one's name, element and what is slotted now. With subclass (a name or an element): every super, class ability, jump, melee and grenade it can take, its aspects with the fragment slots each brings and effect text, and its fragments with stat changes and effect text. Use these names exactly in present_plan subclass. With subclass and purpose, every option is still listed, each with a relevance from 0 to 1 and sorted by it within its group, but only the most relevant options and what is slotted keep their effect text; read any other option's effect with describe_plugs. If the result says ranking unavailable, nothing is ranked.",
   parameters: Schema.Struct({
     characterId: Schema.optional(Schema.String),
     subclass: Schema.optional(Schema.String),
+    purpose: Schema.optional(
+      Schema.String.annotate({
+        description:
+          "What the build does, in plain words: subclass and element, activity, stat goals and playstyle, for example 'Void Sentinel Titan build, 100 Health and 100 Class, overshields and Devour'. Pass it when choosing a build's subclass plugs.",
+      }),
+    ),
   }),
   success: Json,
 })
@@ -504,6 +518,174 @@ export const findArmorMods = (
           Effect.succeed({ ...unranked, ranking: "unavailable" as const }),
         ),
       )
+  })
+
+export interface SubclassView {
+  readonly subclass: Pick<OwnedSubclass, "name" | "element" | "equipped">
+  readonly defs: ReadonlyMap<number, ManifestItem>
+  readonly sockets: ReadonlyArray<SubclassSocket>
+  readonly plugs: ReadonlyMap<number, PlugFacts>
+}
+
+const PART_LABELS: Record<SubclassPart, string> = {
+  super: "super",
+  class: "class ability",
+  jump: "jump",
+  melee: "melee",
+  grenade: "grenade",
+  aspect: "aspect",
+  fragment: "fragment",
+}
+
+const EFFECTS_KEPT: Record<SubclassPart, number> = {
+  super: 2,
+  class: 2,
+  jump: 2,
+  melee: 2,
+  grenade: 2,
+  aspect: 3,
+  fragment: 8,
+}
+
+interface SubclassOption {
+  readonly part: SubclassPart
+  readonly plug: SubclassPlug
+  readonly slotted: boolean
+  readonly effect: string | null
+  readonly stats: Readonly<Record<string, number>>
+}
+
+const subclassOptions = (view: SubclassView, classType: GuardianClass) => {
+  const of = (part: SubclassPart) => view.sockets.filter((socket) => socket.part === part)
+  return (part: SubclassPart): ReadonlyArray<SubclassOption> => {
+    const on = new Set(
+      of(part)
+        .filter((socket) => socket.enabled)
+        .map((socket) => socket.current),
+    )
+    return (of(part)[0]?.options ?? []).map((plug) => ({
+      part,
+      plug,
+      slotted: on.has(plug.hash),
+      effect: clip(plug.description || (view.plugs.get(plug.hash)?.description ?? ""), 240),
+      stats: plugStatMods(view.plugs.get(plug.hash), classType),
+    }))
+  }
+}
+
+const optionId = (option: SubclassOption) => `${option.part}:${option.plug.hash}`
+
+const fragmentSlots = (view: SubclassView, option: SubclassOption) =>
+  view.plugs.get(option.plug.hash)?.fragmentSlots ?? 0
+
+const optionRankingText = (view: SubclassView, option: SubclassOption) =>
+  [
+    option.plug.name,
+    `${view.subclass.name} (${view.subclass.element}) ${PART_LABELS[option.part]}`,
+    option.part === "aspect" ? `brings ${fragmentSlots(view, option)} fragment slots` : null,
+    Object.keys(option.stats).length > 0 ? `stats: ${statChanges(option.stats)}` : null,
+    option.effect ? `effect: ${oneLine(option.effect)}` : null,
+  ]
+    .filter((part) => part !== null)
+    .join("; ")
+
+const ALL_PARTS: ReadonlyArray<SubclassPart> = [
+  "super",
+  "class",
+  "jump",
+  "melee",
+  "grenade",
+  "aspect",
+  "fragment",
+]
+
+const subclassCandidates = (view: SubclassView, classType: GuardianClass) => {
+  const options = subclassOptions(view, classType)
+  return ALL_PARTS.flatMap(options).map((option) => ({
+    id: optionId(option),
+    text: optionRankingText(view, option),
+  }))
+}
+
+export const subclassDetail = (
+  view: SubclassView,
+  classType: GuardianClass,
+  relevance?: ReadonlyMap<string, number>,
+) => {
+  const options = subclassOptions(view, classType)
+  const nameOf = (hash: number) => {
+    const def = view.defs.get(hash)
+    return def === undefined || /^empty /i.test(def.name) ? null : def.name
+  }
+  const ranked = <R extends { readonly effect: string | null }>(
+    part: SubclassPart,
+    row: (option: SubclassOption) => R,
+  ) => {
+    const rows = options(part)
+    if (relevance === undefined) return rows.map(row)
+    return rows
+      .map((option) => ({ option, relevance: relevance.get(optionId(option)) ?? 0 }))
+      .toSorted((a, b) => b.relevance - a.relevance)
+      .map(({ option, relevance }, rank) => ({
+        ...row(option),
+        effect: rank < EFFECTS_KEPT[part] || option.slotted ? option.effect : undefined,
+        relevance: round2(relevance),
+      }))
+  }
+  const ability = (part: SubclassPart) => {
+    const socket = view.sockets.find((s) => s.part === part)
+    if (socket === undefined) return undefined
+    return {
+      slotted: nameOf(socket.current),
+      options:
+        relevance === undefined
+          ? socket.options.map((plug) => plug.name)
+          : ranked(part, (option) => ({ name: option.plug.name, effect: option.effect })),
+    }
+  }
+  return {
+    name: view.subclass.name,
+    element: view.subclass.element,
+    equipped: view.subclass.equipped,
+    aspectSockets: view.sockets.filter((socket) => socket.part === "aspect").length,
+    super: ability("super"),
+    classAbility: ability("class"),
+    jump: ability("jump"),
+    melee: ability("melee"),
+    grenade: ability("grenade"),
+    aspects: ranked("aspect", (option) => ({
+      name: option.plug.name,
+      fragmentSlots: fragmentSlots(view, option),
+      effect: option.effect,
+      slotted: option.slotted || undefined,
+    })),
+    fragments: ranked("fragment", (option) => ({
+      name: option.plug.name,
+      stats: namedMods(option.stats),
+      effect: option.effect,
+      slotted: option.slotted || undefined,
+    })),
+  }
+}
+
+export const findSubclassDetail = (
+  view: SubclassView,
+  classType: GuardianClass,
+  purpose: string | undefined,
+): Effect.Effect<
+  ReturnType<typeof subclassDetail> & { readonly ranking?: "unavailable" },
+  never,
+  Jev
+> =>
+  Effect.gen(function* () {
+    if (purpose === undefined) return subclassDetail(view, classType)
+    const jev = yield* Jev
+    return yield* jev.rank(purpose, subclassCandidates(view, classType)).pipe(
+      Effect.map((relevance) => subclassDetail(view, classType, relevance)),
+      Effect.catchTag("JevUnavailable", () =>
+        Effect.succeed({ ...subclassDetail(view, classType), ranking: "unavailable" as const }),
+      ),
+    )
   })
 
 const DEFAULT_META: Record<PlanAction, (item: OwnedItem, className: string) => string> = {
@@ -1103,10 +1285,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
         })
       })
 
-    const list_subclasses = (input: {
-      readonly characterId?: string | undefined
-      readonly subclass?: string | undefined
-    }) =>
+    const list_subclasses = (input: (typeof ListSubclasses)["parametersSchema"]["Type"]) =>
       withInventory((inv) =>
         Effect.gen(function* () {
           const job = yield* current.get
@@ -1116,7 +1295,6 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
           )
           if (character === undefined) return "Error: no characters on this account."
           const choices = yield* subclassChoices(character)
-          const names = (plugs: ReadonlyArray<SubclassPlug>) => plugs.map((plug) => plug.name)
           const nameOf = (choice: SubclassChoice, hash: number) => {
             const def = choice.defs.get(hash)
             return def === undefined || /^empty /i.test(def.name) ? null : def.name
@@ -1142,46 +1320,11 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
           }
           const choice = findSubclass(choices, input.subclass)
           if (choice === undefined) return unknownSubclass(choices, input.subclass)
-          const effect = (plug: SubclassPlug) =>
-            clip(plug.description || (choice.plugs.get(plug.hash)?.description ?? ""), 240)
-          const of = (part: string) => choice.sockets.filter((socket) => socket.part === part)
-          const single = (part: string) => {
-            const socket = of(part)[0]
-            return socket === undefined
-              ? undefined
-              : { slotted: nameOf(choice, socket.current), options: names(socket.options) }
-          }
-          const slotted = (part: string) =>
-            new Set(
-              of(part)
-                .filter((socket) => socket.enabled)
-                .map((socket) => socket.current),
-            )
-          const aspectsOn = slotted("aspect")
-          const fragmentsOn = slotted("fragment")
-          return json({
-            name: choice.subclass.name,
-            element: choice.subclass.element,
-            equipped: choice.subclass.equipped,
-            aspectSockets: of("aspect").length,
-            super: single("super"),
-            classAbility: single("class"),
-            jump: single("jump"),
-            melee: single("melee"),
-            grenade: single("grenade"),
-            aspects: (of("aspect")[0]?.options ?? []).map((plug) => ({
-              name: plug.name,
-              fragmentSlots: choice.plugs.get(plug.hash)?.fragmentSlots ?? 0,
-              effect: effect(plug),
-              slotted: aspectsOn.has(plug.hash) || undefined,
-            })),
-            fragments: (of("fragment")[0]?.options ?? []).map((plug) => ({
-              name: plug.name,
-              stats: namedMods(plugStatMods(choice.plugs.get(plug.hash), character.classType)),
-              effect: effect(plug),
-              slotted: fragmentsOn.has(plug.hash) || undefined,
-            })),
-          })
+          return json(
+            yield* findSubclassDetail(choice, character.classType, input.purpose).pipe(
+              Effect.provideService(Jev, jev),
+            ),
+          )
         }).pipe(Effect.catch((error) => Effect.succeed(explain(error)))),
       )
 

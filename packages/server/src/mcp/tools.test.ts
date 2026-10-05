@@ -2,9 +2,18 @@ import { describe, expect, test } from "bun:test"
 import type { ItemSlot } from "@ghost/contract"
 import { Effect, Layer } from "effect"
 import { Jev, JevUnavailable } from "../agent/jev.ts"
-import type { Inventory, OwnedItem } from "../bungie/inventory.ts"
+import type { Inventory, OwnedItem, SubclassPart } from "../bungie/inventory.ts"
 import type { ArmorModEntry, PlugFacts } from "../bungie/manifest.ts"
-import { findArmorMods, findItems, rankingText, searchItems, topPerSlot } from "./tools.ts"
+import {
+  findArmorMods,
+  findItems,
+  findSubclassDetail,
+  rankingText,
+  searchItems,
+  subclassDetail,
+  type SubclassView,
+  topPerSlot,
+} from "./tools.ts"
 
 const owned = (id: string, slot: ItemSlot, fields: Partial<OwnedItem> = {}): OwnedItem => ({
   itemInstanceId: id,
@@ -186,5 +195,73 @@ describe("findArmorMods", () => {
       ranking: "unavailable",
     })
     expect(run({}, failing).mods).toHaveLength(8)
+  })
+})
+
+describe("subclass detail", () => {
+  const plug = (hash: number, name: string) => ({
+    hash,
+    name,
+    description: `${name} effect`,
+    icon: null,
+  })
+  const aspects = Array.from({ length: 6 }, (_, i) => plug(100 + i, `Aspect ${i}`))
+  const fragments = Array.from({ length: 12 }, (_, i) => plug(200 + i, `Fragment ${i}`))
+  const grenades = Array.from({ length: 4 }, (_, i) => plug(300 + i, `Grenade ${i}`))
+  const socket = (
+    index: number,
+    part: SubclassPart,
+    current: number,
+    options: ReadonlyArray<ReturnType<typeof plug>>,
+  ) => ({ index, part, current, enabled: true, options })
+  const view: SubclassView = {
+    subclass: { name: "Sentinel", element: "void", equipped: false },
+    defs: new Map(),
+    sockets: [
+      socket(0, "grenade", 303, grenades),
+      socket(1, "aspect", 100, aspects),
+      socket(2, "aspect", 105, aspects),
+      socket(3, "fragment", 200, fragments),
+    ],
+    plugs: new Map(aspects.map((a) => [a.hash, facts({ fragmentSlots: 2 })])),
+  }
+  const relevance = new Map([
+    ...aspects.map((a, i) => [`aspect:${a.hash}`, 0.5 + i / 10] as const),
+    ...fragments.map((f, i) => [`fragment:${f.hash}`, 0.2 + i / 20] as const),
+    ...grenades.map((g, i) => [`grenade:${g.hash}`, 0.9 - i / 10] as const),
+  ])
+
+  const effects = (
+    rows: ReadonlyArray<string | { readonly name: string; readonly effect?: unknown }> = [],
+  ) => rows.flatMap((row) => (typeof row !== "string" && row.effect !== undefined ? row.name : []))
+
+  test("lists every option but keeps effect text only for the top of each group and what is slotted", () => {
+    const detail = subclassDetail(view, "titan", relevance)
+    expect(detail.aspects.map((a) => a.name)).toEqual(aspects.map((a) => a.name).toReversed())
+    expect(effects(detail.aspects)).toEqual(["Aspect 5", "Aspect 4", "Aspect 3", "Aspect 0"])
+    expect(detail.fragments).toHaveLength(12)
+    expect(effects(detail.fragments)).toEqual([
+      "Fragment 11",
+      "Fragment 10",
+      "Fragment 9",
+      "Fragment 8",
+      "Fragment 7",
+      "Fragment 6",
+      "Fragment 5",
+      "Fragment 4",
+      "Fragment 0",
+    ])
+    expect(effects(detail.grenade?.options)).toEqual(["Grenade 0", "Grenade 1", "Grenade 3"])
+    expect(detail.grenade?.options).toHaveLength(4)
+  })
+
+  test("falls back to the unranked detail and says so when Jev is unavailable", () => {
+    const run = (purpose: string | undefined) =>
+      Effect.runSync(findSubclassDetail(view, "titan", purpose).pipe(Effect.provide(failing)))
+    expect(run("Void Titan overshields")).toEqual({
+      ...subclassDetail(view, "titan"),
+      ranking: "unavailable",
+    })
+    expect(run(undefined)).toEqual(subclassDetail(view, "titan"))
   })
 })
