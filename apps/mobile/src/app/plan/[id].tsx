@@ -342,10 +342,7 @@ export default function PlanDetailsScreen() {
 
   return (
     <View collapsable={false} style={{ flex: 1 }}>
-      <ScrollView
-        nestedScrollEnabled
-        contentContainerStyle={[styles.content, { paddingBottom: footer.height + 28 }]}
-      >
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: footer.height + 28 }]}>
         <BuildHeader
           plan={plan}
           eyebrowSize={10}

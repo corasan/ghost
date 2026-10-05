@@ -121,10 +121,7 @@ export default function SubclassScreen() {
 
   return (
     <View collapsable={false} style={{ flex: 1 }}>
-      <ScrollView
-        nestedScrollEnabled
-        contentContainerStyle={[styles.content, { paddingBottom: footer.height + 24 }]}
-      >
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: footer.height + 24 }]}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <SubclassMark loadout={loadout} size={22} />
           <Mono size={10} color={tone} style={{ letterSpacing: 1.4 }}>

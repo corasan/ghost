@@ -26,7 +26,6 @@ export default function ItemActionsScreen() {
 
   return (
     <ScrollView
-      nestedScrollEnabled
       contentContainerStyle={{ paddingTop: 28, paddingBottom: bottomInset + 20, gap: 18 }}
     >
       <ItemHeader item={detail.data.item} size={48} />

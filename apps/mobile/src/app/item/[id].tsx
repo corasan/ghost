@@ -95,7 +95,6 @@ export default function ItemScreen() {
   const { item, perks, stats } = detail.data
   return (
     <ScrollView
-      nestedScrollEnabled
       contentContainerStyle={{ paddingTop: 28, paddingBottom: bottomInset + 20, gap: 22 }}
     >
       <ItemHeader item={item} size={72} />
