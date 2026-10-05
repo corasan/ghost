@@ -6,6 +6,7 @@ import { Pressable, View } from "react-native"
 import { Body, Mono, Said } from "@/components/ghost/ui"
 import { Ghost } from "@/constants/theme"
 import { age, clock } from "@/lib/format"
+import { webUrl } from "@/lib/links"
 import { SaidMarkdown } from "./markdown"
 import { PlanBlock } from "./plan-block"
 import { StepsSummary, Working } from "./steps"
@@ -20,12 +21,13 @@ function Sources({ sources }: { sources: readonly Source[] }) {
       <Mono>SOURCES</Mono>
       {sources.map((source) => {
         const label = `${source.label.toUpperCase()}${source.asOf ? ` · ${age(source.asOf)}` : ""}`
-        return source.url ? (
+        const link = source.url ? webUrl(source.url) : null
+        return link !== null ? (
           <Pressable
             key={`${source.label}${source.url}`}
             accessibilityRole="link"
             hitSlop={6}
-            onPress={() => void WebBrowser.openBrowserAsync(source.url as string)}
+            onPress={() => void WebBrowser.openBrowserAsync(link)}
           >
             <Mono color={Ghost.accent}>{label}</Mono>
           </Pressable>

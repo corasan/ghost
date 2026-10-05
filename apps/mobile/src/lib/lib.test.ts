@@ -2,6 +2,7 @@
 import { describe, expect, test } from "bun:test"
 import { Briefing, ItemSummary, PlanStat } from "@ghost/contract"
 
+import { webUrl } from "./links"
 import { briefingSentence, followUps, sinceLabel } from "./briefing"
 import { orderBuildStats } from "./build-order"
 import {
@@ -196,5 +197,33 @@ describe("orderBuildStats", () => {
       "MELEE",
       "HEALTH",
     ])
+  })
+})
+
+describe("webUrl", () => {
+  test("passes web addresses through", () => {
+    expect(webUrl("https://destiny2.science/endgame?tab=3")).toBe(
+      "https://destiny2.science/endgame?tab=3",
+    )
+    expect(webUrl(" http://example.com ")).toBe("http://example.com/")
+  })
+
+  test("refuses anything that is not a web address", () => {
+    for (const link of [
+      "javascript:alert(1)",
+      "file:///etc/passwd",
+      "ghost://settings",
+      "tel:5551234",
+      "data:text/html,<script>1</script>",
+      "not a link",
+      "",
+    ]) {
+      expect(webUrl(link)).toBeNull()
+    }
+  })
+
+  test("is not fooled by a scheme hidden behind case or whitespace", () => {
+    expect(webUrl("JaVaScRiPt:alert(1)")).toBeNull()
+    expect(webUrl("  javascript:alert(1)")).toBeNull()
   })
 })

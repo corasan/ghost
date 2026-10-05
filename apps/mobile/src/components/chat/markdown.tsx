@@ -3,6 +3,7 @@ import { View } from "react-native"
 import { EnrichedMarkdownText, type MarkdownStyle } from "react-native-enriched-markdown"
 
 import { Ghost, Type } from "@/constants/theme"
+import { webUrl } from "@/lib/links"
 
 const text = { fontFamily: Type.body, color: Ghost.soft }
 
@@ -95,7 +96,11 @@ export function SaidMarkdown({ children }: { children: string }) {
         markdownStyle={style}
         containerStyle={{ flex: 1 }}
         selectionColor={Ghost.accent}
-        onLinkPress={({ url }) => void WebBrowser.openBrowserAsync(url)}
+        enableLinkPreview={false}
+        onLinkPress={({ url }) => {
+          const safe = webUrl(url)
+          if (safe !== null) void WebBrowser.openBrowserAsync(safe)
+        }}
       />
     </View>
   )
