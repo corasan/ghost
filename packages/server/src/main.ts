@@ -6,6 +6,7 @@ import { ClaudeAgentLive } from "./agent/claude.ts"
 import { SummarizerLive } from "./agent/summarize.ts"
 import { SituationalWriterLive } from "./agent/situational.ts"
 import { CurrentJobLive } from "./agent/current-job.ts"
+import { JevLive } from "./agent/jev.ts"
 import { JobRunnerLive } from "./agent/runner.ts"
 import { AgentConfigLive } from "./agent/settings.ts"
 import { ApiLive } from "./api/index.ts"
@@ -45,6 +46,7 @@ const Clients = Layer.mergeAll(
   SummarizerLive,
   SituationalWriterLive,
   CurrentJobLive,
+  JevLive,
 ).pipe(Layer.provideMerge(AgentConfigLive), Layer.provideMerge(Repositories))
 
 const Profile = Layer.mergeAll(ProfileStoreLive, CreatorNotesLive).pipe(Layer.provideMerge(Clients))

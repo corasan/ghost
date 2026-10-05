@@ -13,6 +13,10 @@ export interface AppConfigShape {
     readonly clientId: string
     readonly clientSecret: Redacted.Redacted<string>
   }
+  readonly jev: {
+    readonly apiKey: Redacted.Redacted<string>
+    readonly model: string
+  }
 }
 
 export class AppConfig extends Context.Service<AppConfig, AppConfigShape>()("AppConfig") {}
@@ -35,6 +39,10 @@ const config = Config.all({
     clientSecret: Config.Redacted("BUNGIE_CLIENT_SECRET").pipe(
       Config.withDefault(Redacted.make("")),
     ),
+  }),
+  jev: Config.all({
+    apiKey: Config.Redacted("TYPESAFE_API_KEY").pipe(Config.withDefault(Redacted.make(""))),
+    model: Config.String("GHOST_JEV_MODEL").pipe(Config.withDefault("jev-latest")),
   }),
 })
 
