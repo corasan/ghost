@@ -13,11 +13,11 @@ export interface VideoToSummarize {
   readonly timed: boolean
 }
 
-export interface SummarizerShape {
+export interface SummarizerService {
   readonly summarize: (video: VideoToSummarize) => Effect.Effect<SummaryOutput, AgentFailed>
 }
 
-export class Summarizer extends Context.Service<Summarizer, SummarizerShape>()("Summarizer") {}
+export class Summarizer extends Context.Service<Summarizer, SummarizerService>()("Summarizer") {}
 
 const SYSTEM_PROMPT = `You turn a Destiny 2 creator's video into short notes for a companion app that advises players.
 

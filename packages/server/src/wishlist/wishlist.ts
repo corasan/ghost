@@ -26,7 +26,7 @@ export class WishlistError extends Schema.TaggedError<WishlistError>()("Wishlist
   message: Schema.String,
 }) {}
 
-export interface WishlistShape {
+export interface WishlistService {
   /** Download or revalidate when the local copy is older than 12 hours. */
   readonly ensure: Effect.Effect<void, WishlistError>
   /** Rolls per item hash in file order, wildcard rolls appended to each. */
@@ -39,7 +39,7 @@ export interface WishlistShape {
   readonly source: Effect.Effect<Source>
 }
 
-export class Wishlist extends Context.Service<Wishlist, WishlistShape>()("Wishlist") {}
+export class Wishlist extends Context.Service<Wishlist, WishlistService>()("Wishlist") {}
 
 interface JoinedRow {
   readonly item_hash: number

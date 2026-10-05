@@ -11,7 +11,7 @@ export class JevUnavailable extends Schema.TaggedError<JevUnavailable>()("JevUna
   message: Schema.String,
 }) {}
 
-export interface JevShape {
+export interface JevService {
   /** Each candidate's relevance to the intent, in [0, 1]: Jev's probability that it fits. */
   readonly rank: (
     intent: string,
@@ -19,7 +19,7 @@ export interface JevShape {
   ) => Effect.Effect<ReadonlyMap<string, number>, JevUnavailable>
 }
 
-export class Jev extends Context.Service<Jev, JevShape>()("Jev") {}
+export class Jev extends Context.Service<Jev, JevService>()("Jev") {}
 
 const CHARS_PER_TOKEN = 4
 export const REQUEST_TOKENS = 32_000

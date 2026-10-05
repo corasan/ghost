@@ -29,14 +29,14 @@ interface Membership {
   readonly membershipType: number
 }
 
-export interface ProfileStoreShape {
+export interface ProfileStoreService {
   readonly inventory: Effect.Effect<Inventory, BungieError | BungieNotLinked>
   /** What each character can slot on its subclasses, read from the same profile response as the inventory. */
   readonly plugSets: Effect.Effect<PlugSets, BungieError | BungieNotLinked>
   readonly invalidate: Effect.Effect<void>
 }
 
-export class ProfileStore extends Context.Service<ProfileStore, ProfileStoreShape>()(
+export class ProfileStore extends Context.Service<ProfileStore, ProfileStoreService>()(
   "ProfileStore",
 ) {}
 

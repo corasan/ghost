@@ -45,7 +45,7 @@ export interface TransferItemInput {
   readonly transferToVault: boolean
 }
 
-export interface BungieClientShape {
+export interface BungieClientService {
   readonly isLinked: Effect.Effect<boolean>
   readonly authorizeUrl: Effect.Effect<string>
   readonly exchangeCode: (code: string) => Effect.Effect<BungieTokens, BungieError>
@@ -77,7 +77,7 @@ export interface BungieClientShape {
   }) => Effect.Effect<unknown, BungieError | BungieNotLinked>
 }
 
-export class BungieClient extends Context.Service<BungieClient, BungieClientShape>()(
+export class BungieClient extends Context.Service<BungieClient, BungieClientService>()(
   "BungieClient",
 ) {}
 

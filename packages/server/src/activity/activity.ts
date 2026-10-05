@@ -21,7 +21,7 @@ import { sessionWindow } from "./session.ts"
 
 const KEYS = { lastActiveAt: "session.lastActiveAt", since: "session.since" } as const
 
-export interface ActivityShape {
+export interface ActivityService {
   /** Never fails on Bungie: without a profile it falls back to manifest data. */
   readonly recent: (characterId?: string) => Effect.Effect<ReadonlyArray<RecentItem>>
   readonly decide: (
@@ -33,7 +33,7 @@ export interface ActivityShape {
   ) => Effect.Effect<Briefing, BungieError | BungieNotLinked>
 }
 
-export class Activity extends Context.Service<Activity, ActivityShape>()("Activity") {}
+export class Activity extends Context.Service<Activity, ActivityService>()("Activity") {}
 
 const fromOwned = (row: SeenRow, item: OwnedItem, upgrade: boolean) =>
   new RecentItem({

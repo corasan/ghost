@@ -30,13 +30,14 @@ export const SituationalOutput = Schema.Struct({
 })
 export type SituationalOutput = typeof SituationalOutput.Type
 
-export interface SituationalWriterShape {
+export interface SituationalWriterService {
   readonly write: (input: SituationalInput) => Effect.Effect<SituationalOutput, AgentFailed>
 }
 
-export class SituationalWriter extends Context.Service<SituationalWriter, SituationalWriterShape>()(
-  "SituationalWriter",
-) {}
+export class SituationalWriter extends Context.Service<
+  SituationalWriter,
+  SituationalWriterService
+>()("SituationalWriter") {}
 
 const SYSTEM_PROMPT = `You are Ghost, a Destiny 2 companion. A player wants to know what the conditional bonuses on their equipped character add.
 

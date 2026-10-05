@@ -1,6 +1,6 @@
 import { Config, Context, Effect, Layer, Redacted } from "effect"
 
-export interface AppConfigShape {
+export interface AppConfigValues {
   readonly host: string
   readonly port: number
   readonly dataDir: string
@@ -19,7 +19,7 @@ export interface AppConfigShape {
   }
 }
 
-export class AppConfig extends Context.Service<AppConfig, AppConfigShape>()("AppConfig") {}
+export class AppConfig extends Context.Service<AppConfig, AppConfigValues>()("AppConfig") {}
 
 // Every setting is read once at startup. Config.withDefault keeps local runs
 // zero-config; the Bungie values default to empty so the server boots before
@@ -48,5 +48,5 @@ const config = Config.all({
 
 export const AppConfigLive = Layer.effect(
   AppConfig,
-  Effect.map(config, (c): AppConfigShape => c),
+  Effect.map(config, (c): AppConfigValues => c),
 )

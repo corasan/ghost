@@ -27,13 +27,13 @@ import { historyCalls } from "./history.ts"
 
 type PlanErrors = JobNotFound | PlanNotApplicable | BungieError | BungieNotLinked
 
-export interface PlansShape {
+export interface PlansService {
   readonly apply: (jobId: string, selected: ReadonlyArray<string>) => Effect.Effect<Job, PlanErrors>
   readonly undo: (jobId: string) => Effect.Effect<Job, PlanErrors>
   readonly history: Effect.Effect<ReadonlyArray<HistoryGroup>>
 }
 
-export class Plans extends Context.Service<Plans, PlansShape>()("Plans") {}
+export class Plans extends Context.Service<Plans, PlansService>()("Plans") {}
 
 const SPACING = "100 millis"
 

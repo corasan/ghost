@@ -2,7 +2,7 @@ import { ChargeEffect, Source } from "@ghost/contract"
 import { Context, Effect, Layer } from "effect"
 import { SqlClient, type SqlError } from "effect/sql"
 
-export interface ChargeEffectsShape {
+export interface ChargeEffectsService {
   /** Keyed by lowercased mod name. */
   readonly forMods: (
     names: ReadonlyArray<string>,
@@ -12,7 +12,7 @@ export interface ChargeEffectsShape {
   ) => Effect.Effect<void, SqlError.SqlError>
 }
 
-export class ChargeEffects extends Context.Service<ChargeEffects, ChargeEffectsShape>()(
+export class ChargeEffects extends Context.Service<ChargeEffects, ChargeEffectsService>()(
   "ChargeEffects",
 ) {}
 

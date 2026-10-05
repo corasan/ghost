@@ -54,7 +54,7 @@ export interface CreatorChannel {
   readonly error: string | null
 }
 
-export interface CreatorNotesShape {
+export interface CreatorNotesService {
   /** Poll feeds and summarize new uploads. Never fails; problems are logged and stored. */
   readonly refresh: Effect.Effect<void>
   readonly search: (
@@ -67,7 +67,7 @@ export interface CreatorNotesShape {
   }>
 }
 
-export class CreatorNotes extends Context.Service<CreatorNotes, CreatorNotesShape>()(
+export class CreatorNotes extends Context.Service<CreatorNotes, CreatorNotesService>()(
   "CreatorNotes",
 ) {}
 

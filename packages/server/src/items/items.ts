@@ -22,7 +22,7 @@ import { Plans } from "../plans/executor.ts"
 
 type ReadErrors = ItemNotFound | BungieError | BungieNotLinked
 
-export interface ItemsShape {
+export interface ItemsService {
   readonly detail: (id: string) => Effect.Effect<ItemDetail, ReadErrors>
   readonly act: (
     id: string,
@@ -30,7 +30,7 @@ export interface ItemsShape {
   ) => Effect.Effect<Job, ReadErrors | JobNotFound | PlanNotApplicable>
 }
 
-export class Items extends Context.Service<Items, ItemsShape>()("Items") {}
+export class Items extends Context.Service<Items, ItemsService>()("Items") {}
 
 const NOT_A_PERK = /shader|ornament|tracker|memento|transmat|emote|^empty |^default /i
 

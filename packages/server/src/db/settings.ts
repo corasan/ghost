@@ -1,14 +1,14 @@
 import { Context, Effect, Layer, Option } from "effect"
 import { SqlClient, type SqlError } from "effect/sql"
 
-export interface SettingsShape {
+export interface SettingsService {
   readonly get: (key: string) => Effect.Effect<Option.Option<string>, SqlError.SqlError>
   readonly set: (key: string, value: string) => Effect.Effect<void, SqlError.SqlError>
 }
 
 // A tiny key/value table for things that are set once and read often, such as
 // the Bungie OAuth tokens and the chosen membership id.
-export class Settings extends Context.Service<Settings, SettingsShape>()("Settings") {}
+export class Settings extends Context.Service<Settings, SettingsService>()("Settings") {}
 
 export const SettingsLive = Layer.effect(
   Settings,

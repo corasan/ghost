@@ -145,7 +145,7 @@ export const elementIconsFrom = (
     }),
   )
 
-export interface ManifestShape {
+export interface ManifestService {
   /** What Bungie calls each armor stat and says it does. Empty until first read. Never fails. */
   readonly statFacts: Effect.Effect<StatFacts>
   /** Stat changes, fragment slots and effect text of subclass plugs. A plug Bungie cannot be asked about is left out. Never fails. */
@@ -171,7 +171,7 @@ export interface ManifestShape {
   ) => Effect.Effect<ReadonlyArray<ManifestItem>, BungieError>
 }
 
-export class Manifest extends Context.Service<Manifest, ManifestShape>()("Manifest") {}
+export class Manifest extends Context.Service<Manifest, ManifestService>()("Manifest") {}
 
 // DestinyInventoryBucketDefinition hashes for the equipment slots we show.
 export const BUCKETS = {

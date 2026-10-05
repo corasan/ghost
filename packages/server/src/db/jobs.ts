@@ -80,7 +80,7 @@ export interface ManualJob {
   readonly plan: Plan
 }
 
-export interface JobsRepoShape {
+export interface JobsRepoService {
   readonly list: Effect.Effect<ReadonlyArray<Job>, SqlError.SqlError>
   readonly inSession: (sessionId: string) => Effect.Effect<ReadonlyArray<Job>, SqlError.SqlError>
   readonly sessions: Effect.Effect<ReadonlyArray<ChatSession>, SqlError.SqlError>
@@ -105,7 +105,7 @@ export interface JobsRepoShape {
   readonly failInterrupted: Effect.Effect<void, SqlError.SqlError>
 }
 
-export class JobsRepo extends Context.Service<JobsRepo, JobsRepoShape>()("JobsRepo") {}
+export class JobsRepo extends Context.Service<JobsRepo, JobsRepoService>()("JobsRepo") {}
 
 export const JobsRepoLive = Layer.effect(
   JobsRepo,
@@ -190,7 +190,7 @@ export const JobsRepoLive = Layer.effect(
         `
       })
 
-    const setStatus: JobsRepoShape["setStatus"] = (id, status, patch) =>
+    const setStatus: JobsRepoService["setStatus"] = (id, status, patch) =>
       Effect.gen(function* () {
         const now = DateTime.formatIso(yield* DateTime.now)
         yield* sql`

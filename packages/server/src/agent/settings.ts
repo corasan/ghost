@@ -12,12 +12,14 @@ const decode = Schema.decodeUnknownOption(AgentEffort)
 export const resolveEffort = (chosen: string | null, configured: string): AgentEffort =>
   Option.getOrElse(decode(chosen), () => Option.getOrElse(decode(configured), () => DEFAULT_EFFORT))
 
-export interface AgentConfigShape {
+export interface AgentConfigService {
   readonly current: Effect.Effect<AgentSettings>
   readonly setEffort: (effort: AgentEffort) => Effect.Effect<AgentSettings>
 }
 
-export class AgentConfig extends Context.Service<AgentConfig, AgentConfigShape>()("AgentConfig") {}
+export class AgentConfig extends Context.Service<AgentConfig, AgentConfigService>()(
+  "AgentConfig",
+) {}
 
 export const AgentConfigLive = Layer.effect(
   AgentConfig,

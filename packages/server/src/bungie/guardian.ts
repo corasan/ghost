@@ -23,7 +23,7 @@ import { ProfileStore } from "./profile.ts"
 // The two read-only shapes the app renders, both cut from the cached
 // inventory: a per-character summary and the vault.
 
-export interface GuardianShape {
+export interface GuardianService {
   readonly snapshot: Effect.Effect<GuardianSnapshot, BungieError | BungieNotLinked>
   readonly vault: Effect.Effect<VaultSnapshot, BungieError | BungieNotLinked>
   readonly situational: (
@@ -31,7 +31,7 @@ export interface GuardianShape {
   ) => Effect.Effect<GuardianSituational, BungieError | BungieNotLinked>
 }
 
-export class Guardian extends Context.Service<Guardian, GuardianShape>()("Guardian") {}
+export class Guardian extends Context.Service<Guardian, GuardianService>()("Guardian") {}
 
 export const GuardianLive = Layer.effect(
   Guardian,

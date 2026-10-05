@@ -78,7 +78,7 @@ const fromRow = (row: ActionRow): ActionRecord => ({
   createdAt: row.created_at,
 })
 
-export interface ActionsRepoShape {
+export interface ActionsRepoService {
   readonly record: (action: NewAction) => Effect.Effect<void, SqlError.SqlError>
   /** In the order they were made. */
   readonly forJobs: (
@@ -88,7 +88,9 @@ export interface ActionsRepoShape {
   readonly countOkSince: (since: string) => Effect.Effect<number, SqlError.SqlError>
 }
 
-export class ActionsRepo extends Context.Service<ActionsRepo, ActionsRepoShape>()("ActionsRepo") {}
+export class ActionsRepo extends Context.Service<ActionsRepo, ActionsRepoService>()(
+  "ActionsRepo",
+) {}
 
 export const ActionsRepoLive = Layer.effect(
   ActionsRepo,

@@ -24,11 +24,13 @@ export interface AgentAnswer {
   readonly conversation: string | null
 }
 
-export interface ClaudeAgentShape {
+export interface ClaudeAgentService {
   readonly run: (request: AgentRequest) => Effect.Effect<AgentAnswer, AgentFailed>
 }
 
-export class ClaudeAgent extends Context.Service<ClaudeAgent, ClaudeAgentShape>()("ClaudeAgent") {}
+export class ClaudeAgent extends Context.Service<ClaudeAgent, ClaudeAgentService>()(
+  "ClaudeAgent",
+) {}
 
 const SYSTEM_PROMPT = `You are Ghost, a Destiny 2 companion inside a phone app. You answer the way a veteran player who knows this account would: someone with thousands of hours in endgame PvE and PvP who is asked by a friend and gives the call, not a lecture.
 
