@@ -24,10 +24,18 @@ import {
   isArmor,
   isWeapon,
   type OwnedItem,
+  STAT,
 } from "../bungie/inventory.ts"
 import { Manifest, type ManifestItem } from "../bungie/manifest.ts"
 import { ARMOR_STATS, armorStats, buildStats, withMasterworkTotals } from "../bungie/masterwork.ts"
-import { describeArmorMods, describeLoadout, loadoutPlugHashes } from "../bungie/loadout.ts"
+import { describeLoadout, loadoutPlugHashes } from "../bungie/loadout.ts"
+import {
+  describeArmorMods,
+  type ModSwap,
+  planModSwaps,
+  socketsNow,
+  swapStatChange,
+} from "../bungie/mods.ts"
 import { ProfileStore } from "../bungie/profile.ts"
 import { CreatorNotes } from "../creators/creators.ts"
 import { NOTE_MAX_AGE_DAYS } from "../creators/parse.ts"
@@ -73,7 +81,7 @@ const SearchItems = Tool.make("search_items", {
 
 const PresentPlan = Tool.make("present_plan", {
   description:
-    "Show the player a plan to confirm. Nothing moves until they tap the confirm button; the server then runs the selected rows. Call it once per request, after deciding. Row actions: to_vault, to_character, pull_postmaster, equip, tag_junk, or none (shown for comparison only). For a build, list the armor piece for every slot, including pieces that stay equipped (action none). The app works out the build's six stat totals itself from the pieces you equip, before and after, and what masterworking would add, so do not do that arithmetic or repeat those numbers in your reply. A build card also shows the super, aspects and fragments the character has slotted, read from the game; you cannot change the subclass, so if the build needs a different one, say so in your reply. Pass stats only to mark the stats the player asked for: label Health, Melee, Grenade, Super, Class or Weapons with target true; the values are ignored for a build.",
+    "Show the player a plan to confirm. Nothing moves until they tap the confirm button; the server then runs the selected rows. Call it once per request, after deciding. Row actions: to_vault, to_character, pull_postmaster, equip, tag_junk, or none (shown for comparison only). For a build, list the armor piece for every slot, including pieces that stay equipped (action none). The app works out the build's six stat totals itself from the pieces you equip, before and after, and what masterworking would add, so do not do that arithmetic or repeat those numbers in your reply. A build card also shows the super, aspects and fragments the character has slotted, read from the game; you cannot change the subclass, so if the build needs a different one, say so in your reply. For a build, also recommend armor mods in mods: one entry per mod to put in, naming the piece (it must be a row) and the mod exactly as list_armor_mods gives it, with replaces when the piece has no free socket of that kind. Only list mods that change; what is already slotted stays. The server checks sockets and energy and tells you what to fix. Pass stats only to mark the stats the player asked for: label Health, Melee, Grenade, Super, Class or Weapons with target true; the values are ignored for a build.",
   parameters: Schema.Struct({
     kind: PlanKind,
     title: Schema.String,
@@ -101,6 +109,15 @@ const PresentPlan = Tool.make("present_plan", {
         score: Schema.optional(Schema.Number),
         selected: Schema.optional(Schema.Boolean),
       }),
+    ),
+    mods: Schema.optional(
+      Schema.Array(
+        Schema.Struct({
+          itemInstanceId: Schema.String,
+          mod: Schema.String,
+          replaces: Schema.optional(Schema.String),
+        }),
+      ),
     ),
     sources: Schema.optional(Schema.Array(SourceInput)),
   }),
@@ -131,6 +148,25 @@ const DescribePlugs = Tool.make("describe_plugs", {
   success: Json,
 })
 
+const ModSlot = Schema.Literals(["general", "helmet", "arms", "chest", "legs", "class"])
+
+const GetArmorMods = Tool.make("get_armor_mods", {
+  description:
+    "What is slotted in owned armor pieces right now: each piece's energy (used and capacity) and its mod sockets, with the kind of mod each takes (general or the piece's slot), the mod in it, its energy cost and any stats it adds. Sockets of kind other (tuning, set bonuses) cannot be changed by a plan. Call it for the pieces of a build before recommending mods.",
+  parameters: Schema.Struct({ itemInstanceIds: Schema.Array(Schema.String) }),
+  success: Json,
+})
+
+const ListArmorMods = Tool.make("list_armor_mods", {
+  description:
+    "Armor mods from the current patch's Bungie manifest that can go in a build socket: name, the slot they fit (general fits every piece), energy cost, effect text and stat changes. artifactOnly mods work only while unlocked in the Seasonal Artifact, so prefer the others unless the player says they have them. Filter by slot and by words in the name or effect. Use these names exactly in present_plan mods.",
+  parameters: Schema.Struct({
+    slot: Schema.optional(ModSlot),
+    text: Schema.optional(Schema.String),
+  }),
+  success: Json,
+})
+
 const SearchCreatorNotes = Tool.make("search_creator_notes", {
   description:
     "Recent advice from Destiny 2 YouTube creators: short claims summarized from their videos of the last 60 days, each with channel, video title, publish date and a link to the moment it is said. Gear names were checked against the manifest. Search by weapon, perk, exotic, subclass, activity or topic words; an empty query returns the newest notes.",
@@ -155,6 +191,8 @@ export const GhostToolkit = Toolkit.make(
   CheckRolls,
   RollRecommendations,
   DescribePlugs,
+  GetArmorMods,
+  ListArmorMods,
   SearchCreatorNotes,
   CiteSources,
 )
@@ -173,6 +211,25 @@ const explain = (error: BungieError | BungieNotLinked | { readonly message: stri
 
 const named = (stats: ArmorStats) =>
   Object.fromEntries(ARMOR_STATS.map(([key, label]) => [label.toLowerCase(), stats[key]]))
+
+const MOD_SLOTS: Record<string, typeof ModSlot.Type> = {
+  "enhancements.v2_general": "general",
+  "enhancements.v2_head": "helmet",
+  "enhancements.v2_arms": "arms",
+  "enhancements.v2_chest": "chest",
+  "enhancements.v2_legs": "legs",
+  "enhancements.v2_class_item": "class",
+}
+
+const modSlotOf = (category: string) => MOD_SLOTS[category]
+
+const namedMods = (mods: Readonly<Record<string, number>>) => {
+  const named = ARMOR_STATS.flatMap(([key, label]) => {
+    const delta = mods[STAT[key]]
+    return delta === undefined ? [] : [[label.toLowerCase(), delta] as const]
+  })
+  return named.length > 0 ? Object.fromEntries(named) : undefined
+}
 
 const compact = (i: OwnedItem) => ({
   id: i.itemInstanceId,
@@ -328,12 +385,38 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
             const fallback = job.value.characterId ?? inv.characters[0]?.characterId ?? null
             const facts = yield* manifest.statFacts
             const slotted = input.rows.flatMap((r) =>
-              (owned.get(r.itemInstanceId)?.modSlots ?? []).flatMap((hash) => hash ?? []),
+              (owned.get(r.itemInstanceId)?.modSockets ?? []).map((socket) => socket.plugHash),
             )
             const modDefs = yield* manifest
               .lookup(slotted)
               .pipe(Effect.orElseSucceed((): ReadonlyMap<number, ManifestItem> => new Map()))
             const modFacts = yield* manifest.plugFacts(slotted)
+            const wanted = input.mods ?? []
+            const stray = wanted.filter(
+              (m) => !input.rows.some((r) => r.itemInstanceId === m.itemInstanceId),
+            )
+            if (stray.length > 0) {
+              return `Error: mods name pieces that are not rows of the plan: ${stray.map((m) => m.itemInstanceId).join(", ")}. List each piece as a row (action none if it stays on).`
+            }
+            const catalog = wanted.length > 0 ? yield* manifest.armorMods : []
+            const swapsFor = new Map<string, ReadonlyArray<ModSwap>>()
+            const refused: Array<string> = []
+            for (const r of input.rows) {
+              const item = owned.get(r.itemInstanceId) as OwnedItem
+              const requests = wanted.filter((m) => m.itemInstanceId === r.itemInstanceId)
+              if (requests.length === 0) continue
+              const planned = planModSwaps({
+                item,
+                sockets: socketsNow(item, modDefs, modFacts),
+                catalog,
+                requests,
+              })
+              refused.push(...planned.errors)
+              swapsFor.set(r.itemInstanceId, planned.swaps)
+            }
+            if (refused.length > 0) {
+              return `Error: ${refused.join(". ")}. Fix the mods and call present_plan again.`
+            }
             const rows = input.rows.map((r) => {
               const item = owned.get(r.itemInstanceId) as OwnedItem
               const characterId =
@@ -351,6 +434,14 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
                   : item.characterId !== characterId
                     ? classOf.get(item.characterId ?? "")?.toUpperCase()
                     : undefined
+              const mods =
+                item.armorStats === null
+                  ? undefined
+                  : describeArmorMods({
+                      sockets: socketsNow(item, modDefs, modFacts),
+                      swaps: swapsFor.get(item.itemInstanceId) ?? [],
+                      facts,
+                    })
               return new PlanRow({
                 itemInstanceId: item.itemInstanceId,
                 itemHash: item.itemHash,
@@ -370,18 +461,12 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
                 masterwork: item.masterwork,
                 damageType: item.damageType,
                 gearTier: item.gearTier ?? null,
-                ...(item.armorStats === null
+                ...(mods === undefined
                   ? {}
-                  : {
-                      armorMods: describeArmorMods({
-                        item,
-                        defs: modDefs,
-                        plugs: modFacts,
-                        facts,
-                      }),
-                      freeModSlots: item.modSlots.filter((hash) => hash === null).length,
-                    }),
-                ...(item.energy === null ? {} : { energy: item.energy }),
+                  : { armorMods: mods.armorMods, freeModSlots: mods.freeModSlots }),
+                ...(item.energy === null || mods === undefined
+                  ? {}
+                  : { energy: { used: mods.energyUsed, capacity: item.energy.capacity } }),
                 ...(origin === undefined ? {} : { origin }),
               })
             })
@@ -397,6 +482,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
                     facts,
                   })
                 : undefined
+            const modChange = swapStatChange([...swapsFor.values()].flat())
             const planStats =
               input.kind === "build" && builtFor !== undefined
                 ? buildStats({
@@ -408,6 +494,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
                     incoming: equipping.map((row) => owned.get(row.itemInstanceId) as OwnedItem),
                     targets: (input.stats ?? []).filter((s) => s.target).map((s) => s.label),
                     facts,
+                    modChange,
                   })
                 : withMasterworkTotals(
                     (input.stats ?? []).map((s) => new PlanStat(s)),
@@ -437,7 +524,8 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
               yield* jobs.addSources(job.value.id, toSources(input.sources)).pipe(Effect.orDie)
             }
             const actionable = rows.filter((r) => r.action !== "none").length
-            return `Plan saved with ${rows.length} rows (${actionable} actionable). The player will see it under your answer and confirm in the app.`
+            const swapped = [...swapsFor.values()].flat().length
+            return `Plan saved with ${rows.length} rows (${actionable} actionable, ${swapped} mod swaps). The player will see it under your answer and confirm in the app.`
           }),
         )
       })
@@ -520,6 +608,72 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
         Effect.catchTag("BungieError", (e) => Effect.succeed(explain(e))),
       )
 
+    const get_armor_mods = ({
+      itemInstanceIds,
+    }: {
+      readonly itemInstanceIds: ReadonlyArray<string>
+    }) =>
+      withInventory((inv) =>
+        Effect.gen(function* () {
+          const picked = inv.items.filter(
+            (i) => itemInstanceIds.includes(i.itemInstanceId) && i.armorStats !== null,
+          )
+          const hashes = picked.flatMap((i) => i.modSockets.map((socket) => socket.plugHash))
+          const defs = yield* manifest
+            .lookup(hashes)
+            .pipe(Effect.orElseSucceed((): ReadonlyMap<number, ManifestItem> => new Map()))
+          const plugs = yield* manifest.plugFacts(hashes)
+          return json({
+            unknownIds: itemInstanceIds.filter(
+              (id) => !picked.some((i) => i.itemInstanceId === id),
+            ),
+            pieces: picked.map((item) => ({
+              id: item.itemInstanceId,
+              name: item.name,
+              slot: item.slot,
+              energy: item.energy,
+              sockets: socketsNow(item, defs, plugs).map((socket) => ({
+                kind: modSlotOf(socket.category) ?? "other",
+                mod: socket.mod?.name ?? null,
+                cost: socket.mod?.cost,
+                stats: socket.mod === null ? undefined : namedMods(socket.mod.mods),
+              })),
+            })),
+          })
+        }),
+      )
+
+    const list_armor_mods = (input: {
+      readonly slot?: typeof ModSlot.Type | undefined
+      readonly text?: string | undefined
+    }) =>
+      Effect.map(manifest.armorMods, (catalog) => {
+        const text = input.text?.toLowerCase()
+        const byName = new Map<string, (typeof catalog)[number]>()
+        for (const entry of catalog) {
+          const key = `${entry.category}|${entry.name.toLowerCase()}`
+          const kept = byName.get(key)
+          if (kept === undefined || (kept.artifact && !entry.artifact)) byName.set(key, entry)
+        }
+        const mods = [...byName.values()]
+          .filter(
+            (entry) =>
+              (input.slot === undefined || modSlotOf(entry.category) === input.slot) &&
+              (text === undefined ||
+                entry.name.toLowerCase().includes(text) ||
+                entry.description.toLowerCase().includes(text)),
+          )
+          .map((entry) => ({
+            name: entry.name,
+            slot: modSlotOf(entry.category),
+            cost: entry.energyCost,
+            effect: clip(entry.description, 300),
+            stats: namedMods(entry.mods),
+            artifactOnly: entry.artifact || undefined,
+          }))
+        return json({ total: mods.length, mods })
+      })
+
     const describe_plugs = (input: {
       readonly names?: ReadonlyArray<string> | undefined
       readonly hashes?: ReadonlyArray<number> | undefined
@@ -586,6 +740,8 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
       check_rolls,
       roll_recommendations,
       describe_plugs,
+      get_armor_mods,
+      list_armor_mods,
       search_creator_notes,
       cite_sources,
     }

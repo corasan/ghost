@@ -163,6 +163,12 @@ const migrations = {
     yield* sql`UPDATE jobs SET session_id = 'first'`
     yield* sql`CREATE INDEX IF NOT EXISTS jobs_session ON jobs (session_id, created_at)`
   }),
+  "0006_mod_actions": Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    yield* sql`ALTER TABLE actions ADD COLUMN socket_index INTEGER`
+    yield* sql`ALTER TABLE actions ADD COLUMN plug_hash INTEGER`
+    yield* sql`ALTER TABLE actions ADD COLUMN previous_plug_hash INTEGER`
+  }),
 }
 
 const SqliteLive = Layer.unwrap(

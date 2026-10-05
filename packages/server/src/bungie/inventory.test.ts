@@ -167,9 +167,12 @@ describe("buildInventory", () => {
   })
 
   test("armor lists its mod sockets in order, empty ones as null, and its energy", () => {
-    expect(byId("e1").modSlots).toEqual([40, null])
+    expect(byId("e1").modSockets).toEqual([
+      { index: 1, plugHash: 40, empty: false },
+      { index: 2, plugHash: 41, empty: true },
+    ])
     expect(byId("e1").energy).toEqual({ used: 3, capacity: 10 })
-    expect(byId("v1").modSlots).toEqual([])
+    expect(byId("v1").modSockets).toEqual([])
     expect(byId("v2").energy).toBeNull()
   })
 

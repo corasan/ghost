@@ -82,9 +82,10 @@ export const PlansLive = Layer.effect(
         const call = (
           item: OwnedItem,
           kind: ActionKind,
-          fields: Pick<NewAction, "characterId" | "fromLocation" | "fromCharacterId"> & {
-            readonly previousItemId?: string | null
-          },
+          fields: Pick<NewAction, "characterId" | "fromLocation" | "fromCharacterId"> &
+            Partial<
+              Pick<NewAction, "previousItemId" | "socketIndex" | "plugHash" | "previousPlugHash">
+            >,
           request: Effect.Effect<unknown, BungieError | BungieNotLinked>,
         ) => {
           const base = {
@@ -220,6 +221,40 @@ export const PlansLive = Layer.effect(
             ),
           )
 
+        const insertMods = (row: PlanRow, item: OwnedItem) =>
+          Effect.gen(function* () {
+            for (const mod of row.armorMods ?? []) {
+              if (mod.swap !== true || mod.plugHash === undefined || mod.socketIndex === undefined)
+                continue
+              const at = state(item)
+              if (at.location !== "character" || at.characterId === null) {
+                return yield* Effect.fail(`it must be on a character to take ${mod.name}`)
+              }
+              yield* call(
+                item,
+                "insert_mod",
+                {
+                  characterId: at.characterId,
+                  fromLocation: "character",
+                  fromCharacterId: at.characterId,
+                  socketIndex: mod.socketIndex,
+                  plugHash: mod.plugHash,
+                  previousPlugHash: mod.previousPlugHash ?? null,
+                },
+                bungie.insertPlug({
+                  itemId: item.itemInstanceId,
+                  characterId: at.characterId,
+                  membershipType: inv.membershipType,
+                  socketIndex: mod.socketIndex,
+                  plugHash: mod.plugHash,
+                }),
+              ).pipe(Effect.mapError((reason) => `${mod.name}: ${reason}`))
+              yield* Effect.sleep(SPACING)
+            }
+          })
+
+        const swapsMods = (row: PlanRow) => row.armorMods?.some((mod) => mod.swap === true) ?? false
+
         const runRow = (row: PlanRow, item: OwnedItem): Effect.Effect<void, string> => {
           const target = row.characterId ?? fallbackCharacter
           switch (row.action) {
@@ -246,11 +281,21 @@ export const PlansLive = Layer.effect(
         for (const row of plan.rows) {
           const finish = (outcome: RowOutcome | null, error: string | null) =>
             rows.push(new PlanRow({ ...row, outcome, error }))
+          const item = owned.get(row.itemInstanceId)
           if (row.action === "none") {
-            finish(null, null)
+            if (!swapsMods(row)) {
+              finish(null, null)
+              continue
+            }
+            if (item === undefined) {
+              finish("failed", "it is no longer in your inventory")
+              continue
+            }
+            const modded = yield* Effect.result(insertMods(row, item))
+            if (modded._tag === "Success") finish("ok", null)
+            else finish("failed", modded.failure)
             continue
           }
-          const item = owned.get(row.itemInstanceId)
           if (!picked.has(row.itemInstanceId)) {
             yield* record({
               jobId,
@@ -272,7 +317,9 @@ export const PlansLive = Layer.effect(
             finish("failed", "it is no longer in your inventory")
             continue
           }
-          const result = yield* Effect.result(runRow(row, item))
+          const result = yield* Effect.result(
+            runRow(row, item).pipe(Effect.andThen(insertMods(row, item))),
+          )
           if (result._tag === "Success") finish("ok", null)
           else finish("failed", result.failure)
           yield* Effect.sleep(SPACING)
@@ -322,10 +369,21 @@ export const PlansLive = Layer.effect(
                       characterId: action.characterId,
                       membershipType,
                     })
-                  : action.kind === "tag_junk"
-                    ? items.setDecision(action.itemInstanceId, null).pipe(Effect.orDie)
-                    : // A postmaster pull cannot be reversed; the item stays on the character.
-                      Effect.void
+                  : action.kind === "insert_mod" &&
+                      action.characterId !== null &&
+                      typeof action.socketIndex === "number" &&
+                      typeof action.previousPlugHash === "number"
+                    ? bungie.insertPlug({
+                        itemId: action.itemInstanceId,
+                        characterId: action.characterId,
+                        membershipType,
+                        socketIndex: action.socketIndex,
+                        plugHash: action.previousPlugHash,
+                      })
+                    : action.kind === "tag_junk"
+                      ? items.setDecision(action.itemInstanceId, null).pipe(Effect.orDie)
+                      : // A postmaster pull cannot be reversed; the item stays on the character.
+                        Effect.void
           const result = yield* Effect.result(reverse)
           if (result._tag === "Success") {
             yield* actions.setStatus(action.id, "undone").pipe(Effect.orDie)

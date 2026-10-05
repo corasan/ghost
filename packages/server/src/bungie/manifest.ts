@@ -79,8 +79,10 @@ export interface PlugDefinition {
     readonly isConditionallyActive?: boolean
   }>
   readonly plug?: {
+    readonly plugCategoryIdentifier?: string
     readonly energyCapacity?: { readonly capacityValue?: number }
     readonly energyCost?: { readonly energyCost?: number }
+    readonly insertionRules?: ReadonlyArray<{ readonly failureMessage?: string }>
   }
   readonly perks?: ReadonlyArray<{ readonly perkHash?: number }>
 }
@@ -94,7 +96,18 @@ export interface PlugFacts {
   readonly fragmentSlots: number
   /** Armor energy an armor mod takes; zero for anything else. */
   readonly energyCost: number
+  /** What kind of socket the plug fits; a mod goes where the socket's own plug has the same one. */
+  readonly category: string
+  /** Only usable while unlocked in the Seasonal Artifact. */
+  readonly artifact: boolean
   readonly description: string
+}
+
+/** An armor mod the player could slot, from the current patch. */
+export interface ArmorModEntry extends PlugFacts {
+  readonly hash: number
+  readonly name: string
+  readonly icon: string | null
 }
 
 export const statModsFrom = (definition: PlugDefinition, conditional: boolean): StatMods =>
@@ -134,6 +147,8 @@ export interface ManifestShape {
   readonly plugFacts: (
     hashes: ReadonlyArray<number>,
   ) => Effect.Effect<ReadonlyMap<number, PlugFacts>>
+  /** Every armor mod that fits a build socket. Slow the first time after a patch, then stored. Never fails. */
+  readonly armorMods: Effect.Effect<ReadonlyArray<ArmorModEntry>>
   /** Empty until first read. Never fails. */
   readonly elementIcons: Effect.Effect<ElementIcons>
   /** How many slots the vault and postmaster hold in the current patch. Never fails. */
@@ -280,6 +295,9 @@ const CAPACITIES_KEY = "manifest.capacities"
 const CAPACITIES_VERSION_KEY = "manifest.capacities.version"
 const STAT_FACTS_KEY = "manifest.statFacts"
 const STAT_FACTS_VERSION_KEY = "manifest.statFacts.version"
+const ARMOR_MODS_KEY = "manifest.armorMods"
+const ARMOR_MODS_VERSION_KEY = "manifest.armorMods.version"
+export const BUILD_SOCKET = /^enhancements\.v2_/
 const ELEMENT_ICONS_KEY = "manifest.elementIcons"
 const ELEMENT_ICONS_VERSION_KEY = "manifest.elementIcons.version"
 const ARMOR_STAT_HASHES = [
@@ -349,6 +367,7 @@ export const ManifestLive = Layer.effect(
     let checkedAt = 0
     // Two lookups racing at startup would otherwise both download the manifest.
     const lock = yield* Semaphore.make(1)
+    const lockMods = yield* Semaphore.make(1)
 
     const plugs = new Map<number, PlugFacts>()
 
@@ -373,6 +392,10 @@ export const ManifestLive = Layer.effect(
               classMods: statModsFrom(definition, true),
               fragmentSlots: definition.plug?.energyCapacity?.capacityValue ?? 0,
               energyCost: definition.plug?.energyCost?.energyCost ?? 0,
+              category: definition.plug?.plugCategoryIdentifier ?? "",
+              artifact: (definition.plug?.insertionRules ?? []).some((rule) =>
+                /artifact/i.test(rule.failureMessage ?? ""),
+              ),
               description: described.displayProperties?.description ?? "",
             })
           }).pipe(
@@ -380,7 +403,7 @@ export const ManifestLive = Layer.effect(
               Effect.logWarning(`manifest: plug ${hash} failed: ${error.message}`),
             ),
           ),
-        { concurrency: 6, discard: true },
+        { concurrency: 8, discard: true },
       ).pipe(
         Effect.map(
           (): ReadonlyMap<number, PlugFacts> =>
@@ -488,6 +511,7 @@ export const ManifestLive = Layer.effect(
       cache.clear()
       missing.clear()
       plugs.clear()
+      armorMods = null
       checkedAt = Date.now()
       yield* Effect.logInfo(`manifest: stored ${count} items`)
     }).pipe(lock.withPermits(1))
@@ -546,6 +570,47 @@ export const ManifestLive = Layer.effect(
       return statFacts
     })
 
+    let armorMods: ReadonlyArray<ArmorModEntry> | null = null
+
+    const readArmorMods = Effect.gen(function* () {
+      yield* Effect.ignore(ensure)
+      if (armorMods !== null) return armorMods
+      const version = Option.getOrNull(yield* settings.get(VERSION_KEY).pipe(Effect.orDie))
+      const storedFor = Option.getOrNull(
+        yield* settings.get(ARMOR_MODS_VERSION_KEY).pipe(Effect.orDie),
+      )
+      const stored = Option.getOrNull(yield* settings.get(ARMOR_MODS_KEY).pipe(Effect.orDie))
+      if (stored !== null && storedFor === version) {
+        armorMods = JSON.parse(stored) as ReadonlyArray<ArmorModEntry>
+        return armorMods
+      }
+      const rows = yield* sql<ManifestRow>`
+        SELECT * FROM manifest_items
+        WHERE type_name LIKE '%Armor Mod' AND type_name NOT LIKE 'Deprecated%'
+          AND name NOT LIKE 'Empty %'
+      `.pipe(Effect.orDie)
+      const facts = yield* plugFacts(rows.map((row) => row.hash))
+      const found = rows.flatMap((row): Array<ArmorModEntry> => {
+        const known = facts.get(row.hash)
+        if (known === undefined || !BUILD_SOCKET.test(known.category)) return []
+        const item = rowToItem(row)
+        return [
+          {
+            ...known,
+            hash: row.hash,
+            name: item.name,
+            icon: item.icon,
+            description: item.description || known.description,
+          },
+        ]
+      })
+      if (found.length === 0) return found
+      armorMods = found
+      yield* settings.set(ARMOR_MODS_KEY, JSON.stringify(found)).pipe(Effect.orDie)
+      if (version !== null) yield* settings.set(ARMOR_MODS_VERSION_KEY, version).pipe(Effect.orDie)
+      return found
+    }).pipe(lockMods.withPermits(1))
+
     const readElementIcons = Effect.gen(function* () {
       yield* Effect.ignore(ensure)
       if (elementIcons !== null) return elementIcons
@@ -555,6 +620,7 @@ export const ManifestLive = Layer.effect(
     })
 
     return {
+      armorMods: readArmorMods,
       elementIcons: readElementIcons,
       capacities: readCapacities,
       statFacts: readStatFacts,

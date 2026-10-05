@@ -12,6 +12,7 @@ export type ActionKind =
   | "pull_postmaster"
   | "equip"
   | "tag_junk"
+  | "insert_mod"
   | "held"
 
 export interface ActionRecord {
@@ -27,6 +28,10 @@ export interface ActionRecord {
   readonly fromCharacterId: string | null
   /** The item an equip replaced, so undo can put it back on. */
   readonly previousItemId: string | null
+  /** For insert_mod: the socket, the mod put in, and the plug it displaced so undo can restore it. */
+  readonly socketIndex?: number | null
+  readonly plugHash?: number | null
+  readonly previousPlugHash?: number | null
   readonly status: ActionStatus
   readonly error: string | null
   readonly createdAt: string
@@ -45,6 +50,9 @@ interface ActionRow {
   readonly from_location: string | null
   readonly from_character_id: string | null
   readonly previous_item_id: string | null
+  readonly socket_index: number | null
+  readonly plug_hash: number | null
+  readonly previous_plug_hash: number | null
   readonly status: ActionStatus
   readonly error: string | null
   readonly created_at: string
@@ -61,6 +69,9 @@ const fromRow = (row: ActionRow): ActionRecord => ({
   fromLocation: row.from_location,
   fromCharacterId: row.from_character_id,
   previousItemId: row.previous_item_id,
+  socketIndex: row.socket_index,
+  plugHash: row.plug_hash,
+  previousPlugHash: row.previous_plug_hash,
   status: row.status,
   error: row.error,
   createdAt: row.created_at,
@@ -98,6 +109,9 @@ export const ActionsRepoLive = Layer.effect(
             from_location: action.fromLocation,
             from_character_id: action.fromCharacterId,
             previous_item_id: action.previousItemId,
+            socket_index: action.socketIndex ?? null,
+            plug_hash: action.plugHash ?? null,
+            previous_plug_hash: action.previousPlugHash ?? null,
             status: action.status,
             error: action.error,
             created_at: now,

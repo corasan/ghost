@@ -67,6 +67,14 @@ export interface BungieClientShape {
     readonly characterId: string
     readonly membershipType: number
   }) => Effect.Effect<unknown, BungieError | BungieNotLinked>
+  /** Puts a free plug such as an armor mod into a socket. The item must be on that character. */
+  readonly insertPlug: (input: {
+    readonly itemId: string
+    readonly characterId: string
+    readonly membershipType: number
+    readonly socketIndex: number
+    readonly plugHash: number
+  }) => Effect.Effect<unknown, BungieError | BungieNotLinked>
 }
 
 export class BungieClient extends Context.Service<BungieClient, BungieClientShape>()(
@@ -176,6 +184,11 @@ export const BungieClientLive = Layer.effect(
       pullFromPostmaster: (input) =>
         post("/Destiny2/Actions/Items/PullFromPostmaster/", { stackSize: 1, ...input }),
       equipItem: (input) => post("/Destiny2/Actions/Items/EquipItem/", input),
+      insertPlug: ({ socketIndex, plugHash, ...item }) =>
+        post("/Destiny2/Actions/Items/InsertSocketPlugFree/", {
+          ...item,
+          plug: { socketIndex, socketArrayType: 0, plugItemHash: plugHash },
+        }),
     }
   }),
 ).pipe(Layer.provide(FetchHttpClient.layer))

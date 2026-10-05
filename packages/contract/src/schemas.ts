@@ -128,8 +128,16 @@ export class ArmorMod extends Schema.Class<ArmorMod>("ArmorMod")({
   description: Schema.String,
   /** Armor energy the mod takes. */
   cost: Schema.Number,
-  /** Stat changes it brings, already counted in the piece's stats. */
+  /** Stat changes it brings, counted in the plan's stats. */
   mods: Schema.Array(StatMod),
+  /** True when the plan puts this mod in; the rest are already slotted. */
+  swap: Schema.optional(Schema.Boolean),
+  /** The mod this one takes the place of, when the socket was not free. */
+  replaces: Schema.optional(Schema.NullOr(Schema.String)),
+  /** What the server needs to insert a swap and to undo it. */
+  socketIndex: Schema.optional(Schema.Number),
+  plugHash: Schema.optional(Schema.Number),
+  previousPlugHash: Schema.optional(Schema.Number),
 }) {}
 
 export class PlanRow extends Schema.Class<PlanRow>("PlanRow")({

@@ -106,12 +106,15 @@ export const buildStats = ({
   incoming,
   targets,
   facts,
+  modChange,
 }: {
   readonly character: Pick<CharacterInfo, "stats">
   readonly worn: ReadonlyArray<Piece>
   readonly incoming: ReadonlyArray<Piece>
   readonly targets: ReadonlyArray<string>
   readonly facts: StatFacts
+  /** What the plan's mod swaps add to each stat, keyed by stat hash. */
+  readonly modChange?: Readonly<Record<string, number>>
 }): ReadonlyArray<PlanStat> => {
   const arriving = incoming.filter(
     (piece) =>
@@ -131,7 +134,7 @@ export const buildStats = ({
 
   return ARMOR_STATS.map(([key, label]) => {
     const before = character.stats[key]
-    const value = before - sum(leaving, key) + sum(arriving, key)
+    const value = before - sum(leaving, key) + sum(arriving, key) + (modChange?.[STAT[key]] ?? 0)
     const fact = facts[STAT[key]]
     return new PlanStat({
       label: statLabel(key, label, facts),

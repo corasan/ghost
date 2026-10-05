@@ -109,9 +109,16 @@ export type OwnedItem = Schema.Struct.Type<typeof ItemSummary.fields> & {
   readonly armorStats: ArmorStats | null
   /** Every plug in the weapon's sockets, in order; what wishlist rolls are matched against. */
   readonly plugHashes: ReadonlyArray<number>
-  /** Armor only: what sits in each mod socket, in socket order. An empty socket is null. */
-  readonly modSlots: ReadonlyArray<number | null>
+  /** Armor only: its mod sockets in socket order. */
+  readonly modSockets: ReadonlyArray<ModSocket>
   readonly energy: { readonly used: number; readonly capacity: number } | null
+}
+
+export interface ModSocket {
+  /** Position among the item's sockets, which is how Bungie addresses it. */
+  readonly index: number
+  readonly plugHash: number
+  readonly empty: boolean
 }
 
 export interface SubclassPlug {
@@ -346,12 +353,12 @@ export const buildInventory = (
             : [socket.plugHash],
         )
       : []
-    const modSlots = armor
-      ? (sockets[id]?.sockets ?? []).flatMap((socket): Array<number | null> => {
+    const modSockets = armor
+      ? (sockets[id]?.sockets ?? []).flatMap((socket, index): Array<ModSocket> => {
           const plug = socket.plugHash === undefined ? undefined : defs.get(socket.plugHash)
           if (plug === undefined || socket.isVisible === false || !ARMOR_MOD.test(plug.typeName))
             return []
-          return [EMPTY_SOCKET.test(plug.name) ? null : plug.hash]
+          return [{ index, plugHash: plug.hash, empty: EMPTY_SOCKET.test(plug.name) }]
         })
       : []
     const perks = plugHashes.flatMap((hash) => {
@@ -396,7 +403,7 @@ export const buildInventory = (
       acquiredAt: memory === undefined || memory.baseline ? null : memory.firstSeenAt,
       armorStats,
       plugHashes,
-      modSlots,
+      modSockets,
       energy:
         armor && instance?.energy?.energyCapacity !== undefined
           ? { used: instance.energy.energyUsed ?? 0, capacity: instance.energy.energyCapacity }
