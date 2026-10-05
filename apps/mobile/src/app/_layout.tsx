@@ -9,7 +9,6 @@ import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client
 import { useFonts } from "expo-font"
 import { DarkTheme, Stack, ThemeProvider } from "expo-router"
 import { KeyboardProvider } from "react-native-keyboard-controller"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
 import * as SecureStore from "expo-secure-store"
 import * as SplashScreen from "expo-splash-screen"
 import { StatusBar } from "expo-status-bar"
@@ -33,14 +32,15 @@ const LINKED_KEY = "ghost.linked"
 const presentation = Platform.OS === "ios" ? "formSheet" : "modal"
 
 function RootStack() {
-  const { top } = useSafeAreaInsets()
   const sheet = {
     presentation,
     sheetGrabberVisible: true,
-    contentStyle: {
-      backgroundColor: Ghost.panel,
-      paddingTop: Platform.OS === "android" ? top : 0,
-    },
+    headerShown: Platform.OS === "android",
+    title: "",
+    headerStyle: { backgroundColor: Ghost.panel },
+    headerShadowVisible: false,
+    headerTintColor: Ghost.ink,
+    contentStyle: { backgroundColor: Ghost.panel },
   } as const
   const health = useHealth()
   const known = health.data?.bungieLinked
