@@ -204,6 +204,10 @@ const styles = StyleSheet.create({
     borderTopColor: Ghost.rule,
   },
   footer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
     flexDirection: "row",
     paddingHorizontal: Gutter,
     paddingTop: 12,

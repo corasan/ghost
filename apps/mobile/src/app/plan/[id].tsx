@@ -17,6 +17,7 @@ import { Ghost, Gutter, Type } from "@/constants/theme"
 import { errorMessage, useApplyPlan, useJob } from "@/lib/api"
 import { chargedMods } from "@/lib/charge"
 import { firstSentence } from "@/lib/effect-text"
+import { useFooterHeight } from "@/lib/footer"
 import { bySlot, modPips, pendingMasterwork, signed } from "@/lib/plan-card"
 import { usePlanSelection } from "@/lib/selection"
 
@@ -77,8 +78,6 @@ function Loadout({ loadout }: { loadout: SubclassLoadout }) {
     </SubclassBanner>
   )
 }
-
-const NONE_OPEN = ""
 
 function ModLine({ mod, copies }: { mod: ArmorMod; copies: number }) {
   const [open, setOpen] = useState(false)
@@ -279,6 +278,7 @@ export default function PlanDetailsScreen() {
   const insets = useSafeAreaInsets()
   const job = useJob(id)
   const [openId, setOpenId] = useState<string>()
+  const footer = useFooterHeight()
   const plan = job.data?.plan
 
   if (!job.data || !plan) {
@@ -298,7 +298,7 @@ export default function PlanDetailsScreen() {
 
   return (
     <View collapsable={false} style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: footer.height + 28 }]}>
         <BuildHeader
           plan={plan}
           eyebrowSize={10}
@@ -326,12 +326,10 @@ export default function PlanDetailsScreen() {
               row={row}
               copies={copies}
               applied={applied}
-              open={(openId ?? pieces[0]?.itemInstanceId) === row.itemInstanceId}
+              open={openId === row.itemInstanceId}
               onToggle={() =>
                 setOpenId((current) =>
-                  (current ?? pieces[0]?.itemInstanceId) === row.itemInstanceId
-                    ? NONE_OPEN
-                    : row.itemInstanceId,
+                  current === row.itemInstanceId ? undefined : row.itemInstanceId,
                 )
               }
             />
@@ -348,7 +346,7 @@ export default function PlanDetailsScreen() {
           </View>
         ) : null}
       </ScrollView>
-      <View collapsable={false}>
+      <View collapsable={false} onLayout={footer.onLayout} style={styles.footerSlot}>
         <Confirm job={job.data} plan={plan} inset={insets.bottom} />
       </View>
     </View>
@@ -356,7 +354,8 @@ export default function PlanDetailsScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: Gutter, paddingTop: 28, paddingBottom: 28 },
+  content: { paddingHorizontal: Gutter, paddingTop: 28 },
+  footerSlot: { position: "absolute", left: 0, right: 0, bottom: 0 },
   section: { marginTop: 18 },
   label: { paddingBottom: 6 },
   entry: { paddingVertical: 6, borderTopWidth: 1, borderTopColor: Ghost.rule },
