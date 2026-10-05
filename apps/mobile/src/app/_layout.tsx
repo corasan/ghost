@@ -8,6 +8,7 @@ import { JetBrainsMono_500Medium } from "@expo-google-fonts/jetbrains-mono/500Me
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client"
 import { useFonts } from "expo-font"
 import { DarkTheme, Stack, ThemeProvider } from "expo-router"
+import { KeyboardProvider } from "react-native-keyboard-controller"
 import * as SecureStore from "expo-secure-store"
 import * as SplashScreen from "expo-splash-screen"
 import { StatusBar } from "expo-status-bar"
@@ -86,12 +87,14 @@ export default function RootLayout() {
   })
   if (!fontsLoaded && !fontError) return null
   return (
-    <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
-      <ThemeProvider value={theme}>
-        <StatusBar style="light" />
-        <AnimatedSplashOverlay />
-        <RootStack />
-      </ThemeProvider>
-    </PersistQueryClientProvider>
+    <KeyboardProvider>
+      <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
+        <ThemeProvider value={theme}>
+          <StatusBar style="light" />
+          <AnimatedSplashOverlay />
+          <RootStack />
+        </ThemeProvider>
+      </PersistQueryClientProvider>
+    </KeyboardProvider>
   )
 }

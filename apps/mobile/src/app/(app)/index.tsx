@@ -2,7 +2,8 @@ import type { Job } from "@ghost/contract"
 import { LegendList, type LegendListRef } from "@legendapp/list/react-native"
 import { router, useLocalSearchParams } from "expo-router"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Keyboard, KeyboardAvoidingView, Platform, View } from "react-native"
+import { View } from "react-native"
+import { KeyboardAvoidingView } from "react-native-keyboard-controller"
 
 import { BriefingView } from "@/components/chat/briefing"
 import { Composer, Starters } from "@/components/chat/composer"
@@ -17,19 +18,6 @@ import { continueSession, startFreshSession, useSessionId } from "@/lib/session"
 
 type Entry = { type: "job"; job: Job } | { type: "briefing" }
 
-function useKeyboardOpen() {
-  const [open, setOpen] = useState(false)
-  useEffect(() => {
-    const show = Keyboard.addListener("keyboardWillShow", () => setOpen(true))
-    const hide = Keyboard.addListener("keyboardWillHide", () => setOpen(false))
-    return () => {
-      show.remove()
-      hide.remove()
-    }
-  }, [])
-  return open
-}
-
 /**
  * Chat is home. It shows one conversation, oldest request at the top, with
  * Ghost's briefing placed where this visit starts: on open you land on what
@@ -40,7 +28,6 @@ export default function ChatScreen() {
   const { draft: queued } = useLocalSearchParams<{ draft?: string }>()
   const [draft, setDraft] = useState("")
   const list = useRef<LegendListRef>(null)
-  const keyboardOpen = useKeyboardOpen()
 
   const { character } = useCharacter()
   const characterId = character?.characterId
@@ -112,10 +99,7 @@ export default function ChatScreen() {
         ruled={asked}
         onNewChat={hasHistory ? startFreshSession : undefined}
       />
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <LegendList
           ref={list}
           key={sessionId ?? "fresh"}
@@ -151,7 +135,6 @@ export default function ChatScreen() {
           onChange={setDraft}
           onSend={() => ask(draft)}
           sending={createJob.isPending}
-          keyboardOpen={keyboardOpen}
         />
       </KeyboardAvoidingView>
     </View>
