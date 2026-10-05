@@ -93,7 +93,7 @@ describe("planSubclass", () => {
     })
   })
 
-  test("slotted plugs stay put, new ones take the freed sockets, aspects go in before fragments", () => {
+  test("slotted plugs stay put, spare fragment slots keep theirs, only past the slots drop", () => {
     const result = plan([1, 11, 12, 21, 22, 23, 24], {
       super: "Ward of Dawn",
       aspects: ["Bastion", "Offensive Bulwark"],
@@ -104,15 +104,36 @@ describe("planSubclass", () => {
       result.swaps.map((swap) => [swap.socketIndex, swap.plug.name, swap.previous?.name]),
     ).toEqual([
       [2, "Offensive Bulwark", "Controlled Demolition"],
-      [4, "Empty Fragment Socket", "Echo of Harvest"],
       [0, "Ward of Dawn", "Sentinel Shield"],
     ])
     expect(result.loadout.super?.name).toBe("Ward of Dawn")
     expect(result.loadout.aspects.map((p) => p.name)).toEqual(["Bastion", "Offensive Bulwark"])
     expect(result.loadout.fragments.map((p) => p.name)).toEqual([
       "Echo of Starvation",
+      "Echo of Harvest",
       "Echo of Undermining",
     ])
+  })
+
+  test("a new fragment takes an empty slot before it replaces one that is slotted", () => {
+    const result = plan([1, 11, 12, 21, 20, 22, 20], { fragments: ["Echo of Persistence"] })
+    if ("errors" in result) throw new Error(result.errors.join())
+    expect(result.swaps.map((swap) => [swap.socketIndex, swap.plug.name])).toEqual([
+      [4, "Echo of Persistence"],
+    ])
+    expect(result.loadout.fragments.map((p) => p.name)).toEqual([
+      "Echo of Starvation",
+      "Echo of Persistence",
+      "Echo of Harvest",
+    ])
+  })
+
+  test("with every slot taken, a new fragment replaces the last one", () => {
+    const result = plan([1, 11, 13, 21, 22, 23, 20], { fragments: ["Echo of Persistence"] })
+    if ("errors" in result) throw new Error(result.errors.join())
+    expect(
+      result.swaps.map((swap) => [swap.socketIndex, swap.plug.name, swap.previous?.name]),
+    ).toEqual([[5, "Echo of Persistence", "Echo of Undermining"]])
   })
 
   test("a request that matches what is slotted changes nothing", () => {

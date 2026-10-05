@@ -50,8 +50,6 @@ export interface SubclassSocket {
   readonly part: SubclassPart
   readonly current: number
   readonly enabled: boolean
-  /** The plug that leaves the socket empty; null where the socket is never empty. */
-  readonly empty: number | null
   /** What the socket can take, empty plug left out. */
   readonly options: ReadonlyArray<SubclassPlug>
 }
@@ -92,7 +90,6 @@ export const subclassSockets = ({
         part,
         current: socket.plugHash,
         enabled: socket.enabled,
-        empty: pool.find((plug) => isEmptyPlug(plug.name))?.hash ?? null,
         options: filled.filter((plug) => subclassPart(plug.typeName) === part).map(toPlug),
       },
     ]
@@ -142,8 +139,10 @@ const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLow
  * Turns the agent's picks for one subclass into the plugs it ends up with and
  * the sockets that change, or says what is wrong: a plug that is not unlocked
  * for that socket, a repeat, more aspects than sockets, or more fragments than
- * the aspects give slots. Plugs already slotted stay in their socket, and
- * fragments go in the first sockets, since those are the ones the aspects open.
+ * the aspects give slots. Plugs already slotted stay in their socket, new ones
+ * fill empty sockets first and then replace from the last socket back, and a
+ * socket nothing new needs keeps what it holds. Fragments use only the first
+ * sockets, since those are the ones the aspects open.
  */
 export const planSubclass = ({
   name,
@@ -209,13 +208,16 @@ export const planSubclass = ({
         : wanted.flatMap((each) => resolve(label, each, pool) ?? [])
     if (hashes.length > usable.length) return hashes.length
     const left = hashes.filter((hash) => !usable.some((socket) => socket.current === hash))
-    for (const socket of usable) {
-      const keep = hashes.includes(socket.current)
-      final.set(
-        socket.index,
-        keep ? socket.current : (left.shift() ?? socket.empty ?? socket.current),
-      )
-    }
+    const free = usable.filter((socket) => !hashes.includes(socket.current))
+    const targets = [
+      ...free.filter((socket) => plugOf(socket.current) === null),
+      ...free.filter((socket) => plugOf(socket.current) !== null).toReversed(),
+    ]
+    targets.forEach((socket, i) => {
+      final.set(socket.index, left[i] ?? socket.current)
+    })
+    for (const socket of usable)
+      if (!final.has(socket.index)) final.set(socket.index, socket.current)
     return hashes.length
   }
 
