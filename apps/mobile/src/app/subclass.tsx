@@ -115,7 +115,7 @@ export default function SubclassScreen() {
   const capacity = fragmentCapacity(loadout)
 
   return (
-    <View style={{ flex: 1 }}>
+    <View collapsable={false} style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <SubclassMark loadout={loadout} size={22} />

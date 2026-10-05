@@ -46,7 +46,7 @@ export default function VaultFilterScreen() {
   const narrowed = activeFilters(filter).length > 0
 
   return (
-    <View style={{ flex: 1 }}>
+    <View collapsable={false} style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 28, gap: 22 }}>
         <Cond size={24} style={{ letterSpacing: 0.5 }}>
           FILTER & SORT

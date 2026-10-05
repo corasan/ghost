@@ -173,7 +173,7 @@ export default function PlanDetailsScreen() {
   const loadout = plan.loadout
 
   return (
-    <View style={{ flex: 1 }}>
+    <View collapsable={false} style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.content}>
         <BuildHeader
           plan={plan}
