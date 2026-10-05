@@ -64,7 +64,7 @@ function Aspect({ aspect, tone }: { aspect: LoadoutPlug; tone: string }) {
         ) : null}
       </View>
       {aspect.fragmentSlots ? (
-        <Mono color={tone} style={{ letterSpacing: 0.9 }}>
+        <Mono color={tone} style={{ letterSpacing: 0.9, marginTop: 5 }}>
           +{aspect.fragmentSlots} {aspect.fragmentSlots === 1 ? "SLOT" : "SLOTS"}
         </Mono>
       ) : null}
@@ -87,7 +87,7 @@ function Fragment({ fragment }: { fragment: LoadoutPlug }) {
           </Body>
         ) : null}
       </View>
-      <View style={{ alignItems: "flex-end", gap: 3 }}>
+      <View style={{ alignItems: "flex-end", gap: 3, marginTop: 3 }}>
         {fragment.mods.map((mod) => (
           <Mono
             key={mod.label}
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
   label: { letterSpacing: 1.3, paddingBottom: 8 },
   entry: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 12,
     paddingVertical: 10,
     borderTopWidth: 1,

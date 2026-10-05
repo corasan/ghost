@@ -23,7 +23,7 @@ import { usePlanSelection } from "@/lib/selection"
 function Described({ plug, kind }: { plug: LoadoutPlug; kind?: string }) {
   const description = firstSentence(plug.description)
   return (
-    <View style={[styles.entry, styles.plug]}>
+    <View style={[styles.entry, styles.plug, { alignItems: "flex-start" }]}>
       <PlugIcon icon={plug.icon} size={28} />
       <View style={{ flex: 1, minWidth: 0 }}>
         <Body size={14} style={{ fontFamily: Type.bodyMedium, lineHeight: 18 }}>
