@@ -1,13 +1,13 @@
 import type { CharacterStats, GuardianCharacter, ItemSummary } from "@ghost/contract"
 import { LegendList } from "@legendapp/list/react-native"
-import { Image } from "expo-image"
 import { router } from "expo-router"
 import { Pressable, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { ChatHeader } from "@/components/chat/header"
+import { SubclassMark } from "@/components/ghost/subclass-mark"
 import { Unavailable } from "@/components/ghost/unavailable"
-import { Body, Chevron, Cond, Cut, Diamond, Mono, Nudge, TierStats } from "@/components/ghost/ui"
+import { Body, Chevron, Cond, Cut, Mono, Nudge, Swatch, TierStats } from "@/components/ghost/ui"
 import { ELEMENT_TONE, Ghost, Gutter, Rarity, Type } from "@/constants/theme"
 import { useGuardian } from "@/lib/api"
 import { useCharacter } from "@/lib/character"
@@ -62,25 +62,7 @@ function ItemRow({ item, kind }: { item: ItemSummary; kind: "weapon" | "armor" }
         borderTopColor: Ghost.rule,
       }}
     >
-      <View
-        style={{
-          width: 48,
-          height: weapon ? 48 : 36,
-          flexDirection: "row",
-          backgroundColor: Ghost.swatch,
-        }}
-      >
-        <View style={{ width: 3, backgroundColor: Rarity[item.tier] }} />
-        {item.icon ? (
-          <Image
-            source={item.icon}
-            style={{ flex: 1 }}
-            contentFit="contain"
-            recyclingKey={item.icon}
-            transition={120}
-          />
-        ) : null}
-      </View>
+      <Swatch tier={item.tier} icon={item.icon} size={44} />
       <View style={{ flex: 1, minWidth: 0 }}>
         <Body size={16} style={{ fontFamily: Type.bodyMedium, lineHeight: 19 }} lines={1}>
           {item.name}
@@ -133,7 +115,7 @@ function SubclassRow({ character, inset }: { character: GuardianCharacter; inset
           paddingHorizontal: 14,
         }}
       >
-        <Diamond size={10} color={tone} />
+        <SubclassMark loadout={loadout} size={30} />
         <View style={{ flex: 1, minWidth: 0 }}>
           <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8 }}>
             <Cond size={20} style={{ letterSpacing: 0.8, lineHeight: 21 }}>

@@ -13,6 +13,7 @@ describe("describeLoadout", () => {
     character: {
       classType: "titan",
       subclass: "Sunbreaker",
+      subclassIcon: null,
       element: "solar",
       loadout: {
         super: plug(9, "Hammer of Sol", "Throw hammers."),

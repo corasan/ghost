@@ -4,7 +4,8 @@ import { router } from "expo-router"
 import { ScrollView, StyleSheet, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
-import { Body, Button, Cond, Cut, Diamond, Mono } from "@/components/ghost/ui"
+import { SubclassMark } from "@/components/ghost/subclass-mark"
+import { Body, Button, Cond, Cut, Mono } from "@/components/ghost/ui"
 import { ELEMENT_TONE, Ghost, Gutter, Type } from "@/constants/theme"
 import { useCharacter } from "@/lib/character"
 import { firstParagraph } from "@/lib/effect-text"
@@ -117,7 +118,7 @@ export default function SubclassScreen() {
     <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <Diamond size={9} color={tone} />
+          <SubclassMark loadout={loadout} size={22} />
           <Mono size={10} color={tone} style={{ letterSpacing: 1.4 }}>
             {[loadout.element === "none" ? null : loadout.element, loadout.classType]
               .filter(Boolean)

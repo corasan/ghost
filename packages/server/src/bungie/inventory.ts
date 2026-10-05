@@ -154,6 +154,7 @@ export interface CharacterInfo {
   readonly classType: GuardianClass
   readonly light: number
   readonly subclass: string | null
+  readonly subclassIcon: string | null
   readonly element: DamageType
   readonly loadout: SlottedPlugs
   readonly stats: CharacterStats
@@ -287,6 +288,7 @@ export const buildInventory = (
       classType: classFor(c.classType),
       light: c.light,
       subclass: subclass?.name ?? null,
+      subclassIcon: subclass?.icon ?? null,
       element: subclassElement ?? "none",
       loadout: slottedPlugs(
         (sockets[subclassItem?.itemInstanceId ?? ""]?.sockets ?? []).flatMap((socket) =>

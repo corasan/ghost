@@ -266,23 +266,53 @@ export function Tick({ on, under = Ghost.panel }: { on: boolean; under?: string 
   )
 }
 
-/** Item art with its rarity on the left edge. */
+const SWATCH_EDGE = 3
+
+/**
+ * Item art, always square so nothing is cropped, with its rarity on the left
+ * edge and a gold corner once masterworked. Without a size it fills its column.
+ */
 export function Swatch({
   tier,
   icon,
   size,
+  edge,
+  masterwork,
 }: {
   tier: ItemTier
   icon?: string | null
-  size: number
+  size?: number
+  edge?: string
+  masterwork?: boolean
 }) {
+  const corner = size === undefined ? 12 : Math.round(size / 4)
   return (
     <View
-      style={{ width: size, height: size, backgroundColor: Ghost.swatch, flexDirection: "row" }}
+      style={{
+        width: size === undefined ? undefined : size + SWATCH_EDGE,
+        backgroundColor: Ghost.swatch,
+        flexDirection: "row",
+      }}
     >
-      <View style={{ width: 3, backgroundColor: Rarity[tier] }} />
-      {icon ? (
-        <Image source={icon} style={{ flex: 1 }} recyclingKey={icon} transition={120} />
+      <View style={{ width: SWATCH_EDGE, backgroundColor: edge ?? Rarity[tier] }} />
+      <Image
+        source={icon}
+        style={{ flex: 1, aspectRatio: 1 }}
+        recyclingKey={icon}
+        transition={120}
+      />
+      {masterwork ? (
+        <View
+          style={{
+            position: "absolute",
+            top: 0,
+            right: 0,
+            borderTopWidth: corner,
+            borderTopColor: Ghost.gold,
+            borderLeftWidth: corner,
+            borderLeftColor: "transparent",
+          }}
+        />
       ) : null}
     </View>
   )

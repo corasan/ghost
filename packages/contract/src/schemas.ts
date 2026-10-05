@@ -180,6 +180,8 @@ export class LoadoutAbility extends Schema.Class<LoadoutAbility>("LoadoutAbility
 export class SubclassLoadout extends Schema.Class<SubclassLoadout>("SubclassLoadout")({
   classType: GuardianClass,
   subclass: Schema.NullOr(Schema.String),
+  /** The subclass's own emblem; missing from plans made before it was recorded. */
+  icon: Schema.optional(Schema.NullOr(Schema.String)),
   element: DamageType,
   super: Schema.NullOr(LoadoutPlug),
   abilities: Schema.optional(Schema.Array(LoadoutAbility)),

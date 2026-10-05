@@ -25,7 +25,10 @@ export const describeLoadout = ({
   plugs,
   facts,
 }: {
-  readonly character: Pick<CharacterInfo, "classType" | "subclass" | "element" | "loadout">
+  readonly character: Pick<
+    CharacterInfo,
+    "classType" | "subclass" | "subclassIcon" | "element" | "loadout"
+  >
   readonly plugs: ReadonlyMap<number, PlugFacts>
   readonly facts: StatFacts
 }): SubclassLoadout => {
@@ -52,6 +55,7 @@ export const describeLoadout = ({
   return new SubclassLoadout({
     classType: character.classType,
     subclass: character.subclass,
+    icon: character.subclassIcon,
     element: character.element,
     super: loadout.super === null ? null : plug(loadout.super),
     abilities: loadout.abilities.map(

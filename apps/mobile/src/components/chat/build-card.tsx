@@ -1,17 +1,10 @@
-import type {
-  DamageType,
-  GuardianClass,
-  Job,
-  Plan,
-  SubclassLoadout,
-  PlanRow,
-} from "@ghost/contract"
-import { Image } from "expo-image"
+import type { GuardianClass, Job, Plan, SubclassLoadout, PlanRow } from "@ghost/contract"
 import { router } from "expo-router"
 import { Pressable, StyleSheet, Text, View } from "react-native"
 
-import { Body, Button, Cond, Cut, Mono } from "@/components/ghost/ui"
-import { ELEMENT_TONE, Ghost, Rarity, Type } from "@/constants/theme"
+import { SubclassMark } from "@/components/ghost/subclass-mark"
+import { Body, Button, Cond, Cut, Mono, Swatch } from "@/components/ghost/ui"
+import { Ghost, Type } from "@/constants/theme"
 import { errorMessage, useApplyPlan, useUndoPlan } from "@/lib/api"
 import { orderBuildStats } from "@/lib/build-order"
 import {
@@ -37,23 +30,6 @@ const upper = (parts: ReadonlyArray<string | null | undefined>) =>
     .join(" · ")
     .toUpperCase()
 
-function ElementMark({ element }: { element: DamageType }) {
-  const tone = ELEMENT_TONE[element]
-  return (
-    <View style={styles.mark}>
-      <View
-        style={{
-          width: 14,
-          height: 14,
-          transform: [{ rotate: "45deg" }],
-          backgroundColor: tone,
-          boxShadow: `0 0 18px ${tone}80`,
-        }}
-      />
-    </View>
-  )
-}
-
 export function BuildHeader({
   eyebrow,
   plan,
@@ -73,7 +49,7 @@ export function BuildHeader({
           {headline(plan)}
         </Cond>
       </View>
-      {plan.loadout ? <ElementMark element={plan.loadout.element} /> : null}
+      {plan.loadout ? <SubclassMark loadout={plan.loadout} size={36} /> : null}
     </View>
   )
 }
@@ -164,40 +140,6 @@ function Stats({ plan }: { plan: Plan }) {
   )
 }
 
-/** Item art with rarity on its edge, or blue when the piece comes from elsewhere, and a gold corner once masterworked. */
-export function PieceArt({
-  row,
-  height,
-  arriving,
-}: {
-  row: PlanRow
-  height: number
-  arriving: boolean
-}) {
-  const corner = Math.round(height / 5)
-  return (
-    <View style={{ height, backgroundColor: Ghost.swatch, flexDirection: "row" }}>
-      <View style={{ width: 3, backgroundColor: arriving ? Ghost.accent : Rarity[row.tier] }} />
-      {row.icon ? (
-        <Image source={row.icon} style={{ flex: 1 }} recyclingKey={row.icon} transition={120} />
-      ) : null}
-      {row.masterwork ? (
-        <View
-          style={{
-            position: "absolute",
-            top: 0,
-            right: 0,
-            borderTopWidth: corner,
-            borderTopColor: Ghost.gold,
-            borderLeftWidth: corner,
-            borderLeftColor: "transparent",
-          }}
-        />
-      ) : null}
-    </View>
-  )
-}
-
 const outcomeLabel = { ok: null, failed: "FAILED", skipped: "HELD" } as const
 
 function Tile({
@@ -219,7 +161,12 @@ function Tile({
       onPress={() => router.push({ pathname: "/item/[id]", params: { id: row.itemInstanceId } })}
       style={({ pressed }) => [{ flex: 1 }, pressed && { opacity: 0.6 }]}
     >
-      <PieceArt row={row} height={58} arriving={arriving} />
+      <Swatch
+        tier={row.tier}
+        icon={row.icon}
+        edge={arriving ? Ghost.accent : undefined}
+        masterwork={row.masterwork}
+      />
       <View style={styles.tileFoot}>
         <Mono
           size={8}
@@ -356,7 +303,6 @@ export function BuildCard({ job, plan }: { job: Job; plan: Plan }) {
 const styles = StyleSheet.create({
   card: { marginLeft: 14, padding: 16, paddingTop: 14 },
   header: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
-  mark: { width: 30, height: 30, alignItems: "center", justifyContent: "center", marginTop: 2 },
   loadoutLine: { flexDirection: "row", alignItems: "baseline", gap: 10 },
   band: { marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: Ghost.rule },
   tileFoot: {
