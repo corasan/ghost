@@ -1,4 +1,4 @@
-import type { CharacterStats, GuardianCharacter, ItemSummary } from "@ghost/contract"
+import type { CharacterStats, ItemSummary } from "@ghost/contract"
 import { LegendList } from "@legendapp/list/react-native"
 import { router } from "expo-router"
 import { View } from "react-native"
@@ -91,22 +91,7 @@ function ItemRow({ item, kind }: { item: ItemSummary; kind: "weapon" | "armor" }
   )
 }
 
-function SubclassRow({ character, inset }: { character: GuardianCharacter; inset: number }) {
-  const { loadout } = character
-  if (!loadout) return null
-  return (
-    <View style={{ marginHorizontal: Gutter, marginBottom: inset + 12, marginTop: 8 }}>
-      <SubclassBanner
-        loadout={loadout}
-        chevron="right"
-        hint="Opens the subclass"
-        onPress={() => router.push("/subclass")}
-      />
-    </View>
-  )
-}
-
-/** Gear first: stats in one row, weapons and armor down the page, the subclass one tap away. */
+/** The subclass on top, then stats in one row and weapons and armor down the page. */
 export default function GuardianScreen() {
   const insets = useSafeAreaInsets()
   const guardian = useGuardian()
@@ -158,7 +143,7 @@ export default function GuardianScreen() {
         recycleItems
         refreshing={pull.refreshing}
         onRefresh={pull.onRefresh}
-        contentContainerStyle={{ paddingBottom: 16 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}
         ListHeaderComponent={
           <View style={{ paddingHorizontal: Gutter, paddingTop: 2, paddingBottom: 14 }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
@@ -169,6 +154,16 @@ export default function GuardianScreen() {
                 {upper(character.classType)} · POWER {character.light}
               </Mono>
             </View>
+            {character.loadout ? (
+              <View style={{ paddingTop: 12 }}>
+                <SubclassBanner
+                  loadout={character.loadout}
+                  chevron="right"
+                  hint="Opens the subclass"
+                  onPress={() => router.push("/subclass")}
+                />
+              </View>
+            ) : null}
             <View style={{ paddingTop: 16 }}>
               <TierStats
                 stats={STAT_LABELS.map(([key, label]) => ({
@@ -221,7 +216,6 @@ export default function GuardianScreen() {
           )
         }
       />
-      <SubclassRow character={character} inset={insets.bottom} />
     </View>
   )
 }
