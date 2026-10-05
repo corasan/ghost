@@ -1,4 +1,12 @@
-import type { ArmorMod, Job, LoadoutPlug, Plan, SubclassLoadout, PlanRow } from "@ghost/contract"
+import type {
+  AbilityKind,
+  ArmorMod,
+  Job,
+  LoadoutPlug,
+  Plan,
+  SubclassLoadout,
+  PlanRow,
+} from "@ghost/contract"
 import { Image } from "expo-image"
 import { router, useLocalSearchParams } from "expo-router"
 import { useState } from "react"
@@ -21,23 +29,38 @@ import { useFooterHeight } from "@/lib/footer"
 import { bySlot, modPips, pendingMasterwork, signed } from "@/lib/plan-card"
 import { usePlanSelection } from "@/lib/selection"
 
+const replacing = (plug: LoadoutPlug) =>
+  plug.swap && plug.replaces ? `Replaces ${plug.replaces}` : null
+
 function Described({ plug, kind }: { plug: LoadoutPlug; kind?: string }) {
-  const description = firstSentence(plug.description)
+  const line = [kind, replacing(plug), firstSentence(plug.description)].filter(Boolean).join(" · ")
   return (
     <View style={[styles.entry, styles.plug, { alignItems: "flex-start" }]}>
       <PlugIcon icon={plug.icon} size={28} />
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Body size={14} style={{ fontFamily: Type.bodyMedium, lineHeight: 18 }}>
+        <Body
+          size={14}
+          color={plug.swap ? Ghost.accent : Ghost.ink}
+          style={{ fontFamily: Type.bodyMedium, lineHeight: 18 }}
+        >
           {plug.name}
         </Body>
-        {kind || description ? (
+        {line ? (
           <Body size={11} color={Ghost.dim} style={{ lineHeight: 15, marginTop: 1 }} lines={2}>
-            {[kind, description].filter(Boolean).join(" · ")}
+            {line}
           </Body>
         ) : null}
       </View>
+      {plug.swap ? <Mono color={Ghost.accent}>SWAP</Mono> : null}
     </View>
   )
+}
+
+const ABILITY_LABEL: Record<AbilityKind, string> = {
+  class: "CLASS",
+  jump: "JUMP",
+  melee: "MELEE",
+  grenade: "GRENADE",
 }
 
 function Loadout({ loadout }: { loadout: SubclassLoadout }) {
@@ -46,20 +69,41 @@ function Loadout({ loadout }: { loadout: SubclassLoadout }) {
     <SubclassBanner
       loadout={loadout}
       chevron={open ? "up" : "down"}
-      hint="Shows the super, aspects and fragments"
+      hint="Shows the super, abilities, aspects and fragments"
       expanded={open}
       onPress={() => setOpen((was) => !was)}
     >
       {open ? (
         <View style={styles.loadoutBody}>
           {loadout.super ? <Described plug={loadout.super} kind="Super" /> : null}
+          {(loadout.abilities ?? []).map((ability) => (
+            <View key={ability.kind} style={[styles.entry, styles.plug]}>
+              <PlugIcon icon={ability.icon} size={22} />
+              <Body
+                size={13}
+                color={ability.swap ? Ghost.accent : Ghost.soft}
+                style={{ flex: 1, lineHeight: 17 }}
+              >
+                {ability.name}
+              </Body>
+              <Mono size={10} color={ability.swap ? Ghost.accent : Ghost.dim}>
+                {ability.swap
+                  ? `SWAP · ${ABILITY_LABEL[ability.kind]}`
+                  : ABILITY_LABEL[ability.kind]}
+              </Mono>
+            </View>
+          ))}
           {loadout.aspects.map((aspect) => (
             <Described key={aspect.name} plug={aspect} />
           ))}
           {loadout.fragments.map((fragment) => (
             <View key={fragment.name} style={[styles.entry, styles.plug]}>
               <PlugIcon icon={fragment.icon} size={22} />
-              <Body size={13} color={Ghost.soft} style={{ flex: 1, lineHeight: 17 }}>
+              <Body
+                size={13}
+                color={fragment.swap ? Ghost.accent : Ghost.soft}
+                style={{ flex: 1, lineHeight: 17 }}
+              >
                 {fragment.name}
               </Body>
               {fragment.mods.length === 0 ? (

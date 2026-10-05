@@ -122,18 +122,34 @@ export const modSwaps = (plan: Plan) =>
 
 const modsChange = (count: number) => `${count} ${count === 1 ? "mod changes" : "mods change"}`
 
+/** What confirming does to the subclass: switching to it, or how many of its plugs change. */
+export const subclassChange = (plan: Plan): string | null => {
+  const change = plan.loadout?.change
+  if (change === undefined) return null
+  if (change.replaces !== null) return `Switches to ${plan.loadout?.subclass ?? "the subclass"}`
+  const plugs = change.swaps.length
+  return plugs === 0 ? null : `${plugs} subclass ${plugs === 1 ? "plug changes" : "plugs change"}`
+}
+
+/** Rows and the subclass change that failed when the plan ran. */
+export const failures = (plan: Plan) =>
+  plan.rows.filter((row) => row.outcome === "failed").length +
+  (plan.loadout?.change?.outcome === "failed" ? 1 : 0)
+
 /**
  * The one line under the tiles: what confirming will do. `plain` reads in the
- * body colour and `change` in blue, so moves and mod swaps stand out.
+ * body colour and `change` in blue, so moves, the subclass and mod swaps stand out.
  */
 export const verdict = (plan: Plan): { plain: string; change: string } => {
   const acting = plan.rows.filter((row) => row.action !== "none")
   const moving = acting.filter((row) => row.origin !== undefined).length
   const mods = modSwaps(plan)
-  if (moving > 0) {
-    const pieces = `${moving} ${moving === 1 ? "piece moves" : "pieces move"}`
-    return { plain: "", change: mods > 0 ? `${pieces}, ${modsChange(mods)}.` : `${pieces}.` }
-  }
-  const plain = acting.length > 0 ? `${acting.length} to equip.` : "Nothing moves."
-  return { plain, change: mods > 0 ? `${modsChange(mods)}.` : "" }
+  const changes = [
+    moving > 0 ? `${moving} ${moving === 1 ? "piece moves" : "pieces move"}` : null,
+    subclassChange(plan),
+    mods > 0 ? modsChange(mods) : null,
+  ].filter((part) => part !== null)
+  const plain =
+    moving > 0 ? "" : acting.length > 0 ? `${acting.length} to equip.` : "Nothing moves."
+  return { plain, change: changes.length > 0 ? `${changes.join(", ")}.` : "" }
 }

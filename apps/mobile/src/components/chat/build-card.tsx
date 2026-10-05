@@ -1,4 +1,11 @@
-import type { GuardianClass, Job, Plan, SubclassLoadout, PlanRow } from "@ghost/contract"
+import type {
+  GuardianClass,
+  Job,
+  LoadoutPlug,
+  Plan,
+  SubclassLoadout,
+  PlanRow,
+} from "@ghost/contract"
 import { router } from "expo-router"
 import { Pressable, StyleSheet, Text, View } from "react-native"
 
@@ -12,6 +19,7 @@ import { orderBuildStats } from "@/lib/build-order"
 import {
   appliedTotals,
   bySlot,
+  failures,
   hasStatMods,
   headline,
   litTicks,
@@ -59,13 +67,15 @@ export function BuildHeader({
   )
 }
 
-function Plugs({ plugs }: { plugs: readonly { name: string; icon: string | null }[] }) {
+type Shown = { name: string; icon: string | null; swap?: boolean | undefined }
+
+function Plugs({ plugs }: { plugs: readonly Shown[] }) {
   return (
     <View style={styles.plugs}>
       {plugs.map((plug) => (
         <View key={plug.name} style={styles.plug}>
           <PlugIcon icon={plug.icon} size={16} />
-          <Body size={13} color={Ghost.soft} style={{ lineHeight: 17 }}>
+          <Body size={13} color={plug.swap ? Ghost.accent : Ghost.soft} style={{ lineHeight: 17 }}>
             {plug.name}
           </Body>
         </View>
@@ -74,22 +84,32 @@ function Plugs({ plugs }: { plugs: readonly { name: string; icon: string | null 
   )
 }
 
+const shown = (plug: LoadoutPlug, name = plug.name): Shown => ({
+  name,
+  icon: plug.icon ?? null,
+  swap: plug.swap,
+})
+
 function Loadout({ loadout }: { loadout: SubclassLoadout }) {
+  const replaces = loadout.change?.replaces
   const lines = [
     {
-      label: "SUPER",
-      plugs: loadout.super ? [{ name: loadout.super.name, icon: loadout.super.icon ?? null }] : [],
+      label: "SUBCLASS",
+      plugs: replaces
+        ? [
+            {
+              name: `${loadout.subclass} · replaces ${replaces}`,
+              icon: loadout.icon ?? null,
+              swap: true,
+            },
+          ]
+        : [],
     },
-    {
-      label: "ASPECTS",
-      plugs: loadout.aspects.map((aspect) => ({ name: aspect.name, icon: aspect.icon ?? null })),
-    },
+    { label: "SUPER", plugs: loadout.super ? [shown(loadout.super)] : [] },
+    { label: "ASPECTS", plugs: loadout.aspects.map((aspect) => shown(aspect)) },
     {
       label: "FRAGMENTS",
-      plugs: loadout.fragments.map((each) => ({
-        name: shortPlugName(each.name),
-        icon: each.icon ?? null,
-      })),
+      plugs: loadout.fragments.map((each) => shown(each, shortPlugName(each.name))),
     },
   ].filter((line) => line.plugs.length > 0)
   if (lines.length === 0) return null
@@ -261,7 +281,7 @@ function Tiles({ plan, applied }: { plan: Plan; applied: boolean }) {
 }
 
 function Verdict({ plan }: { plan: Plan }) {
-  const failed = plan.rows.filter((row) => row.outcome === "failed").length
+  const failed = failures(plan)
   const pending = pendingMasterwork(plan)
   const outcome = verdict(plan)
   if (plan.status === "undone") return <>Undone.</>

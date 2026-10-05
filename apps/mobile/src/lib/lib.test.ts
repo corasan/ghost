@@ -7,7 +7,9 @@ import {
   ItemSummary,
   LoadoutPlug,
   Plan,
+  SubclassChange,
   SubclassLoadout,
+  SubclassSwap,
   PlanRow,
   PlanStat,
   Source,
@@ -30,6 +32,7 @@ import {
   slotLabel,
   verdict,
 } from "./plan-card"
+import { defaultSelection } from "./selection"
 import {
   activeFilters,
   emptyFilter,
@@ -387,6 +390,50 @@ describe("build card", () => {
       row("legs", { slot: "legs" }),
     ]
     expect(bySlot(rows).map((each) => each.name)).toEqual(["helm", "legs", "mark"])
+  })
+
+  test("a subclass change starts ticked and the verdict names the switch, or counts its plugs when the subclass stays", () => {
+    const change = (replaces: string | null, swaps: number) =>
+      new SubclassChange({
+        itemInstanceId: "sentinel",
+        itemHash: 1,
+        characterId: "c1",
+        replaces,
+        previousItemId: replaces === null ? null : "behemoth",
+        swaps: Array.from(
+          { length: swaps },
+          (_, i) =>
+            new SubclassSwap({
+              name: "Bastion",
+              socketIndex: 5 + i,
+              plugHash: 2,
+              previousPlugHash: 3,
+            }),
+        ),
+        selected: true,
+        outcome: null,
+        error: null,
+      })
+    const loadout = (replaces: string | null, swaps: number) =>
+      new SubclassLoadout({
+        classType: "titan",
+        subclass: "Sentinel",
+        element: "void",
+        super: null,
+        aspects: [],
+        fragments: [],
+        change: change(replaces, swaps),
+      })
+    const swap = new ArmorMod({ name: "Firepower", description: "", cost: 2, mods: [], swap: true })
+    const helm = row("helm", { armorMods: [swap] })
+    expect(verdict(plan({ loadout: loadout("Behemoth", 3), rows: [helm] }))).toEqual({
+      plain: "Nothing moves.",
+      change: "Switches to Sentinel, 1 mod changes.",
+    })
+    expect(verdict(plan({ loadout: loadout(null, 2) })).change).toBe("2 subclass plugs change.")
+    expect([
+      ...defaultSelection(plan({ loadout: loadout("Behemoth", 0), rows: [row("worn")] })),
+    ]).toEqual(["sentinel"])
   })
 
   test("the verdict counts pieces that come from elsewhere before pieces that only get equipped", () => {

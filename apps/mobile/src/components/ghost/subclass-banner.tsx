@@ -7,7 +7,7 @@ import { Body, Chevron, Cond, Cut, Mono } from "@/components/ghost/ui"
 import { ELEMENT_TONE, Ghost } from "@/constants/theme"
 import { upper } from "@/lib/format"
 
-/** The subclass at a glance: its mark, name, element, aspects and fragment count, and whatever it opens. */
+/** The subclass at a glance: its mark, name, element, aspects and fragment count, what a build switches it from, and whatever it opens. */
 export function SubclassBanner({
   loadout,
   chevron,
@@ -24,6 +24,7 @@ export function SubclassBanner({
   children?: ReactNode
 }) {
   const tone = ELEMENT_TONE[loadout.element]
+  const change = loadout.change
   const fragments = loadout.fragments.length
   const summary = [
     ...loadout.aspects.map((aspect) => aspect.name),
@@ -64,6 +65,16 @@ export function SubclassBanner({
           {summary ? (
             <Body size={12} color={Ghost.muted} style={{ lineHeight: 16, marginTop: 4 }} lines={1}>
               {summary}
+            </Body>
+          ) : null}
+          {change?.replaces ? (
+            <Mono size={9} color={Ghost.accent} style={{ marginTop: 5, letterSpacing: 0.9 }}>
+              SWAP · REPLACES {upper(change.replaces)}
+            </Mono>
+          ) : null}
+          {change?.error ? (
+            <Body size={12} color={Ghost.danger} style={{ lineHeight: 16, marginTop: 4 }}>
+              {change.error}
             </Body>
           ) : null}
         </View>
