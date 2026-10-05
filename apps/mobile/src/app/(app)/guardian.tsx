@@ -117,8 +117,12 @@ export default function GuardianScreen() {
             <Body color={Ghost.dim} style={{ paddingTop: 32 }}>
               Loading…
             </Body>
-          ) : (
+          ) : guardian.error ? (
             <Unavailable error={guardian.error} onRetry={() => void guardian.refetch()} />
+          ) : (
+            <Body color={Ghost.dim} style={{ paddingTop: 32 }}>
+              No Guardians on this account yet.
+            </Body>
           )}
         </View>
       </View>
