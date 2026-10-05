@@ -22,6 +22,8 @@ import { VAULT_CAPACITY, POSTMASTER_CAPACITY } from "../bungie/guardian.ts"
 import { type Inventory, isArmor, isWeapon, type OwnedItem } from "../bungie/inventory.ts"
 import { Manifest } from "../bungie/manifest.ts"
 import { ProfileStore } from "../bungie/profile.ts"
+import { CreatorNotes } from "../creators/creators.ts"
+import { NOTE_MAX_AGE_DAYS } from "../creators/parse.ts"
 import { JobsRepo } from "../db/jobs.ts"
 import { checkRoll, perkMatcher, type RollMatch, recommendations } from "../wishlist/parse.ts"
 import { Wishlist, WISHLIST_URL } from "../wishlist/wishlist.ts"
@@ -122,6 +124,16 @@ const DescribePlugs = Tool.make("describe_plugs", {
   success: Json,
 })
 
+const SearchCreatorNotes = Tool.make("search_creator_notes", {
+  description:
+    "Recent advice from Destiny 2 YouTube creators: short claims summarized from their videos of the last 60 days, each with channel, video title, publish date and a link to the moment it is said. Gear names were checked against the manifest. Search by weapon, perk, exotic, subclass, activity or topic words; an empty query returns the newest notes.",
+  parameters: Schema.Struct({
+    query: Schema.String,
+    limit: Schema.optional(Schema.Number),
+  }),
+  success: Json,
+})
+
 const CiteSources = Tool.make("cite_sources", {
   description:
     "Record the sources your answer relies on (label, url, date as ISO). They are shown under the answer. Call it for everything you used: wishlist, manifest, articles, videos.",
@@ -136,6 +148,7 @@ export const GhostToolkit = Toolkit.make(
   CheckRolls,
   RollRecommendations,
   DescribePlugs,
+  SearchCreatorNotes,
   CiteSources,
 )
 
@@ -237,6 +250,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
     const current = yield* CurrentJob
     const manifest = yield* Manifest
     const wishlist = yield* Wishlist
+    const creators = yield* CreatorNotes
 
     const withInventory = (f: (inv: Inventory) => Effect.Effect<string>) =>
       profile.inventory.pipe(
@@ -458,6 +472,28 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
         })
       }).pipe(Effect.catchTag("BungieError", (e) => Effect.succeed(explain(e))))
 
+    const search_creator_notes = (input: {
+      readonly query: string
+      readonly limit?: number | undefined
+    }) =>
+      Effect.gen(function* () {
+        const found = yield* creators.search(
+          input.query,
+          Math.min(Math.max(input.limit ?? 12, 1), 30),
+        )
+        const now = Date.now()
+        return json({
+          maxAgeDays: NOTE_MAX_AGE_DAYS,
+          captionsAvailable: found.captionsAvailable,
+          channels: found.channels,
+          notes: found.notes.map((n) => ({
+            ...n,
+            ageDays: Math.floor((now - Date.parse(n.publishedAt)) / 86_400_000),
+            unverifiedNames: n.unverifiedNames.length > 0 ? n.unverifiedNames : undefined,
+          })),
+        })
+      })
+
     const cite_sources = ({
       sources,
     }: {
@@ -477,6 +513,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
       check_rolls,
       roll_recommendations,
       describe_plugs,
+      search_creator_notes,
       cite_sources,
     }
   }),

@@ -81,6 +81,17 @@ model memory, and every answer lists its sources with their age.
   from the current patch's Bungie manifest.
 - **Meta**: the agent may use web search and fetch, preferring sources from the
   last 60 days, and must name the season or date of what it cites.
+- **Creator videos**: every 6 hours the server reads the RSS feed of each channel
+  in `GHOST_YOUTUBE_CHANNELS` (default `@Datto,@CammyCakes,@FalloutPlays,Aegis
+Destiny 2`; an @handle, a `UC…` channel id, or a name to search for; empty turns
+  it off). Each new upload from the last 60 days is summarized once into short
+  claims with the second they are said, and every gear name in a claim is checked
+  against the manifest: a claim whose names are all unknown (misheard captions,
+  invented items) is dropped. `search_creator_notes` returns them with channel,
+  video, date and a link to that moment. Captions need
+  [yt-dlp](https://github.com/yt-dlp/yt-dlp) on the server's PATH
+  (`brew install yt-dlp`); without it only the video description is used and the
+  note says so. Notes older than 60 days are deleted.
 
 ## Caching
 

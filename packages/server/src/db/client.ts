@@ -119,6 +119,43 @@ const migrations = {
     yield* sql`CREATE INDEX IF NOT EXISTS wishlist_rolls_item ON wishlist_rolls (item_hash)`
     yield* sql`DELETE FROM settings WHERE key = 'manifest.version'`
   }),
+  // Creator notes: dated, timestamped claims summarized from YouTube videos.
+  // A video row is kept even when it yields no notes, so it is summarized once.
+  "0004_creator_notes": Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    yield* sql`
+      CREATE TABLE IF NOT EXISTS creator_channels (
+        ref TEXT PRIMARY KEY,
+        channel_id TEXT,
+        title TEXT,
+        error TEXT
+      )
+    `
+    yield* sql`
+      CREATE TABLE IF NOT EXISTS creator_videos (
+        video_id TEXT PRIMARY KEY,
+        channel_id TEXT NOT NULL,
+        channel_title TEXT NOT NULL,
+        title TEXT NOT NULL,
+        published_at TEXT NOT NULL,
+        basis TEXT NOT NULL,
+        status TEXT NOT NULL,
+        processed_at TEXT NOT NULL
+      )
+    `
+    yield* sql`
+      CREATE TABLE IF NOT EXISTS creator_notes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        video_id TEXT NOT NULL,
+        topic TEXT NOT NULL,
+        claim TEXT NOT NULL,
+        start_sec INTEGER,
+        names TEXT NOT NULL,
+        unverified TEXT NOT NULL
+      )
+    `
+    yield* sql`CREATE INDEX IF NOT EXISTS creator_notes_video ON creator_notes (video_id)`
+  }),
 }
 
 const SqliteLive = Layer.unwrap(
