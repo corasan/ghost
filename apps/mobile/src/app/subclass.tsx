@@ -169,12 +169,13 @@ export default function SubclassScreen() {
         <Button
           label="ASK GHOST"
           under={Ghost.panel}
-          onPress={() =>
+          onPress={() => {
+            router.back()
             router.navigate({
               pathname: "/",
               params: { draft: `Review my ${name} setup. What would you change?` },
             })
-          }
+          }}
         />
       </View>
     </View>
