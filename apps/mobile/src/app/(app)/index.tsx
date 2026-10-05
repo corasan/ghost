@@ -121,6 +121,7 @@ export default function ChatScreen() {
           key={sessionId ?? "fresh"}
           data={entries}
           renderItem={renderItem}
+          recycleItems={false}
           extraData={renderItem}
           keyExtractor={(item) => (item.type === "briefing" ? "briefing" : item.job.id)}
           getItemType={(item) => item.type}

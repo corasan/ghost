@@ -1,0 +1,64 @@
+diff --git a/node_modules/react-native-drawer-layout/.bun-tag-68f557000837be03 b/.bun-tag-68f557000837be03
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/lib/module/views/Drawer.native.js b/lib/module/views/Drawer.native.js
+index 019982098ef195433c83b39772d21976226a226a..bb36c2f1bb1a25404c0a69db66f53ef6d394916a 100644
+--- a/lib/module/views/Drawer.native.js
++++ b/lib/module/views/Drawer.native.js
+@@ -254,7 +254,7 @@ export function Drawer({
+         (drawerType === 'back' ? 0 : translateX.value) + (direction === 'rtl' ? drawerPosition === 'left' ? -distanceFromEdge : 0 : drawerPosition === 'left' ? 0 : distanceFromEdge)
+       }]
+     };
+-  }, [direction, drawerPosition, drawerType, drawerWidth, isHidden, layout.width, translateX]);
++  });
+   const contentAnimatedStyle = useAnimatedStyle(() => {
+     return {
+       // FIXME: Force Reanimated to commit to the shadow tree
+@@ -268,7 +268,7 @@ export function Drawer({
+         drawerType === 'front' ? 0 : translateX.value + drawerWidth * (drawerPosition === 'left' ? 1 : -1)
+       }]
+     };
+-  }, [drawerPosition, drawerType, drawerWidth, translateX]);
++  });
+   const progress = useDerivedValue(() => {
+     return drawerType === 'permanent' ? 1 : interpolate(translateX.value, [getDrawerTranslationX(false), getDrawerTranslationX(true)], [0, 1]);
+   });
+@@ -283,7 +283,7 @@ export function Drawer({
+     return {
+       accessibilityElementsHidden: hidden
+     };
+-  }, [drawerType, progress]);
++  });
+   const drawerContentAnimatedProps = useAnimatedProps(() => {
+     const hidden = drawerType !== 'permanent' && progress.value < 1 - PROGRESS_EPSILON;
+     if (Platform.OS === 'android') {
+@@ -295,7 +295,7 @@ export function Drawer({
+     return {
+       accessibilityElementsHidden: hidden
+     };
+-  }, [drawerType, progress]);
++  });
+   return /*#__PURE__*/_jsx(GestureHandlerRootView, {
+     style: [styles.container, style],
+     children: /*#__PURE__*/_jsx(DrawerProgressContext.Provider, {
+diff --git a/lib/module/views/Overlay.native.js b/lib/module/views/Overlay.native.js
+index 8925237fe8dce59cd0935e8a4459bddc779cef55..eab9e004e9eb41eda5bbb79f86f7be24f969a317 100644
+--- a/lib/module/views/Overlay.native.js
++++ b/lib/module/views/Overlay.native.js
+@@ -15,14 +15,14 @@ export function Overlay({
+     return {
+       opacity: progress.value
+     };
+-  }, [progress]);
++  });
+   const animatedProps = useAnimatedProps(() => {
+     const active = progress.value > PROGRESS_EPSILON;
+     return {
+       pointerEvents: active ? 'auto' : 'none',
+       'aria-hidden': !active
+     };
+-  }, [progress]);
++  });
+   return /*#__PURE__*/_jsx(Animated.View, {
+     ...rest,
+     style: [StyleSheet.absoluteFill, styles.overlay, animatedStyle, style],

@@ -153,6 +153,7 @@ export function GhostDrawer({ navigation }: DrawerContentComponentProps) {
         style={{ flex: 1 }}
         data={sessions.data ?? []}
         keyExtractor={(session) => session.id}
+        recycleItems
         extraData={sessionId}
         estimatedItemSize={56}
         ListEmptyComponent={
