@@ -6,7 +6,7 @@ import { ItemIcon } from "@/components/ghost/item-icon"
 import { PlugIcon } from "@/components/ghost/plug-icon"
 import { SubclassMark } from "@/components/ghost/subclass-mark"
 import { Body, Button, Cond, Cut, Mono } from "@/components/ghost/ui"
-import { Ghost, Type } from "@/constants/theme"
+import { Ghost } from "@/constants/theme"
 import { errorMessage, useApplyPlan, useUndoPlan } from "@/lib/api"
 import { orderBuildStats } from "@/lib/build-order"
 import {
@@ -77,6 +77,10 @@ function Plugs({ plugs }: { plugs: readonly { name: string; icon: string | null 
 function Loadout({ loadout }: { loadout: SubclassLoadout }) {
   const lines = [
     {
+      label: "SUPER",
+      plugs: loadout.super ? [{ name: loadout.super.name, icon: loadout.super.icon ?? null }] : [],
+    },
+    {
       label: "ASPECTS",
       plugs: loadout.aspects.map((aspect) => ({ name: aspect.name, icon: aspect.icon ?? null })),
     },
@@ -88,20 +92,12 @@ function Loadout({ loadout }: { loadout: SubclassLoadout }) {
       })),
     },
   ].filter((line) => line.plugs.length > 0)
-  if (!loadout.super && lines.length === 0) return null
+  if (lines.length === 0) return null
   return (
     <View style={{ marginTop: 14, gap: 7 }}>
-      {loadout.super ? (
-        <View style={styles.loadoutLine}>
-          <Mono style={styles.loadoutLabel}>SUPER</Mono>
-          <Body size={14} style={{ flex: 1, fontFamily: Type.bodyMedium, lineHeight: 19 }}>
-            {loadout.super.name}
-          </Body>
-        </View>
-      ) : null}
       {lines.map((line) => (
         <View key={line.label} style={styles.loadoutLine}>
-          <Mono style={[styles.loadoutLabel, { marginTop: 4 }]}>{line.label}</Mono>
+          <Mono style={styles.loadoutLabel}>{line.label}</Mono>
           <Plugs plugs={line.plugs} />
         </View>
       ))}
@@ -364,7 +360,7 @@ const styles = StyleSheet.create({
   card: { marginLeft: 14, padding: 16, paddingTop: 14 },
   header: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
   loadoutLine: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
-  loadoutLabel: { width: 72, marginTop: 5 },
+  loadoutLabel: { width: 72, marginTop: 4 },
   plugs: { flex: 1, flexDirection: "row", flexWrap: "wrap", columnGap: 12, rowGap: 6 },
   plug: { flexDirection: "row", alignItems: "center", gap: 6 },
   band: { marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: Ghost.rule },
