@@ -382,7 +382,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
             if (badCharacter !== undefined) {
               return `Error: unknown characterId ${badCharacter.characterId}. Use ids from get_characters.`
             }
-            const fallback = job.value.characterId ?? inv.characters[0]?.characterId ?? null
+            const fallback = job.value.characterId || (inv.characters[0]?.characterId ?? null)
             const facts = yield* manifest.statFacts
             const slotted = input.rows.flatMap((r) =>
               (owned.get(r.itemInstanceId)?.modSockets ?? []).map((socket) => socket.plugHash),
