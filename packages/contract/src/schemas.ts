@@ -113,6 +113,24 @@ export class PlanStat extends Schema.Class<PlanStat>("PlanStat")({
   effect: Schema.optional(Schema.String),
 }) {}
 
+/** How far one plug (a fragment or an armor mod) moves one stat. */
+export class StatMod extends Schema.Class<StatMod>("StatMod")({
+  /** The stat's label as it appears in the plan's stats. */
+  label: Schema.String,
+  delta: Schema.Number,
+}) {}
+
+/** One mod slotted in an armor piece, read from the game. */
+export class ArmorMod extends Schema.Class<ArmorMod>("ArmorMod")({
+  name: Schema.String,
+  /** Effect text from the current patch's manifest. */
+  description: Schema.String,
+  /** Armor energy the mod takes. */
+  cost: Schema.Number,
+  /** Stat changes it brings, already counted in the piece's stats. */
+  mods: Schema.Array(StatMod),
+}) {}
+
 export class PlanRow extends Schema.Class<PlanRow>("PlanRow")({
   itemInstanceId: Schema.String,
   itemHash: Schema.Number,
@@ -137,6 +155,10 @@ export class PlanRow extends Schema.Class<PlanRow>("PlanRow")({
   masterwork: Schema.optional(Schema.Boolean),
   damageType: Schema.optional(DamageType),
   gearTier: Schema.optional(Schema.NullOr(Schema.Number)),
+  /** The mods slotted in an armor piece; left out for weapons and older plans. */
+  armorMods: Schema.optional(Schema.Array(ArmorMod)),
+  freeModSlots: Schema.optional(Schema.Number),
+  energy: Schema.optional(Schema.Struct({ used: Schema.Number, capacity: Schema.Number })),
   /** Where a piece comes from when it is not already on the character, for example "VAULT" or "HUNTER". */
   origin: Schema.optional(Schema.String),
 }) {}
@@ -152,13 +174,6 @@ export class PlanFeatured extends Schema.Class<PlanFeatured>("PlanFeatured")({
   itemInstanceId: Schema.String,
   perks: Schema.Array(PlanPerk),
   stats: Schema.Array(PlanStat),
-}) {}
-
-/** How far one subclass plug moves one stat. */
-export class StatMod extends Schema.Class<StatMod>("StatMod")({
-  /** The stat's label as it appears in the plan's stats. */
-  label: Schema.String,
-  delta: Schema.Number,
 }) {}
 
 export class LoadoutPlug extends Schema.Class<LoadoutPlug>("LoadoutPlug")({

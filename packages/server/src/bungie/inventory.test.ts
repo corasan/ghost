@@ -39,6 +39,9 @@ const defs = new Map<number, ManifestItem>([
   [11, def(11, { name: "Firefly", typeName: "Enhanced Trait" })],
   [12, def(12, { name: "Arrowhead Brake", typeName: "Barrel" })],
   [20, def(20, { name: "Sentinel", typeName: "Void Subclass", damageType: "void" })],
+  [40, def(40, { name: "Firepower", typeName: "Arms Armor Mod" })],
+  [41, def(41, { name: "Empty Mod Socket", typeName: "General Armor Mod" })],
+  [42, def(42, { name: "Iron Shader", typeName: "Shader" })],
   [21, def(21, { name: "Lambda Shell", typeName: "Ghost Shell", icon: "https://b.net/shell.png" })],
   [30, def(30, { name: "Ward of Dawn", typeName: "Super Ability", description: "A dome." })],
   [31, def(31, { name: "Bastion", typeName: "Void Aspect" })],
@@ -93,13 +96,14 @@ const profile: Profile = {
     instances: {
       data: {
         v1: { damageType: 1, primaryStat: { value: 2000 } },
-        e1: { primaryStat: { value: 1990 } },
+        e1: { primaryStat: { value: 1990 }, energy: { energyCapacity: 10, energyUsed: 3 } },
         v2: { primaryStat: { value: 1995 } },
       },
     },
     stats: { data: { e1: { stats: armorStats(10) }, v2: { stats: armorStats(12) } } },
     sockets: {
       data: {
+        e1: { sockets: [{ plugHash: 42 }, { plugHash: 40 }, { plugHash: 41 }] },
         s1: {
           sockets: [
             { plugHash: 34 },
@@ -160,6 +164,13 @@ describe("buildInventory", () => {
       aspects: [],
       fragments: [],
     })
+  })
+
+  test("armor lists its mod sockets in order, empty ones as null, and its energy", () => {
+    expect(byId("e1").modSlots).toEqual([40, null])
+    expect(byId("e1").energy).toEqual({ used: 3, capacity: 10 })
+    expect(byId("v1").modSlots).toEqual([])
+    expect(byId("v2").energy).toBeNull()
   })
 
   test("keeps instanced items only and never the subclass", () => {

@@ -1,12 +1,13 @@
 import {
+  ArmorMod,
   type GuardianClass,
   LoadoutAbility,
   LoadoutPlug,
   StatMod,
   SubclassLoadout,
 } from "@ghost/contract"
-import { type CharacterInfo, STAT, type SubclassPlug } from "./inventory.ts"
-import type { PlugFacts, StatFacts } from "./manifest.ts"
+import { type CharacterInfo, type OwnedItem, STAT, type SubclassPlug } from "./inventory.ts"
+import type { ManifestItem, PlugFacts, StatFacts } from "./manifest.ts"
 import { ARMOR_STATS, statLabel } from "./masterwork.ts"
 
 const CLASS_STAT: Record<GuardianClass, keyof typeof STAT> = {
@@ -68,3 +69,34 @@ export const describeLoadout = ({
 
 export const loadoutPlugHashes = ({ loadout }: Pick<CharacterInfo, "loadout">) =>
   [...loadout.aspects, ...loadout.fragments].map((plug) => plug.hash)
+
+/** The mods slotted in an armor piece, each with its energy cost and the stats it adds. */
+export const describeArmorMods = ({
+  item,
+  defs,
+  plugs,
+  facts,
+}: {
+  readonly item: Pick<OwnedItem, "modSlots">
+  readonly defs: ReadonlyMap<number, ManifestItem>
+  readonly plugs: ReadonlyMap<number, PlugFacts>
+  readonly facts: StatFacts
+}): ReadonlyArray<ArmorMod> =>
+  item.modSlots.flatMap((hash) => {
+    const def = hash === null ? undefined : defs.get(hash)
+    if (hash === null || def === undefined) return []
+    const known = plugs.get(hash)
+    return [
+      new ArmorMod({
+        name: def.name,
+        description: def.description || (known?.description ?? ""),
+        cost: known?.energyCost ?? 0,
+        mods: ARMOR_STATS.flatMap(([key, label]) => {
+          const delta = known?.mods[STAT[key]]
+          return delta === undefined
+            ? []
+            : [new StatMod({ label: statLabel(key, label, facts), delta })]
+        }),
+      }),
+    ]
+  })

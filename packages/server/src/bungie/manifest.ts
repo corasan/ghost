@@ -78,7 +78,10 @@ export interface PlugDefinition {
     readonly value?: number
     readonly isConditionallyActive?: boolean
   }>
-  readonly plug?: { readonly energyCapacity?: { readonly capacityValue?: number } }
+  readonly plug?: {
+    readonly energyCapacity?: { readonly capacityValue?: number }
+    readonly energyCost?: { readonly energyCost?: number }
+  }
   readonly perks?: ReadonlyArray<{ readonly perkHash?: number }>
 }
 
@@ -89,6 +92,8 @@ export interface PlugFacts {
   readonly classMods: StatMods
   /** Fragment slots an aspect brings; zero for anything else. */
   readonly fragmentSlots: number
+  /** Armor energy an armor mod takes; zero for anything else. */
+  readonly energyCost: number
   readonly description: string
 }
 
@@ -367,6 +372,7 @@ export const ManifestLive = Layer.effect(
               mods: statModsFrom(definition, false),
               classMods: statModsFrom(definition, true),
               fragmentSlots: definition.plug?.energyCapacity?.capacityValue ?? 0,
+              energyCost: definition.plug?.energyCost?.energyCost ?? 0,
               description: described.displayProperties?.description ?? "",
             })
           }).pipe(

@@ -25,9 +25,9 @@ import {
   isWeapon,
   type OwnedItem,
 } from "../bungie/inventory.ts"
-import { Manifest } from "../bungie/manifest.ts"
+import { Manifest, type ManifestItem } from "../bungie/manifest.ts"
 import { ARMOR_STATS, armorStats, buildStats, withMasterworkTotals } from "../bungie/masterwork.ts"
-import { describeLoadout, loadoutPlugHashes } from "../bungie/loadout.ts"
+import { describeArmorMods, describeLoadout, loadoutPlugHashes } from "../bungie/loadout.ts"
 import { ProfileStore } from "../bungie/profile.ts"
 import { CreatorNotes } from "../creators/creators.ts"
 import { NOTE_MAX_AGE_DAYS } from "../creators/parse.ts"
@@ -326,6 +326,14 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
               return `Error: unknown characterId ${badCharacter.characterId}. Use ids from get_characters.`
             }
             const fallback = job.value.characterId ?? inv.characters[0]?.characterId ?? null
+            const facts = yield* manifest.statFacts
+            const slotted = input.rows.flatMap((r) =>
+              (owned.get(r.itemInstanceId)?.modSlots ?? []).flatMap((hash) => hash ?? []),
+            )
+            const modDefs = yield* manifest
+              .lookup(slotted)
+              .pipe(Effect.orElseSucceed((): ReadonlyMap<number, ManifestItem> => new Map()))
+            const modFacts = yield* manifest.plugFacts(slotted)
             const rows = input.rows.map((r) => {
               const item = owned.get(r.itemInstanceId) as OwnedItem
               const characterId =
@@ -362,6 +370,18 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
                 masterwork: item.masterwork,
                 damageType: item.damageType,
                 gearTier: item.gearTier ?? null,
+                ...(item.armorStats === null
+                  ? {}
+                  : {
+                      armorMods: describeArmorMods({
+                        item,
+                        defs: modDefs,
+                        plugs: modFacts,
+                        facts,
+                      }),
+                      freeModSlots: item.modSlots.filter((hash) => hash === null).length,
+                    }),
+                ...(item.energy === null ? {} : { energy: item.energy }),
                 ...(origin === undefined ? {} : { origin }),
               })
             })
@@ -369,7 +389,6 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
             const builtFor = inv.characters.find(
               (c) => c.characterId === (equipping[0]?.characterId ?? fallback),
             )
-            const facts = yield* manifest.statFacts
             const loadout =
               input.kind === "build" && builtFor !== undefined
                 ? describeLoadout({

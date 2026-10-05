@@ -30,6 +30,12 @@ const Instance = Schema.Struct({
   damageType: Schema.optional(Schema.Number),
   primaryStat: Schema.optional(Schema.Struct({ value: Schema.Number })),
   gearTier: Schema.optional(Schema.Number),
+  energy: Schema.optional(
+    Schema.Struct({
+      energyCapacity: Schema.optional(Schema.Number),
+      energyUsed: Schema.optional(Schema.Number),
+    }),
+  ),
 })
 
 const ItemStats = Schema.Struct({
@@ -103,6 +109,9 @@ export type OwnedItem = Schema.Struct.Type<typeof ItemSummary.fields> & {
   readonly armorStats: ArmorStats | null
   /** Every plug in the weapon's sockets, in order; what wishlist rolls are matched against. */
   readonly plugHashes: ReadonlyArray<number>
+  /** Armor only: what sits in each mod socket, in socket order. An empty socket is null. */
+  readonly modSlots: ReadonlyArray<number | null>
+  readonly energy: { readonly used: number; readonly capacity: number } | null
 }
 
 export interface SubclassPlug {
@@ -119,6 +128,9 @@ export interface SlottedPlugs {
   readonly fragments: ReadonlyArray<SubclassPlug>
 }
 
+const ARMOR_MOD = /\barmor mod$/i
+const EMPTY_SOCKET = /^empty /i
+
 const ABILITY_TYPES: ReadonlyArray<readonly [AbilityKind, RegExp]> = [
   ["class", /\bclass ability\b/i],
   ["jump", /\bmovement\b/i],
@@ -133,7 +145,7 @@ export const slottedPlugs = (
 ): SlottedPlugs => {
   const plugs = plugHashes.flatMap((hash) => {
     const def = defs.get(hash)
-    return def === undefined || /^empty /i.test(def.name) ? [] : [def]
+    return def === undefined || EMPTY_SOCKET.test(def.name) ? [] : [def]
   })
   const ofType = (type: RegExp): ReadonlyArray<SubclassPlug> =>
     plugs
@@ -334,6 +346,14 @@ export const buildInventory = (
             : [socket.plugHash],
         )
       : []
+    const modSlots = armor
+      ? (sockets[id]?.sockets ?? []).flatMap((socket): Array<number | null> => {
+          const plug = socket.plugHash === undefined ? undefined : defs.get(socket.plugHash)
+          if (plug === undefined || socket.isVisible === false || !ARMOR_MOD.test(plug.typeName))
+            return []
+          return [EMPTY_SOCKET.test(plug.name) ? null : plug.hash]
+        })
+      : []
     const perks = plugHashes.flatMap((hash) => {
       const plug = defs.get(hash)
       return plug !== undefined && plug.typeName.includes("Trait") ? [plug.name] : []
@@ -376,6 +396,11 @@ export const buildInventory = (
       acquiredAt: memory === undefined || memory.baseline ? null : memory.firstSeenAt,
       armorStats,
       plugHashes,
+      modSlots,
+      energy:
+        armor && instance?.energy?.energyCapacity !== undefined
+          ? { used: instance.energy.energyUsed ?? 0, capacity: instance.energy.energyCapacity }
+          : null,
     }
   })
 
