@@ -88,7 +88,12 @@ export const JevLive = Layer.effect(
         rank: () => Effect.fail(new JevUnavailable({ message: "TYPESAFE_API_KEY is not set" })),
       }
     }
-    const client = new TypeSafeClient({ apiKey, defaultModel: jev.model })
+    const client = new TypeSafeClient({
+      apiKey,
+      defaultModel: jev.model,
+      timeout: 3_000,
+      retry: { maxRetries: 1 },
+    })
 
     const ask = (intent: string, candidates: ReadonlyArray<Candidate>) =>
       Effect.tryPromise({
