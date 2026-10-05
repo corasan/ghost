@@ -120,6 +120,26 @@ export class StatMod extends Schema.Class<StatMod>("StatMod")({
   delta: Schema.Number,
 }) {}
 
+/**
+ * Where a judgement came from. Ghost must ground roll, build and mod advice
+ * in data it fetched for this answer (the current manifest, community
+ * wishlists, recent articles), never in model memory, and show it.
+ */
+export class Source extends Schema.Class<Source>("Source")({
+  /** For example "DIM wishlist (voltron)" or "Bungie manifest". */
+  label: Schema.String,
+  url: Schema.NullOr(Schema.String),
+  /** When the data was published or fetched, ISO; shown as "2 DAYS OLD". */
+  asOf: Schema.NullOr(Schema.String),
+}) {}
+
+/** What a mod adds while its wearer holds Armor Charge, in numbers Ghost looked up. */
+export class ChargeEffect extends Schema.Class<ChargeEffect>("ChargeEffect")({
+  /** For example "+10% Arc weapon damage; 17% with two copies, 22% with three". */
+  effect: Schema.String,
+  source: Source,
+}) {}
+
 /** One mod slotted in an armor piece, read from the game. */
 export class ArmorMod extends Schema.Class<ArmorMod>("ArmorMod")({
   name: Schema.String,
@@ -132,6 +152,7 @@ export class ArmorMod extends Schema.Class<ArmorMod>("ArmorMod")({
   mods: Schema.Array(StatMod),
   /** Its effect depends on the wearer holding Armor Charge. */
   charged: Schema.optional(Schema.Boolean),
+  chargeEffect: Schema.optional(ChargeEffect),
   /** True when the plan puts this mod in; the rest are already slotted. */
   swap: Schema.optional(Schema.Boolean),
   /** The mod this one takes the place of, when the socket was not free. */
@@ -238,25 +259,14 @@ export class Plan extends Schema.Class<Plan>("Plan")({
   rows: Schema.Array(PlanRow),
   /** A closing line such as "Mods: 2× Discipline (chest, legs)." */
   note: Schema.NullOr(Schema.String),
+  /** How the build's conditional bonuses, such as armor charge, play out together, in Ghost's words. */
+  situational: Schema.optional(Schema.String),
   /** Label of the confirm button, for example "APPLY BUILD". */
   confirmLabel: Schema.String,
   status: PlanStatus,
 }) {}
 
 // ---- Jobs: one request to Ghost ----
-
-/**
- * Where a judgement came from. Ghost must ground roll, build and mod advice
- * in data it fetched for this answer (the current manifest, community
- * wishlists, recent articles), never in model memory, and show it.
- */
-export class Source extends Schema.Class<Source>("Source")({
-  /** For example "DIM wishlist (voltron)" or "Bungie manifest". */
-  label: Schema.String,
-  url: Schema.NullOr(Schema.String),
-  /** When the data was published or fetched, ISO; shown as "2 DAYS OLD". */
-  asOf: Schema.NullOr(Schema.String),
-}) {}
 
 export const JobKind = Schema.Literals([
   "chat",

@@ -169,6 +169,19 @@ const migrations = {
     yield* sql`ALTER TABLE actions ADD COLUMN plug_hash INTEGER`
     yield* sql`ALTER TABLE actions ADD COLUMN previous_plug_hash INTEGER`
   }),
+  "0007_charge_effects": Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    yield* sql`
+      CREATE TABLE IF NOT EXISTS charge_effects (
+        mod TEXT PRIMARY KEY,
+        effect TEXT NOT NULL,
+        source_label TEXT NOT NULL,
+        source_url TEXT,
+        source_as_of TEXT,
+        recorded_at TEXT NOT NULL
+      )
+    `
+  }),
 }
 
 const SqliteLive = Layer.unwrap(

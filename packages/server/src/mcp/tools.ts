@@ -1,5 +1,6 @@
 import {
   type BungieNotLinked,
+  ChargeEffect,
   DamageType,
   GuardianClass,
   ItemLocation,
@@ -35,10 +36,12 @@ import {
   planModSwaps,
   socketsNow,
   swapStatChange,
+  withChargeEffects,
 } from "../bungie/mods.ts"
 import { ProfileStore } from "../bungie/profile.ts"
 import { CreatorNotes } from "../creators/creators.ts"
 import { NOTE_MAX_AGE_DAYS } from "../creators/parse.ts"
+import { ChargeEffects } from "../db/charge.ts"
 import { JobsRepo } from "../db/jobs.ts"
 import { checkRoll, perkMatcher, type RollMatch, recommendations } from "../wishlist/parse.ts"
 import { Wishlist, WISHLIST_URL } from "../wishlist/wishlist.ts"
@@ -81,7 +84,7 @@ const SearchItems = Tool.make("search_items", {
 
 const PresentPlan = Tool.make("present_plan", {
   description:
-    "Show the player a plan to confirm. Nothing moves until they tap the confirm button; the server then runs the selected rows. Call it once per request, after deciding. Row actions: to_vault, to_character, pull_postmaster, equip, tag_junk, or none (shown for comparison only). For a build, list the armor piece for every slot, including pieces that stay equipped (action none). The app works out the build's six stat totals itself from the pieces you equip, before and after, and what masterworking would add, so do not do that arithmetic or repeat those numbers in your reply. A build card also shows the super, aspects and fragments the character has slotted, read from the game; you cannot change the subclass, so if the build needs a different one, say so in your reply. For a build, also recommend armor mods in mods: one entry per mod to put in, naming the piece (it must be a row) and the mod exactly as list_armor_mods gives it, with replaces when the piece has no free socket of that kind. Only list mods that change; what is already slotted stays. The server checks sockets and energy and tells you what to fix. Pass stats only to mark the stats the player asked for: label Health, Melee, Grenade, Super, Class or Weapons with target true; the values are ignored for a build.",
+    "Show the player a plan to confirm. Nothing moves until they tap the confirm button; the server then runs the selected rows. Call it once per request, after deciding. Row actions: to_vault, to_character, pull_postmaster, equip, tag_junk, or none (shown for comparison only). For a build, list the armor piece for every slot, including pieces that stay equipped (action none). The app works out the build's six stat totals itself from the pieces you equip, before and after, and what masterworking would add, so do not do that arithmetic or repeat those numbers in your reply. A build card also shows the super, aspects and fragments the character has slotted, read from the game; you cannot change the subclass, so if the build needs a different one, say so in your reply. For a build, also recommend armor mods in mods: one entry per mod to put in, naming the piece (it must be a row) and the mod exactly as list_armor_mods gives it, with replaces when the piece has no free socket of that kind. Only list mods that change; what is already slotted stays. The server checks sockets and energy and tells you what to fix. Every armor charge mod the build will run (charged true in get_armor_mods or list_armor_mods, already slotted or swapped in) needs its numbers: if it has no chargeEffect yet, look up what it adds while charged and how extra copies stack, and pass it in chargeEffects with the source, for example '+10% Arc weapon damage; 17% with two copies, 22% with three'. For a build, also write situational: one to three sentences on what the build's conditional bonuses (armor charge mods, and fragments or aspects that only work under a condition) add together once they are up, how the player keeps them up, and what they lose when they drop. Pass stats only to mark the stats the player asked for: label Health, Melee, Grenade, Super, Class or Weapons with target true; the values are ignored for a build.",
   parameters: Schema.Struct({
     kind: PlanKind,
     title: Schema.String,
@@ -119,6 +122,12 @@ const PresentPlan = Tool.make("present_plan", {
         }),
       ),
     ),
+    chargeEffects: Schema.optional(
+      Schema.Array(
+        Schema.Struct({ mod: Schema.String, effect: Schema.String, source: SourceInput }),
+      ),
+    ),
+    situational: Schema.optional(Schema.String),
     sources: Schema.optional(Schema.Array(SourceInput)),
   }),
   success: Json,
@@ -318,14 +327,17 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
     const manifest = yield* Manifest
     const wishlist = yield* Wishlist
     const creators = yield* CreatorNotes
+    const chargeEffects = yield* ChargeEffects
 
     const withInventory = (f: (inv: Inventory) => Effect.Effect<string>) =>
       profile.inventory.pipe(
         Effect.matchEffect({ onFailure: (e) => Effect.succeed(explain(e)), onSuccess: f }),
       )
 
-    const toSources = (input: ReadonlyArray<typeof SourceInput.Type>) =>
-      input.map((s) => new Source({ label: s.label, url: s.url ?? null, asOf: s.asOf ?? null }))
+    const toSource = (s: typeof SourceInput.Type) =>
+      new Source({ label: s.label, url: s.url ?? null, asOf: s.asOf ?? null })
+
+    const toSources = (input: ReadonlyArray<typeof SourceInput.Type>) => input.map(toSource)
 
     const nameLookup = (hashes: Iterable<number>) =>
       Effect.map(manifest.lookup(hashes), (defs) => (hash: number) => defs.get(hash)?.name)
@@ -398,7 +410,18 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
             if (stray.length > 0) {
               return `Error: mods name pieces that are not rows of the plan: ${stray.map((m) => m.itemInstanceId).join(", ")}. List each piece as a row (action none if it stays on).`
             }
-            const catalog = wanted.length > 0 ? yield* manifest.armorMods : []
+            const researched = input.chargeEffects ?? []
+            const catalog =
+              wanted.length > 0 || researched.length > 0 ? yield* manifest.armorMods : []
+            const notCharged = researched.filter(
+              (r) =>
+                !catalog.some(
+                  (entry) => entry.charged && entry.name.toLowerCase() === r.mod.toLowerCase(),
+                ),
+            )
+            if (notCharged.length > 0) {
+              return `Error: chargeEffects names mods that are not armor charge mods: ${notCharged.map((r) => r.mod).join(", ")}. Use names from list_armor_mods with charged true.`
+            }
             const swapsFor = new Map<string, ReadonlyArray<ModSwap>>()
             const refused: Array<string> = []
             for (const r of input.rows) {
@@ -417,7 +440,15 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
             if (refused.length > 0) {
               return `Error: ${refused.join(". ")}. Fix the mods and call present_plan again.`
             }
-            const rows = input.rows.map((r) => {
+            yield* chargeEffects
+              .record(
+                researched.map((r) => ({
+                  mod: r.mod,
+                  effect: new ChargeEffect({ effect: r.effect, source: toSource(r.source) }),
+                })),
+              )
+              .pipe(Effect.orDie)
+            const drafted = input.rows.map((r) => {
               const item = owned.get(r.itemInstanceId) as OwnedItem
               const characterId =
                 r.action === "pull_postmaster"
@@ -473,6 +504,18 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
                 ...(origin === undefined ? {} : { origin }),
               })
             })
+            const effects = yield* chargeEffects
+              .forMods(
+                drafted.flatMap((row) =>
+                  (row.armorMods ?? []).filter((mod) => mod.charged).map((mod) => mod.name),
+                ),
+              )
+              .pipe(Effect.orDie)
+            const rows = drafted.map((row) =>
+              row.armorMods === undefined
+                ? row
+                : new PlanRow({ ...row, armorMods: withChargeEffects(row.armorMods, effects) }),
+            )
             const equipping = rows.filter((row) => row.action === "equip")
             const builtFor = inv.characters.find(
               (c) => c.characterId === (equipping[0]?.characterId ?? fallback),
@@ -519,6 +562,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
               ...(loadout === undefined ? {} : { loadout }),
               rows,
               note: input.note ?? null,
+              ...(input.situational === undefined ? {} : { situational: input.situational }),
               confirmLabel: input.confirmLabel,
               status: "proposed",
             })
@@ -528,7 +572,20 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
             }
             const actionable = rows.filter((r) => r.action !== "none").length
             const swapped = [...swapsFor.values()].flat().length
-            return `Plan saved with ${rows.length} rows (${actionable} actionable, ${swapped} mod swaps). The player will see it under your answer and confirm in the app.`
+            const unresearched = [
+              ...new Set(
+                rows.flatMap((row) =>
+                  (row.armorMods ?? [])
+                    .filter((mod) => mod.charged && mod.chargeEffect === undefined)
+                    .map((mod) => mod.name),
+                ),
+              ),
+            ]
+            const missing =
+              unresearched.length > 0
+                ? ` These armor charge mods still have no chargeEffect, so the card cannot say what they add: ${unresearched.join(", ")}. Look them up and call present_plan again with chargeEffects.`
+                : ""
+            return `Plan saved with ${rows.length} rows (${actionable} actionable, ${swapped} mod swaps). The player will see it under your answer and confirm in the app.${missing}`
           }),
         )
       })
@@ -626,6 +683,16 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
             .lookup(hashes)
             .pipe(Effect.orElseSucceed((): ReadonlyMap<number, ManifestItem> => new Map()))
           const plugs = yield* manifest.plugFacts(hashes)
+          const sockets = new Map(
+            picked.map((item) => [item.itemInstanceId, socketsNow(item, defs, plugs)]),
+          )
+          const effects = yield* chargeEffects
+            .forMods(
+              [...sockets.values()]
+                .flat()
+                .flatMap((socket) => (socket.mod?.charged ? [socket.mod.name] : [])),
+            )
+            .pipe(Effect.orDie)
           return json({
             unknownIds: itemInstanceIds.filter(
               (id) => !picked.some((i) => i.itemInstanceId === id),
@@ -635,11 +702,15 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
               name: item.name,
               slot: item.slot,
               energy: item.energy,
-              sockets: socketsNow(item, defs, plugs).map((socket) => ({
+              sockets: (sockets.get(item.itemInstanceId) ?? []).map((socket) => ({
                 kind: modSlotOf(socket.category) ?? "other",
                 mod: socket.mod?.name ?? null,
                 cost: socket.mod?.cost,
                 stats: socket.mod === null ? undefined : namedMods(socket.mod.mods),
+                charged: socket.mod?.charged || undefined,
+                chargeEffect: socket.mod?.charged
+                  ? (effects.get(socket.mod.name.toLowerCase())?.effect ?? null)
+                  : undefined,
               })),
             })),
           })
@@ -650,7 +721,8 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
       readonly slot?: typeof ModSlot.Type | undefined
       readonly text?: string | undefined
     }) =>
-      Effect.map(manifest.armorMods, (catalog) => {
+      Effect.gen(function* () {
+        const catalog = yield* manifest.armorMods
         const text = input.text?.toLowerCase()
         const byName = new Map<string, (typeof catalog)[number]>()
         for (const entry of catalog) {
@@ -658,23 +730,31 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
           const kept = byName.get(key)
           if (kept === undefined || (kept.artifact && !entry.artifact)) byName.set(key, entry)
         }
-        const mods = [...byName.values()]
-          .filter(
-            (entry) =>
-              (input.slot === undefined || modSlotOf(entry.category) === input.slot) &&
-              (text === undefined ||
-                entry.name.toLowerCase().includes(text) ||
-                entry.description.toLowerCase().includes(text)),
-          )
-          .map((entry) => ({
+        const mods = [...byName.values()].filter(
+          (entry) =>
+            (input.slot === undefined || modSlotOf(entry.category) === input.slot) &&
+            (text === undefined ||
+              entry.name.toLowerCase().includes(text) ||
+              entry.description.toLowerCase().includes(text)),
+        )
+        const effects = yield* chargeEffects
+          .forMods(mods.filter((entry) => entry.charged).map((entry) => entry.name))
+          .pipe(Effect.orDie)
+        return json({
+          total: mods.length,
+          mods: mods.map((entry) => ({
             name: entry.name,
             slot: modSlotOf(entry.category),
             cost: entry.energyCost,
             effect: clip(entry.description, 300),
             stats: namedMods(entry.mods),
             artifactOnly: entry.artifact || undefined,
-          }))
-        return json({ total: mods.length, mods })
+            charged: entry.charged || undefined,
+            chargeEffect: entry.charged
+              ? (effects.get(entry.name.toLowerCase())?.effect ?? null)
+              : undefined,
+          })),
+        })
       })
 
     const describe_plugs = (input: {

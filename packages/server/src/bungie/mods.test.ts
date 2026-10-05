@@ -1,7 +1,14 @@
 import { describe, expect, test } from "bun:test"
+import { ChargeEffect, Source } from "@ghost/contract"
 import { STAT } from "./inventory.ts"
 import type { ArmorModEntry } from "./manifest.ts"
-import { describeArmorMods, planModSwaps, type SocketNow, swapStatChange } from "./mods.ts"
+import {
+  describeArmorMods,
+  planModSwaps,
+  type SocketNow,
+  swapStatChange,
+  withChargeEffects,
+} from "./mods.ts"
 
 const GENERAL = "enhancements.v2_general"
 const ARMS = "enhancements.v2_arms"
@@ -128,5 +135,26 @@ describe("describeArmorMods", () => {
 
   test("a swap remembers the plug it displaced so it can be undone", () => {
     expect(described.armorMods[1]).toMatchObject({ plugHash: 3, previousPlugHash: 901 })
+  })
+})
+
+describe("withChargeEffects", () => {
+  const surge = entry(6, "Arc Weapon Surge", { category: GENERAL, charged: true })
+  const sockets = [socket(0, GENERAL, weaponsMod), socket(1, GENERAL, surge)]
+  const { armorMods } = describeArmorMods({ sockets, swaps: [], facts: {} })
+  const researched = new ChargeEffect({
+    effect: "+10% Arc weapon damage",
+    source: new Source({ label: "test", url: null, asOf: null }),
+  })
+
+  test("attaches researched numbers to charged mods only, matching names in any case", () => {
+    const effects = new Map([
+      ["arc weapon surge", researched],
+      ["weapons mod", researched],
+    ])
+    expect(withChargeEffects(armorMods, effects).map((mod) => mod.chargeEffect?.effect)).toEqual([
+      undefined,
+      "+10% Arc weapon damage",
+    ])
   })
 })

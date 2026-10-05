@@ -1,4 +1,4 @@
-import { ArmorMod, StatMod } from "@ghost/contract"
+import { ArmorMod, type ChargeEffect, StatMod } from "@ghost/contract"
 import { type OwnedItem, STAT } from "./inventory.ts"
 import {
   type ArmorModEntry,
@@ -210,3 +210,13 @@ export const swapStatChange = (swaps: ReadonlyArray<ModSwap>): StatMods => {
   }
   return change
 }
+
+/** Gives each armor charge mod the numbers Ghost has on record for it, keyed by lowercased name. */
+export const withChargeEffects = (
+  mods: ReadonlyArray<ArmorMod>,
+  effects: ReadonlyMap<string, ChargeEffect>,
+): ReadonlyArray<ArmorMod> =>
+  mods.map((mod) => {
+    const chargeEffect = mod.charged ? effects.get(mod.name.toLowerCase()) : undefined
+    return chargeEffect === undefined ? mod : new ArmorMod({ ...mod, chargeEffect })
+  })
