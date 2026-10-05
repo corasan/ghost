@@ -299,6 +299,7 @@ const compact = (i: OwnedItem) => ({
   statTotal: i.statTotal ?? undefined,
   stats: i.armorStats === null ? undefined : named(i.armorStats),
   perks: i.perks.length > 0 ? i.perks : undefined,
+  exoticPerk: i.exoticPerk ?? undefined,
   duplicates: i.duplicates,
   decision: i.decision ?? undefined,
 })
@@ -348,6 +349,7 @@ export const rankingText = (i: OwnedItem) => {
     i.masterwork ? "masterworked" : null,
     stats.length > 0 ? `stats, highest first: ${stats.join(", ")} (total ${i.statTotal})` : null,
     i.perks.length > 0 ? `perks: ${i.perks.join(", ")}` : null,
+    i.exoticPerk === null ? null : `exotic perk: ${i.exoticPerk}`,
   ]
     .filter((part) => part !== null)
     .join("; ")

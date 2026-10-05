@@ -38,6 +38,7 @@ const owned = (id: string, slot: ItemSlot, fields: Partial<OwnedItem> = {}): Own
   plugHashes: [],
   modSockets: [],
   energy: null,
+  exoticPerk: null,
   ...fields,
 })
 
@@ -76,6 +77,17 @@ describe("rankingText", () => {
     ).toBe(
       "Item h0; legendary titan Helmet; helmet slot; masterworked; stats, highest first: Health 30, Grenade 20, Super 10 (total 60); perks: Spirit of Synthoceps",
     )
+  })
+
+  test("names an exotic's intrinsic perk so its element is visible", () => {
+    expect(
+      rankingText(
+        owned("e0", "legs", {
+          tier: "exotic",
+          exoticPerk: "Phoenix Rising: Sunspots heal allies.",
+        }),
+      ),
+    ).toContain("exotic perk: Phoenix Rising: Sunspots heal allies.")
   })
 })
 

@@ -112,6 +112,8 @@ export type OwnedItem = Schema.Struct.Type<typeof ItemSummary.fields> & {
   /** Armor only: its mod sockets in socket order. */
   readonly modSockets: ReadonlyArray<ModSocket>
   readonly energy: { readonly used: number; readonly capacity: number } | null
+  /** Exotic armor only: its intrinsic perk as "Name: effect". */
+  readonly exoticPerk: string | null
 }
 
 export interface ModSocket {
@@ -410,6 +412,14 @@ export const buildInventory = (
           return [{ index, plugHash: plug.hash, empty: EMPTY_SOCKET.test(plug.name) }]
         })
       : []
+    const intrinsic =
+      armor && def?.tier === "exotic"
+        ? (sockets[id]?.sockets ?? [])
+            .map((socket) =>
+              socket.plugHash === undefined ? undefined : defs.get(socket.plugHash),
+            )
+            .find((plug) => plug?.typeName === "Intrinsic" && plug.description !== "")
+        : undefined
     const perks = plugHashes.flatMap((hash) => {
       const plug = defs.get(hash)
       return plug !== undefined && plug.typeName.includes("Trait") ? [plug.name] : []
@@ -457,6 +467,7 @@ export const buildInventory = (
         armor && instance?.energy?.energyCapacity !== undefined
           ? { used: instance.energy.energyUsed ?? 0, capacity: instance.energy.energyCapacity }
           : null,
+      exoticPerk: intrinsic === undefined ? null : `${intrinsic.name}: ${intrinsic.description}`,
     }
   })
 
