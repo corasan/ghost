@@ -31,7 +31,7 @@ interface Membership {
 
 export interface ProfileStoreShape {
   readonly inventory: Effect.Effect<Inventory, BungieError | BungieNotLinked>
-  /** What each character can slot on its subclasses. Fetched apart from the inventory because it is large and only builds need it. */
+  /** What each character can slot on its subclasses, read from the same profile response as the inventory. */
   readonly plugSets: Effect.Effect<PlugSets, BungieError | BungieNotLinked>
   readonly invalidate: Effect.Effect<void>
 }
@@ -77,33 +77,28 @@ export const ProfileStoreLive = Layer.effect(
       const profile = yield* Schema.decodeUnknownEffect(Profile)(raw).pipe(
         Effect.catch(decodeFailure),
       )
+      const plugSets = yield* Schema.decodeUnknownEffect(PlugSets)(raw).pipe(
+        Effect.catch(decodeFailure),
+      )
       const defs = yield* manifest.lookup(profileHashes(profile))
       // Sync needs the item list and the summaries need what sync wrote
       // (first-seen times), so the pure build runs twice; it is cheap.
       const draft = buildInventory(profile, defs, new Map())
       yield* items.sync(draft.items).pipe(Effect.orDie)
       const seen = yield* items.decisions.pipe(Effect.orDie)
-      const inventory = buildInventory(profile, defs, seen)
-      return { ...inventory, membershipType: m.membershipType, membershipId: m.membershipId }
+      const inventory = {
+        ...buildInventory(profile, defs, seen),
+        membershipType: m.membershipType,
+        membershipId: m.membershipId,
+      }
+      return { inventory, plugSets }
     })
 
-    const loadPlugSets = Effect.gen(function* () {
-      const m = yield* membership
-      const raw = yield* bungie.get(
-        `/Destiny2/${m.membershipType}/Profile/${m.membershipId}/?components=104`,
-      )
-      return yield* Schema.decodeUnknownEffect(PlugSets)(raw).pipe(Effect.catch(decodeFailure))
-    })
-
-    const [cached, invalidateInventory] = yield* Effect.cachedInvalidateWithTTL(load, "30 seconds")
-    const [cachedPlugSets, invalidatePlugSets] = yield* Effect.cachedInvalidateWithTTL(
-      loadPlugSets,
-      "30 seconds",
-    )
-    const invalidate = Effect.andThen(invalidateInventory, invalidatePlugSets)
+    const [cached, invalidate] = yield* Effect.cachedInvalidateWithTTL(load, "30 seconds")
     // A failure (not linked yet, Bungie down) must not stick for 30 seconds.
-    const inventory = cached.pipe(Effect.tapError(() => invalidateInventory))
-    const plugSets = cachedPlugSets.pipe(Effect.tapError(() => invalidatePlugSets))
+    const loaded = cached.pipe(Effect.tapError(() => invalidate))
+    const inventory = Effect.map(loaded, (profile) => profile.inventory)
+    const plugSets = Effect.map(loaded, (profile) => profile.plugSets)
 
     return { inventory, plugSets, invalidate }
   }),

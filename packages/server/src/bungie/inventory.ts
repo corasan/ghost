@@ -69,7 +69,8 @@ const byInstance = <S extends Schema.Top>(value: S) =>
 
 // Components: 100 profile, 102 vault, 200 characters, 201 character
 // inventories (incl. postmaster), 205 equipment, 300 instances (power,
-// element), 304 item stats (armor totals), 305 sockets (weapon perks).
+// element), 304 item stats (armor totals), 305 sockets (weapon perks) and
+// the profile and character plug sets.
 export const PROFILE_COMPONENTS = [100, 102, 200, 201, 205, 300, 304, 305]
 
 export const Profile = Schema.Struct({
