@@ -10,6 +10,7 @@ import { Body, Button, Cond, Cut, Mono } from "@/components/ghost/ui"
 import { ELEMENT_TONE, Ghost, Gutter, Type } from "@/constants/theme"
 import { useCharacter } from "@/lib/character"
 import { firstParagraph } from "@/lib/effect-text"
+import { useFooterHeight } from "@/lib/footer"
 import { upper } from "@/lib/format"
 import { signed } from "@/lib/plan-card"
 
@@ -110,6 +111,7 @@ const fragmentCapacity = (loadout: SubclassLoadout) =>
 export default function SubclassScreen() {
   const insets = useSafeAreaInsets()
   const { character } = useCharacter()
+  const footer = useFooterHeight()
   const loadout = character?.loadout
   if (!loadout) return null
 
@@ -119,7 +121,7 @@ export default function SubclassScreen() {
 
   return (
     <View collapsable={false} style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: footer.height + 24 }]}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <SubclassMark loadout={loadout} size={22} />
           <Mono size={10} color={tone} style={{ letterSpacing: 1.4 }}>
@@ -169,7 +171,10 @@ export default function SubclassScreen() {
           </>
         ) : null}
       </ScrollView>
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
+      <View
+        onLayout={footer.onLayout}
+        style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}
+      >
         <Button
           label="ASK GHOST"
           under={Ghost.panel}
@@ -187,7 +192,7 @@ export default function SubclassScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: Gutter, paddingTop: 30, paddingBottom: 24 },
+  content: { paddingHorizontal: Gutter, paddingTop: 30 },
   ability: { height: 44, alignItems: "center", justifyContent: "center" },
   label: { letterSpacing: 1.3, paddingBottom: 8 },
   entry: {
