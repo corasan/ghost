@@ -235,7 +235,7 @@ describe("subclass detail", () => {
     rows: ReadonlyArray<string | { readonly name: string; readonly effect?: unknown }> = [],
   ) => rows.flatMap((row) => (typeof row !== "string" && row.effect !== undefined ? row.name : []))
 
-  test("lists every option but keeps effect text only for the top of each group and what is slotted", () => {
+  test("lists every option but keeps effect text only for the top aspects and fragments and what is slotted", () => {
     const detail = subclassDetail(view, "titan", relevance)
     expect(detail.aspects.map((a) => a.name)).toEqual(aspects.map((a) => a.name).toReversed())
     expect(effects(detail.aspects)).toEqual(["Aspect 5", "Aspect 4", "Aspect 3", "Aspect 0"])
@@ -251,7 +251,7 @@ describe("subclass detail", () => {
       "Fragment 4",
       "Fragment 0",
     ])
-    expect(effects(detail.grenade?.options)).toEqual(["Grenade 0", "Grenade 1", "Grenade 3"])
+    expect(effects(detail.grenade?.options)).toEqual([])
     expect(detail.grenade?.options).toHaveLength(4)
   })
 

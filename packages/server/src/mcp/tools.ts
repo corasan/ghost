@@ -537,15 +537,7 @@ const PART_LABELS: Record<SubclassPart, string> = {
   fragment: "fragment",
 }
 
-const EFFECTS_KEPT: Record<SubclassPart, number> = {
-  super: 2,
-  class: 2,
-  jump: 2,
-  melee: 2,
-  grenade: 2,
-  aspect: 3,
-  fragment: 8,
-}
+const EFFECTS_KEPT: Partial<Record<SubclassPart, number>> = { aspect: 3, fragment: 8 }
 
 interface SubclassOption {
   readonly part: SubclassPart
@@ -628,7 +620,7 @@ export const subclassDetail = (
       .toSorted((a, b) => b.relevance - a.relevance)
       .map(({ option, relevance }, rank) => ({
         ...row(option),
-        effect: rank < EFFECTS_KEPT[part] || option.slotted ? option.effect : undefined,
+        effect: rank < (EFFECTS_KEPT[part] ?? 0) || option.slotted ? option.effect : undefined,
         relevance: round2(relevance),
       }))
   }
@@ -640,7 +632,12 @@ export const subclassDetail = (
       options:
         relevance === undefined
           ? socket.options.map((plug) => plug.name)
-          : ranked(part, (option) => ({ name: option.plug.name, effect: option.effect })),
+          : options(part)
+              .map((option) => ({
+                name: option.plug.name,
+                relevance: round2(relevance.get(optionId(option)) ?? 0),
+              }))
+              .toSorted((a, b) => b.relevance - a.relevance),
     }
   }
   return {
