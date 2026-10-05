@@ -32,12 +32,20 @@ describe("perksFrom", () => {
     plug(4, { name: "Kill Tracker", typeName: "Weapon Mod" }),
     plug(5, { name: "Empty Mod Socket", typeName: "Weapon Mod" }),
     plug(6, { name: "Mystery", typeName: "Intrinsic", description: "" }),
+    plug(7, { name: "Attrition Orbs", typeName: "Enhanced Trait" }),
   ])
 
   test("keeps real perks in socket order and marks the traits", () => {
     expect(perksFrom([1, 2], defs).map((perk) => [perk.name, perk.trait])).toEqual([
       ["Tactical Mag", false],
       ["Bait and Switch", true],
+    ])
+  })
+
+  test("marks enhanced perks, which are still traits", () => {
+    expect(perksFrom([2, 7], defs).map((perk) => [perk.name, perk.trait, perk.enhanced])).toEqual([
+      ["Bait and Switch", true, false],
+      ["Attrition Orbs", true, true],
     ])
   })
 

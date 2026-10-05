@@ -1,4 +1,5 @@
 import type { ItemDetail } from "@ghost/contract"
+import { Image } from "expo-image"
 import { useLocalSearchParams } from "expo-router"
 import { ScrollView, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
@@ -18,6 +19,36 @@ function Stats({ stats }: { stats: ItemDetail["stats"] }) {
   )
 }
 
+const PERK_ICON = 36
+
+function PerkIcon({
+  icon,
+  round,
+  enhanced,
+}: {
+  icon: string | null
+  round: boolean
+  enhanced: boolean
+}) {
+  return (
+    <View
+      style={{
+        width: PERK_ICON,
+        height: PERK_ICON,
+        borderWidth: enhanced ? 1.5 : 0,
+        borderColor: Ghost.gold,
+        borderRadius: round ? PERK_ICON / 2 : 0,
+        overflow: "hidden",
+        backgroundColor: Ghost.swatch,
+      }}
+    >
+      {icon ? (
+        <Image source={icon} style={{ width: "100%", height: "100%" }} transition={120} />
+      ) : null}
+    </View>
+  )
+}
+
 function Perks({ perks }: { perks: ItemDetail["perks"] }) {
   const ordered = [...perks.filter((perk) => perk.trait), ...perks.filter((perk) => !perk.trait)]
   return (
@@ -26,6 +57,7 @@ function Perks({ perks }: { perks: ItemDetail["perks"] }) {
       {ordered.map((perk, i) => (
         <View key={`${perk.name}${i}`} style={{ flexDirection: "row", gap: 12 }}>
           <View style={{ width: 2, backgroundColor: perk.trait ? Ghost.good : Ghost.ruleStrong }} />
+          <PerkIcon icon={perk.icon} round={perk.trait} enhanced={perk.enhanced ?? false} />
           <View style={{ flex: 1 }}>
             <Body
               size={15}

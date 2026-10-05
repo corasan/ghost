@@ -379,6 +379,8 @@ export class ItemPerk extends Schema.Class<ItemPerk>("ItemPerk")({
   icon: Schema.NullOr(Schema.String),
   /** A trait perk, the kind that makes a roll, as opposed to a barrel or mod. */
   trait: Schema.Boolean,
+  /** The enhanced version of the perk, from crafting or enhancing. */
+  enhanced: Schema.optional(Schema.Boolean),
 }) {}
 
 export class ItemDetail extends Schema.Class<ItemDetail>("ItemDetail")({

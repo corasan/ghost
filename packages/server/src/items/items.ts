@@ -54,6 +54,7 @@ export const perksFrom = (
         description: plug.description,
         icon: plug.icon,
         trait: plug.typeName.includes("Trait"),
+        enhanced: plug.typeName.startsWith("Enhanced "),
       }),
     ]
   })
