@@ -416,6 +416,8 @@ export class GuardianCharacter extends Schema.Class<GuardianCharacter>("Guardian
   /** Name of the equipped subclass, for example "Nightstalker". */
   subclass: Schema.NullOr(Schema.String),
   element: DamageType,
+  /** Art of the equipped Ghost shell. */
+  ghostIcon: Schema.optional(Schema.NullOr(Schema.String)),
   /** Missing only from a snapshot the app cached before subclasses were described. */
   loadout: Schema.optional(SubclassLoadout),
   stats: CharacterStats,

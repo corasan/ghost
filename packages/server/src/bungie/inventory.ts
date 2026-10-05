@@ -155,6 +155,7 @@ export interface CharacterInfo {
   readonly light: number
   readonly subclass: string | null
   readonly subclassIcon: string | null
+  readonly ghostIcon: string | null
   readonly element: DamageType
   readonly loadout: SlottedPlugs
   readonly stats: CharacterStats
@@ -289,6 +290,9 @@ export const buildInventory = (
       light: c.light,
       subclass: subclass?.name ?? null,
       subclassIcon: subclass?.icon ?? null,
+      ghostIcon:
+        defs.get(equipment.find((i) => i.bucketHash === BUCKETS.ghost)?.itemHash ?? 0)?.icon ??
+        null,
       element: subclassElement ?? "none",
       loadout: slottedPlugs(
         (sockets[subclassItem?.itemInstanceId ?? ""]?.sockets ?? []).flatMap((socket) =>

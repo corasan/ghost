@@ -138,6 +138,7 @@ export const BUCKETS = {
   postmaster: 215593132,
   vault: 138197802,
   subclass: 3284755031,
+  ghost: 4023194814,
 } as const
 
 export const slotForBucket = (bucketHash: number): ItemSlot => {

@@ -1,4 +1,5 @@
 import type { GuardianCharacter } from "@ghost/contract"
+import { Image } from "expo-image"
 import { Pressable, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
@@ -45,7 +46,15 @@ export function ChatHeader({
       >
         <Bars />
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-          <Diamond size={9} />
+          {character?.ghostIcon ? (
+            <Image
+              source={character.ghostIcon}
+              style={{ width: 26, height: 26 }}
+              transition={120}
+            />
+          ) : (
+            <Diamond size={9} />
+          )}
           <Cond size={19} style={{ letterSpacing: 3 }}>
             GHOST
           </Cond>

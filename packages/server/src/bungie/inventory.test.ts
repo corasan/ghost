@@ -39,6 +39,7 @@ const defs = new Map<number, ManifestItem>([
   [11, def(11, { name: "Firefly", typeName: "Enhanced Trait" })],
   [12, def(12, { name: "Arrowhead Brake", typeName: "Barrel" })],
   [20, def(20, { name: "Sentinel", typeName: "Void Subclass", damageType: "void" })],
+  [21, def(21, { name: "Lambda Shell", typeName: "Ghost Shell", icon: "https://b.net/shell.png" })],
   [30, def(30, { name: "Ward of Dawn", typeName: "Super Ability", description: "A dome." })],
   [31, def(31, { name: "Bastion", typeName: "Void Aspect" })],
   [32, def(32, { name: "Echo of Persistence", typeName: "Void Fragment" })],
@@ -83,6 +84,7 @@ const profile: Profile = {
         items: [
           { itemHash: 2, itemInstanceId: "e1", quantity: 1, bucketHash: BUCKETS.helmet, state: 1 },
           { itemHash: 20, itemInstanceId: "s1", quantity: 1, bucketHash: BUCKETS.subclass },
+          { itemHash: 21, itemInstanceId: "g1", quantity: 1, bucketHash: BUCKETS.ghost },
         ],
       },
     },
@@ -140,6 +142,8 @@ describe("buildInventory", () => {
     expect(titan.element).toBe("void")
     expect(titan.stats.resilience).toBe(100)
     expect(titan.postmasterCount).toBe(2)
+    expect(titan.ghostIcon).toBe("https://b.net/shell.png")
+    expect(inv.characters[0]?.ghostIcon).toBeNull()
   })
 
   test("sorts the subclass's plugs into super, aspects and fragments, without empty sockets", () => {
@@ -159,7 +163,7 @@ describe("buildInventory", () => {
   })
 
   test("keeps instanced items only and never the subclass", () => {
-    expect(inv.items.map((i) => i.itemInstanceId).sort()).toEqual(["e1", "p1", "v1", "v2"])
+    expect(inv.items.map((i) => i.itemInstanceId).sort()).toEqual(["e1", "g1", "p1", "v1", "v2"])
   })
 
   test("vault weapon: slot from definition, element, state bits, trait perks in order", () => {
