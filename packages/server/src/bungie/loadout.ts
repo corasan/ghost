@@ -3,10 +3,11 @@ import {
   LoadoutAbility,
   LoadoutPlug,
   StatMod,
+  type SubclassChange,
   SubclassLoadout,
 } from "@ghost/contract"
-import { type CharacterInfo, STAT, type SubclassPlug } from "./inventory.ts"
-import type { PlugFacts, StatFacts } from "./manifest.ts"
+import { type CharacterInfo, STAT, type SlottedPlugs, type SubclassPlug } from "./inventory.ts"
+import type { PlugFacts, StatFacts, StatMods } from "./manifest.ts"
 import { ARMOR_STATS, statLabel } from "./masterwork.ts"
 
 const CLASS_STAT: Record<GuardianClass, keyof typeof STAT> = {
@@ -15,15 +16,52 @@ const CLASS_STAT: Record<GuardianClass, keyof typeof STAT> = {
   warlock: "recovery",
 }
 
+/** What a plug does to each armor stat on this class: of its conditional changes, only the one to the class's own stat applies. */
+export const plugStatMods = (known: PlugFacts | undefined, classType: GuardianClass): StatMods => {
+  if (known === undefined) return {}
+  const own = STAT[CLASS_STAT[classType]]
+  const conditional = known.classMods[own]
+  return { ...(conditional === undefined ? {} : { [own]: conditional }), ...known.mods }
+}
+
 /**
- * A character's subclass as the app shows it: each plug's effect text, the
- * slots an aspect brings, and each fragment's stat changes under the same
- * labels the stats use. The character's totals already include those changes.
+ * What trading one set of aspects and fragments for another does to each
+ * armor stat, keyed by stat hash. The character's totals include the plugs it
+ * has slotted, so a build on other plugs takes theirs out and adds its own.
+ */
+export const loadoutStatChange = ({
+  from,
+  to,
+  plugs,
+  classType,
+}: {
+  readonly from: ReadonlyArray<number>
+  readonly to: ReadonlyArray<number>
+  readonly plugs: ReadonlyMap<number, PlugFacts>
+  readonly classType: GuardianClass
+}): StatMods => {
+  const change: Record<string, number> = {}
+  const add = (hashes: ReadonlyArray<number>, sign: number) => {
+    for (const hash of hashes)
+      for (const [stat, delta] of Object.entries(plugStatMods(plugs.get(hash), classType)))
+        change[stat] = (change[stat] ?? 0) + sign * delta
+  }
+  add(to, 1)
+  add(from, -1)
+  return change
+}
+
+/**
+ * A subclass as the app shows it: each plug's effect text, the slots an
+ * aspect brings, and each fragment's stat changes under the same labels the
+ * stats use. `swapped` maps each plug a build puts in to the one it replaces.
  */
 export const describeLoadout = ({
   character,
   plugs,
   facts,
+  swapped = new Map(),
+  change,
 }: {
   readonly character: Pick<
     CharacterInfo,
@@ -31,17 +69,19 @@ export const describeLoadout = ({
   >
   readonly plugs: ReadonlyMap<number, PlugFacts>
   readonly facts: StatFacts
+  readonly swapped?: ReadonlyMap<number, string | null>
+  readonly change?: SubclassChange
 }): SubclassLoadout => {
   const plug = (from: SubclassPlug) => {
     const known = plugs.get(from.hash)
+    const mods = plugStatMods(known, character.classType)
+    const replaces = swapped.get(from.hash)
     return new LoadoutPlug({
       name: from.name,
       description: from.description || (known?.description ?? ""),
       icon: from.icon,
       mods: ARMOR_STATS.flatMap(([key, label]) => {
-        const delta =
-          known?.mods[STAT[key]] ??
-          (key === CLASS_STAT[character.classType] ? known?.classMods[STAT[key]] : undefined)
+        const delta = mods[STAT[key]]
         return delta === undefined
           ? []
           : [new StatMod({ label: statLabel(key, label, facts), delta })]
@@ -49,6 +89,7 @@ export const describeLoadout = ({
       ...(known !== undefined && known.fragmentSlots > 0
         ? { fragmentSlots: known.fragmentSlots }
         : {}),
+      ...(replaces === undefined ? {} : { swap: true, replaces }),
     })
   }
   const { loadout } = character
@@ -59,12 +100,14 @@ export const describeLoadout = ({
     element: character.element,
     super: loadout.super === null ? null : plug(loadout.super),
     abilities: loadout.abilities.map(
-      ({ kind, name, icon }) => new LoadoutAbility({ kind, name, icon }),
+      ({ kind, name, icon, hash }) =>
+        new LoadoutAbility({ kind, name, icon, ...(swapped.has(hash) ? { swap: true } : {}) }),
     ),
     aspects: loadout.aspects.map(plug),
     fragments: loadout.fragments.map(plug),
+    ...(change === undefined ? {} : { change }),
   })
 }
 
-export const loadoutPlugHashes = ({ loadout }: Pick<CharacterInfo, "loadout">) =>
+export const loadoutPlugHashes = ({ loadout }: { readonly loadout: SlottedPlugs }) =>
   [...loadout.aspects, ...loadout.fragments].map((plug) => plug.hash)

@@ -50,6 +50,7 @@ const STEPS: Record<string, { label: string; detail?: (input: Input) => string |
     detail: (input) =>
       [input.slot, input.text].flatMap((part) => text(part) ?? []).join(" · ") || null,
   },
+  list_subclasses: { label: "Looking up your subclasses", detail: (input) => text(input.subclass) },
   search_creator_notes: { label: "Checking creator notes", detail: (input) => text(input.query) },
   cite_sources: { label: "Citing sources", detail: (input) => count(input.sources, "source") },
   present_plan: { label: "Writing the plan", detail: (input) => count(input.rows, "item") },

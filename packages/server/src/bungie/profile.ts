@@ -11,6 +11,7 @@ import {
   profileHashes,
 } from "./inventory.ts"
 import { Manifest } from "./manifest.ts"
+import { PlugSets } from "./subclass.ts"
 
 // One GetProfile call feeds every screen and agent tool. It is cached for 30
 // seconds so a burst of requests (the app refetching, the agent searching)
@@ -30,6 +31,8 @@ interface Membership {
 
 export interface ProfileStoreShape {
   readonly inventory: Effect.Effect<Inventory, BungieError | BungieNotLinked>
+  /** What each character can slot on its subclasses. Fetched apart from the inventory because it is large and only builds need it. */
+  readonly plugSets: Effect.Effect<PlugSets, BungieError | BungieNotLinked>
   readonly invalidate: Effect.Effect<void>
 }
 
@@ -84,11 +87,25 @@ export const ProfileStoreLive = Layer.effect(
       return { ...inventory, membershipType: m.membershipType, membershipId: m.membershipId }
     })
 
-    const [cached, invalidate] = yield* Effect.cachedInvalidateWithTTL(load, "30 seconds")
-    // A failure (not linked yet, Bungie down) must not stick for 30 seconds.
-    const inventory = cached.pipe(Effect.tapError(() => invalidate))
+    const loadPlugSets = Effect.gen(function* () {
+      const m = yield* membership
+      const raw = yield* bungie.get(
+        `/Destiny2/${m.membershipType}/Profile/${m.membershipId}/?components=104`,
+      )
+      return yield* Schema.decodeUnknownEffect(PlugSets)(raw).pipe(Effect.catch(decodeFailure))
+    })
 
-    return { inventory, invalidate }
+    const [cached, invalidateInventory] = yield* Effect.cachedInvalidateWithTTL(load, "30 seconds")
+    const [cachedPlugSets, invalidatePlugSets] = yield* Effect.cachedInvalidateWithTTL(
+      loadPlugSets,
+      "30 seconds",
+    )
+    const invalidate = Effect.andThen(invalidateInventory, invalidatePlugSets)
+    // A failure (not linked yet, Bungie down) must not stick for 30 seconds.
+    const inventory = cached.pipe(Effect.tapError(() => invalidateInventory))
+    const plugSets = cachedPlugSets.pipe(Effect.tapError(() => invalidatePlugSets))
+
+    return { inventory, plugSets, invalidate }
   }),
 )
 

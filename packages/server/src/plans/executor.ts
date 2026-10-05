@@ -8,6 +8,8 @@ import {
   PlanRow,
   type RowOutcome,
   type BungieNotLinked,
+  SubclassChange,
+  SubclassLoadout,
 } from "@ghost/contract"
 import { Context, Effect, Layer } from "effect"
 import { BungieClient, type BungieError } from "../bungie/client.ts"
@@ -80,7 +82,7 @@ export const PlansLive = Layer.effect(
         const picked = new Set(selected)
 
         const call = (
-          item: OwnedItem,
+          item: Pick<OwnedItem, "itemInstanceId" | "itemHash" | "name">,
           kind: ActionKind,
           fields: Pick<NewAction, "characterId" | "fromLocation" | "fromCharacterId"> &
             Partial<
@@ -277,6 +279,88 @@ export const PlansLive = Layer.effect(
           }
         }
 
+        const changeSubclass = (change: SubclassChange) =>
+          Effect.gen(function* () {
+            const owner = inv.characters.find((c) => c.characterId === change.characterId)
+            const subclass = owner?.subclasses.find(
+              (each) => each.itemInstanceId === change.itemInstanceId,
+            )
+            if (owner === undefined || subclass === undefined) {
+              return yield* Effect.fail("that subclass is no longer on the character")
+            }
+            const fields = {
+              characterId: owner.characterId,
+              fromLocation: "character",
+              fromCharacterId: owner.characterId,
+            }
+            if (!subclass.equipped) {
+              yield* call(
+                subclass,
+                "equip",
+                {
+                  ...fields,
+                  previousItemId:
+                    owner.subclasses.find((each) => each.equipped)?.itemInstanceId ?? null,
+                },
+                bungie.equipItem({
+                  itemId: subclass.itemInstanceId,
+                  characterId: owner.characterId,
+                  membershipType: inv.membershipType,
+                }),
+              )
+              yield* Effect.sleep(SPACING)
+            }
+            for (const swap of change.swaps) {
+              yield* call(
+                subclass,
+                "insert_mod",
+                {
+                  ...fields,
+                  socketIndex: swap.socketIndex,
+                  plugHash: swap.plugHash,
+                  previousPlugHash: swap.previousPlugHash,
+                },
+                bungie.insertPlug({
+                  itemId: subclass.itemInstanceId,
+                  characterId: owner.characterId,
+                  membershipType: inv.membershipType,
+                  socketIndex: swap.socketIndex,
+                  plugHash: swap.plugHash,
+                }),
+              ).pipe(Effect.mapError((reason) => `${swap.name}: ${reason}`))
+              yield* Effect.sleep(SPACING)
+            }
+          })
+
+        const change = plan.loadout?.change
+        const changed =
+          change === undefined
+            ? undefined
+            : picked.has(change.itemInstanceId)
+              ? yield* Effect.result(changeSubclass(change)).pipe(
+                  Effect.map(
+                    (result) =>
+                      new SubclassChange({
+                        ...change,
+                        outcome: result._tag === "Success" ? "ok" : "failed",
+                        error: result._tag === "Success" ? null : result.failure,
+                      }),
+                  ),
+                )
+              : yield* record({
+                  jobId,
+                  itemInstanceId: change.itemInstanceId,
+                  itemHash: change.itemHash,
+                  name: plan.loadout?.subclass ?? null,
+                  kind: "held",
+                  characterId: change.characterId,
+                  fromLocation: "character",
+                  fromCharacterId: change.characterId,
+                  previousItemId: null,
+                  status: "held",
+                  error: null,
+                }).pipe(Effect.as(new SubclassChange({ ...change, outcome: "skipped" })))
+
         const rows: Array<PlanRow> = []
         for (const row of plan.rows) {
           const finish = (outcome: RowOutcome | null, error: string | null) =>
@@ -342,8 +426,20 @@ export const PlansLive = Layer.effect(
           yield* Effect.sleep(SPACING)
         }
 
+        const loadout =
+          plan.loadout === undefined || changed === undefined
+            ? plan.loadout
+            : new SubclassLoadout({ ...plan.loadout, change: changed })
         yield* jobs
-          .setPlan(jobId, new Plan({ ...plan, rows, status: "applied" }))
+          .setPlan(
+            jobId,
+            new Plan({
+              ...plan,
+              rows,
+              ...(loadout === undefined ? {} : { loadout }),
+              status: "applied",
+            }),
+          )
           .pipe(Effect.orDie)
         yield* items.tagJob([...moved], jobId).pipe(Effect.orDie)
         yield* profile.invalidate

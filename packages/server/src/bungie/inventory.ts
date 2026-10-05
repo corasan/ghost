@@ -138,12 +138,32 @@ export interface SlottedPlugs {
 const ARMOR_MOD = /\barmor mod$/i
 const EMPTY_SOCKET = /^empty /i
 
-const ABILITY_TYPES: ReadonlyArray<readonly [AbilityKind, RegExp]> = [
+export type SubclassPart = "super" | AbilityKind | "aspect" | "fragment"
+
+const PART_TYPES: ReadonlyArray<readonly [SubclassPart, RegExp]> = [
+  ["super", /\bsuper\b/i],
   ["class", /\bclass ability\b/i],
   ["jump", /\bmovement\b/i],
   ["melee", /\bmelee\b/i],
   ["grenade", /\bgrenade\b/i],
+  ["aspect", /\baspect\b/i],
+  ["fragment", /\bfragment\b/i],
 ]
+
+export const ABILITY_KINDS: ReadonlyArray<AbilityKind> = ["class", "jump", "melee", "grenade"]
+
+/** Which part of a subclass a plug fills, read from its type name, such as "Void Fragment". */
+export const subclassPart = (typeName: string): SubclassPart | null =>
+  PART_TYPES.find(([, type]) => type.test(typeName))?.[0] ?? null
+
+export const isEmptyPlug = (name: string) => EMPTY_SOCKET.test(name)
+
+const toPlug = ({ hash, name, description, icon }: ManifestItem): SubclassPlug => ({
+  hash,
+  name,
+  description,
+  icon,
+})
 
 /** Sorts a subclass's slotted plugs into super, abilities, aspects and fragments; empty sockets are dropped. */
 export const slottedPlugs = (
@@ -154,19 +174,27 @@ export const slottedPlugs = (
     const def = defs.get(hash)
     return def === undefined || EMPTY_SOCKET.test(def.name) ? [] : [def]
   })
-  const ofType = (type: RegExp): ReadonlyArray<SubclassPlug> =>
-    plugs
-      .filter((plug) => type.test(plug.typeName))
-      .map(({ hash, name, description, icon }) => ({ hash, name, description, icon }))
+  const of = (part: SubclassPart) =>
+    plugs.filter((plug) => subclassPart(plug.typeName) === part).map(toPlug)
   return {
-    super: ofType(/\bsuper\b/i)[0] ?? null,
-    abilities: ABILITY_TYPES.flatMap(([kind, type]) => {
-      const plug = ofType(type)[0]
+    super: of("super")[0] ?? null,
+    abilities: ABILITY_KINDS.flatMap((kind) => {
+      const plug = of(kind)[0]
       return plug === undefined ? [] : [{ ...plug, kind }]
     }),
-    aspects: ofType(/\baspect\b/i),
-    fragments: ofType(/\bfragment\b/i),
+    aspects: of("aspect"),
+    fragments: of("fragment"),
   }
+}
+
+export interface OwnedSubclass {
+  readonly itemInstanceId: string
+  readonly itemHash: number
+  readonly name: string
+  readonly icon: string | null
+  readonly element: DamageType
+  readonly equipped: boolean
+  readonly sockets: ReadonlyArray<{ readonly plugHash: number; readonly enabled: boolean }>
 }
 
 export interface CharacterInfo {
@@ -178,6 +206,7 @@ export interface CharacterInfo {
   readonly ghostIcon: string | null
   readonly element: DamageType
   readonly loadout: SlottedPlugs
+  readonly subclasses: ReadonlyArray<OwnedSubclass>
   readonly stats: CharacterStats
   /** Everything in the postmaster, stackables included, since all of it counts toward 21. */
   readonly postmasterCount: number
@@ -226,6 +255,11 @@ const SUBCLASS_ELEMENTS: Record<string, DamageType> = {
   Berserker: "strand",
   Broodweaver: "strand",
 }
+
+const elementOf = (subclass: ManifestItem): DamageType =>
+  subclass.damageType !== "none"
+    ? subclass.damageType
+    : (SUBCLASS_ELEMENTS[subclass.name] ?? "none")
 
 const statsFrom = (stats: Readonly<Record<string, number>>) =>
   new CharacterStats({
@@ -300,10 +334,24 @@ export const buildInventory = (
     for (const raw of equipment) place(raw, "character", c.characterId, true)
     const subclassItem = equipment.find((i) => i.bucketHash === BUCKETS.subclass)
     const subclass = subclassItem === undefined ? undefined : defs.get(subclassItem.itemHash)
-    const subclassElement =
-      subclass === undefined || subclass.damageType !== "none"
-        ? subclass?.damageType
-        : SUBCLASS_ELEMENTS[subclass.name]
+    const subclasses = [...equipment, ...inventory].flatMap((raw): Array<OwnedSubclass> => {
+      const def = defs.get(raw.itemHash)
+      if (raw.bucketHash !== BUCKETS.subclass || raw.itemInstanceId === undefined || !def) return []
+      return [
+        {
+          itemInstanceId: raw.itemInstanceId,
+          itemHash: raw.itemHash,
+          name: def.name,
+          icon: def.icon,
+          element: elementOf(def),
+          equipped: raw === subclassItem,
+          sockets: (sockets[raw.itemInstanceId]?.sockets ?? []).map((socket) => ({
+            plugHash: socket.plugHash ?? 0,
+            enabled: socket.isEnabled !== false,
+          })),
+        },
+      ]
+    })
     characters.push({
       characterId: c.characterId,
       classType: classFor(c.classType),
@@ -313,13 +361,14 @@ export const buildInventory = (
       ghostIcon:
         defs.get(equipment.find((i) => i.bucketHash === BUCKETS.ghost)?.itemHash ?? 0)?.icon ??
         null,
-      element: subclassElement ?? "none",
+      element: subclass === undefined ? "none" : elementOf(subclass),
       loadout: slottedPlugs(
         (sockets[subclassItem?.itemInstanceId ?? ""]?.sockets ?? []).flatMap((socket) =>
           socket.plugHash === undefined ? [] : [socket.plugHash],
         ),
         defs,
       ),
+      subclasses,
       stats: statsFrom(c.stats),
       postmasterCount: inventory.filter((i) => i.bucketHash === BUCKETS.postmaster).length,
     })

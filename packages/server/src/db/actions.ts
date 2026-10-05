@@ -26,9 +26,9 @@ export interface ActionRecord {
   readonly characterId: string | null
   readonly fromLocation: string | null
   readonly fromCharacterId: string | null
-  /** The item an equip replaced, so undo can put it back on. */
+  /** The item or subclass an equip replaced, so undo can put it back on. */
   readonly previousItemId: string | null
-  /** For insert_mod: the socket, the mod put in, and the plug it displaced so undo can restore it. */
+  /** For insert_mod (an armor mod or a subclass plug): the socket, the plug put in, and the plug it displaced so undo can restore it. */
   readonly socketIndex?: number | null
   readonly plugHash?: number | null
   readonly previousPlugHash?: number | null

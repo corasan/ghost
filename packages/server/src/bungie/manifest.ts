@@ -85,6 +85,9 @@ export interface PlugDefinition {
     readonly insertionRules?: ReadonlyArray<{ readonly failureMessage?: string }>
   }
   readonly perks?: ReadonlyArray<{ readonly perkHash?: number }>
+  readonly sockets?: {
+    readonly socketEntries?: ReadonlyArray<{ readonly reusablePlugSetHash?: number }>
+  }
 }
 
 /** What the lite definitions leave out about a subclass plug. */
@@ -149,6 +152,8 @@ export interface ManifestShape {
   readonly plugFacts: (
     hashes: ReadonlyArray<number>,
   ) => Effect.Effect<ReadonlyMap<number, PlugFacts>>
+  /** The plug set each socket of a subclass draws from, in socket order; null where it has none or Bungie cannot be asked. Never fails. */
+  readonly subclassPlugSets: (hash: number) => Effect.Effect<ReadonlyArray<number | null>>
   /** Every armor mod that fits a build socket. Slow the first time after a patch, then stored. Never fails. */
   readonly armorMods: Effect.Effect<ReadonlyArray<ArmorModEntry>>
   /** Empty until first read. Never fails. */
@@ -387,6 +392,26 @@ export const ManifestLive = Layer.effect(
         Effect.map((json) => (json as { Response?: PlugDefinition }).Response ?? {}),
       )
 
+    const plugSets = new Map<number, ReadonlyArray<number | null>>()
+
+    const subclassPlugSets = (hash: number) =>
+      Effect.gen(function* () {
+        const known = plugSets.get(hash)
+        if (known !== undefined) return known
+        const definition = yield* entity("DestinyInventoryItemDefinition", hash)
+        const sets = (definition.sockets?.socketEntries ?? []).map(
+          (entry) => entry.reusablePlugSetHash ?? null,
+        )
+        plugSets.set(hash, sets)
+        return sets
+      }).pipe(
+        Effect.catch((error) =>
+          Effect.logWarning(`manifest: subclass ${hash} failed: ${error.message}`).pipe(
+            Effect.as([]),
+          ),
+        ),
+      )
+
     const plugFacts = (hashes: ReadonlyArray<number>) =>
       Effect.forEach(
         hashes.filter((hash) => !plugs.has(hash)),
@@ -525,6 +550,7 @@ export const ManifestLive = Layer.effect(
       cache.clear()
       missing.clear()
       plugs.clear()
+      plugSets.clear()
       armorMods = null
       checkedAt = Date.now()
       yield* Effect.logInfo(`manifest: stored ${count} items`)
@@ -639,6 +665,7 @@ export const ManifestLive = Layer.effect(
       capacities: readCapacities,
       statFacts: readStatFacts,
       plugFacts,
+      subclassPlugSets,
       ensure,
       lookup,
       findByName,

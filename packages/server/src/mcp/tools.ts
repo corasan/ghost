@@ -14,6 +14,8 @@ import {
   PlanRow,
   PlanStat,
   Source,
+  SubclassChange,
+  SubclassSwap,
 } from "@ghost/contract"
 import { Effect, Option, Schema } from "effect"
 import { Tool, Toolkit } from "effect/ai"
@@ -21,15 +23,23 @@ import { CurrentJob } from "../agent/current-job.ts"
 import type { BungieError } from "../bungie/client.ts"
 import {
   type ArmorStats,
+  type CharacterInfo,
   type Inventory,
   isArmor,
   isWeapon,
   type OwnedItem,
+  pickCharacter,
   STAT,
+  type SubclassPlug,
 } from "../bungie/inventory.ts"
-import { Manifest, type ManifestItem } from "../bungie/manifest.ts"
+import { Manifest, type ManifestItem, type StatFacts } from "../bungie/manifest.ts"
 import { ARMOR_STATS, armorStats, buildStats, withMasterworkTotals } from "../bungie/masterwork.ts"
-import { describeLoadout, loadoutPlugHashes } from "../bungie/loadout.ts"
+import {
+  describeLoadout,
+  loadoutPlugHashes,
+  loadoutStatChange,
+  plugStatMods,
+} from "../bungie/loadout.ts"
 import {
   describeArmorMods,
   type ModSwap,
@@ -39,6 +49,7 @@ import {
   withChargeEffects,
 } from "../bungie/mods.ts"
 import { ProfileStore } from "../bungie/profile.ts"
+import { planSubclass, subclassSockets, unlockedPlugs } from "../bungie/subclass.ts"
 import { CreatorNotes } from "../creators/creators.ts"
 import { NOTE_MAX_AGE_DAYS } from "../creators/parse.ts"
 import { ChargeEffects } from "../db/charge.ts"
@@ -82,9 +93,30 @@ const SearchItems = Tool.make("search_items", {
   success: Json,
 })
 
+const SubclassInput = Schema.Struct({
+  name: Schema.String,
+  super: Schema.optional(Schema.String),
+  classAbility: Schema.optional(Schema.String),
+  jump: Schema.optional(Schema.String),
+  melee: Schema.optional(Schema.String),
+  grenade: Schema.optional(Schema.String),
+  aspects: Schema.optional(Schema.Array(Schema.String)),
+  fragments: Schema.optional(Schema.Array(Schema.String)),
+})
+
+const ListSubclasses = Tool.make("list_subclasses", {
+  description:
+    "The subclasses a character owns and what the player has unlocked for each. Without subclass: each one's name, element and what is slotted now. With subclass (a name or an element): every super, class ability, jump, melee and grenade it can take, its aspects with the fragment slots each brings and effect text, and its fragments with stat changes and effect text. Use these names exactly in present_plan subclass.",
+  parameters: Schema.Struct({
+    characterId: Schema.optional(Schema.String),
+    subclass: Schema.optional(Schema.String),
+  }),
+  success: Json,
+})
+
 const PresentPlan = Tool.make("present_plan", {
   description:
-    "Show the player a plan to confirm. Nothing moves until they tap the confirm button; the server then runs the selected rows. Call it once per request, after deciding. Row actions: to_vault, to_character, pull_postmaster, equip, tag_junk, or none (shown for comparison only). For a build, list the armor piece for every slot, including pieces that stay equipped (action none). The app works out the build's six stat totals itself from the pieces you equip, before and after, and what masterworking would add, so do not do that arithmetic or repeat those numbers in your reply. A build card also shows the super, aspects and fragments the character has slotted, read from the game; you cannot change the subclass, so if the build needs a different one, say so in your reply. For a build, also recommend armor mods in mods: one entry per mod to put in, naming the piece (it must be a row) and the mod exactly as list_armor_mods gives it, with replaces when the piece has no free socket of that kind. Only list mods that change; what is already slotted stays. The server checks sockets and energy and tells you what to fix. Every armor charge mod the build will run (charged true in get_armor_mods or list_armor_mods, already slotted or swapped in) needs its numbers: if it has no chargeEffect yet, look up what it adds while charged and how extra copies stack, and pass it in chargeEffects with the source, for example '+10% Arc weapon damage; 17% with two copies, 22% with three'. For a build, also write situational: one to three sentences on what the build's conditional bonuses (armor charge mods, and fragments or aspects that only work under a condition) add together once they are up, how the player keeps them up, and what they lose when they drop. Pass stats only to mark the stats the player asked for: label Health, Melee, Grenade, Super, Class or Weapons with target true; the values are ignored for a build.",
+    "Show the player a plan to confirm. Nothing moves until they tap the confirm button; the server then runs the selected rows. Call it once per request, after deciding. Row actions: to_vault, to_character, pull_postmaster, equip, tag_junk, or none (shown for comparison only). For a build, list the armor piece for every slot, including pieces that stay equipped (action none). The app works out the build's six stat totals itself from the pieces you equip, before and after, and what masterworking would add, so do not do that arithmetic or repeat those numbers in your reply. For a build, also pick the subclass in subclass: its name (from list_subclasses) and the super, class ability, jump, melee, grenade, aspects and fragments you want, by the names list_subclasses gives. Anything you leave out stays as that subclass has it, so pass aspects and fragments whenever they should change; the aspects' fragment slots cap the fragments. The server checks the picks and tells you what to fix; on confirm it equips the subclass and slots the plugs, and the build's stats count the chosen fragments. Leave subclass out only when the equipped subclass and its plugs already fit. For a build, also recommend armor mods in mods: one entry per mod to put in, naming the piece (it must be a row) and the mod exactly as list_armor_mods gives it, with replaces when the piece has no free socket of that kind. Only list mods that change; what is already slotted stays. The server checks sockets and energy and tells you what to fix. Every armor charge mod the build will run (charged true in get_armor_mods or list_armor_mods, already slotted or swapped in) needs its numbers: if it has no chargeEffect yet, look up what it adds while charged and how extra copies stack, and pass it in chargeEffects with the source, for example '+10% Arc weapon damage; 17% with two copies, 22% with three'. For a build, also write situational: one to three sentences on what the build's conditional bonuses (armor charge mods, and fragments or aspects that only work under a condition) add together once they are up, how the player keeps them up, and what they lose when they drop. Pass stats only to mark the stats the player asked for: label Health, Melee, Grenade, Super, Class or Weapons with target true; the values are ignored for a build.",
   parameters: Schema.Struct({
     kind: PlanKind,
     title: Schema.String,
@@ -128,6 +160,7 @@ const PresentPlan = Tool.make("present_plan", {
       ),
     ),
     situational: Schema.optional(Schema.String),
+    subclass: Schema.optional(SubclassInput),
     sources: Schema.optional(Schema.Array(SourceInput)),
   }),
   success: Json,
@@ -202,6 +235,7 @@ export const GhostToolkit = Toolkit.make(
   DescribePlugs,
   GetArmorMods,
   ListArmorMods,
+  ListSubclasses,
   SearchCreatorNotes,
   CiteSources,
 )
@@ -341,6 +375,121 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
 
     const nameLookup = (hashes: Iterable<number>) =>
       Effect.map(manifest.lookup(hashes), (defs) => (hash: number) => defs.get(hash)?.name)
+
+    const subclassChoices = (character: CharacterInfo) =>
+      Effect.gen(function* () {
+        const sets = yield* profile.plugSets
+        return yield* Effect.forEach(
+          character.subclasses,
+          (subclass) =>
+            Effect.gen(function* () {
+              const plugSets = yield* manifest.subclassPlugSets(subclass.itemHash)
+              const unlocked = (set: number) => unlockedPlugs(sets, character.characterId, set)
+              const defs = yield* manifest.lookup([
+                ...subclass.sockets.map((socket) => socket.plugHash),
+                ...plugSets.flatMap((set) => (set === null ? [] : unlocked(set))),
+              ])
+              const sockets = subclassSockets({ subclass, plugSets, unlocked, defs })
+              const plugs = yield* manifest.plugFacts([
+                ...new Set(
+                  sockets
+                    .filter((socket) => socket.part === "aspect" || socket.part === "fragment")
+                    .flatMap((socket) => [socket.current, ...socket.options.map((o) => o.hash)]),
+                ),
+              ])
+              return { subclass, defs, sockets, plugs }
+            }),
+          { concurrency: 4 },
+        )
+      })
+
+    type SubclassChoice = Effect.Success<ReturnType<typeof subclassChoices>>[number]
+
+    const findSubclass = (choices: ReadonlyArray<SubclassChoice>, wanted: string) =>
+      choices.find(
+        ({ subclass }) =>
+          subclass.name.toLowerCase() === wanted.trim().toLowerCase() ||
+          subclass.element === wanted.trim().toLowerCase(),
+      )
+
+    const unknownSubclass = (choices: ReadonlyArray<SubclassChoice>, wanted: string) =>
+      `Error: "${wanted}" is not a subclass this character owns; pick from ${choices.map((c) => c.subclass.name).join(", ")}.`
+
+    const buildSubclass = (
+      character: CharacterInfo,
+      request: typeof SubclassInput.Type,
+      facts: StatFacts,
+    ) =>
+      Effect.gen(function* () {
+        const choices = yield* subclassChoices(character)
+        const choice = findSubclass(choices, request.name)
+        if (choice === undefined) return { error: unknownSubclass(choices, request.name) }
+        const planned = planSubclass({
+          name: choice.subclass.name,
+          sockets: choice.sockets,
+          request,
+          defs: choice.defs,
+          fragmentSlots: (hash) => choice.plugs.get(hash)?.fragmentSlots ?? 0,
+        })
+        if ("errors" in planned) {
+          return {
+            error: `Error: ${planned.errors.join(". ")}. Check list_subclasses and call present_plan again.`,
+          }
+        }
+        const equipped = character.subclasses.find((subclass) => subclass.equipped)
+        const switching = !choice.subclass.equipped
+        const change =
+          switching || planned.swaps.length > 0
+            ? new SubclassChange({
+                itemInstanceId: choice.subclass.itemInstanceId,
+                itemHash: choice.subclass.itemHash,
+                characterId: character.characterId,
+                replaces: switching ? (equipped?.name ?? null) : null,
+                previousItemId: switching ? (equipped?.itemInstanceId ?? null) : null,
+                swaps: planned.swaps.map(
+                  (swap) =>
+                    new SubclassSwap({
+                      name: swap.plug.name,
+                      socketIndex: swap.socketIndex,
+                      plugHash: swap.plug.hash,
+                      previousPlugHash: swap.previousPlugHash,
+                    }),
+                ),
+                selected: true,
+                outcome: null,
+                error: null,
+              })
+            : undefined
+        const worn = loadoutPlugHashes(character)
+        const plugs = new Map([...(yield* manifest.plugFacts(worn)), ...choice.plugs])
+        return {
+          loadout: describeLoadout({
+            character: {
+              classType: character.classType,
+              subclass: choice.subclass.name,
+              subclassIcon: choice.subclass.icon,
+              element: choice.subclass.element,
+              loadout: planned.loadout,
+            },
+            plugs,
+            facts,
+            swapped: new Map(
+              planned.swaps.map((swap) => [swap.plug.hash, swap.previous?.name ?? null]),
+            ),
+            ...(change === undefined ? {} : { change }),
+          }),
+          statChange: loadoutStatChange({
+            from: worn,
+            to: loadoutPlugHashes({ loadout: planned.loadout }),
+            plugs,
+            classType: character.classType,
+          }),
+          summary: [
+            switching ? `equips ${choice.subclass.name}` : null,
+            planned.swaps.length > 0 ? `${planned.swaps.length} subclass plug changes` : null,
+          ].filter((part) => part !== null),
+        }
+      })
 
     const get_characters = () =>
       withInventory((inv) =>
@@ -520,15 +669,28 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
             const builtFor = inv.characters.find(
               (c) => c.characterId === (equipping[0]?.characterId ?? fallback),
             )
+            const chosen =
+              input.kind === "build" && builtFor !== undefined && input.subclass !== undefined
+                ? yield* buildSubclass(builtFor, input.subclass, facts).pipe(
+                    Effect.catch((error) => Effect.succeed({ error: explain(error) })),
+                  )
+                : null
+            if (chosen !== null && "error" in chosen) return chosen.error
             const loadout =
-              input.kind === "build" && builtFor !== undefined
-                ? describeLoadout({
-                    character: builtFor,
-                    plugs: yield* manifest.plugFacts(loadoutPlugHashes(builtFor)),
-                    facts,
-                  })
-                : undefined
-            const modChange = swapStatChange([...swapsFor.values()].flat())
+              chosen !== null
+                ? chosen.loadout
+                : input.kind === "build" && builtFor !== undefined
+                  ? describeLoadout({
+                      character: builtFor,
+                      plugs: yield* manifest.plugFacts(loadoutPlugHashes(builtFor)),
+                      facts,
+                    })
+                  : undefined
+            const modChange: Record<string, number> = {
+              ...swapStatChange([...swapsFor.values()].flat()),
+            }
+            for (const [stat, delta] of Object.entries(chosen?.statChange ?? {}))
+              modChange[stat] = (modChange[stat] ?? 0) + delta
             const planStats =
               input.kind === "build" && builtFor !== undefined
                 ? buildStats({
@@ -585,7 +747,13 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
               unresearched.length > 0
                 ? ` These armor charge mods still have no chargeEffect, so the card cannot say what they add: ${unresearched.join(", ")}. Look them up and call present_plan again with chargeEffects.`
                 : ""
-            return `Plan saved with ${rows.length} rows (${actionable} actionable, ${swapped} mod swaps). The player will see it under your answer and confirm in the app.${missing}`
+            const subclassNote =
+              chosen === null
+                ? ""
+                : chosen.summary.length > 0
+                  ? ` Subclass: ${chosen.summary.join(", ")}.`
+                  : " Subclass: already as picked, nothing changes."
+            return `Plan saved with ${rows.length} rows (${actionable} actionable, ${swapped} mod swaps).${subclassNote} The player will see it under your answer and confirm in the app.${missing}`
           }),
         )
       })
@@ -757,6 +925,88 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
         })
       })
 
+    const list_subclasses = (input: {
+      readonly characterId?: string | undefined
+      readonly subclass?: string | undefined
+    }) =>
+      withInventory((inv) =>
+        Effect.gen(function* () {
+          const job = yield* current.get
+          const character = pickCharacter(
+            inv,
+            input.characterId ?? Option.getOrNull(job)?.characterId,
+          )
+          if (character === undefined) return "Error: no characters on this account."
+          const choices = yield* subclassChoices(character)
+          const names = (plugs: ReadonlyArray<SubclassPlug>) => plugs.map((plug) => plug.name)
+          const nameOf = (choice: SubclassChoice, hash: number) => {
+            const def = choice.defs.get(hash)
+            return def === undefined || /^empty /i.test(def.name) ? null : def.name
+          }
+          if (input.subclass === undefined) {
+            return json({
+              characterId: character.characterId,
+              class: character.classType,
+              subclasses: choices.map((choice) => ({
+                name: choice.subclass.name,
+                element: choice.subclass.element,
+                equipped: choice.subclass.equipped,
+                slotted: Object.fromEntries(
+                  ["super", "aspect", "fragment"].map((part) => [
+                    part,
+                    choice.sockets
+                      .filter((socket) => socket.part === part && socket.enabled)
+                      .flatMap((socket) => nameOf(choice, socket.current) ?? []),
+                  ]),
+                ),
+              })),
+            })
+          }
+          const choice = findSubclass(choices, input.subclass)
+          if (choice === undefined) return unknownSubclass(choices, input.subclass)
+          const effect = (plug: SubclassPlug) =>
+            clip(plug.description || (choice.plugs.get(plug.hash)?.description ?? ""), 240)
+          const of = (part: string) => choice.sockets.filter((socket) => socket.part === part)
+          const single = (part: string) => {
+            const socket = of(part)[0]
+            return socket === undefined
+              ? undefined
+              : { slotted: nameOf(choice, socket.current), options: names(socket.options) }
+          }
+          const slotted = (part: string) =>
+            new Set(
+              of(part)
+                .filter((socket) => socket.enabled)
+                .map((socket) => socket.current),
+            )
+          const aspectsOn = slotted("aspect")
+          const fragmentsOn = slotted("fragment")
+          return json({
+            name: choice.subclass.name,
+            element: choice.subclass.element,
+            equipped: choice.subclass.equipped,
+            aspectSockets: of("aspect").length,
+            super: single("super"),
+            classAbility: single("class"),
+            jump: single("jump"),
+            melee: single("melee"),
+            grenade: single("grenade"),
+            aspects: (of("aspect")[0]?.options ?? []).map((plug) => ({
+              name: plug.name,
+              fragmentSlots: choice.plugs.get(plug.hash)?.fragmentSlots ?? 0,
+              effect: effect(plug),
+              slotted: aspectsOn.has(plug.hash) || undefined,
+            })),
+            fragments: (of("fragment")[0]?.options ?? []).map((plug) => ({
+              name: plug.name,
+              stats: namedMods(plugStatMods(choice.plugs.get(plug.hash), character.classType)),
+              effect: effect(plug),
+              slotted: fragmentsOn.has(plug.hash) || undefined,
+            })),
+          })
+        }).pipe(Effect.catch((error) => Effect.succeed(explain(error)))),
+      )
+
     const describe_plugs = (input: {
       readonly names?: ReadonlyArray<string> | undefined
       readonly hashes?: ReadonlyArray<number> | undefined
@@ -825,6 +1075,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
       describe_plugs,
       get_armor_mods,
       list_armor_mods,
+      list_subclasses,
       search_creator_notes,
       cite_sources,
     }

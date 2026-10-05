@@ -216,6 +216,10 @@ export class LoadoutPlug extends Schema.Class<LoadoutPlug>("LoadoutPlug")({
   mods: Schema.Array(StatMod),
   /** How many fragment slots an aspect brings. */
   fragmentSlots: Schema.optional(Schema.Number),
+  /** True when the plan puts this plug in; the rest are already slotted. */
+  swap: Schema.optional(Schema.Boolean),
+  /** The plug this one takes the place of, when the socket was not empty. */
+  replaces: Schema.optional(Schema.NullOr(Schema.String)),
 }) {}
 
 export const AbilityKind = Schema.Literals(["class", "jump", "melee", "grenade"])
@@ -225,9 +229,38 @@ export class LoadoutAbility extends Schema.Class<LoadoutAbility>("LoadoutAbility
   kind: AbilityKind,
   name: Schema.String,
   icon: Schema.NullOr(Schema.String),
+  /** True when the plan puts this ability in. */
+  swap: Schema.optional(Schema.Boolean),
 }) {}
 
-/** What a character has slotted on its subclass, read from the game. */
+/** A subclass plug the plan puts in, with what the server needs to insert it and to undo it. */
+export class SubclassSwap extends Schema.Class<SubclassSwap>("SubclassSwap")({
+  name: Schema.String,
+  socketIndex: Schema.Number,
+  plugHash: Schema.Number,
+  previousPlugHash: Schema.Number,
+}) {}
+
+/**
+ * What confirming a build does to the subclass: equip it when it is not the
+ * one on, then slot its plugs. It runs only when its item id is among the
+ * selected ids, the same way a row does.
+ */
+export class SubclassChange extends Schema.Class<SubclassChange>("SubclassChange")({
+  itemInstanceId: Schema.String,
+  itemHash: Schema.Number,
+  characterId: Schema.String,
+  /** The equipped subclass this one takes over from; null when it is already on. */
+  replaces: Schema.NullOr(Schema.String),
+  previousItemId: Schema.NullOr(Schema.String),
+  swaps: Schema.Array(SubclassSwap),
+  /** Ghost's default, as on a row. */
+  selected: Schema.Boolean,
+  outcome: Schema.NullOr(RowOutcome),
+  error: Schema.NullOr(Schema.String),
+}) {}
+
+/** A character's subclass: what it has slotted, or what a build slots. */
 export class SubclassLoadout extends Schema.Class<SubclassLoadout>("SubclassLoadout")({
   classType: GuardianClass,
   subclass: Schema.NullOr(Schema.String),
@@ -238,6 +271,8 @@ export class SubclassLoadout extends Schema.Class<SubclassLoadout>("SubclassLoad
   abilities: Schema.optional(Schema.Array(LoadoutAbility)),
   aspects: Schema.Array(LoadoutPlug),
   fragments: Schema.Array(LoadoutPlug),
+  /** Present when the build equips this subclass or changes its plugs. */
+  change: Schema.optional(SubclassChange),
 }) {}
 
 export const PlanKind = Schema.Literals(["build", "weapon", "postmaster", "cleanup", "transfer"])
