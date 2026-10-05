@@ -326,7 +326,7 @@ export function BuildCard({ job, plan }: { job: Job; plan: Plan }) {
       {plan.status === "proposed" && selection.actionableCount > 0 ? (
         <View style={styles.action}>
           <Button
-            label={apply.isPending ? "WORKING…" : plan.confirmLabel}
+            label={apply.isPending ? "WORKING…" : plan.confirmLabel.toUpperCase()}
             tone="solid"
             under={Ghost.panel}
             disabled={selected.length === 0 || apply.isPending}

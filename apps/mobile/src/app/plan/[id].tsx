@@ -217,7 +217,7 @@ function Confirm({ job, plan, inset }: { job: Job; plan: Plan; inset: number }) 
       ) : null}
       <View style={{ flexDirection: "row" }}>
         <Button
-          label={apply.isPending ? "WORKING…" : plan.confirmLabel}
+          label={apply.isPending ? "WORKING…" : plan.confirmLabel.toUpperCase()}
           tone="solid"
           under={Ghost.panel}
           disabled={selected.length === 0 || apply.isPending}
