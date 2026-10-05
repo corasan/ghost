@@ -37,12 +37,10 @@ function Pulse({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * What Ghost is doing right now, with the tool calls it has already made
- * listed above. The block only ever grows, one line per call, so the
- * conversation never jumps while an answer is on its way.
+ * What Ghost is doing right now: only the latest tool call. The detail line is
+ * always laid out so the block keeps one height while an answer is on its way.
  */
 export function Working({ job }: { job: Job }) {
-  const done = job.steps.slice(0, -1)
   const current = job.steps[job.steps.length - 1]
   const now =
     job.status === "queued" ? "Queued" : current === undefined ? "Thinking" : current.label
@@ -50,16 +48,13 @@ export function Working({ job }: { job: Job }) {
     <View style={{ flexDirection: "row", gap: 12 }}>
       <View style={{ width: 2, backgroundColor: Ghost.accent }} />
       <View style={{ flex: 1, gap: 8 }}>
-        {done.length > 0 ? <StepLines steps={done} /> : null}
         <Pulse>
           <Body size={16} color={Ghost.muted} lines={1}>
             {now}…
           </Body>
-          {current?.detail ? (
-            <Mono size={10} style={{ marginTop: 4 }} lines={1}>
-              {current.detail}
-            </Mono>
-          ) : null}
+          <Mono size={10} style={{ marginTop: 4 }} lines={1}>
+            {current?.detail ?? " "}
+          </Mono>
         </Pulse>
       </View>
     </View>
