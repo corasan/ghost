@@ -123,6 +123,7 @@ export class StatMod extends Schema.Class<StatMod>("StatMod")({
 /** One mod slotted in an armor piece, read from the game. */
 export class ArmorMod extends Schema.Class<ArmorMod>("ArmorMod")({
   name: Schema.String,
+  icon: Schema.optional(Schema.NullOr(Schema.String)),
   /** Effect text from the current patch's manifest. */
   description: Schema.String,
   /** Armor energy the mod takes. */

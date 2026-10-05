@@ -89,6 +89,7 @@ export const describeArmorMods = ({
     return [
       new ArmorMod({
         name: def.name,
+        icon: def.icon,
         description: def.description || (known?.description ?? ""),
         cost: known?.energyCost ?? 0,
         mods: ARMOR_STATS.flatMap(([key, label]) => {

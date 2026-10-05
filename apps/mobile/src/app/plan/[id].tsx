@@ -1,4 +1,5 @@
 import type { Job, LoadoutPlug, Plan, SubclassLoadout, PlanRow } from "@ghost/contract"
+import { Image } from "expo-image"
 import { router, useLocalSearchParams } from "expo-router"
 import { useState } from "react"
 import { Pressable, ScrollView, StyleSheet, View } from "react-native"
@@ -82,6 +83,7 @@ function Mods({ row }: { row: PlanRow }) {
         const effect = firstSentence(mod.description)
         return (
           <View key={`${mod.name}${i}`} style={styles.mod}>
+            {mod.icon ? <Image source={mod.icon} style={styles.modIcon} transition={120} /> : null}
             <View style={{ flex: 1, minWidth: 0 }}>
               <Body size={13} style={{ fontFamily: Type.bodyMedium, lineHeight: 16 }}>
                 {mod.name}
@@ -97,7 +99,7 @@ function Mods({ row }: { row: PlanRow }) {
         )
       })}
       {free > 0 ? (
-        <View style={[styles.mod, { borderStyle: "dashed" }]}>
+        <View style={styles.mod}>
           <Body size={13} color={Ghost.dim} style={{ lineHeight: 16 }}>
             {free} {free === 1 ? "slot free" : "slots free"}
           </Body>
@@ -298,9 +300,10 @@ const styles = StyleSheet.create({
   pieceHead: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 },
   pieceBody: { paddingLeft: 60, paddingTop: 2, paddingBottom: 12, gap: 10 },
   modsHead: { flexDirection: "row", justifyContent: "space-between", paddingBottom: 4 },
+  modIcon: { width: 28, height: 28, backgroundColor: Ghost.swatch },
   mod: {
     flexDirection: "row",
-    alignItems: "baseline",
+    alignItems: "center",
     gap: 10,
     paddingVertical: 5,
     borderTopWidth: 1,
