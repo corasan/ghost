@@ -3,7 +3,6 @@ import { LegendList } from "@legendapp/list/react-native"
 import { router } from "expo-router"
 import { useMemo, useState } from "react"
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { PlanRowView } from "@/components/chat/plan-block"
 import { liveLabel } from "@/lib/plan-card"
@@ -26,6 +25,7 @@ import {
   usePicked,
   useVaultFilter,
 } from "@/lib/vault-store"
+import { useBottomInset } from "@/lib/insets"
 
 function itemMeta(item: ItemSummary) {
   if (isWeapon(item)) {
@@ -106,7 +106,7 @@ function Tag({ label, color }: { label: string; color: string }) {
  * junk tags are the hand-off: filter by JUNK in game-side tools or here.
  */
 function Cleanup({ job, plan }: { job: Job; plan: Plan }) {
-  const insets = useSafeAreaInsets()
+  const bottomInset = useBottomInset()
   const apply = useApplyPlan()
   const [kind, setKind] = useState<"all" | "dupes" | "low">("all")
   const selection = usePlanSelection(job.id, plan)
@@ -154,7 +154,7 @@ function Cleanup({ job, plan }: { job: Job; plan: Plan }) {
           />
         )}
       />
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
+      <View style={[styles.footer, { paddingBottom: bottomInset + 12 }]}>
         <Button
           label={ticked === plan.rows.length ? "KEEP ALL" : "SELECT ALL"}
           onPress={() => selection.setAll(ticked !== plan.rows.length)}
@@ -223,7 +223,7 @@ function Filters({ shown }: { shown: number }) {
 }
 
 export default function VaultScreen() {
-  const insets = useSafeAreaInsets()
+  const bottomInset = useBottomInset()
   const vault = useVault()
   const jobs = useJobs()
   const createJob = useCreateJob()
@@ -327,7 +327,7 @@ export default function VaultScreen() {
             keyboardDismissMode="on-drag"
             refreshing={pull.refreshing}
             onRefresh={pull.onRefresh}
-            contentContainerStyle={{ paddingTop: 8, paddingBottom: insets.bottom + 16 }}
+            contentContainerStyle={{ paddingTop: 8, paddingBottom: bottomInset + 16 }}
             ListEmptyComponent={
               <Body color={Ghost.dim} style={{ paddingHorizontal: Gutter, paddingTop: 24 }}>
                 Nothing matches. Loosen a filter or clear the search.
@@ -357,7 +357,7 @@ export default function VaultScreen() {
             )}
           />
           {pickedItems.length > 0 ? (
-            <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
+            <View style={[styles.footer, { paddingBottom: bottomInset + 12 }]}>
               <Button label="CLEAR" flex={0.7} onPress={clearPicked} />
               <Button
                 label={`ASK ABOUT ${pickedItems.length}`}

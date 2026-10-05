@@ -11,6 +11,7 @@ import { selectCharacter, useCharacter } from "@/lib/character"
 import { age, upper } from "@/lib/format"
 import { useServerUrl } from "@/lib/server-url"
 import { continueSession, startFreshSession, useSessionId } from "@/lib/session"
+import { useBottomInset } from "@/lib/insets"
 
 const where = (url: string) =>
   /localhost|127\.0\.0\.1/.test(url) ? "LOCAL" : /\.ts\.net/.test(url) ? "TAILNET" : "REMOTE"
@@ -22,6 +23,7 @@ const where = (url: string) =>
  */
 export function GhostDrawer({ navigation }: DrawerContentComponentProps) {
   const insets = useSafeAreaInsets()
+  const bottomInset = useBottomInset()
   const pathname = usePathname()
   const health = useHealth()
   const url = useServerUrl()
@@ -187,7 +189,7 @@ export function GhostDrawer({ navigation }: DrawerContentComponentProps) {
         }}
       />
 
-      <View style={[styles.between, styles.footer, { paddingBottom: insets.bottom + 12 }]}>
+      <View style={[styles.between, styles.footer, { paddingBottom: bottomInset + 12 }]}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <View
             style={[styles.dot, { backgroundColor: health.data ? Ghost.good : Ghost.danger }]}

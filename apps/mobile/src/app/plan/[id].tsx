@@ -11,7 +11,6 @@ import { Image } from "expo-image"
 import { router, useLocalSearchParams } from "expo-router"
 import { useState } from "react"
 import { Pressable, ScrollView, StyleSheet, View } from "react-native"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { BuildHeader, ModPips } from "@/components/chat/build-card"
 import { BuildStats } from "@/components/chat/build-stats"
@@ -28,6 +27,7 @@ import { firstSentence } from "@/lib/effect-text"
 import { useFooterHeight } from "@/lib/footer"
 import { bySlot, modPips, pendingMasterwork, signed } from "@/lib/plan-card"
 import { usePlanSelection } from "@/lib/selection"
+import { useBottomInset } from "@/lib/insets"
 
 const replacing = (plug: LoadoutPlug) =>
   plug.swap && plug.replaces ? `Replaces ${plug.replaces}` : null
@@ -319,7 +319,7 @@ function Confirm({ job, plan, inset }: { job: Job; plan: Plan; inset: number }) 
  */
 export default function PlanDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
-  const insets = useSafeAreaInsets()
+  const bottomInset = useBottomInset()
   const job = useJob(id)
   const [openId, setOpenId] = useState<string>()
   const footer = useFooterHeight()
@@ -394,7 +394,7 @@ export default function PlanDetailsScreen() {
         ) : null}
       </ScrollView>
       <View collapsable={false} onLayout={footer.onLayout} style={styles.footerSlot}>
-        <Confirm job={job.data} plan={plan} inset={insets.bottom} />
+        <Confirm job={job.data} plan={plan} inset={bottomInset} />
       </View>
     </View>
   )

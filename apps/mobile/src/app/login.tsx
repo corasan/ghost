@@ -7,9 +7,11 @@ import { Body, Button, Cond, Diamond, Mono } from "@/components/ghost/ui"
 import { Ghost } from "@/constants/theme"
 import { useBungieAuthStart, useHealth } from "@/lib/api"
 import { useServerUrl } from "@/lib/server-url"
+import { useBottomInset } from "@/lib/insets"
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets()
+  const bottomInset = useBottomInset()
   const serverUrl = useServerUrl()
   const health = useHealth()
   const authStart = useBungieAuthStart()
@@ -30,7 +32,7 @@ export default function LoginScreen() {
       : { label: "SERVER · UNREACHABLE", color: Ghost.danger }
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: insets.bottom + 16 }]}>
+    <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: bottomInset + 16 }]}>
       <View style={styles.hero}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
           <Diamond size={12} />

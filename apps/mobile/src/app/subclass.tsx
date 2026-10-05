@@ -2,7 +2,6 @@ import type { AbilityKind, LoadoutPlug, SubclassLoadout } from "@ghost/contract"
 import { Image } from "expo-image"
 import { router } from "expo-router"
 import { ScrollView, StyleSheet, View } from "react-native"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { PlugIcon } from "@/components/ghost/plug-icon"
 import { SubclassMark } from "@/components/ghost/subclass-mark"
@@ -13,6 +12,7 @@ import { firstParagraph } from "@/lib/effect-text"
 import { useFooterHeight } from "@/lib/footer"
 import { upper } from "@/lib/format"
 import { signed } from "@/lib/plan-card"
+import { useBottomInset } from "@/lib/insets"
 
 const ABILITY_LABEL: Record<AbilityKind, string> = {
   class: "CLASS",
@@ -109,7 +109,7 @@ const fragmentCapacity = (loadout: SubclassLoadout) =>
 
 /** The equipped subclass in full: abilities, what each aspect does, and what each fragment costs. */
 export default function SubclassScreen() {
-  const insets = useSafeAreaInsets()
+  const bottomInset = useBottomInset()
   const { character } = useCharacter()
   const footer = useFooterHeight()
   const loadout = character?.loadout
@@ -174,10 +174,7 @@ export default function SubclassScreen() {
           </>
         ) : null}
       </ScrollView>
-      <View
-        onLayout={footer.onLayout}
-        style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}
-      >
+      <View onLayout={footer.onLayout} style={[styles.footer, { paddingBottom: bottomInset + 12 }]}>
         <Button
           label="ASK GHOST"
           under={Ghost.panel}

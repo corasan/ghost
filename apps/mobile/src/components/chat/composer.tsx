@@ -1,10 +1,10 @@
 import { Pressable, TextInput, View } from "react-native"
 import { useReanimatedKeyboardAnimation } from "react-native-keyboard-controller"
 import Animated, { interpolate, useAnimatedStyle } from "react-native-reanimated"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { Body, Chevron, Cut, Mono } from "@/components/ghost/ui"
 import { Ghost, Type } from "@/constants/theme"
+import { useBottomInset } from "@/lib/insets"
 
 export const STARTERS = [
   "Best hand cannon for Trials",
@@ -54,10 +54,10 @@ export function Composer({
   onSend: () => void
   sending: boolean
 }) {
-  const insets = useSafeAreaInsets()
+  const bottomInset = useBottomInset()
   const ready = value.trim() !== "" && !sending
   const { progress } = useReanimatedKeyboardAnimation()
-  const resting = Math.max(insets.bottom, 12)
+  const resting = Math.max(bottomInset, 12)
   const lift = useAnimatedStyle(() => ({
     paddingBottom: interpolate(progress.value, [0, 1], [resting, 10]),
   }))

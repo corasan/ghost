@@ -2,7 +2,6 @@ import type { DamageType, GuardianClass, ItemTier } from "@ghost/contract"
 import { router } from "expo-router"
 import { useMemo } from "react"
 import { ScrollView, StyleSheet, View } from "react-native"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { Button, Chip, Cond, Mono } from "@/components/ghost/ui"
 import { ELEMENT_TONE, Ghost, Rarity } from "@/constants/theme"
@@ -19,6 +18,7 @@ import {
   toggle,
 } from "@/lib/vault-filter"
 import { resetVaultFilter, setVaultFilter, useVaultFilter } from "@/lib/vault-store"
+import { useBottomInset } from "@/lib/insets"
 
 const CATEGORIES: readonly Category[] = ["all", "weapons", "armor"]
 const SORTS: readonly Sort[] = ["power", "newest", "stats", "name"]
@@ -38,7 +38,7 @@ function Group({ label, children }: { label: string; children: React.ReactNode }
 
 /** Every way to narrow and order the vault, in a sheet so the list keeps the screen. */
 export default function VaultFilterScreen() {
-  const insets = useSafeAreaInsets()
+  const bottomInset = useBottomInset()
   const filter = useVaultFilter()
   const items = useVault().data?.items ?? []
   const counts = useMemo(() => flagCounts(items, filter.category), [items, filter.category])
@@ -117,7 +117,7 @@ export default function VaultFilterScreen() {
           ))}
         </Group>
       </ScrollView>
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
+      <View style={[styles.footer, { paddingBottom: bottomInset + 12 }]}>
         <Button
           label="RESET"
           flex={0.6}

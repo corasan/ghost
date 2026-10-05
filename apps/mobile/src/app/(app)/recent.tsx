@@ -3,7 +3,6 @@ import { LegendList } from "@legendapp/list/react-native"
 import { useLocalSearchParams } from "expo-router"
 import { useMemo, useState } from "react"
 import { Pressable, StyleSheet, View } from "react-native"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { ItemIcon } from "@/components/ghost/item-icon"
 import { Body, Chip, Mono, Nudge, PageHeader } from "@/components/ghost/ui"
@@ -12,6 +11,7 @@ import { useJobs, useRecentItems, useSetDecision, useUndoPlan } from "@/lib/api"
 import { useCharacter } from "@/lib/character"
 import { usePullRefresh } from "@/lib/refresh"
 import { clock, groupRecent, locationLabel, sourceLabel, upper } from "@/lib/format"
+import { useBottomInset } from "@/lib/insets"
 
 type Filter = "all" | "undecided" | "upgrades"
 
@@ -88,7 +88,7 @@ function ItemRow({ item }: { item: RecentItem }) {
  * lives now. A batch Ghost moved can be undone together.
  */
 export default function RecentScreen() {
-  const insets = useSafeAreaInsets()
+  const bottomInset = useBottomInset()
   const { filter: initial } = useLocalSearchParams<{ filter?: Filter }>()
   const [filter, setFilter] = useState<Filter>(initial ?? "all")
   const { character } = useCharacter()
@@ -189,7 +189,7 @@ export default function RecentScreen() {
         }
       />
       {best ? (
-        <View style={{ paddingBottom: insets.bottom + 16, paddingTop: 8 }}>
+        <View style={{ paddingBottom: bottomInset + 16, paddingTop: 8 }}>
           <Nudge
             text={`${best.name ?? "A new drop"} beats what you have on in that slot.`}
             action="SWAP"
@@ -197,7 +197,7 @@ export default function RecentScreen() {
           />
         </View>
       ) : (
-        <View style={{ height: insets.bottom }} />
+        <View style={{ height: bottomInset }} />
       )}
     </View>
   )

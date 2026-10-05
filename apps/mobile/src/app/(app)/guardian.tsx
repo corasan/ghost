@@ -2,7 +2,6 @@ import type { CharacterStats, ItemSummary } from "@ghost/contract"
 import { LegendList } from "@legendapp/list/react-native"
 import { router } from "expo-router"
 import { Pressable, View } from "react-native"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { ChatHeader } from "@/components/chat/header"
 import { Situational } from "@/components/ghost/charge"
@@ -16,6 +15,7 @@ import { chargedMods } from "@/lib/charge"
 import { useCharacter } from "@/lib/character"
 import { upper } from "@/lib/format"
 import { usePullRefresh } from "@/lib/refresh"
+import { useBottomInset } from "@/lib/insets"
 
 const WEAPON_SLOTS: readonly ItemSummary["slot"][] = ["kinetic", "energy", "power"]
 const ARMOR_SLOTS: readonly ItemSummary["slot"][] = ["helmet", "arms", "chest", "legs", "class"]
@@ -102,7 +102,7 @@ function ItemRow({ item, kind }: { item: ItemSummary; kind: "weapon" | "armor" }
 
 /** The subclass on top, then stats in one row and weapons and armor down the page. */
 export default function GuardianScreen() {
-  const insets = useSafeAreaInsets()
+  const bottomInset = useBottomInset()
   const guardian = useGuardian()
   const { character } = useCharacter()
   const situational = useSituational(character?.characterId)
@@ -152,7 +152,7 @@ export default function GuardianScreen() {
         recycleItems
         refreshing={pull.refreshing}
         onRefresh={pull.onRefresh}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}
+        contentContainerStyle={{ paddingBottom: bottomInset + 16 }}
         ListHeaderComponent={
           <View style={{ paddingHorizontal: Gutter, paddingTop: 2, paddingBottom: 14 }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between" }}>

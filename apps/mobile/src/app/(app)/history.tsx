@@ -1,13 +1,13 @@
 import type { HistoryGroup } from "@ghost/contract"
 import { LegendList } from "@legendapp/list/react-native"
 import { Pressable, StyleSheet, View } from "react-native"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { Body, Cond, Mono, PageHeader } from "@/components/ghost/ui"
 import { usePullRefresh } from "@/lib/refresh"
 import { Ghost, Gutter, Type } from "@/constants/theme"
 import { useHistory, useUndoPlan } from "@/lib/api"
 import { clock, isToday } from "@/lib/format"
+import { useBottomInset } from "@/lib/insets"
 
 const tone = {
   ok: Ghost.good,
@@ -67,7 +67,7 @@ function Group({ group }: { group: HistoryGroup }) {
 
 /** Every call Ghost made, grouped under the request that triggered it. Undo reverses the group. */
 export default function HistoryScreen() {
-  const insets = useSafeAreaInsets()
+  const bottomInset = useBottomInset()
   const history = useHistory()
   const pull = usePullRefresh(history.refetch)
   const groups = history.data ?? []
@@ -83,7 +83,7 @@ export default function HistoryScreen() {
         recycleItems
         refreshing={pull.refreshing}
         onRefresh={pull.onRefresh}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+        contentContainerStyle={{ paddingBottom: bottomInset + 24 }}
         ListHeaderComponent={
           <View style={{ paddingBottom: 26 }}>
             <PageHeader title="HISTORY" subtitle="TODAY" figure={today} caption="ACTIONS" />

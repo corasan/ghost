@@ -2,13 +2,13 @@ import type { ItemDetail } from "@ghost/contract"
 import { Image } from "expo-image"
 import { useLocalSearchParams } from "expo-router"
 import { ScrollView, View } from "react-native"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { ArmorStatLine, Body, Mono } from "@/components/ghost/ui"
 import { ItemActions } from "@/components/item/actions"
 import { ItemHeader } from "@/components/item/header"
 import { Ghost, Type } from "@/constants/theme"
 import { errorMessage, useItemDetail } from "@/lib/api"
+import { useBottomInset } from "@/lib/insets"
 
 function Stats({ stats }: { stats: ItemDetail["stats"] }) {
   return (
@@ -78,7 +78,7 @@ function Perks({ perks }: { perks: ItemDetail["perks"] }) {
 
 export default function ItemScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
-  const insets = useSafeAreaInsets()
+  const bottomInset = useBottomInset()
   const detail = useItemDetail(id)
 
   if (!detail.data) {
@@ -96,7 +96,7 @@ export default function ItemScreen() {
   return (
     <ScrollView
       nestedScrollEnabled
-      contentContainerStyle={{ paddingTop: 28, paddingBottom: insets.bottom + 20, gap: 22 }}
+      contentContainerStyle={{ paddingTop: 28, paddingBottom: bottomInset + 20, gap: 22 }}
     >
       <ItemHeader item={item} size={72} />
       {stats.length > 0 ? <Stats stats={stats} /> : null}
