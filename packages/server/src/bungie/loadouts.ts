@@ -12,12 +12,6 @@ import { AppConfig } from "../config.ts"
 import { BungieError, BungieClient } from "./client.ts"
 import { ProfileStore } from "./profile.ts"
 
-// In-game loadouts are read on demand from component 206, apart from the
-// hot profile, because only the builds screens need them. An empty slot
-// comes back with every hash set to Bungie's "none" hash and ten items whose
-// instance id is "0"; a filled one holds the three weapons, five armor
-// pieces, the subclass and the seasonal artifact.
-
 const EMPTY_ID = "0"
 
 const component = <S extends Schema.Top>(data: S) =>
