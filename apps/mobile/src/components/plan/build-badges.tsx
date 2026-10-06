@@ -14,7 +14,6 @@ function Badge({ label, color }: { label: string; color: string }) {
   )
 }
 
-/** Where a saved build lives in game and what stands between it and equipping it as saved. */
 export function BuildBadges({ build }: { build: SavedBuild }) {
   const readiness = build.readiness
   const missing = readiness?.missing.length ?? 0

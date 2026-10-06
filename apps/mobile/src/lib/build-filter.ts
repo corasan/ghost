@@ -141,7 +141,6 @@ export const removeFilter = (filter: BuildFilter, id: string): BuildFilter => {
 
 export interface FacetOption<T> {
   readonly value: T
-  /** How many saved builds have it. */
   readonly count: number
 }
 

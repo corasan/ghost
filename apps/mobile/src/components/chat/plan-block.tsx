@@ -127,7 +127,6 @@ export function PlanRowView({
   )
 }
 
-/** A weapon's perks, the ones its wishlist roll calls for outlined in green. */
 export function Perks({ perks }: { perks: readonly PlanPerk[] }) {
   return (
     <View style={styles.perks}>

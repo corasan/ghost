@@ -60,7 +60,6 @@ function Where({
   )
 }
 
-/** The slot picker for one character, with its choice derived from what the player tapped. */
 function useSlots(characterId: string | undefined, holds: number | undefined) {
   const query = useLoadoutSlots(characterId)
   const [picked, setPicked] = useState<Partial<SlotChoice>>({})
@@ -142,7 +141,6 @@ function Sheet({
 const classLabel = (classType: GuardianClass | undefined) =>
   classType ? sentence(classType) : "character"
 
-/** The character a proposed build equips on. */
 const planCharacter = (plan: Plan, job: Job) =>
   plan.loadout?.change?.characterId ??
   plan.rows.find((row) => row.characterId !== null)?.characterId ??
@@ -239,7 +237,6 @@ function SaveFromJob({ jobId }: { jobId: string }) {
   return <SaveProposed job={job.data} plan={plan} />
 }
 
-/** Puts a build already saved in Ghost into an in-game slot: equip it, then snapshot it. */
 function SaveSavedInGame({ build }: { build: SavedBuild }) {
   const builds = useSavedBuilds().data ?? []
   const equip = useEquipBuild()

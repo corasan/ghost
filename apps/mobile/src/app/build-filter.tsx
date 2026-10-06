@@ -35,7 +35,6 @@ function Group({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
-/** Every way to narrow and order saved builds; the chips come from the builds themselves. */
 export default function BuildFilterScreen() {
   const bottomInset = useBottomInset()
   const filter = useBuildFilter()

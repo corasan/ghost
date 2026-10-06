@@ -1,6 +1,5 @@
 import { useSyncExternalStore } from "react"
 
-/** A value screens share in memory, read with `use` so a change re-renders every reader. */
 export function store<T>(initial: T) {
   let value = initial
   const listeners = new Set<() => void>()

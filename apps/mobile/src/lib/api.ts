@@ -448,7 +448,6 @@ export function useEquipBuild() {
   })
 }
 
-/** A character's in-game loadout slots, read only while the save sheet asks for them. */
 export function useLoadoutSlots(characterId: string | undefined) {
   const url = useServerUrl()
   return useQuery({

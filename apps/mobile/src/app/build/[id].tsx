@@ -19,7 +19,6 @@ import { sentence } from "@/lib/format"
 import { useFooterHeight } from "@/lib/footer"
 import { useBottomInset } from "@/lib/insets"
 
-/** Why the build may not equip as it was saved, in sentences. */
 function Readiness({ build }: { build: SavedBuild }) {
   const readiness = build.readiness
   const lines = [
@@ -177,7 +176,6 @@ function Actions({ build }: { build: SavedBuild }) {
   )
 }
 
-/** A saved build: the same sections as its plan sheet, and what to do with it. */
 export default function SavedBuildScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const bottomInset = useBottomInset()

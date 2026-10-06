@@ -110,7 +110,6 @@ function Filters({ shown }: { shown: number }) {
   )
 }
 
-/** Every build the player saved, searchable and filterable like the vault. */
 export default function BuildsScreen() {
   const bottomInset = useBottomInset()
   const builds = useSavedBuilds()

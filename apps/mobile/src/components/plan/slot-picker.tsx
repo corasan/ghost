@@ -104,10 +104,6 @@ const overwriting = (slot: InGameSlot, claimedBy: SavedBuild | undefined, selfId
   return `Overwrites ${current} in game.`
 }
 
-/**
- * Which in-game loadout slot to save into and the name, color and icon to give
- * it. The game only offers its fixed lists of each.
- */
 export function SlotPicker({
   slots,
   choice,
