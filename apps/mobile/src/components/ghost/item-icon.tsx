@@ -2,7 +2,7 @@ import type { DamageType } from "@ghost/contract"
 import { Image } from "expo-image"
 import { View } from "react-native"
 
-import { Cond } from "@/components/ghost/ui"
+import { Cond, Mono } from "@/components/ghost/ui"
 import { Ghost } from "@/constants/theme"
 import { useGuardian } from "@/lib/api"
 
@@ -34,6 +34,7 @@ const marks = (size: number, hasPower: boolean) => {
     pipGap,
     frame: size >= 70 ? 2 : 1.5,
     scrim: Math.round(size * 0.3),
+    tag: Math.max(8, Math.round(size * 0.15)),
   }
 }
 
@@ -67,6 +68,7 @@ export function ItemIcon({
   gearTier,
   masterwork = false,
   power,
+  tag,
 }: {
   icon?: string | null
   /** The size the marks are drawn for, and the box itself unless `fill` is set. */
@@ -77,6 +79,8 @@ export function ItemIcon({
   gearTier?: number | null
   masterwork?: boolean
   power?: number | null
+  /** A short word pinned top-right, such as where the item comes from. */
+  tag?: string | undefined
 }) {
   const elementIcon = useGuardian().data?.elementIcons?.[element]
   const hasPower = power !== undefined && power !== null
@@ -162,6 +166,22 @@ export function ItemIcon({
             boxShadow: "inset 0 0 8px rgba(227,179,65,0.35)",
           }}
         />
+      ) : null}
+      {tag ? (
+        <View
+          style={{
+            position: "absolute",
+            top: m.frame,
+            right: m.frame,
+            paddingHorizontal: 3,
+            paddingVertical: 1,
+            backgroundColor: MARK_SURFACE,
+          }}
+        >
+          <Mono size={m.tag} color={Ghost.ink} lines={1}>
+            {tag}
+          </Mono>
+        </View>
       ) : null}
       {tier > 0 ? (
         <View

@@ -159,6 +159,9 @@ export function ModPips({ pips, fill = false }: { pips: readonly ModPip[]; fill?
   )
 }
 
+const originTag = (origin: string | undefined) =>
+  origin?.toLowerCase() === "inventory" ? "INV" : origin?.toUpperCase()
+
 const outcomeLabel = { ok: null, failed: "FAILED", skipped: "HELD" } as const
 
 function Tile({
@@ -175,29 +178,23 @@ function Tile({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={row.name}
+      accessibilityLabel={arriving ? `${row.name}, from ${row.origin}` : row.name}
       accessibilityHint="Opens item details"
       onPress={() => router.push({ pathname: "/item/[id]", params: { id: row.itemInstanceId } })}
       style={({ pressed }) => [{ flex: 1 }, pressed && { opacity: 0.6 }]}
     >
-      <View style={arriving ? { boxShadow: `0 0 0 1px ${Ghost.accent}` } : undefined}>
-        <ItemIcon
-          icon={row.icon}
-          size={58}
-          fill
-          element={row.damageType}
-          gearTier={row.gearTier}
-          masterwork={row.masterwork}
-          power={row.power}
-        />
-      </View>
-      <Meta
-        size={12}
-        color={result ? Ghost.danger : arriving ? Ghost.accent : Ghost.dim}
-        style={{ marginTop: 5 }}
-        lines={1}
-      >
-        {result ?? (arriving && row.origin ? sentence(row.origin) : slotLabel(row.slot, classType))}
+      <ItemIcon
+        icon={row.icon}
+        size={58}
+        fill
+        element={row.damageType}
+        gearTier={row.gearTier}
+        masterwork={row.masterwork}
+        power={row.power}
+        tag={arriving ? originTag(row.origin) : undefined}
+      />
+      <Meta size={12} color={result ? Ghost.danger : Ghost.dim} style={{ marginTop: 5 }} lines={1}>
+        {result ?? slotLabel(row.slot, classType)}
       </Meta>
     </Pressable>
   )
