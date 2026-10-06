@@ -21,7 +21,7 @@ import { ItemIcon } from "@/components/ghost/item-icon"
 import { PlugIcon } from "@/components/ghost/plug-icon"
 import { SetBonusText } from "@/components/ghost/set-bonus"
 import { SubclassBanner } from "@/components/ghost/subclass-banner"
-import { Body, Button, Chevron, Meta, Mono } from "@/components/ghost/ui"
+import { Body, Button, Chevron, Meta, Mono, StatIcon } from "@/components/ghost/ui"
 import { sentence } from "@/lib/format"
 import { Ghost, Gutter, Type } from "@/constants/theme"
 import { errorMessage, useApplyPlan, useJob } from "@/lib/api"
@@ -265,19 +265,22 @@ function Piece({
             <View style={{ flexDirection: "row", gap: 6 }}>
               {stats.map((stat) => (
                 <View key={stat.label} style={{ flex: 1 }}>
-                  <Mono
-                    size={14}
-                    color={
-                      stat.masterworked !== undefined
-                        ? Ghost.gold
-                        : stat.value > 0
-                          ? Ghost.ink
-                          : Ghost.dim
-                    }
-                    style={{ letterSpacing: 0 }}
-                  >
-                    {stat.value}
-                  </Mono>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+                    <StatIcon label={stat.label} size={12} />
+                    <Mono
+                      size={14}
+                      color={
+                        stat.masterworked !== undefined
+                          ? Ghost.gold
+                          : stat.value > 0
+                            ? Ghost.ink
+                            : Ghost.dim
+                      }
+                      style={{ letterSpacing: 0 }}
+                    >
+                      {stat.value}
+                    </Mono>
+                  </View>
                   <Meta size={12} style={{ marginTop: 2 }} lines={1}>
                     {sentence(stat.label)}
                   </Meta>

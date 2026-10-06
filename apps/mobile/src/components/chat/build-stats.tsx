@@ -1,7 +1,7 @@
 import type { PlanStat } from "@ghost/contract"
 import { StyleSheet, View } from "react-native"
 
-import { Body, Cond, Diamond, Meta, Mono } from "@/components/ghost/ui"
+import { Body, Cond, Meta, Mono, StatIcon } from "@/components/ghost/ui"
 import { Ghost } from "@/constants/theme"
 import { orderBuildStats } from "@/lib/build-order"
 import { sentence } from "@/lib/format"
@@ -23,7 +23,11 @@ export function BuildStats({ stats }: { stats: readonly PlanStat[] }) {
         return (
           <View key={stat.label} style={[styles.line, styles.row]}>
             <View style={[styles.name, { flexDirection: "row", alignItems: "center", gap: 9 }]}>
-              <Diamond size={6} color={stat.target ? Ghost.good : Ghost.ruleStrong} />
+              <StatIcon
+                label={stat.label}
+                size={16}
+                color={stat.target ? Ghost.good : Ghost.muted}
+              />
               <Body size={15} color={tone}>
                 {sentence(stat.label)}
               </Body>

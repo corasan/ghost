@@ -4,8 +4,17 @@ import { useState } from "react"
 import { Alert, Pressable, StyleSheet, View } from "react-native"
 
 import { ItemIcon } from "@/components/ghost/item-icon"
-import { Body, Button, Cond, Cut, Meta, Mono, TierStats, Tick } from "@/components/ghost/ui"
-import { sentence } from "@/lib/format"
+import {
+  Body,
+  Button,
+  Cond,
+  Cut,
+  Meta,
+  Mono,
+  StatLabel,
+  TierStats,
+  Tick,
+} from "@/components/ghost/ui"
 import { Ghost, Rarity, Type } from "@/constants/theme"
 import { errorMessage, useApplyPlan, useUndoPlan } from "@/lib/api"
 import { liveLabel } from "@/lib/plan-card"
@@ -172,7 +181,7 @@ function Featured({ plan, row }: { plan: Plan; row: PlanRow }) {
         <View style={{ paddingHorizontal: 14, paddingBottom: 14, gap: 7 }}>
           {featured.stats.map((stat, i) => (
             <View key={stat.label} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <Meta style={{ width: 70 }}>{sentence(stat.label)}</Meta>
+              <StatLabel label={stat.label} size={13} style={{ width: 84 }} />
               <View style={{ flex: 1, height: 3, backgroundColor: Ghost.rule }}>
                 <View
                   style={{

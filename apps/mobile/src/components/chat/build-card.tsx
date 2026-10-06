@@ -13,7 +13,7 @@ import { ItemIcon } from "@/components/ghost/item-icon"
 import { PlugIcon } from "@/components/ghost/plug-icon"
 import { SetBonusIcons } from "@/components/ghost/set-bonus"
 import { SubclassMark } from "@/components/ghost/subclass-mark"
-import { Body, Button, Cond, Cut, Meta, Mono } from "@/components/ghost/ui"
+import { Body, Button, Cond, Cut, Meta, Mono, StatIcon } from "@/components/ghost/ui"
 import { Ghost } from "@/constants/theme"
 import { errorMessage, useApplyPlan, useUndoPlan } from "@/lib/api"
 import { orderBuildStats } from "@/lib/build-order"
@@ -135,9 +135,12 @@ function Stats({ plan }: { plan: Plan }) {
           const tone = stat.target ? Ghost.good : Ghost.ink
           return (
             <View key={stat.label} style={{ flex: 1 }}>
-              <Cond size={24} color={tone} style={{ letterSpacing: 0, lineHeight: 24 }}>
-                {stat.value}
-              </Cond>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+                <StatIcon label={stat.label} size={13} color={tone} />
+                <Cond size={24} color={tone} style={{ letterSpacing: 0, lineHeight: 26 }}>
+                  {stat.value}
+                </Cond>
+              </View>
               <Meta size={12} style={{ marginTop: 3 }} lines={1}>
                 {sentence(stat.label)}
               </Meta>

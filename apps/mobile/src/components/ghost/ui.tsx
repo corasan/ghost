@@ -1,3 +1,4 @@
+import { Image } from "expo-image"
 import { router, useNavigation } from "expo-router"
 import type { DrawerNavigationProp } from "expo-router/drawer"
 import type { ReactNode } from "react"
@@ -13,6 +14,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { Ghost, Gutter, Type } from "@/constants/theme"
+import { useGuardian } from "@/lib/api"
 import { sentence } from "@/lib/format"
 
 // The design's three voices: JetBrains Mono for numbers and short section
@@ -69,6 +71,44 @@ export function Meta({ children, size = 13, color = Ghost.muted, style, lines }:
     >
       {children}
     </Text>
+  )
+}
+
+/** Bungie's glyph for an armor stat, tinted; nothing until the server has sent the icons. */
+export function StatIcon({
+  label,
+  size = 14,
+  color = Ghost.dim,
+}: {
+  label: string
+  size?: number
+  color?: string
+}) {
+  const icon = useGuardian().data?.statIcons?.[sentence(label)]
+  return icon ? (
+    <Image source={icon} tintColor={color} style={{ width: size, height: size }} />
+  ) : null
+}
+
+/** An armor stat's name after its glyph. */
+export function StatLabel({
+  label,
+  size = 12,
+  color = Ghost.dim,
+  style,
+}: {
+  label: string
+  size?: number
+  color?: string
+  style?: ViewProps["style"]
+}) {
+  return (
+    <View style={[{ flexDirection: "row", alignItems: "center", gap: 3 }, style]}>
+      <StatIcon label={label} size={size + 2} color={color} />
+      <Meta size={size} color={color} lines={1} style={{ flexShrink: 1 }}>
+        {sentence(label)}
+      </Meta>
+    </View>
   )
 }
 
@@ -298,8 +338,9 @@ export function TierStat({
   const gained = Math.min(10, Math.floor((masterworked ?? value) / 10))
   return (
     <View style={{ flex: 1 }}>
-      <View style={{ flexDirection: "row", alignItems: "baseline", gap: 5 }}>
-        <Cond size={20} color={color} style={{ letterSpacing: 0, lineHeight: 20 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+        <StatIcon label={label} color={color} />
+        <Cond size={20} color={color} style={{ letterSpacing: 0, lineHeight: 22 }}>
           {value}
         </Cond>
         {masterworked !== undefined ? (
@@ -308,7 +349,7 @@ export function TierStat({
           </Cond>
         ) : null}
       </View>
-      <Meta size={12} style={{ marginTop: 3 }}>
+      <Meta size={12} style={{ marginTop: 2 }} lines={1}>
         {sentence(label)}
       </Meta>
       <View style={{ flexDirection: "row", gap: 2, marginTop: 6 }}>
@@ -367,15 +408,18 @@ export function ArmorStatLine({ stats }: { stats: readonly ArmorStat[] }) {
       <View style={{ flexDirection: "row" }}>
         {stats.map((stat) => (
           <View key={stat.label} style={{ flex: 1 }}>
-            <Meta size={12} lines={1}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+              <StatIcon label={stat.label} size={12} />
+              <Mono size={14} color={stat.value > 0 ? Ghost.ink : Ghost.dim}>
+                {stat.value}
+                {stat.masterworked !== undefined ? (
+                  <Text style={{ color: Ghost.gold }}>›{stat.masterworked}</Text>
+                ) : null}
+              </Mono>
+            </View>
+            <Meta size={12} style={{ marginTop: 2 }} lines={1}>
               {sentence(stat.label)}
             </Meta>
-            <Mono size={14} color={stat.value > 0 ? Ghost.ink : Ghost.dim} style={{ marginTop: 3 }}>
-              {stat.value}
-              {stat.masterworked !== undefined ? (
-                <Text style={{ color: Ghost.gold }}>›{stat.masterworked}</Text>
-              ) : null}
-            </Mono>
           </View>
         ))}
       </View>
