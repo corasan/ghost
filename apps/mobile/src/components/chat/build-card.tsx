@@ -158,7 +158,7 @@ function Stats({ plan }: { plan: Plan }) {
                 </Meta>
               </View>
               <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6 }}>
-                <Cond size={26} color={tone} style={{ letterSpacing: 0, lineHeight: 26 }}>
+                <Cond size={22} color={tone} style={{ letterSpacing: 0, lineHeight: 22 }}>
                   {stat.value}
                 </Cond>
                 {delta !== 0 ? (
