@@ -11,7 +11,7 @@ import {
   SubclassChange,
   SubclassLoadout,
 } from "@ghost/contract"
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Predicate } from "effect"
 import { BungieClient, type BungieError } from "../bungie/client.ts"
 import { type OwnedItem, pickCharacter } from "../bungie/inventory.ts"
 import { ProfileStore } from "../bungie/profile.ts"
@@ -71,12 +71,7 @@ export const PlansLive = Layer.effect(
         const owned = new Map(inv.items.map((i) => [i.itemInstanceId, i]))
         // Where each item is now, updated as calls succeed, so later rows in
         // the same batch see the moves earlier rows made.
-        const where = new Map<string, Where>(
-          inv.items.map((i) => [
-            i.itemInstanceId,
-            { location: i.location, characterId: i.characterId, equipped: i.equipped },
-          ]),
-        )
+        const where = new Map<string, Where>()
         const fallbackCharacter = pickCharacter(inv, job.characterId)?.characterId ?? null
         const moved = new Set<string>()
         const picked = new Set(selected)
@@ -113,7 +108,17 @@ export const PlansLive = Layer.effect(
           )
         }
 
-        const state = (item: OwnedItem) => where.get(item.itemInstanceId) as Where
+        const state = (item: OwnedItem) => {
+          const known = where.get(item.itemInstanceId)
+          if (known !== undefined) return known
+          const now: Where = {
+            location: item.location,
+            characterId: item.characterId,
+            equipped: item.equipped,
+          }
+          where.set(item.itemInstanceId, now)
+          return now
+        }
         const transfer = (item: OwnedItem, characterId: string, transferToVault: boolean) =>
           bungie.transferItem({
             itemReferenceHash: item.itemHash,
@@ -181,8 +186,8 @@ export const PlansLive = Layer.effect(
             const at = state(item)
             if (at.equipped) return
             const previous = inv.items.find((other) => {
-              const o = where.get(other.itemInstanceId)
-              return o?.equipped === true && o.characterId === target && other.slot === item.slot
+              const o = state(other)
+              return o.equipped && o.characterId === target && other.slot === item.slot
             })
             yield* call(
               item,
@@ -484,8 +489,8 @@ export const PlansLive = Layer.effect(
                     })
                   : (action.kind === "insert_mod" || action.kind === "insert_subclass_plug") &&
                       action.characterId !== null &&
-                      typeof action.socketIndex === "number" &&
-                      typeof action.previousPlugHash === "number"
+                      Predicate.isNotNullish(action.socketIndex) &&
+                      Predicate.isNotNullish(action.previousPlugHash)
                     ? bungie.insertPlug({
                         itemId: action.itemInstanceId,
                         characterId: action.characterId,

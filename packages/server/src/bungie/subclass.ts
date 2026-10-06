@@ -115,7 +115,9 @@ export interface PlugSwap {
   readonly previous: SubclassPlug | null
 }
 
-const SINGLE: ReadonlyArray<readonly [SubclassPart, keyof SubclassRequest, string]> = [
+type SinglePick = Exclude<keyof SubclassRequest, "aspects" | "fragments">
+
+const SINGLE: ReadonlyArray<readonly [SubclassPart, SinglePick, string]> = [
   ["super", "super", "super"],
   ["class", "classAbility", "class ability"],
   ["jump", "jump", "jump"],
@@ -177,7 +179,7 @@ export const planSubclass = ({
   }
 
   for (const [part, key, label] of SINGLE) {
-    const wanted = request[key] as string | undefined
+    const wanted = request[key]
     const socket = of(part)[0]
     if (socket === undefined) {
       if (wanted !== undefined) errors.push(`${name} has no ${label} to change`)
@@ -259,7 +261,8 @@ export const planSubclass = ({
     .filter((socket) => final.has(socket.index) && final.get(socket.index) !== socket.current)
     .toSorted((a, b) => RANK[a.part] - RANK[b.part] || a.index - b.index)
     .flatMap((socket): Array<PlugSwap> => {
-      const def = defs.get(final.get(socket.index) as number)
+      const hash = final.get(socket.index)
+      const def = hash === undefined ? undefined : defs.get(hash)
       return def === undefined
         ? []
         : [

@@ -10,16 +10,15 @@ import {
   withMasterworkTotals,
 } from "./masterwork.ts"
 
-const stats = (patch: Partial<ArmorStats>): ArmorStats =>
-  ({
-    mobility: 0,
-    resilience: 0,
-    recovery: 0,
-    discipline: 0,
-    intellect: 0,
-    strength: 0,
-    ...patch,
-  }) as ArmorStats
+const stats = (patch: Partial<ArmorStats>): ArmorStats => ({
+  mobility: 0,
+  resilience: 0,
+  recovery: 0,
+  discipline: 0,
+  intellect: 0,
+  strength: 0,
+  ...patch,
+})
 
 const fresh = stats({ discipline: 30, intellect: 25, strength: 20 })
 

@@ -295,16 +295,16 @@ const explain = (error: BungieError | BungieNotLinked | { readonly message: stri
 const named = (stats: ArmorStats) =>
   Object.fromEntries(ARMOR_STATS.map(([key, label]) => [label.toLowerCase(), stats[key]]))
 
-const MOD_SLOTS: Record<string, typeof ModSlot.Type> = {
-  "enhancements.v2_general": "general",
-  "enhancements.v2_head": "helmet",
-  "enhancements.v2_arms": "arms",
-  "enhancements.v2_chest": "chest",
-  "enhancements.v2_legs": "legs",
-  "enhancements.v2_class_item": "class",
-}
+const MOD_SLOTS = new Map<string, typeof ModSlot.Type>([
+  ["enhancements.v2_general", "general"],
+  ["enhancements.v2_head", "helmet"],
+  ["enhancements.v2_arms", "arms"],
+  ["enhancements.v2_chest", "chest"],
+  ["enhancements.v2_legs", "legs"],
+  ["enhancements.v2_class_item", "class"],
+])
 
-const modSlotOf = (category: string) => MOD_SLOTS[category]
+const modSlotOf = (category: string) => MOD_SLOTS.get(category)
 
 const namedMods = (mods: Readonly<Record<string, number>>) => {
   const named = ARMOR_STATS.flatMap(([key, label]) => {
@@ -928,6 +928,10 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
             if (unknown.length > 0) {
               return `Error: unknown item ids ${unknown.join(", ")}. Use ids from search_items or get_characters.`
             }
+            const pieces = input.rows.flatMap((row) => {
+              const item = owned.get(row.itemInstanceId)
+              return item === undefined ? [] : [{ row, item }]
+            })
             const badCharacter = input.rows.find(
               (r) => r.characterId !== undefined && !classOf.has(r.characterId),
             )
@@ -964,8 +968,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
             }
             const swapsFor = new Map<string, ReadonlyArray<ModSwap>>()
             const refused: Array<string> = []
-            for (const r of input.rows) {
-              const item = owned.get(r.itemInstanceId) as OwnedItem
+            for (const { row: r, item } of pieces) {
               const requests = wanted.filter((m) => m.itemInstanceId === r.itemInstanceId)
               if (requests.length === 0) continue
               const planned = planModSwaps({
@@ -988,8 +991,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
                 })),
               )
               .pipe(Effect.orDie)
-            const drafted = input.rows.map((r) => {
-              const item = owned.get(r.itemInstanceId) as OwnedItem
+            const drafted = pieces.map(({ row: r, item }) => {
               const characterId =
                 r.action === "pull_postmaster"
                   ? item.characterId
@@ -1077,10 +1079,11 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
                       facts,
                     })
                   : undefined
-            const modChange: Record<string, number> = {
-              ...swapStatChange([...swapsFor.values()].flat()),
-            }
-            for (const [stat, delta] of Object.entries(chosen?.statChange ?? {}))
+            const modChange: Record<string, number> = {}
+            for (const [stat, delta] of [
+              ...Object.entries(swapStatChange([...swapsFor.values()].flat())),
+              ...Object.entries(chosen?.statChange ?? {}),
+            ])
               modChange[stat] = (modChange[stat] ?? 0) + delta
             const planStats =
               input.kind === "build" && builtFor !== undefined
@@ -1090,14 +1093,16 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
                       (i) =>
                         i.equipped && i.characterId === builtFor.characterId && isArmor(i.slot),
                     ),
-                    incoming: equipping.map((row) => owned.get(row.itemInstanceId) as OwnedItem),
+                    incoming: pieces
+                      .filter(({ row }) => row.action === "equip")
+                      .map(({ item }) => item),
                     targets: (input.stats ?? []).filter((s) => s.target).map((s) => s.label),
                     facts,
                     modChange,
                   })
                 : withMasterworkTotals(
                     (input.stats ?? []).map((s) => new PlanStat(s)),
-                    input.rows.map((r) => owned.get(r.itemInstanceId) as OwnedItem),
+                    pieces.map(({ item }) => item),
                   )
             const goals = (input.stats ?? []).filter((s) => s.target)
             const misses = input.kind === "build" ? missedTargets(planStats, goals) : []

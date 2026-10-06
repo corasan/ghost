@@ -10,25 +10,29 @@ const CHARACTER = "2305843009309769093"
 const SENTINEL_ASPECTS = 1369926501
 const unlocked = (plugItemHash: number) => ({ plugItemHash, canInsert: true, enabled: true })
 
-const sections: Record<string, unknown> = {
-  100: {
-    profile: { data: { userInfo: { membershipType: 3, membershipId: "4611686018467260757" } } },
-  },
-  104: { profileProgression: { data: { checklists: {} }, privacy: 1 } },
-  305: {
-    profilePlugSets: {
-      data: {
-        plugs: {
-          [SENTINEL_ASPECTS]: [662916127, 1602994568, 1602994569, 1602994570, 1602994571].map(
-            unlocked,
-          ),
+const sections = new Map(
+  Object.entries({
+    100: {
+      profile: { data: { userInfo: { membershipType: 3, membershipId: "4611686018467260757" } } },
+    },
+    104: { profileProgression: { data: { checklists: {} }, privacy: 1 } },
+    305: {
+      profilePlugSets: {
+        data: {
+          plugs: {
+            [SENTINEL_ASPECTS]: [662916127, 1602994568, 1602994569, 1602994570, 1602994571].map(
+              unlocked,
+            ),
+          },
         },
       },
+      characterPlugSets: {
+        data: { [CHARACTER]: { plugs: { 1445506784: [unlocked(2031919264)] } } },
+      },
+      itemComponents: { sockets: { data: {} } },
     },
-    characterPlugSets: { data: { [CHARACTER]: { plugs: { 1445506784: [unlocked(2031919264)] } } } },
-    itemComponents: { sockets: { data: {} } },
-  },
-}
+  }),
+)
 
 const bungie = Layer.mock(BungieClient, {
   get: (path) => {
@@ -41,7 +45,7 @@ const bungie = Layer.mock(BungieClient, {
     return Effect.succeed(
       Object.assign(
         { responseMintedTimestamp: "2026-10-05T21:30:34.085Z" },
-        ...components.split(",").map((component) => sections[component] ?? {}),
+        ...components.split(",").map((component) => sections.get(component) ?? {}),
       ),
     )
   },

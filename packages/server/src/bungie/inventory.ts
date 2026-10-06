@@ -241,28 +241,28 @@ export const isArmor = (slot: ItemSlot) => ARMOR_SLOTS.has(slot)
 export const isWeapon = (slot: ItemSlot) => WEAPON_SLOTS.has(slot)
 
 // Older subclass definitions carry no damage type; their names do.
-const SUBCLASS_ELEMENTS: Record<string, DamageType> = {
-  Arcstrider: "arc",
-  Striker: "arc",
-  Stormcaller: "arc",
-  Gunslinger: "solar",
-  Sunbreaker: "solar",
-  Dawnblade: "solar",
-  Nightstalker: "void",
-  Sentinel: "void",
-  Voidwalker: "void",
-  Revenant: "stasis",
-  Behemoth: "stasis",
-  Shadebinder: "stasis",
-  Threadrunner: "strand",
-  Berserker: "strand",
-  Broodweaver: "strand",
-}
+const SUBCLASS_ELEMENTS = new Map<string, DamageType>([
+  ["Arcstrider", "arc"],
+  ["Striker", "arc"],
+  ["Stormcaller", "arc"],
+  ["Gunslinger", "solar"],
+  ["Sunbreaker", "solar"],
+  ["Dawnblade", "solar"],
+  ["Nightstalker", "void"],
+  ["Sentinel", "void"],
+  ["Voidwalker", "void"],
+  ["Revenant", "stasis"],
+  ["Behemoth", "stasis"],
+  ["Shadebinder", "stasis"],
+  ["Threadrunner", "strand"],
+  ["Berserker", "strand"],
+  ["Broodweaver", "strand"],
+])
 
 const elementOf = (subclass: ManifestItem): DamageType =>
   subclass.damageType !== "none"
     ? subclass.damageType
-    : (SUBCLASS_ELEMENTS[subclass.name] ?? "none")
+    : (SUBCLASS_ELEMENTS.get(subclass.name) ?? "none")
 
 const statsFrom = (stats: Readonly<Record<string, number>>) =>
   new CharacterStats({

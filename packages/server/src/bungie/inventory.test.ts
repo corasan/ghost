@@ -1,12 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import {
-  buildInventory,
-  type CharacterInfo,
-  isUpgrade,
-  type OwnedItem,
-  type Profile,
-  STAT,
-} from "./inventory.ts"
+import { buildInventory, isUpgrade, type OwnedItem, type Profile, STAT } from "./inventory.ts"
 import { BUCKETS, type ManifestItem } from "./manifest.ts"
 
 const def = (hash: number, fields: Partial<ManifestItem>): ManifestItem => ({
@@ -132,7 +125,13 @@ const seen = new Map([
 ])
 
 const inv = buildInventory(profile, defs, seen)
-const byId = (id: string) => inv.items.find((i) => i.itemInstanceId === id) as OwnedItem
+
+const fixture = <A>(value: A | undefined): A => {
+  if (value === undefined) throw new Error("the fixture has no such entry")
+  return value
+}
+
+const byId = (id: string) => fixture(inv.items.find((i) => i.itemInstanceId === id))
 
 describe("buildInventory", () => {
   test("reads membership, characters and vault usage", () => {
@@ -140,7 +139,7 @@ describe("buildInventory", () => {
     expect(inv.membershipId).toBe("m1")
     expect(inv.characters.map((c) => c.characterId)).toEqual(["c2", "c1"])
     expect(inv.vaultCount).toBe(3)
-    const titan = inv.characters[1] as CharacterInfo
+    const titan = fixture(inv.characters[1])
     expect(titan.classType).toBe("titan")
     expect(titan.subclass).toBe("Sentinel")
     expect(titan.element).toBe("void")
@@ -151,14 +150,14 @@ describe("buildInventory", () => {
   })
 
   test("sorts the subclass's plugs into super, aspects and fragments, without empty sockets", () => {
-    const titan = inv.characters[1] as CharacterInfo
+    const titan = fixture(inv.characters[1])
     expect(titan.loadout).toEqual({
       super: { hash: 30, name: "Ward of Dawn", description: "A dome.", icon: null },
       abilities: [{ hash: 34, name: "Shield Bash", description: "", icon: null, kind: "melee" }],
       aspects: [{ hash: 31, name: "Bastion", description: "", icon: null }],
       fragments: [{ hash: 32, name: "Echo of Persistence", description: "", icon: null }],
     })
-    expect((inv.characters[0] as CharacterInfo).loadout).toEqual({
+    expect(fixture(inv.characters[0]).loadout).toEqual({
       super: null,
       abilities: [],
       aspects: [],
@@ -225,8 +224,8 @@ describe("buildInventory", () => {
 })
 
 describe("isUpgrade", () => {
-  const titan = inv.characters.find((c) => c.characterId === "c1") as CharacterInfo
-  const hunter = inv.characters.find((c) => c.characterId === "c2") as CharacterInfo
+  const titan = fixture(inv.characters.find((c) => c.characterId === "c1"))
+  const hunter = fixture(inv.characters.find((c) => c.characterId === "c2"))
   const item = (fields: Partial<OwnedItem>): OwnedItem => ({ ...byId("v2"), ...fields })
 
   test("armor needs more than 2 points over what is equipped", () => {

@@ -29,15 +29,21 @@ export const masterworked = (stats: ArmorStats): Record<StatKey, number> | null 
     .toSorted((a, b) => a - b)
     .slice(0, 3)
   if (offStats.some((value) => value > OFF_STAT_AT_MASTERWORK)) return null
-  const ceiling = offStats[2] as number
-  let raised = 0
-  return Object.fromEntries(
-    ARMOR_STATS.map(([key]) => {
-      const off = stats[key] <= ceiling && raised < 3
-      if (off) raised += 1
-      return [key, off ? OFF_STAT_AT_MASTERWORK : stats[key]]
-    }),
-  ) as Record<StatKey, number>
+  const ceiling = Math.max(...offStats)
+  const off = new Set(
+    ARMOR_STATS.map(([key]) => key)
+      .filter((key) => stats[key] <= ceiling)
+      .slice(0, 3),
+  )
+  const at = (key: StatKey) => (off.has(key) ? OFF_STAT_AT_MASTERWORK : stats[key])
+  return {
+    resilience: at("resilience"),
+    strength: at("strength"),
+    discipline: at("discipline"),
+    intellect: at("intellect"),
+    recovery: at("recovery"),
+    mobility: at("mobility"),
+  }
 }
 
 /** An armor piece's six stats, each with its masterworked value when the piece is not there yet. */

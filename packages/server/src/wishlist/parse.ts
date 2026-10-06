@@ -77,7 +77,7 @@ export const dateIn = (text: string): string | null => {
 }
 
 /** Splits "text|tags:PvE M+KB,controller" into the text and its tags. */
-export const splitNotes = (raw: string): { notes: string | null; tags: Array<string> } => {
+export const splitNotes = (raw: string) => {
   const at = raw.indexOf("|tags:")
   const text = (at < 0 ? raw : raw.slice(0, at)).trim()
   const tags =
@@ -109,17 +109,19 @@ const parseRoll = (line: string) => {
   }
 }
 
+interface Section {
+  readonly title: string | null
+  readonly description: string | null
+  readonly url: string | null
+  readonly date: string | null
+}
+
 export const parseWishlist = (text: string): ParsedWishlist => {
   const blocks: Array<WishlistBlock> = []
   const blockIds = new Map<string, number>()
   const rolls: Array<WishlistRoll> = []
 
-  let section = {
-    title: null as string | null,
-    description: null as string | null,
-    url: null as string | null,
-    date: null as string | null,
-  }
+  let section: Section = { title: null, description: null, url: null, date: null }
   let pendingUrl: string | null = null
   let blockNotes: string | null = null
 

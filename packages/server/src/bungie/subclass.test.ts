@@ -34,21 +34,25 @@ const defs = new Map(
   ].map((d) => [d.hash, d]),
 )
 
-const SETS: Record<number, ReadonlyArray<number>> = {
-  100: [1, 2],
-  200: [10, 11, 12, 13],
-  300: [20, 21, 22, 23, 24],
-}
+const SETS = new Map<number, ReadonlyArray<number>>([
+  [100, [1, 2]],
+  [200, [10, 11, 12, 13]],
+  [300, [20, 21, 22, 23, 24]],
+])
 
 const sentinel = (plugs: ReadonlyArray<number>, enabled = plugs.map(() => true)) =>
   subclassSockets({
     subclass: { sockets: plugs.map((plugHash, i) => ({ plugHash, enabled: enabled[i] ?? true })) },
     plugSets: [100, 200, 200, 300, 300, 300, 300],
-    unlocked: (set) => SETS[set] ?? [],
+    unlocked: (set) => SETS.get(set) ?? [],
     defs,
   })
 
-const SLOTS: Record<number, number> = { 11: 2, 12: 2, 13: 1 }
+const SLOTS = new Map([
+  [11, 2],
+  [12, 2],
+  [13, 1],
+])
 const plan = (
   plugs: ReadonlyArray<number>,
   request: Parameters<typeof planSubclass>[0]["request"],
@@ -58,7 +62,7 @@ const plan = (
     sockets: sentinel(plugs),
     request,
     defs,
-    fragmentSlots: (hash) => SLOTS[hash] ?? 0,
+    fragmentSlots: (hash) => SLOTS.get(hash) ?? 0,
   })
 
 describe("planSubclass", () => {

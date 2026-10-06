@@ -18,7 +18,7 @@ const CALL_NAMES: Record<Exclude<ActionKind, "held">, string> = {
 type Grouped = Pick<ActionRecord, "kind" | "status" | "name" | "characterId">
 
 export const historyCalls = (actions: ReadonlyArray<Grouped>): ReadonlyArray<HistoryCall> => {
-  const groups = new Map<string, Array<Grouped>>()
+  const groups = new Map<string, [Grouped, ...Array<Grouped>]>()
   for (const action of actions) {
     const destination = action.kind === "to_character" ? action.characterId : null
     const key = `${action.kind}|${destination}|${action.status}`
@@ -27,7 +27,7 @@ export const historyCalls = (actions: ReadonlyArray<Grouped>): ReadonlyArray<His
     else group.push(action)
   }
   return [...groups.values()].map((group) => {
-    const [first] = group as [Grouped, ...Array<Grouped>]
+    const [first] = group
     const count = group.length > 1 ? ` ×${group.length}` : ""
     const label =
       first.kind === "held"

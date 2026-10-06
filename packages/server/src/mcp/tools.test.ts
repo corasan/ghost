@@ -232,8 +232,8 @@ describe("subclass detail", () => {
   ])
 
   const effects = (
-    rows: ReadonlyArray<string | { readonly name: string; readonly effect?: unknown }> = [],
-  ) => rows.flatMap((row) => (typeof row !== "string" && row.effect !== undefined ? row.name : []))
+    rows: ReadonlyArray<{ readonly name: string; readonly effect?: string | null | undefined }>,
+  ) => rows.flatMap((row) => (row.effect !== undefined ? row.name : []))
 
   test("lists every option but keeps effect text only for the top aspects and fragments and what is slotted", () => {
     const detail = subclassDetail(view, "titan", relevance)
@@ -251,8 +251,9 @@ describe("subclass detail", () => {
       "Fragment 4",
       "Fragment 0",
     ])
-    expect(effects(detail.grenade?.options)).toEqual([])
-    expect(detail.grenade?.options).toHaveLength(4)
+    expect(detail.grenade?.options).toEqual(
+      grenades.map((g, i) => ({ name: g.name, relevance: Math.round((0.9 - i / 10) * 100) / 100 })),
+    )
   })
 
   test("falls back to the unranked detail and says so when Jev is unavailable", () => {

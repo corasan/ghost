@@ -71,6 +71,12 @@ export interface ModRequest {
   readonly replaces?: string | undefined
 }
 
+/** The swaps a piece's mod requests become, and why any of them could not. */
+export interface ModPlan {
+  readonly swaps: ReadonlyArray<ModSwap>
+  readonly errors: ReadonlyArray<string>
+}
+
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
 
 /**
@@ -88,7 +94,7 @@ export const planModSwaps = ({
   readonly sockets: ReadonlyArray<SocketNow>
   readonly catalog: ReadonlyArray<ArmorModEntry>
   readonly requests: ReadonlyArray<ModRequest>
-}): { readonly swaps: ReadonlyArray<ModSwap>; readonly errors: ReadonlyArray<string> } => {
+}): ModPlan => {
   const fits = new Set(sockets.map((socket) => socket.category).filter((c) => BUILD_SOCKET.test(c)))
   const taken = new Map<number, ArmorModEntry>()
   const swaps: Array<ModSwap> = []
@@ -142,6 +148,12 @@ const statMods = (mods: StatMods, facts: StatFacts) =>
     return delta === undefined ? [] : [new StatMod({ label: statLabel(key, label, facts), delta })]
   })
 
+export interface PieceMods {
+  readonly armorMods: ReadonlyArray<ArmorMod>
+  readonly freeModSlots: number
+  readonly energyUsed: number
+}
+
 /** A piece's mods as the card shows them: every filled socket after the plan's swaps, in socket order. */
 export const describeArmorMods = ({
   sockets,
@@ -151,11 +163,7 @@ export const describeArmorMods = ({
   readonly sockets: ReadonlyArray<SocketNow>
   readonly swaps: ReadonlyArray<ModSwap>
   readonly facts: StatFacts
-}): {
-  readonly armorMods: ReadonlyArray<ArmorMod>
-  readonly freeModSlots: number
-  readonly energyUsed: number
-} => {
+}): PieceMods => {
   const incoming = new Map(swaps.map((swap) => [swap.socket.index, swap.entry]))
   const armorMods = sockets.flatMap((socket) => {
     const entry = incoming.get(socket.index)
