@@ -164,38 +164,28 @@ export const modSwaps = (plan: Plan) =>
     0,
   )
 
-const modsChange = (count: number) => `${count} ${count === 1 ? "mod changes" : "mods change"}`
-
-/** What confirming does to the subclass: switching to it, or how many of its plugs change. */
-export const subclassChange = (plan: Plan): string | null => {
+const subclassChange = (plan: Plan): string | null => {
   const change = plan.loadout?.change
   if (change === undefined) return null
-  if (change.replaces !== null) return `Switches to ${plan.loadout?.subclass ?? "the subclass"}`
+  if (change.replaces !== null) return `→ ${plan.loadout?.subclass ?? "subclass"}`
   const plugs = change.swaps.length
-  return plugs === 0 ? null : `${plugs} subclass ${plugs === 1 ? "plug changes" : "plugs change"}`
+  return plugs === 0 ? null : `${plugs} subclass ${plugs === 1 ? "plug" : "plugs"}`
 }
 
-/** Rows and the subclass change that failed when the plan ran. */
 export const failures = (plan: Plan) =>
   plan.rows.filter((row) => row.outcome === "failed").length +
   (plan.loadout?.change?.outcome === "failed" ? 1 : 0)
 
-/**
- * The one line under the tiles: what confirming will do. `plain` reads in the
- * body colour and `change` in blue, so moves, the subclass and mod swaps stand out.
- */
 export const verdict = (plan: Plan) => {
   const acting = plan.rows.filter((row) => row.action !== "none")
   const moving = acting.filter((row) => row.origin !== undefined).length
   const mods = modSwaps(plan)
-  const changes = [
-    moving > 0 ? `${moving} ${moving === 1 ? "piece moves" : "pieces move"}` : null,
+  const parts = [
+    moving > 0 ? `${moving} to move` : acting.length > 0 ? `${acting.length} to equip` : null,
     subclassChange(plan),
-    mods > 0 ? modsChange(mods) : null,
+    mods > 0 ? `${mods} ${mods === 1 ? "mod" : "mods"}` : null,
   ].filter((part) => part !== null)
-  const plain =
-    moving > 0 ? "" : acting.length > 0 ? `${acting.length} to equip.` : "Nothing moves."
-  return { plain, change: changes.length > 0 ? `${changes.join(", ")}.` : "" }
+  return parts.length === 0 ? "Nothing changes" : parts.join(" · ")
 }
 
 const piecesAway = (bonus: SetBonus) => Math.max(0, bonus.required - bonus.worn)

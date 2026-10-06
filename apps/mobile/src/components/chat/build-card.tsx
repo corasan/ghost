@@ -17,7 +17,6 @@ import {
   hasStatMods,
   headline,
   type ModPip,
-  pendingMasterwork,
   signed,
   slotLabel,
   splitRows,
@@ -230,33 +229,22 @@ function Tiles({
 
 function Verdict({ plan }: { plan: Plan }) {
   const failed = failures(plan)
-  const pending = pendingMasterwork(plan)
-  const outcome = verdict(plan)
-  const toSelect =
-    plan.artifact?.picks.filter((pick) => pick.state === "select_in_game").length ?? 0
-  if (plan.status === "undone") return <>Undone.</>
+  if (plan.status === "undone") return <>Undone</>
   if (plan.status === "applied") {
     return failed > 0 ? (
       <>
-        Applied. <Text style={{ color: Ghost.danger }}>{failed} failed.</Text>
+        Applied · <Text style={{ color: Ghost.danger }}>{failed} failed</Text>
       </>
     ) : (
-      <>Applied.</>
+      <>Applied</>
     )
   }
+  const toSelect =
+    plan.artifact?.picks.filter((pick) => pick.state === "select_in_game").length ?? 0
   return (
     <>
-      {outcome.plain}
-      {outcome.change ? (
-        <Text style={{ color: Ghost.accent }}>
-          {outcome.plain ? " " : ""}
-          {outcome.change}
-        </Text>
-      ) : null}
-      {pending > 0 ? <Text style={{ color: Ghost.gold }}> {pending} not masterworked.</Text> : null}
-      {toSelect > 0 ? (
-        <Text style={{ color: Ghost.gold }}> {toSelect} artifact perks to select in game.</Text>
-      ) : null}
+      <Text style={{ color: Ghost.accent }}>{verdict(plan)}</Text>
+      {toSelect > 0 ? <Text style={{ color: Ghost.gold }}> · {toSelect} perks in game</Text> : null}
     </>
   )
 }

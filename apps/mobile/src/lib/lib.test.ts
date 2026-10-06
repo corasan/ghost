@@ -389,11 +389,8 @@ describe("build card", () => {
     const helm = row("helm", { armorMods: [armorMod("Super Mod", [["SUPER", 10]]), swap] })
     const vaulted = row("arms", { action: "equip", origin: "VAULT", armorMods: [swap] })
     expect(modPips(helm)).toEqual(["stat", "swap"])
-    expect(verdict(plan({ rows: [helm] }))).toEqual({
-      plain: "Nothing moves.",
-      change: "1 mod changes.",
-    })
-    expect(verdict(plan({ rows: [helm, vaulted] })).change).toBe("1 piece moves, 2 mods change.")
+    expect(verdict(plan({ rows: [helm] }))).toBe("1 mod")
+    expect(verdict(plan({ rows: [helm, vaulted] }))).toBe("1 to move · 2 mods")
   })
 
   test("a piece shows a pip per socket: stat mods, other mods, then free slots", () => {
@@ -454,11 +451,10 @@ describe("build card", () => {
       })
     const swap = new ArmorMod({ name: "Firepower", description: "", cost: 2, mods: [], swap: true })
     const helm = row("helm", { armorMods: [swap] })
-    expect(verdict(plan({ loadout: loadout("Behemoth", 3), rows: [helm] }))).toEqual({
-      plain: "Nothing moves.",
-      change: "Switches to Sentinel, 1 mod changes.",
-    })
-    expect(verdict(plan({ loadout: loadout(null, 2) })).change).toBe("2 subclass plugs change.")
+    expect(verdict(plan({ loadout: loadout("Behemoth", 3), rows: [helm] }))).toBe(
+      "→ Sentinel · 1 mod",
+    )
+    expect(verdict(plan({ loadout: loadout(null, 2) }))).toBe("2 subclass plugs")
     expect([
       ...defaultSelection(plan({ loadout: loadout("Behemoth", 0), rows: [row("worn")] })),
     ]).toEqual(["sentinel"])
@@ -468,12 +464,9 @@ describe("build card", () => {
     const worn = row("worn")
     const carried = row("carried", { action: "equip" })
     const vaulted = row("vaulted", { action: "equip", origin: "VAULT" })
-    expect(verdict(plan({ rows: [worn] }))).toEqual({ plain: "Nothing moves.", change: "" })
-    expect(verdict(plan({ rows: [worn, carried] }))).toEqual({ plain: "1 to equip.", change: "" })
-    expect(verdict(plan({ rows: [worn, carried, vaulted] }))).toEqual({
-      plain: "",
-      change: "1 piece moves.",
-    })
+    expect(verdict(plan({ rows: [worn] }))).toBe("Nothing changes")
+    expect(verdict(plan({ rows: [worn, carried] }))).toBe("1 to equip")
+    expect(verdict(plan({ rows: [worn, carried, vaulted] }))).toBe("1 to move")
   })
 
   describe("synergy", () => {
