@@ -19,3 +19,4 @@ apps/mobile/android/
 apps/mobile/web-build/
 
 .argent/recordings
+*.tsv
