@@ -13,10 +13,11 @@ import { ItemIcon } from "@/components/ghost/item-icon"
 import { PlugIcon } from "@/components/ghost/plug-icon"
 import { SetBonusIcons } from "@/components/ghost/set-bonus"
 import { SubclassMark } from "@/components/ghost/subclass-mark"
-import { Body, Button, Cond, Cut, Mono } from "@/components/ghost/ui"
+import { Body, Button, Cond, Cut, Meta, Mono } from "@/components/ghost/ui"
 import { Ghost } from "@/constants/theme"
 import { errorMessage, useApplyPlan, useUndoPlan } from "@/lib/api"
 import { orderBuildStats } from "@/lib/build-order"
+import { sentence } from "@/lib/format"
 import {
   appliedTotals,
   bySlot,
@@ -28,7 +29,6 @@ import {
   modPips,
   pendingMasterwork,
   shortPlugName,
-  shortStat,
   signed,
   slotLabel,
   STAT_TICKS,
@@ -95,7 +95,7 @@ function Loadout({ loadout }: { loadout: SubclassLoadout }) {
   const replaces = loadout.change?.replaces
   const lines = [
     {
-      label: "SUBCLASS",
+      label: "Subclass",
       plugs: replaces
         ? [
             {
@@ -106,10 +106,10 @@ function Loadout({ loadout }: { loadout: SubclassLoadout }) {
           ]
         : [],
     },
-    { label: "SUPER", plugs: loadout.super ? [shown(loadout.super)] : [] },
-    { label: "ASPECTS", plugs: loadout.aspects.map((aspect) => shown(aspect)) },
+    { label: "Super", plugs: loadout.super ? [shown(loadout.super)] : [] },
+    { label: "Aspects", plugs: loadout.aspects.map((aspect) => shown(aspect)) },
     {
-      label: "FRAGMENTS",
+      label: "Fragments",
       plugs: loadout.fragments.map((each) => shown(each, shortPlugName(each.name))),
     },
   ].filter((line) => line.plugs.length > 0)
@@ -118,7 +118,7 @@ function Loadout({ loadout }: { loadout: SubclassLoadout }) {
     <View style={{ marginTop: 14, gap: 7 }}>
       {lines.map((line) => (
         <View key={line.label} style={styles.loadoutLine}>
-          <Mono style={styles.loadoutLabel}>{line.label}</Mono>
+          <Meta style={styles.loadoutLabel}>{line.label}</Meta>
           <Plugs plugs={line.plugs} />
         </View>
       ))}
@@ -130,7 +130,7 @@ function Stats({ plan }: { plan: Plan }) {
   const applied = appliedTotals(plan)
   return (
     <View style={styles.band}>
-      <View style={{ flexDirection: "row", gap: 6 }}>
+      <View style={{ flexDirection: "row", gap: 3 }}>
         {orderBuildStats(plan.stats).map((stat) => {
           const tone = stat.target ? Ghost.good : Ghost.ink
           return (
@@ -138,9 +138,9 @@ function Stats({ plan }: { plan: Plan }) {
               <Cond size={24} color={tone} style={{ letterSpacing: 0, lineHeight: 24 }}>
                 {stat.value}
               </Cond>
-              <Mono size={11} style={{ marginTop: 4, letterSpacing: 0.8 }} lines={1}>
-                {stat.label}
-              </Mono>
+              <Meta size={12} style={{ marginTop: 3 }} lines={1}>
+                {sentence(stat.label)}
+              </Meta>
               <View style={{ flexDirection: "row", gap: 2, marginTop: 6 }}>
                 {Array.from({ length: STAT_TICKS }, (_, i) => (
                   <View
@@ -158,17 +158,17 @@ function Stats({ plan }: { plan: Plan }) {
         })}
       </View>
       {applied.length > 0 ? (
-        <Mono style={{ marginTop: 8, letterSpacing: 0.9 }}>
-          {hasStatMods(plan) ? "FRAGMENTS + MODS APPLIED" : "FRAGMENTS APPLIED"}
+        <Meta style={{ marginTop: 10 }}>
+          {hasStatMods(plan) ? "Fragments and mods applied" : "Fragments applied"}
           {applied.map((mod) => (
             <Text key={mod.label}>
               {" · "}
               <Text style={{ color: mod.delta > 0 ? Ghost.good : Ghost.danger }}>
-                {signed(mod.delta)} {shortStat(mod.label)}
+                {signed(mod.delta)} {sentence(mod.label)}
               </Text>
             </Text>
           ))}
-        </Mono>
+        </Meta>
       ) : null}
     </View>
   )
@@ -243,14 +243,14 @@ function Tile({
           <ModPips pips={pips} fill />
         </View>
       ) : null}
-      <Mono
-        size={11}
+      <Meta
+        size={12}
         color={result ? Ghost.danger : arriving ? Ghost.accent : Ghost.dim}
-        style={{ letterSpacing: 0.8, marginTop: 6 }}
+        style={{ marginTop: 5 }}
         lines={1}
       >
-        {result ?? (arriving ? row.origin : slotLabel(row.slot, classType))}
-      </Mono>
+        {result ?? (arriving && row.origin ? sentence(row.origin) : slotLabel(row.slot, classType))}
+      </Meta>
     </Pressable>
   )
 }

@@ -2,20 +2,17 @@ import type { Job, JobStep } from "@ghost/contract"
 import { useEffect, useRef, useState } from "react"
 import { Animated, Pressable, View } from "react-native"
 
-import { Body, Chevron, Mono } from "@/components/ghost/ui"
+import { Body, Chevron, Meta } from "@/components/ghost/ui"
 import { Ghost } from "@/constants/theme"
-import { upper } from "@/lib/format"
-
-const line = (step: JobStep) =>
-  step.detail ? `${upper(step.label)} · ${step.detail}` : upper(step.label)
+const line = (step: JobStep) => (step.detail ? `${step.label} · ${step.detail}` : step.label)
 
 function StepLines({ steps }: { steps: readonly JobStep[] }) {
   return (
     <View style={{ gap: 5 }}>
       {steps.map((step, i) => (
-        <Mono key={i} size={11} lines={1}>
+        <Meta key={i} lines={1}>
           {line(step)}
-        </Mono>
+        </Meta>
       ))}
     </View>
   )
@@ -52,9 +49,9 @@ export function Working({ job }: { job: Job }) {
           <Body size={16} color={Ghost.muted} lines={1}>
             {now}…
           </Body>
-          <Mono size={11} style={{ marginTop: 4 }} lines={1}>
+          <Meta style={{ marginTop: 2 }} lines={1}>
             {current?.detail ?? " "}
-          </Mono>
+          </Meta>
         </Pulse>
       </View>
     </View>
@@ -74,9 +71,9 @@ export function StepsSummary({ steps }: { steps: readonly JobStep[] }) {
         onPress={() => setOpen(!open)}
         style={{ flexDirection: "row", alignItems: "center", gap: 8, alignSelf: "flex-start" }}
       >
-        <Mono>
-          {steps.length} {steps.length === 1 ? "TOOL CALL" : "TOOL CALLS"}
-        </Mono>
+        <Meta>
+          {steps.length} {steps.length === 1 ? "tool call" : "tool calls"}
+        </Meta>
         <View style={{ marginTop: open ? -3 : 0 }}>
           <Chevron size={5} direction={open ? "down" : "right"} />
         </View>

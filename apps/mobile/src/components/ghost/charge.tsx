@@ -3,11 +3,11 @@ import { Image } from "expo-image"
 import { useState } from "react"
 import { Pressable, StyleSheet, View } from "react-native"
 
-import { Body, Chevron, Cut, Mono } from "@/components/ghost/ui"
+import { Body, Chevron, Cut, Meta, Mono } from "@/components/ghost/ui"
 import { Ghost, Type } from "@/constants/theme"
 import { type ChargedMod } from "@/lib/charge"
 import { firstSentence } from "@/lib/effect-text"
-import { age, upper } from "@/lib/format"
+import { age } from "@/lib/format"
 
 export function ChargeTag() {
   return (
@@ -38,22 +38,16 @@ export function ChargeNote({
       style={styles.note}
     >
       <View style={styles.noteHead}>
-        <Mono size={11} color={Ghost.charge} style={{ letterSpacing: 1.2 }}>
-          WITH ARMOR CHARGE
-        </Mono>
-        {copies > 1 ? (
-          <Mono size={11} color={Ghost.charge} style={{ letterSpacing: 1.2 }}>
-            ×{copies} SLOTTED
-          </Mono>
-        ) : null}
+        <Meta color={Ghost.charge}>With Armor Charge</Meta>
+        {copies > 1 ? <Meta color={Ghost.charge}>×{copies} slotted</Meta> : null}
       </View>
-      <Body size={13} color={effect ? Ghost.ink : Ghost.muted} style={{ lineHeight: 18 }}>
+      <Body size={14} color={effect ? Ghost.ink : Ghost.muted} style={{ lineHeight: 20 }}>
         {effect?.effect ?? "Ghost has not looked up the numbers for this mod yet."}
       </Body>
       {source ? (
-        <Mono size={11} style={{ letterSpacing: 0.8 }} lines={1}>
-          {[upper(source.label), source.asOf ? age(source.asOf) : null].filter(Boolean).join(" · ")}
-        </Mono>
+        <Meta lines={1}>
+          {[source.label, source.asOf ? age(source.asOf) : null].filter(Boolean).join(" · ")}
+        </Meta>
       ) : null}
     </Cut>
   )
@@ -73,12 +67,12 @@ function ChargedRow({ entry, under }: { entry: ChargedMod; under: string }) {
       >
         {mod.icon ? <Image source={mod.icon} style={styles.icon} transition={120} /> : null}
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Body size={13} style={{ fontFamily: Type.bodyMedium, lineHeight: 16 }} lines={1}>
+          <Body size={14} style={{ fontFamily: Type.bodyMedium, lineHeight: 18 }} lines={1}>
             {copies > 1 ? `${mod.name} ×${copies}` : mod.name}
           </Body>
-          <Body size={11} color={Ghost.dim} style={{ lineHeight: 14, marginTop: 1 }} lines={1}>
+          <Meta lines={1}>
             {mod.chargeEffect?.effect ?? firstSentence(mod.description)}
-          </Body>
+          </Meta>
         </View>
         <Chevron direction={open ? "up" : "down"} size={6} color={Ghost.charge} />
       </Pressable>
@@ -108,7 +102,7 @@ export function Situational({
           {summary}
         </Body>
       ) : pending ? (
-        <Body size={13} color={Ghost.dim} style={{ lineHeight: 18, paddingBottom: 8 }}>
+        <Body size={14} color={Ghost.muted} style={{ lineHeight: 20, paddingBottom: 8 }}>
           Ghost is reading up on your charge mods…
         </Body>
       ) : null}

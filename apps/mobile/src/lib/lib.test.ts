@@ -33,7 +33,6 @@ import {
   litTicks,
   modPips,
   setBonusLine,
-  shortStat,
   slotLabel,
   synergyParts,
   verdict,
@@ -360,7 +359,6 @@ describe("build card", () => {
       ["SUPER", 20],
       ["HEALTH", -10],
     ])
-    expect(shortStat("WEAPONS")).toBe("WPN")
   })
 
   test("mod swaps are counted in the verdict and drawn as their own pip", () => {
@@ -385,9 +383,9 @@ describe("build card", () => {
   })
 
   test("the class slot is named for the class that wears it", () => {
-    expect(slotLabel("class", "titan")).toBe("MARK")
-    expect(slotLabel("class", "hunter")).toBe("CLOAK")
-    expect(slotLabel("legs", "hunter")).toBe("LEGS")
+    expect(slotLabel("class", "titan")).toBe("Mark")
+    expect(slotLabel("class", "hunter")).toBe("Cloak")
+    expect(slotLabel("legs", "hunter")).toBe("Legs")
   })
 
   test("tiles run head to toe whatever order Ghost listed the pieces in", () => {

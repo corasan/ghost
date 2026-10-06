@@ -4,7 +4,7 @@ import { type HostInstance, Pressable, StyleSheet, View } from "react-native"
 
 import { PlugIcon } from "@/components/ghost/plug-icon"
 import { Tooltip } from "@/components/ghost/tooltip"
-import { Body, Meta, Mono } from "@/components/ghost/ui"
+import { Body, Meta } from "@/components/ghost/ui"
 import { Ghost, Type } from "@/constants/theme"
 import { setBonusLine, splitSetBonuses } from "@/lib/plan-card"
 
@@ -68,7 +68,7 @@ export function SetBonusIcons({ bonuses }: { bonuses: readonly SetBonus[] }) {
   )
   return (
     <View style={styles.row}>
-      <Mono style={styles.label}>SET BONUS</Mono>
+      <Meta style={styles.label}>Set bonus</Meta>
       {on.map((bonus) => icon(bonus, false))}
       {short.map((bonus) => icon(bonus, true))}
       {open ? (

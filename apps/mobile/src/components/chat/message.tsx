@@ -3,7 +3,7 @@ import * as WebBrowser from "expo-web-browser"
 import { memo } from "react"
 import { Pressable, View } from "react-native"
 
-import { Body, Mono, Said } from "@/components/ghost/ui"
+import { Body, Meta, Mono, Said } from "@/components/ghost/ui"
 import { Ghost } from "@/constants/theme"
 import { age, clock } from "@/lib/format"
 import { webUrl } from "@/lib/links"
@@ -20,7 +20,7 @@ function Sources({ sources }: { sources: readonly Source[] }) {
     >
       <Mono>SOURCES</Mono>
       {sources.map((source) => {
-        const label = `${source.label.toUpperCase()}${source.asOf ? ` · ${age(source.asOf)}` : ""}`
+        const label = `${source.label}${source.asOf ? ` · ${age(source.asOf)}` : ""}`
         const link = source.url ? webUrl(source.url) : null
         return link !== null ? (
           <Pressable
@@ -29,12 +29,10 @@ function Sources({ sources }: { sources: readonly Source[] }) {
             hitSlop={6}
             onPress={() => void WebBrowser.openBrowserAsync(link)}
           >
-            <Mono color={Ghost.accent}>{label}</Mono>
+            <Meta color={Ghost.accent}>{label}</Meta>
           </Pressable>
         ) : (
-          <Mono key={source.label} color={Ghost.muted}>
-            {label}
-          </Mono>
+          <Meta key={source.label}>{label}</Meta>
         )
       })}
     </View>
@@ -46,7 +44,7 @@ function Message({ job, onAsk }: { job: Job; onAsk: (prompt: string) => void }) 
   return (
     <View style={{ gap: 20 }}>
       <View style={{ alignSelf: "flex-end", maxWidth: "84%", alignItems: "flex-end" }}>
-        <Mono style={{ marginBottom: 6 }}>YOU · {clock(job.createdAt)}</Mono>
+        <Meta style={{ marginBottom: 4 }}>You · {clock(job.createdAt)}</Meta>
         <Body size={16} style={{ textAlign: "right" }}>
           {job.prompt}
         </Body>

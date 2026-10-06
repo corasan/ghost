@@ -49,17 +49,6 @@ export const appliedTotals = (plan: Plan): StatMod[] =>
 export const hasStatMods = (plan: Plan) =>
   plan.rows.some((row) => row.armorMods?.some((mod) => mod.mods.length > 0))
 
-const SHORT_STAT = new Map([
-  ["HEALTH", "HLT"],
-  ["MELEE", "MEL"],
-  ["GRENADE", "GRN"],
-  ["SUPER", "SUP"],
-  ["CLASS", "CLS"],
-  ["WEAPONS", "WPN"],
-])
-
-export const shortStat = (label: string) => SHORT_STAT.get(label) ?? label.slice(0, 3)
-
 export type ModPip = "swap" | "stat" | "other" | "free"
 
 /** One pip per mod socket: a mod the plan puts in, a stat mod, any other mod, or a free slot. Undefined when the plan predates mods. */
@@ -79,20 +68,20 @@ export const signed = (delta: number) => (delta > 0 ? `+${delta}` : `−${Math.a
 export const shortPlugName = (name: string) => name.replace(/^\S+ of /, "")
 
 const CLASS_ITEM: Record<GuardianClass, string> = {
-  titan: "MARK",
-  hunter: "CLOAK",
-  warlock: "BOND",
+  titan: "Mark",
+  hunter: "Cloak",
+  warlock: "Bond",
 }
 
 const SLOT_LABEL: Record<ItemSlot, string> = {
-  helmet: "HELM",
-  arms: "ARMS",
-  chest: "CHEST",
-  legs: "LEGS",
-  class: "CLASS",
-  kinetic: "KINETIC",
-  energy: "ENERGY",
-  power: "POWER",
+  helmet: "Helm",
+  arms: "Arms",
+  chest: "Chest",
+  legs: "Legs",
+  class: "Class",
+  kinetic: "Kinetic",
+  energy: "Energy",
+  power: "Power",
   other: "",
 }
 
