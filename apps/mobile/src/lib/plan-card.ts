@@ -162,13 +162,12 @@ const piecesAway = (bonus: SetBonus) => Math.max(0, bonus.required - bonus.worn)
 export const setBonusLine = (bonus: SetBonus) => {
   const away = piecesAway(bonus)
   return [
-    `${bonus.required}-PIECE`,
+    `${bonus.required}-piece`,
     bonus.set,
-    away > 0 ? `${away} ${away === 1 ? "PIECE" : "PIECES"} AWAY` : null,
+    away > 0 ? `${away} ${away === 1 ? "piece" : "pieces"} away` : null,
   ]
     .filter((part) => part !== null)
     .join(" · ")
-    .toUpperCase()
 }
 
 /** A build's set bonuses: the ones its pieces turn on, then the ones it is short of. */

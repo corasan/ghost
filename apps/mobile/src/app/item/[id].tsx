@@ -5,7 +5,7 @@ import { ScrollView, View } from "react-native"
 
 import { PlugIcon } from "@/components/ghost/plug-icon"
 import { SetBonusText } from "@/components/ghost/set-bonus"
-import { ArmorStatLine, Body, Mono } from "@/components/ghost/ui"
+import { ArmorStatLine, Body, Meta, Mono } from "@/components/ghost/ui"
 import { ItemActions } from "@/components/item/actions"
 import { ItemHeader } from "@/components/item/header"
 import { Ghost, Type } from "@/constants/theme"
@@ -27,11 +27,11 @@ function ArmorSetSection({ set }: { set: ArmorSet }) {
     <View style={{ paddingHorizontal: 20, gap: 12 }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
         <Mono>ARMOR SET</Mono>
-        <Mono color={Ghost.muted}>
-          {set.worn} OF {set.of} WORN
-        </Mono>
+        <Meta>
+          {set.worn} of {set.of} worn
+        </Meta>
       </View>
-      <Body size={15} style={{ fontFamily: Type.bodyMedium }}>
+      <Body size={17} style={{ fontFamily: Type.bodyMedium }}>
         {set.name}
       </Body>
       {set.bonuses.map(({ bonus, on }) => (
@@ -44,9 +44,9 @@ function ArmorSetSection({ set }: { set: ArmorSet }) {
             <SetBonusText bonus={bonus} />
           </View>
           {on ? (
-            <Mono size={11} color={Ghost.good} style={{ letterSpacing: 1, marginTop: 4 }}>
-              ON
-            </Mono>
+            <Meta color={Ghost.good} style={{ marginTop: 2 }}>
+              Active
+            </Meta>
           ) : null}
         </View>
       ))}
@@ -101,7 +101,7 @@ function Perks({ perks }: { perks: ItemDetail["perks"] }) {
             >
               {perk.name}
             </Body>
-            <Body size={13} color={Ghost.muted} style={{ lineHeight: 18, marginTop: 2 }}>
+            <Body size={14} color={Ghost.muted} style={{ lineHeight: 20, marginTop: 2 }}>
               {perk.description.trim()}
             </Body>
           </View>

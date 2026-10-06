@@ -537,8 +537,8 @@ describe("build card", () => {
     })
 
     test("the set line names the pieces needed, the set, and how far the build is from it", () => {
-      expect(setBonusLine(bonus)).toBe("2-PIECE · TECHSEC")
-      expect(setBonusLine(lastDiscipline)).toBe("4-PIECE · LAST DISCIPLINE · 1 PIECE AWAY")
+      expect(setBonusLine(bonus)).toBe("2-piece · Techsec")
+      expect(setBonusLine(lastDiscipline)).toBe("4-piece · Last Discipline · 1 piece away")
     })
   })
 })

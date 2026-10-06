@@ -2,7 +2,7 @@ import type { GuardianCharacter, ItemSummary } from "@ghost/contract"
 import { router } from "expo-router"
 import { Pressable, StyleSheet, View } from "react-native"
 
-import { Body, Button, Cond, Mono } from "@/components/ghost/ui"
+import { Body, Button, Cond, Meta } from "@/components/ghost/ui"
 import { Ghost } from "@/constants/theme"
 import { errorMessage, useItemAction, useSetDecision } from "@/lib/api"
 import { useCharacter } from "@/lib/character"
@@ -44,7 +44,7 @@ function Action({
       <Cond size={17} color={tone}>
         {label}
       </Cond>
-      {hint ? <Mono size={11}>{hint}</Mono> : null}
+      {hint ? <Meta>{hint}</Meta> : null}
     </Pressable>
   )
 }
@@ -75,9 +75,9 @@ export function ItemActions({
         <View key={character.characterId} style={styles.character}>
           <View style={{ flex: 1 }}>
             <Cond size={17}>{upper(character.classType)}</Cond>
-            <Mono size={11} style={{ marginTop: 3 }}>
-              {isOn(item, character) ? (item.equipped ? "EQUIPPED" : "CARRYING") : character.light}
-            </Mono>
+            <Meta style={{ marginTop: 2 }}>
+              {isOn(item, character) ? (item.equipped ? "Equipped" : "Carrying") : character.light}
+            </Meta>
           </View>
           <View style={{ width: 84, flexDirection: "row" }}>
             <Button
@@ -107,7 +107,7 @@ export function ItemActions({
       {item.location !== "vault" ? (
         <Action
           label="SEND TO VAULT"
-          hint={item.equipped ? "UNEQUIP FIRST" : undefined}
+          hint={item.equipped ? "Unequip first" : undefined}
           disabled={busy || item.equipped}
           onPress={() => act.mutate({ id, action: "to_vault" }, done)}
         />
@@ -129,7 +129,7 @@ export function ItemActions({
       />
       <Action
         label="ASK GHOST"
-        hint="IS IT WORTH KEEPING?"
+        hint="Is it worth keeping?"
         tone={Ghost.accent}
         onPress={() => {
           router.back()
@@ -142,7 +142,7 @@ export function ItemActions({
       {selectable ? (
         <Action
           label="SELECT MORE"
-          hint="THEN ASK OR JUNK TOGETHER"
+          hint="Then ask or junk together"
           onPress={() => {
             togglePicked(id)
             router.back()

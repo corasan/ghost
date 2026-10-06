@@ -80,7 +80,7 @@ export function followUps(briefing: Briefing): readonly FollowUp[] {
   return out.slice(0, 2)
 }
 
-/** "SAT 4 OCT" */
+/** "Sat 4 Oct" */
 export function dayStamp(now: Date = new Date()) {
-  return `${DAYS[now.getDay()]?.slice(0, 3)} ${now.getDate()} ${MONTHS[now.getMonth()]}`.toUpperCase()
+  return `${DAYS[now.getDay()]?.slice(0, 3)} ${now.getDate()} ${MONTHS[now.getMonth()]}`
 }

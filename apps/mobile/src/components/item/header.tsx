@@ -2,31 +2,34 @@ import type { ItemSummary } from "@ghost/contract"
 import { View } from "react-native"
 
 import { ItemIcon } from "@/components/ghost/item-icon"
-import { Cond, Mono } from "@/components/ghost/ui"
+import { Cond, Meta } from "@/components/ghost/ui"
 import { Ghost, Rarity } from "@/constants/theme"
 import { useCharacter } from "@/lib/character"
-import { upper } from "@/lib/format"
+import { sentence, upper } from "@/lib/format"
 
 function useWhere(item: ItemSummary) {
   const { characters } = useCharacter()
   const owner = characters.find((each) => each.characterId === item.characterId)
-  const who = owner ? upper(owner.classType) : "CHARACTER"
-  if (item.location === "vault") return "IN VAULT"
-  if (item.location === "postmaster") return `POSTMASTER · ${who}`
-  return item.equipped ? `EQUIPPED ON ${who}` : `ON ${who}`
+  const who = owner ? sentence(owner.classType) : "character"
+  if (item.location === "vault") return "In vault"
+  if (item.location === "postmaster") return `Postmaster · ${who}`
+  return item.equipped ? `Equipped on ${who}` : `On ${who}`
 }
 
 export function ItemHeader({ item, size = 64 }: { item: ItemSummary; size?: number }) {
   const where = useWhere(item)
-  const kind = [item.tier, item.typeName, item.damageType === "none" ? null : item.damageType]
+  const kind = [
+    sentence(item.tier),
+    item.typeName,
+    item.damageType === "none" ? null : sentence(item.damageType),
+  ]
     .filter(Boolean)
-    .map((part) => upper(String(part)))
     .join(" · ")
   const tags = [
-    item.locked ? "LOCKED" : null,
-    item.masterwork ? "MASTERWORK" : null,
-    item.duplicates > 0 ? `${item.duplicates + 1} COPIES` : null,
-    item.decision ? upper(item.decision) : null,
+    item.locked ? "Locked" : null,
+    item.masterwork ? "Masterwork" : null,
+    item.duplicates > 0 ? `${item.duplicates + 1} copies` : null,
+    item.decision ? sentence(item.decision) : null,
   ].filter(Boolean)
   return (
     <View style={{ flexDirection: "row", gap: 14, paddingHorizontal: 20 }}>
@@ -46,12 +49,12 @@ export function ItemHeader({ item, size = 64 }: { item: ItemSummary; size?: numb
             {item.power ?? ""}
           </Cond>
         </View>
-        <Mono color={Rarity[item.tier]} style={{ marginTop: 5 }} lines={1}>
+        <Meta size={14} color={Rarity[item.tier]} style={{ marginTop: 4 }} lines={1}>
           {kind}
-        </Mono>
-        <Mono style={{ marginTop: 5 }} lines={1}>
+        </Meta>
+        <Meta style={{ marginTop: 2 }} lines={1}>
           {[where, ...tags].join(" · ")}
-        </Mono>
+        </Meta>
       </View>
     </View>
   )

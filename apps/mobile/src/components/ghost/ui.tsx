@@ -13,9 +13,11 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { Ghost, Gutter, Type } from "@/constants/theme"
+import { sentence } from "@/lib/format"
 
-// The design's three voices: JetBrains Mono for labels and numbers that are
-// data, Barlow Condensed for headings and buttons, Barlow for sentences.
+// The design's three voices: JetBrains Mono for numbers and short section
+// labels, Barlow Condensed for headings and buttons, Barlow for sentences and
+// the metadata under a name.
 // Letter spacing is specified in em in the design, so it scales with size.
 
 type TextProps = {
@@ -53,6 +55,17 @@ export function Body({ children, size = 15, color = Ghost.ink, style, lines }: T
     <Text
       numberOfLines={lines}
       style={[{ fontFamily: Type.body, fontSize: size, lineHeight: size * 1.4, color }, style]}
+    >
+      {children}
+    </Text>
+  )
+}
+
+export function Meta({ children, size = 13, color = Ghost.muted, style, lines }: TextProps) {
+  return (
+    <Text
+      numberOfLines={lines}
+      style={[{ fontFamily: Type.body, fontSize: size, lineHeight: size * 1.35, color }, style]}
     >
       {children}
     </Text>
@@ -295,9 +308,9 @@ export function TierStat({
           </Cond>
         ) : null}
       </View>
-      <Mono size={11} style={{ marginTop: 3 }}>
-        {label}
-      </Mono>
+      <Meta size={12} style={{ marginTop: 3 }}>
+        {sentence(label)}
+      </Meta>
       <View style={{ flexDirection: "row", gap: 2, marginTop: 6 }}>
         {Array.from({ length: 10 }, (_, i) => (
           <View
@@ -354,10 +367,10 @@ export function ArmorStatLine({ stats }: { stats: readonly ArmorStat[] }) {
       <View style={{ flexDirection: "row" }}>
         {stats.map((stat) => (
           <View key={stat.label} style={{ flex: 1 }}>
-            <Mono size={11} lines={1}>
-              {stat.label}
-            </Mono>
-            <Mono size={11} color={stat.value > 0 ? Ghost.ink : Ghost.dim} style={{ marginTop: 2 }}>
+            <Meta size={12} lines={1}>
+              {sentence(stat.label)}
+            </Meta>
+            <Mono size={14} color={stat.value > 0 ? Ghost.ink : Ghost.dim} style={{ marginTop: 3 }}>
               {stat.value}
               {stat.masterworked !== undefined ? (
                 <Text style={{ color: Ghost.gold }}>›{stat.masterworked}</Text>
@@ -367,9 +380,9 @@ export function ArmorStatLine({ stats }: { stats: readonly ArmorStat[] }) {
         ))}
       </View>
       {pending ? (
-        <Mono size={11} color={Ghost.gold}>
-          NOT MASTERWORKED · {now} NOW › {then} MASTERWORKED
-        </Mono>
+        <Meta color={Ghost.gold}>
+          Not masterworked · {now} now › {then} masterworked
+        </Meta>
       ) : null}
     </View>
   )
@@ -458,18 +471,18 @@ export function PageHeader({
           <Cond size={44} style={styles.headline} lines={1}>
             {title}
           </Cond>
-          <Mono size={11} color={subtitleColor} style={{ marginTop: 8 }}>
+          <Meta color={subtitleColor} style={{ marginTop: 6 }}>
             {subtitle}
-          </Mono>
+          </Meta>
         </View>
         <View style={{ alignItems: "flex-end" }}>
           <Cond size={44} color={figureColor} style={styles.headline}>
             {figure}
             {figureSuffix ? <Text style={{ color: Ghost.dim }}>{figureSuffix}</Text> : null}
           </Cond>
-          <Mono size={11} style={{ marginTop: 8 }}>
+          <Meta style={{ marginTop: 6 }}>
             {caption}
-          </Mono>
+          </Meta>
         </View>
       </View>
       {children}
