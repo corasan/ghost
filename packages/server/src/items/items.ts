@@ -147,6 +147,7 @@ export const ItemsLive = Layer.effect(
         const words = describeAction(item, input.action, target)
         const job = yield* jobs
           .createManual({
+            kind: "item_action",
             prompt: words.prompt,
             characterId,
             plan: new Plan({
