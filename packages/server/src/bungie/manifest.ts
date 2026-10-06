@@ -52,10 +52,14 @@ export const capacitiesFrom = (
   postmaster: buckets[BUCKETS.postmaster]?.itemCount || FALLBACK_CAPACITIES.postmaster,
 })
 
-/** Name and effect of an armor stat in the current patch, keyed by stat hash. */
+/** Name, effect and icon URL of an armor stat in the current patch, keyed by stat hash. */
 const StatFacts = Schema.Record(
   Schema.String,
-  Schema.Struct({ name: Schema.String, effect: Schema.String }),
+  Schema.Struct({
+    name: Schema.String,
+    effect: Schema.String,
+    icon: Schema.optionalKey(Schema.String),
+  }),
 )
 export type StatFacts = typeof StatFacts.Type
 
@@ -64,6 +68,7 @@ const StatDefinition = Schema.Struct({
     Schema.Struct({
       name: Schema.optionalKey(Schema.String),
       description: Schema.optionalKey(Schema.String),
+      icon: Schema.optionalKey(Schema.String),
     }),
   ),
 })
@@ -75,10 +80,11 @@ export const statFactsFrom = (
 ): StatFacts =>
   Object.fromEntries(
     hashes.flatMap((hash) => {
-      const name = definitions[hash]?.displayProperties?.name
-      return name === undefined || name === ""
-        ? []
-        : [[hash, { name, effect: definitions[hash]?.displayProperties?.description ?? "" }]]
+      const display = definitions[hash]?.displayProperties
+      const name = display?.name
+      if (name === undefined || name === "") return []
+      const icon = display?.icon ? { icon: `https://www.bungie.net${display.icon}` } : {}
+      return [[hash, { name, effect: display?.description ?? "", ...icon }]]
     }),
   )
 
@@ -406,8 +412,8 @@ const storedJson = <S extends Schema.Codec<unknown, unknown>>(schema: S) =>
 const VERSION_KEY = "manifest.version"
 const CAPACITIES_KEY = "manifest.capacities"
 const CAPACITIES_VERSION_KEY = "manifest.capacities.version"
-const STAT_FACTS_KEY = "manifest.statFacts"
-const STAT_FACTS_VERSION_KEY = "manifest.statFacts.version"
+const STAT_FACTS_KEY = "manifest.statFacts.v2"
+const STAT_FACTS_VERSION_KEY = "manifest.statFacts.v2.version"
 const ARMOR_MODS_KEY = "manifest.armorMods.v2"
 const ARMOR_MODS_VERSION_KEY = "manifest.armorMods.version"
 const ARMOR_SETS_KEY = "manifest.armorSets"

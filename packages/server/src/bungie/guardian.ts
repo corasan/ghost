@@ -63,6 +63,9 @@ export const GuardianLive = Layer.effect(
         vaultCapacity: capacities.vault,
         postmasterCapacity: capacities.postmaster,
         elementIcons: yield* manifest.elementIcons,
+        statIcons: Object.fromEntries(
+          Object.values(facts).flatMap((fact) => (fact.icon ? [[fact.name, fact.icon]] : [])),
+        ),
       })
     })
 

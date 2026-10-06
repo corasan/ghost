@@ -553,6 +553,8 @@ export class GuardianSnapshot extends Schema.Class<GuardianSnapshot>("GuardianSn
   postmasterCapacity: Schema.Number,
   /** Bungie's icon for each damage type, keyed by element name. */
   elementIcons: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+  /** Bungie's icon for each armor stat, keyed by stat name ("Weapons", "Health"…). */
+  statIcons: Schema.optional(Schema.Record(Schema.String, Schema.String)),
 }) {}
 
 export class VaultSnapshot extends Schema.Class<VaultSnapshot>("VaultSnapshot")({
