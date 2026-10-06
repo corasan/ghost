@@ -197,6 +197,7 @@ describe("loadoutStatChange", () => {
     category: "",
     artifact: false,
     charged: false,
+    keywords: [],
     description: "",
   })
 

@@ -176,6 +176,7 @@ const facts = (fields: Partial<PlugFacts> = {}): PlugFacts => ({
   category: "enhancements.v2_general",
   artifact: false,
   charged: false,
+  keywords: [],
   description: "",
   ...fields,
 })

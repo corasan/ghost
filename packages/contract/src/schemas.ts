@@ -213,6 +213,13 @@ export class PlanFeatured extends Schema.Class<PlanFeatured>("PlanFeatured")({
   stats: Schema.Array(PlanStat),
 }) {}
 
+/** A game term such as Weaken or Volatile, as the game defines it in tooltips. */
+export class Keyword extends Schema.Class<Keyword>("Keyword")({
+  name: Schema.String,
+  description: Schema.String,
+  icon: Schema.NullOr(Schema.String),
+}) {}
+
 export class LoadoutPlug extends Schema.Class<LoadoutPlug>("LoadoutPlug")({
   name: Schema.String,
   /** Effect text from the current patch's manifest. */
@@ -225,6 +232,8 @@ export class LoadoutPlug extends Schema.Class<LoadoutPlug>("LoadoutPlug")({
   swap: Schema.optional(Schema.Boolean),
   /** The plug this one takes the place of, when the socket was not empty. */
   replaces: Schema.optional(Schema.NullOr(Schema.String)),
+  /** The keywords its effect text uses. */
+  keywords: Schema.optional(Schema.Array(Keyword)),
 }) {}
 
 export const AbilityKind = Schema.Literals(["class", "jump", "melee", "grenade"])

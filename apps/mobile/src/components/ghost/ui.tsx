@@ -1,8 +1,9 @@
 import { Image } from "expo-image"
 import { router, useNavigation } from "expo-router"
 import type { DrawerNavigationProp } from "expo-router/drawer"
-import type { ReactNode } from "react"
+import type { ReactNode, Ref } from "react"
 import {
+  type HostInstance,
   Pressable,
   type StyleProp,
   StyleSheet,
@@ -52,9 +53,17 @@ export function Cond({ children, size = 15, color = Ghost.ink, style, lines }: T
   )
 }
 
-export function Body({ children, size = 15, color = Ghost.ink, style, lines }: TextProps) {
+export function Body({
+  children,
+  size = 15,
+  color = Ghost.ink,
+  style,
+  lines,
+  ref,
+}: TextProps & { ref?: Ref<HostInstance> }) {
   return (
     <Text
+      ref={ref}
       numberOfLines={lines}
       style={[{ fontFamily: Type.body, fontSize: size, lineHeight: size * 1.4, color }, style]}
     >

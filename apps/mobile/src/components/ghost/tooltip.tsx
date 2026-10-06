@@ -48,15 +48,18 @@ const measure = (view: HostInstance) =>
 
 /**
  * A chamfered tip floating over everything in the nearest `TooltipLayer`, its
- * caret on `anchor`. Any touch outside it calls `onClose`.
+ * caret on `anchor`, or on the part of it `within` marks. Any touch outside it
+ * calls `onClose`.
  */
 export function Tooltip({
   anchor,
+  within,
   onClose,
   under = Ghost.panel,
   children,
 }: {
   anchor: HostInstance
+  within?: Rect
   onClose: () => void
   under?: string
   children: ReactNode
@@ -71,11 +74,15 @@ export function Tooltip({
     if (!host) return
     void Promise.all([measure(host), measure(anchor)]).then(([frame, target]) =>
       setMeasured({
-        anchor: { ...target, x: target.x - frame.x, y: target.y - frame.y },
+        anchor: {
+          ...(within ?? target),
+          x: target.x - frame.x + (within?.x ?? 0),
+          y: target.y - frame.y + (within?.y ?? 0),
+        },
         host: frame,
       }),
     )
-  }, [anchor, layer])
+  }, [anchor, within, layer])
 
   const place =
     measured &&

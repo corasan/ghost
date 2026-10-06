@@ -1,5 +1,6 @@
 import {
   type GuardianClass,
+  Keyword,
   LoadoutAbility,
   LoadoutPlug,
   StatMod,
@@ -90,6 +91,7 @@ export const describeLoadout = ({
         known !== undefined && known.fragmentSlots > 0 ? known.fragmentSlots : undefined,
       swap: replaces === undefined ? undefined : true,
       replaces,
+      keywords: known?.keywords.map((keyword) => new Keyword(keyword)),
     })
   }
   const { loadout } = character

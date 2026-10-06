@@ -51,6 +51,7 @@ import {
 } from "./plan-card"
 import { defaultSelection } from "./selection"
 import { placeTooltip } from "./tooltip"
+import { keywordRuns, loadoutKeywords } from "./keywords"
 import {
   activeFilters,
   emptyFilter,
@@ -912,5 +913,66 @@ describe("build filter", () => {
       "Gjallarhorn",
       "Gyrfalcon's Hauberk",
     ])
+  })
+})
+
+describe("keywordRuns", () => {
+  const keyword = (name: string) => ({ name, description: `${name} effect`, icon: null })
+  const weaken = keyword("Weaken")
+  const suppression = keyword("Suppression")
+  const volatile = keyword("Volatile")
+  const invisibility = keyword("Invisibility")
+  const sever = keyword("Sever")
+  const marked = (text: string, keywords: ReturnType<typeof keyword>[]) =>
+    keywordRuns(text, keywords).map((run) =>
+      run.keyword ? [run.text, run.keyword.name] : run.text,
+    )
+
+  test("finds each keyword in the forms the game writes it", () => {
+    expect(
+      marked("Kill a weakened, suppressed or volatile target: Invisibility.", [
+        weaken,
+        suppression,
+        volatile,
+        invisibility,
+      ]),
+    ).toEqual([
+      "Kill a ",
+      ["weakened", "Weaken"],
+      ", ",
+      ["suppressed", "Suppression"],
+      " or ",
+      ["volatile", "Volatile"],
+      " target: ",
+      ["Invisibility", "Invisibility"],
+      ".",
+    ])
+    expect(marked("Dodging makes you Invisible.", [invisibility])).toEqual([
+      "Dodging makes you ",
+      ["Invisible", "Invisibility"],
+      ".",
+    ])
+  })
+
+  test("leaves words that only start like a keyword alone", () => {
+    expect(marked("Several targets sever.", [sever])).toEqual([
+      "Several targets ",
+      ["sever", "Sever"],
+      ".",
+    ])
+  })
+
+  test("returns the text whole when there are no keywords", () => {
+    expect(keywordRuns("Void grenades weaken targets", [])).toEqual([
+      { text: "Void grenades weaken targets" },
+    ])
+  })
+
+  test("loadoutKeywords lists each keyword once across plugs", () => {
+    const plug = (keywords: ReturnType<typeof keyword>[]) =>
+      new LoadoutPlug({ name: "", description: "", mods: [], keywords })
+    expect(
+      loadoutKeywords([plug([weaken, volatile]), plug([weaken]), plug([])]).map((k) => k.name),
+    ).toEqual(["Weaken", "Volatile"])
   })
 })
