@@ -69,8 +69,8 @@ test("claiming a slot takes it away from the build that held it", async () => {
       const builds = yield* BuildsRepo
       const a = yield* builds.insert({ jobId: "job-a", name: "A", recipe, plan })
       const b = yield* builds.insert({ jobId: "job-b", name: "B", recipe, plan })
-      yield* builds.markInGame(a.id, { characterId: "titan", index: 3 })
-      yield* builds.markInGame(b.id, { characterId: "titan", index: 3 })
+      yield* builds.claimInGameSlot(a.id, { characterId: "titan", index: 3 })
+      yield* builds.claimInGameSlot(b.id, { characterId: "titan", index: 3 })
       return [yield* builds.get(a.id), yield* builds.get(b.id)] as const
     }),
   )

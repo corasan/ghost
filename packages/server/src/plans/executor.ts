@@ -115,7 +115,7 @@ export const PlansLive = Layer.effect(
           })
         }
         yield* builds
-          .markInGame(saveTo.buildId, { characterId: saveTo.characterId, index: saveTo.index })
+          .claimInGameSlot(saveTo.buildId, { characterId: saveTo.characterId, index: saveTo.index })
           .pipe(
             Effect.catchTag("BuildNotFound", () =>
               Effect.logWarning(`build ${saveTo.buildId} was deleted before its slot was saved`),
