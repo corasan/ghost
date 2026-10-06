@@ -69,7 +69,7 @@ import {
   withChargeEffects,
 } from "../bungie/mods.ts"
 import { ProfileStore } from "../bungie/profile.ts"
-import { setBonusesFor } from "../bungie/sets.ts"
+import { isActive, setBonusesFor } from "../bungie/sets.ts"
 import {
   planSubclass,
   type SubclassSocket,
@@ -234,7 +234,7 @@ const ModSlot = Schema.Literals(["general", "helmet", "arms", "chest", "legs", "
 
 const GetArmorMods = Tool.make("get_armor_mods", {
   description:
-    "What is slotted in owned armor pieces right now: each piece's energy (used and capacity) and its mod sockets, with the kind of mod each takes (general or the piece's slot), the mod in it, its energy cost and any stats it adds. Sockets of kind other (tuning, set bonuses) cannot be changed by a plan. Each piece names the armor set it belongs to, and setBonuses lists the set bonuses the pieces turn on together (a bonus needs that many pieces of its set worn). Call it with every armor piece of a build before recommending mods, so the mods and the set bonuses can back the same loop.",
+    "What is slotted in owned armor pieces right now: each piece's energy (used and capacity) and its mod sockets, with the kind of mod each takes (general or the piece's slot), the mod in it, its energy cost and any stats it adds. Sockets of kind other (tuning, set bonuses) cannot be changed by a plan. Each piece names the armor set it belongs to, and setBonuses lists the set bonuses the pieces turn on together (status on) and those one more piece of the set would turn on (status one piece away); a bonus needs that many pieces of its set worn. Call it with every armor piece of a build before recommending mods, so the mods and the set bonuses can back the same loop.",
   parameters: Schema.Struct({ itemInstanceIds: Schema.Array(Schema.String) }),
   success: Json,
 })
@@ -321,6 +321,11 @@ const namedMods = (mods: Readonly<Record<string, number>>) => {
 
 const setBonusLine = (bonus: SetBonus) =>
   `${bonus.name} (${bonus.set}, ${bonus.required} pieces, wearing ${bonus.worn}): ${oneLine(bonus.description)}`
+
+const setBonusRow = (bonus: SetBonus) => ({
+  status: isActive(bonus) ? "on" : "one piece away",
+  bonus: setBonusLine(bonus),
+})
 
 const compact = (i: OwnedItem) => ({
   id: i.itemInstanceId,
@@ -471,16 +476,18 @@ export const synergyMissing = ({
   readonly setBonuses: ReadonlyArray<SetBonus>
   readonly modded: boolean
   readonly synergy: Schema.Struct.Type<typeof Synergy.fields> | undefined
-}): ReadonlyArray<string> =>
-  [
+}): ReadonlyArray<string> => {
+  const active = setBonuses.filter(isActive)
+  return [
     exotic !== undefined && !synergy?.exotic?.trim()
       ? `exotic, on what ${exotic.name}${exotic.exoticPerk === null ? "" : ` (${exotic.exoticPerk})`} does for this subclass and its loop`
       : null,
-    setBonuses.length > 0 && !synergy?.setBonuses?.trim()
-      ? `setBonuses, on how the active set bonuses fit: ${setBonuses.map(setBonusLine).join(" / ")}`
+    active.length > 0 && !synergy?.setBonuses?.trim()
+      ? `setBonuses, on how the active set bonuses fit: ${active.map(setBonusLine).join(" / ")}`
       : null,
     modded && !synergy?.mods?.trim() ? "mods, on how the armor mods back the loop" : null,
   ].filter((part) => part !== null)
+}
 
 const statChanges = (mods: Readonly<Record<string, number>>) =>
   Object.entries(namedMods(mods) ?? {})
@@ -1336,7 +1343,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
             setBonuses: setBonusesFor(
               sets,
               picked.map((item) => item.itemHash),
-            ).map(setBonusLine),
+            ).map(setBonusRow),
             pieces: picked.map((item) => ({
               id: item.itemInstanceId,
               name: item.name,

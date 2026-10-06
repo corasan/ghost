@@ -310,6 +310,26 @@ describe("synergyMissing", () => {
     ).toEqual([])
   })
 
+  test("asks for setBonuses synergy only about the bonuses the build turns on", () => {
+    const aionFour = new SetBonus({ ...forceConverter, name: "AION Four", required: 4, worn: 3 })
+    expect(
+      synergyMissing({
+        exotic: undefined,
+        setBonuses: [aionFour],
+        modded: false,
+        synergy: undefined,
+      }),
+    ).toEqual([])
+    const [part] = synergyMissing({
+      exotic: undefined,
+      setBonuses: [forceConverter, aionFour],
+      modded: false,
+      synergy: undefined,
+    })
+    expect(part).toContain("Force Converter")
+    expect(part).not.toContain("AION Four")
+  })
+
   test("asks for no part the build lacks", () => {
     expect(
       synergyMissing({ exotic: undefined, setBonuses: [], modded: false, synergy: undefined }),
