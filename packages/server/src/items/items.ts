@@ -10,6 +10,7 @@ import {
   Plan,
   type PlanNotApplicable,
   PlanRow,
+  type SetBonus,
 } from "@ghost/contract"
 import { Context, Effect, Layer } from "effect"
 import type { BungieError } from "../bungie/client.ts"
@@ -17,6 +18,7 @@ import type { CharacterInfo, OwnedItem } from "../bungie/inventory.ts"
 import { Manifest, type ManifestItem } from "../bungie/manifest.ts"
 import { armorStats } from "../bungie/masterwork.ts"
 import { ProfileStore } from "../bungie/profile.ts"
+import { everySetBonus } from "../bungie/sets.ts"
 import { JobsRepo } from "../db/jobs.ts"
 import { Plans } from "../plans/executor.ts"
 
@@ -58,6 +60,23 @@ export const perksFrom = (
       }),
     ]
   })
+
+/** Every bonus of the piece's set, counting the pieces of it the piece's character wears. */
+export const pieceSetBonuses = (
+  item: OwnedItem,
+  items: ReadonlyArray<OwnedItem>,
+): ReadonlyArray<SetBonus> | undefined => {
+  if (item.set === null) return undefined
+  const members = new Set(item.set.items)
+  const worn =
+    item.location === "character"
+      ? items.filter(
+          (each) =>
+            each.equipped && each.characterId === item.characterId && members.has(each.itemHash),
+        ).length
+      : 0
+  return everySetBonus(item.set, worn)
+}
 
 const title = (word: string) => word.charAt(0).toUpperCase() + word.slice(1)
 
@@ -110,12 +129,13 @@ export const ItemsLive = Layer.effect(
 
     const detail = (id: string) =>
       Effect.gen(function* () {
-        const { item } = yield* find(id)
+        const { inv, item } = yield* find(id)
         const defs = yield* manifest.lookup(item.plugHashes)
         return new ItemDetail({
           item: new ItemSummary(item),
           perks: perksFrom(item.plugHashes, defs),
           stats: armorStats(item),
+          setBonuses: pieceSetBonuses(item, inv.items),
         })
       })
 

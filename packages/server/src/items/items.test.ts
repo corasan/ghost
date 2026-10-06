@@ -1,11 +1,13 @@
 import { describe, expect, test } from "bun:test"
+import type { ItemSlot } from "@ghost/contract"
 import {
   BUCKETS,
   capacitiesFrom,
   FALLBACK_CAPACITIES,
   type ManifestItem,
 } from "../bungie/manifest.ts"
-import { describeAction, perksFrom } from "./items.ts"
+import type { OwnedItem } from "../bungie/inventory.ts"
+import { describeAction, perksFrom, pieceSetBonuses } from "./items.ts"
 
 const plug = (hash: number, patch: Partial<ManifestItem>): [number, ManifestItem] => [
   hash,
@@ -86,5 +88,83 @@ describe("capacitiesFrom", () => {
 
   test("falls back when a bucket is missing or reports no size", () => {
     expect(capacitiesFrom({ [BUCKETS.vault]: { itemCount: 0 } })).toEqual(FALLBACK_CAPACITIES)
+  })
+})
+
+describe("pieceSetBonuses", () => {
+  const techsec = {
+    name: "Techsec",
+    items: [11, 12, 13, 14],
+    perks: [
+      { name: "Techsec Four", description: "Four.", icon: null, required: 4 },
+      { name: "Techsec Two", description: "Two.", icon: null, required: 2 },
+    ],
+  }
+  const piece = (
+    id: string,
+    itemHash: number,
+    slot: ItemSlot,
+    fields: Partial<OwnedItem> = {},
+  ) => ({
+    itemInstanceId: id,
+    itemHash,
+    name: `Piece ${id}`,
+    typeName: "Helmet",
+    icon: null,
+    tier: "legendary" as const,
+    slot,
+    damageType: "none" as const,
+    power: 550,
+    quantity: 1,
+    location: "character" as const,
+    characterId: "c1",
+    equipped: true,
+    classType: "titan" as const,
+    locked: false,
+    masterwork: false,
+    statTotal: 60,
+    perks: [],
+    duplicates: 0,
+    decision: null,
+    acquiredAt: null,
+    armorStats: null,
+    plugHashes: [],
+    modSockets: [],
+    energy: null,
+    exoticPerk: null,
+    set: techsec,
+    ...fields,
+  })
+  const worn = [
+    piece("a", 11, "helmet"),
+    piece("b", 12, "arms"),
+    piece("c", 13, "chest"),
+    piece("d", 14, "legs", { characterId: "c2" }),
+    piece("e", 12, "arms", { equipped: false }),
+    piece("f", 99, "class", { set: null }),
+  ]
+  const bonuses = (item: OwnedItem) =>
+    pieceSetBonuses(item, worn)?.map((bonus) => [bonus.name, bonus.required, bonus.worn])
+
+  test("lists every bonus of the set, counting what the piece's character wears", () => {
+    expect(bonuses(piece("e", 12, "arms", { equipped: false }))).toEqual([
+      ["Techsec Two", 2, 3],
+      ["Techsec Four", 4, 3],
+    ])
+  })
+
+  test("counts nothing worn for a piece in the vault or postmaster", () => {
+    expect(bonuses(piece("v", 14, "legs", { location: "vault", characterId: null }))).toEqual([
+      ["Techsec Two", 2, 0],
+      ["Techsec Four", 4, 0],
+    ])
+    expect(bonuses(piece("p", 14, "legs", { location: "postmaster", equipped: false }))).toEqual([
+      ["Techsec Two", 2, 0],
+      ["Techsec Four", 4, 0],
+    ])
+  })
+
+  test("is absent for a piece in no set", () => {
+    expect(pieceSetBonuses(piece("f", 99, "class", { set: null }), worn)).toBeUndefined()
   })
 })
