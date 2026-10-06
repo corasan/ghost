@@ -29,7 +29,6 @@ function useSelectedId() {
   }, getSelectedCharacterId)
 }
 
-/** The character to equip a build for this class on: the selected one when it matches, else the first that does. */
 export function useWearer(classType: GuardianClass) {
   const { character, characters } = useCharacter()
   return character?.classType === classType

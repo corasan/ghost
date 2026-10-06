@@ -36,7 +36,6 @@ export const ItemSlot = Schema.Literals([
 ])
 export type ItemSlot = typeof ItemSlot.Type
 
-/** The three weapon slots a build fills, named as `ItemSlot` names them. */
 export const WeaponSlot = Schema.Literals(["kinetic", "energy", "power"])
 export type WeaponSlot = typeof WeaponSlot.Type
 
@@ -308,9 +307,7 @@ export class Synergy extends Schema.Class<Synergy>("Synergy")({
   exotic: Schema.optional(Schema.String),
   setBonuses: Schema.optional(Schema.String),
   mods: Schema.optional(Schema.String),
-  /** How the three weapons, the exotic weapon included, feed the loop. */
   weapons: Schema.optional(Schema.String),
-  /** How the artifact picks back the loop and the weapons. */
   artifact: Schema.optional(Schema.String),
 }) {}
 
@@ -321,7 +318,6 @@ export type ArtifactPickState = typeof ArtifactPickState.Type
 export class ArtifactPick extends Schema.Class<ArtifactPick>("ArtifactPick")({
   hash: Schema.Number,
   name: Schema.String,
-  /** Effect text from the current patch's manifest. */
   description: Schema.String,
   icon: Schema.NullOr(Schema.String),
   /** The artifact column the perk sits in, from 0. */
@@ -329,9 +325,7 @@ export class ArtifactPick extends Schema.Class<ArtifactPick>("ArtifactPick")({
   state: ArtifactPickState,
 }) {}
 
-/** The seasonal artifact perks a build calls for, read against the character's artifact. */
 export class ArtifactPlan extends Schema.Class<ArtifactPlan>("ArtifactPlan")({
-  /** Tells a build made for a past season's artifact from one made for the current one. */
   artifactHash: Schema.Number,
   name: Schema.String,
   picks: Schema.Array(ArtifactPick),
@@ -388,7 +382,6 @@ export class Plan extends Schema.Class<Plan>("Plan")({
   /** Label of the confirm button, for example "APPLY BUILD". */
   confirmLabel: Schema.String,
   status: PlanStatus,
-  /** What a build is for, for example "grandmaster nightfall". */
   purpose: Schema.optional(Schema.String),
   artifact: Schema.optional(ArtifactPlan),
   saveTo: Schema.optional(LoadoutSaveTo),
@@ -473,14 +466,12 @@ export class PlanNotApplicable extends Schema.TaggedError<PlanNotApplicable>()(
   { reason: Schema.String },
 ) {}
 
-/** What the saved builds list filters on, derived from the plan each time it is read. */
 export class BuildFacets extends Schema.Class<BuildFacets>("BuildFacets")({
   classType: GuardianClass,
   element: DamageType,
   subclass: Schema.NullOr(Schema.String),
   exoticArmor: Schema.NullOr(Schema.String),
   exoticWeapon: Schema.NullOr(Schema.String),
-  /** For example ["Combat Bow", "Auto Rifle", "Rocket Launcher"]. */
   weaponTypes: Schema.Array(Schema.String),
 }) {}
 
@@ -517,7 +508,6 @@ export class SavedBuild extends Schema.Class<SavedBuild>("SavedBuild")({
   updatedAt: Schema.String,
 }) {}
 
-/** An in-game loadout slot and the name, color and icon to give it. */
 export const LoadoutSlotChoice = Schema.Struct({
   characterId: Schema.String,
   index: Schema.Number,
@@ -558,7 +548,6 @@ export class EquipBuildResult extends Schema.Class<EquipBuildResult>("EquipBuild
 export const RenameBuild = Schema.Struct({ name: Schema.String })
 export type RenameBuild = typeof RenameBuild.Type
 
-/** One of the fixed names, colors or icons an in-game loadout can have. */
 export class LoadoutIdentity extends Schema.Class<LoadoutIdentity>("LoadoutIdentity")({
   hash: Schema.Number,
   name: Schema.String,
@@ -571,11 +560,9 @@ export class InGameSlot extends Schema.Class<InGameSlot>("InGameSlot")({
   name: Schema.NullOr(LoadoutIdentity),
   color: Schema.NullOr(LoadoutIdentity),
   icon: Schema.NullOr(LoadoutIdentity),
-  /** The saved build that claims this slot. */
   savedBuildId: Schema.NullOr(Schema.String),
 }) {}
 
-/** A character's in-game loadout slots and the identities a slot can be given. */
 export class LoadoutSlots extends Schema.Class<LoadoutSlots>("LoadoutSlots")({
   slots: Schema.Array(InGameSlot),
   names: Schema.Array(LoadoutIdentity),

@@ -117,7 +117,6 @@ interface Harness {
   readonly equips: Array<string>
 }
 
-/** Bungie as the executor sees it: equips land in the profile, snapshots are remembered or refused. */
 const harness = (items: ReadonlyArray<OwnedItem>, refuseSnapshot?: string): Harness => {
   const snapshots: Array<LoadoutSnapshot> = []
   const equips: Array<string> = []

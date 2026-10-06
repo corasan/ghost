@@ -10,7 +10,6 @@ import { useFooterHeight } from "@/lib/footer"
 import { useBottomInset } from "@/lib/insets"
 import { usePlanSelection } from "@/lib/selection"
 
-/** A build Ghost proposed can be saved; one equipped from Builds is already saved. */
 const offersSave = (job: Job, plan: Plan) =>
   plan.saveable === true && job.kind !== "saved_build" && plan.saveTo === undefined
 

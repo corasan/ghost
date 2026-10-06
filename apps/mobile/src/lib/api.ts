@@ -369,7 +369,6 @@ export function useSavedBuilds() {
   })
 }
 
-/** Seeds the plan sheet with a job the server just proposed, so it opens on the plan. */
 const seedJob = (queryClient: QueryClient, job: Job) =>
   queryClient.setQueryData(queryKeys.job(getServerUrl(), job.id), job)
 

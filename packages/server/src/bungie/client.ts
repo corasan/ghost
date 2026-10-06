@@ -40,18 +40,15 @@ export type BungieTokens = typeof BungieTokens.Type
 
 const decodeTokens = Schema.decodeEffect(Schema.fromJsonString(BungieTokens))
 
-/** Every action runs through one character of one membership. */
 export interface CharacterAction {
   readonly characterId: string
   readonly membershipType: number
 }
 
-/** Every item action names the item and the character it acts through. */
 export interface ItemAction extends CharacterAction {
   readonly itemId: string
 }
 
-/** Saves what the character has equipped into one of its in-game loadout slots, under the given identity. */
 export interface LoadoutSnapshot extends CharacterAction {
   readonly loadoutIndex: number
   readonly nameHash: number
@@ -83,7 +80,6 @@ export interface BungieClientService {
   readonly insertPlug: (
     input: ItemAction & { readonly socketIndex: number; readonly plugHash: number },
   ) => Effect.Effect<unknown, BungieError | BungieNotLinked>
-  /** Overwrites the slot with whatever the character wears right now. */
   readonly snapshotLoadout: (
     input: LoadoutSnapshot,
   ) => Effect.Effect<unknown, BungieError | BungieNotLinked>

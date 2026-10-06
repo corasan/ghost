@@ -4,7 +4,6 @@ import { BungieClient, type BungieError } from "./client.ts"
 import { Manifest } from "./manifest.ts"
 import { ProfileStore } from "./profile.ts"
 
-/** Read on demand: the artifact changes only in game, so the hot profile read leaves it out. */
 export const ARTIFACT_COMPONENTS = [104, 202]
 
 const component = <S extends Schema.Top>(data: S) =>
@@ -74,19 +73,15 @@ export interface ArtifactPerk {
 }
 
 export interface ArtifactColumn {
-  /** From 0, left to right in game. */
   readonly column: number
   readonly unlocked: boolean
-  /** Points spent in earlier columns before this one opens. */
   readonly unlocksAt: number
   readonly perks: ReadonlyArray<ArtifactPerk>
 }
 
-/** One character's seasonal artifact: the points it has to spend and every perk it offers. */
 export interface CharacterArtifact {
   readonly artifactHash: number
   readonly name: string
-  /** Shared by every character on the account. */
   readonly pointsAvailable: number
   readonly pointsUsed: number
   readonly tiers: ReadonlyArray<ArtifactColumn>
@@ -95,9 +90,8 @@ export interface CharacterArtifact {
 export type PerkFacts = Pick<ArtifactPerk, "name" | "description" | "icon">
 
 /**
- * The character's artifact, or null when it has none. Bungie's own
- * pointsToUnlock counts down as points are spent, so when a column opens comes
- * from the artifact definition instead.
+ * Bungie's own pointsToUnlock counts down as points are spent, so when a
+ * column opens comes from the artifact definition instead.
  */
 export const parseArtifact = (
   profile: ArtifactProfile,
@@ -137,7 +131,6 @@ type PlacedPerk = ArtifactPerk & { readonly column: number }
 
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
 
-/** Why each perk of a selection cannot be reached, opening columns left to right. */
 const unreachable = (selection: ReadonlyArray<PlacedPerk>, tiers: ReadonlyArray<ArtifactColumn>) =>
   selection.flatMap((perk) => {
     const opensAt = tiers[perk.column]?.unlocksAt ?? 0
@@ -158,11 +151,6 @@ const problems = (selection: ReadonlyArray<PlacedPerk>, artifact: CharacterArtif
     : []),
 ]
 
-/**
- * The artifact perks a build asks for, read against the character's
- * artifact. Picks join the active perks when they fit beside them; when they
- * do not, the plan says the player must reset the artifact in game first.
- */
 export const planArtifact = (
   artifact: CharacterArtifact,
   names: ReadonlyArray<string>,
@@ -199,7 +187,6 @@ export const planArtifact = (
 }
 
 export interface ArtifactsService {
-  /** The character's artifact, or null when it has none. */
   readonly forCharacter: (
     characterId: string,
   ) => Effect.Effect<CharacterArtifact | null, BungieError | BungieNotLinked>

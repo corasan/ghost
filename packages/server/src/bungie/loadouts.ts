@@ -26,7 +26,6 @@ const RawLoadout = Schema.Struct({
   ),
 })
 
-/** Components 206 (character loadouts) and 104 (profile progression, for the current artifact). */
 export const LOADOUT_COMPONENTS = [104, 206]
 
 export const LoadoutsResponse = Schema.Struct({
@@ -46,13 +45,11 @@ export interface GameLoadout {
   readonly nameHash: number
   readonly colorHash: number
   readonly iconHash: number
-  /** Empty for a slot nothing was saved to. */
   readonly itemInstanceIds: ReadonlyArray<string>
 }
 
 export interface GameLoadouts {
   readonly byCharacter: ReadonlyMap<string, ReadonlyArray<GameLoadout>>
-  /** The seasonal artifact every character carries now; null when Bungie did not say. */
   readonly artifactHash: number | null
 }
 
@@ -76,7 +73,6 @@ export const parseLoadouts = (response: LoadoutsResponse): GameLoadouts => ({
   artifactHash: response.profileProgression?.data?.seasonalArtifact?.artifactHash ?? null,
 })
 
-/** The identities a slot can be given, in Bungie's order, and how many slots a character has. */
 export interface LoadoutCatalog {
   readonly count: number
   readonly names: ReadonlyArray<LoadoutIdentity>
@@ -174,7 +170,6 @@ export const validateSlot = (
 const identity = (list: ReadonlyArray<LoadoutIdentity>, hash: number) =>
   list.find((each) => each.hash === hash) ?? null
 
-/** What an in-game slot is called now, or null when it is empty. */
 export const slotName = (catalog: LoadoutCatalog, loadout: GameLoadout | undefined) =>
   loadout === undefined || isEmptyLoadout(loadout)
     ? null
@@ -204,7 +199,6 @@ export const slotsFor = (
   })
 
 export interface LoadoutsService {
-  /** Every character's in-game loadouts, cached briefly like the profile. */
   readonly current: Effect.Effect<GameLoadouts, BungieError | BungieNotLinked>
   readonly invalidate: Effect.Effect<void>
   readonly catalog: Effect.Effect<LoadoutCatalog, BungieError>

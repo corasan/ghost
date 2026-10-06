@@ -10,7 +10,6 @@ export interface BuildFilter {
   readonly query: string
   readonly classes: ReadonlySet<GuardianClass>
   readonly elements: ReadonlySet<DamageType>
-  /** Exotic armor and exotic weapons alike, by name. */
   readonly exotics: ReadonlySet<string>
   readonly weaponTypes: ReadonlySet<string>
   readonly where: BuildWhere
@@ -58,7 +57,6 @@ const haystack = (build: SavedBuild) => {
 const matchesWhere = (build: SavedBuild, where: BuildWhere) =>
   where === "all" || (where === "in_game") === (build.inGame !== null)
 
-/** A build whose readiness is unknown, because Bungie was unreachable, only shows under "all". */
 const matchesState = (build: SavedBuild, state: BuildState) => {
   const readiness = build.readiness
   switch (state) {
@@ -121,7 +119,6 @@ export const STATE_LABEL: Record<BuildState, string> = {
 type Facet = "classes" | "elements" | "exotics" | "weaponTypes"
 const FACETS: readonly Facet[] = ["classes", "elements", "exotics", "weaponTypes"]
 
-/** Everything narrowing the list right now, as chips the player can tap to remove. */
 export const activeFilters = (filter: BuildFilter): ActiveFilter[] => [
   ...(filter.where === "all" ? [] : [{ id: "where", label: WHERE_LABEL[filter.where] }]),
   ...(filter.state === "all" ? [] : [{ id: "state", label: STATE_LABEL[filter.state] }]),
@@ -181,7 +178,6 @@ const byCount = (counts: ReadonlyMap<string, number>): FacetOption<string>[] =>
     .map(([value, count]) => ({ value, count }))
     .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value))
 
-/** The chips the filter sheet offers: only values some saved build has, each with how many have it. */
 export const facetOptions = (builds: readonly SavedBuild[]): FacetOptions => ({
   classes: inOrder(tally(builds.map((build) => [build.facets.classType])), CLASS_ORDER),
   elements: inOrder(tally(builds.map((build) => [build.facets.element])), ELEMENT_ORDER),

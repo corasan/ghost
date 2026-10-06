@@ -680,7 +680,6 @@ export const findSubclassDetail = (
     )
   })
 
-/** What get_artifact shows the agent, with each perk's relevance when it was ranked. */
 export const artifactView = (
   artifact: CharacterArtifact,
   relevance?: ReadonlyMap<string, number>,

@@ -54,15 +54,10 @@ import { judgeWeapon, type StoredRoll } from "../wishlist/parse.ts"
 import { Wishlist } from "../wishlist/wishlist.ts"
 import type { BuildRecipe, SourceInput, SubclassInput } from "./recipe.ts"
 
-/** Why a plan cannot be made, worded for the agent to fix and call present_plan again. */
 export class BuildRefusal extends Schema.TaggedError<BuildRefusal>()("BuildRefusal", {
   message: Schema.String,
 }) {}
 
-/**
- * The agent reads these, so failures come back as text it can relay instead
- * of a tool error it cannot explain.
- */
 export const explain = (error: BungieError | BungieNotLinked | { readonly message: string }) =>
   "_tag" in error && error._tag === "BungieNotLinked"
     ? "Error: the Bungie account is not linked yet. Tell the player to sign in with Bungie in the app."
@@ -90,7 +85,6 @@ const weaponLine = (weapon: BuildWeapon, element: DamageType | undefined) =>
       : ""
   })`
 
-/** The parts of a build whose synergy the agent has not written yet, each saying what to write. */
 export const synergyMissing = ({
   exotic,
   setBonuses,
@@ -104,9 +98,7 @@ export const synergyMissing = ({
   readonly setBonuses: ReadonlyArray<SetBonus>
   readonly modded: boolean
   readonly weapons: ReadonlyArray<BuildWeapon>
-  /** The build's subclass element, which the weapons are checked against. */
   readonly element: DamageType | undefined
-  /** What the build runs from the Seasonal Artifact, from effectiveArtifactPerks. */
   readonly artifact: ReadonlyArray<string>
   readonly synergy: Schema.Struct.Type<typeof Synergy.fields> | undefined
 }): ReadonlyArray<string> => {
@@ -128,7 +120,6 @@ export const synergyMissing = ({
   ].filter((part) => part !== null)
 }
 
-/** The artifact perks a build picks plus the artifact-only armor mods it slots: everything it needs the artifact for. */
 export const effectiveArtifactPerks = (
   artifact: ArtifactPlan | undefined,
   artifactMods: ReadonlyArray<string>,
@@ -136,7 +127,6 @@ export const effectiveArtifactPerks = (
 
 const WEAPON_SLOTS: ReadonlyArray<WeaponSlot> = ["kinetic", "energy", "power"]
 
-/** How a build's weapon rows break the one-weapon-per-slot rule; empty when they keep it. */
 const weaponSlotProblems = (weapons: ReadonlyArray<Pick<OwnedItem, "name" | "slot">>) =>
   WEAPON_SLOTS.flatMap((slot) => {
     const held = weapons.filter((weapon) => weapon.slot === slot)
@@ -167,7 +157,6 @@ const DEFAULT_META: Record<PlanAction, (item: OwnedItem, className: string) => s
   none: (i) => i.typeName,
 }
 
-/** Each subclass the character owns with every plug it has unlocked for each socket. */
 export const subclassChoices = (character: CharacterInfo) =>
   Effect.gen(function* () {
     const profile = yield* ProfileStore
@@ -287,25 +276,18 @@ const buildSubclass = (
   })
 
 export interface ComposedBuild {
-  /** Its set bonuses are not judged against the build's purpose yet. */
   readonly plan: Plan
-  /** The armor the character wears once the plan runs. */
   readonly armor: ReadonlyArray<OwnedItem>
-  /** The weapons a build lists, in row order; empty for other plans. */
   readonly weapons: ReadonlyArray<OwnedItem>
-  /** The artifact picks read against the character's artifact, or why they cannot be made; null when the recipe asks for none. */
   readonly artifact: ArtifactPlan | { readonly errors: ReadonlyArray<string> } | null
-  /** Artifact-only armor mods the plan slots. */
   readonly artifactMods: ReadonlyArray<string>
   readonly misses: ReadonlyArray<MissedTarget>
   readonly modSwaps: number
-  /** What changes on the subclass; null when the recipe picks none. */
   readonly subclassChanges: ReadonlyArray<string> | null
 }
 
 const refuse = (message: string) => new BuildRefusal({ message })
 
-/** Each weapon's trait perks and wishlist score; a weapon reads as unscored when the wishlist is out of reach. */
 const judgeWeapons = (weapons: ReadonlyArray<OwnedItem>) =>
   Effect.gen(function* () {
     if (weapons.length === 0) return new Map<string, ReturnType<typeof judgeWeapon>>()
@@ -329,7 +311,6 @@ const judgeWeapons = (weapons: ReadonlyArray<OwnedItem>) =>
     )
   })
 
-/** Make the plan a recipe describes from what the player owns now. */
 export const composeBuild = (
   recipe: BuildRecipe,
   inv: Inventory,
@@ -607,7 +588,6 @@ export const composeBuild = (
     }
   })
 
-/** The first rule a composed plan breaks, or undefined when it keeps them all. */
 export const buildRules = (recipe: BuildRecipe, build: ComposedBuild): BuildRefusal | undefined => {
   if (build.misses.length > 0 && recipe.shortfall === undefined) {
     return refuse(

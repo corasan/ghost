@@ -40,7 +40,6 @@ export interface PlansService {
 export class Plans extends Context.Service<Plans, PlansService>()("Plans") {}
 
 const SPACING = "100 millis"
-/** How long the profile may lag behind the last equip before the snapshot check reads it again. */
 const PROFILE_LAG = "1500 millis"
 
 interface Where {

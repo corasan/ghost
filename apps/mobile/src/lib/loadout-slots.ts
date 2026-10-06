@@ -7,12 +7,6 @@ export interface SlotChoice {
   readonly iconHash: number
 }
 
-/**
- * The in-game slot and look to save into: whatever the player picked, else the
- * slot this build already holds, else the first empty slot. A filled slot keeps
- * its name, color and icon until the player changes them; an empty one starts
- * on the first of each. Undefined while the game offers nothing to pick.
- */
 export const slotChoice = (
   slots: LoadoutSlots,
   picked: Partial<SlotChoice>,

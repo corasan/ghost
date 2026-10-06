@@ -18,7 +18,6 @@ export const SubclassInput = Schema.Struct({
   fragments: Schema.optional(Schema.Array(Schema.String)),
 })
 
-/** What the agent passes to present_plan. */
 export const PlanInput = Schema.Struct({
   kind: PlanKind,
   title: Schema.String,
@@ -84,11 +83,6 @@ export const PlanInput = Schema.Struct({
 })
 export type PlanInput = typeof PlanInput.Type
 
-/**
- * Everything that makes a plan, kept so a saved build can be composed again
- * against a later inventory. `characterId` is the character the plan falls
- * back to when a row names none.
- */
 export const BuildRecipe = Schema.Struct({
   ...PlanInput.fields,
   characterId: Schema.NullOr(Schema.String),

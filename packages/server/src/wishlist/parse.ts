@@ -286,9 +286,6 @@ export const recommendations = (
   }))
 }
 
-// A full curated match is the strongest signal; "god" tags mark the
-// curator's top pick. Partial matches scale with how many listed perks the
-// roll has, and a trash match overrides everything.
 export const scoreFor = (
   full: ReadonlyArray<RollMatch>,
   partial: ReadonlyArray<RollMatch>,
@@ -311,7 +308,6 @@ export const scoreFor = (
   return { score: null, basis: "the wishlist has no entries for this weapon" }
 }
 
-/** A weapon's trait perks, each good when the best wishlist roll it matches lists it, and its suggested score. */
 export const judgeWeapon = (
   item: { readonly perks: ReadonlyArray<string>; readonly plugHashes: ReadonlyArray<number> },
   rolls: ReadonlyArray<StoredRoll>,

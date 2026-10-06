@@ -120,7 +120,6 @@ const WEAPON_SLOTS: ReadonlySet<ItemSlot | undefined> = new Set<ItemSlot>([
 
 export const isWeaponRow = (row: PlanRow) => WEAPON_SLOTS.has(row.slot)
 
-/** The armor head to toe apart from the weapons in slot order; rows without a slot count as armor. */
 export const splitRows = (rows: readonly PlanRow[]) => {
   const sorted = bySlot(rows)
   return {
@@ -131,7 +130,6 @@ export const splitRows = (rows: readonly PlanRow[]) => {
 
 export type SaveToLine = { text: string; tone: "plan" | "ok" | "held" | "failed" }
 
-/** What saving to an in-game loadout slot will do, or what it did; the game counts slots from one. */
 export const saveToLine = (saveTo: LoadoutSaveTo): SaveToLine => {
   const slot = `slot ${saveTo.index + 1}`
   switch (saveTo.outcome) {
@@ -266,11 +264,6 @@ const ARMOR_SLOTS: ReadonlySet<ItemSlot | undefined> = new Set<ItemSlot>([
   "class",
 ])
 
-/**
- * How the exotic armor, the weapons, the set bonuses, the mods and the
- * artifact feed the build, in that order. A part needs Ghost's words, except
- * set bonuses, which show without them.
- */
 export const synergyParts = (plan: Plan): SynergyPart[] => {
   const { exotic, setBonuses: setText, mods, weapons, artifact } = plan.synergy ?? {}
   const exoticRow = plan.rows.find((row) => row.tier === "exotic" && ARMOR_SLOTS.has(row.slot))

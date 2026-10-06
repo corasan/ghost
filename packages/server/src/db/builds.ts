@@ -16,7 +16,6 @@ interface BuildRow {
   readonly updated_at: string
 }
 
-/** A saved build as the database holds it; the recipe never leaves the server. */
 export interface StoredBuild {
   readonly id: string
   readonly jobId: string | null
@@ -74,7 +73,6 @@ const rowToBuild = (row: BuildRow): Effect.Effect<StoredBuild> =>
   }).pipe(Effect.orDie)
 
 export interface BuildsRepoService {
-  /** Newest first. */
   readonly list: Effect.Effect<ReadonlyArray<StoredBuild>, SqlError.SqlError>
   readonly get: (id: string) => Effect.Effect<StoredBuild, BuildNotFound | SqlError.SqlError>
   readonly byJob: (jobId: string) => Effect.Effect<Option.Option<StoredBuild>, SqlError.SqlError>
@@ -84,7 +82,6 @@ export interface BuildsRepoService {
     name: string,
   ) => Effect.Effect<StoredBuild, BuildNotFound | SqlError.SqlError>
   readonly remove: (id: string) => Effect.Effect<void, BuildNotFound | SqlError.SqlError>
-  /** Claims the slot for this build; any other build that claimed it lets go in the same transaction. */
   readonly markInGame: (
     id: string,
     slot: Pick<InGameSlotRef, "characterId" | "index">,

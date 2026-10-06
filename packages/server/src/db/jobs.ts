@@ -101,9 +101,7 @@ export interface JobsRepoService {
     patch?: { readonly result?: string; readonly error?: string },
   ) => Effect.Effect<void, SqlError.SqlError>
   readonly setPlan: (id: string, plan: Plan) => Effect.Effect<void, SqlError.SqlError>
-  /** Kept beside a build plan so the build can be composed again later; never sent to the app. */
   readonly setRecipe: (id: string, recipe: BuildRecipe) => Effect.Effect<void, SqlError.SqlError>
-  /** None when the job is unknown or no recipe was kept for it. */
   readonly recipe: (id: string) => Effect.Effect<Option.Option<BuildRecipe>, SqlError.SqlError>
   /** Merged into what the job already cites; the same url (or label) is kept once. */
   readonly addSources: (

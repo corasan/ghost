@@ -51,7 +51,6 @@ export interface BuildsService {
   readonly save: (input: SaveBuild) => Effect.Effect<SaveBuildResult, JobNotFound | EquipErrors>
   readonly rename: (id: string, name: string) => Effect.Effect<SavedBuild, BuildNotFound>
   readonly remove: (id: string) => Effect.Effect<void, BuildNotFound>
-  /** A proposed job that equips the build on the character; nothing moves until the player confirms it. */
   readonly equip: (id: string, input: EquipBuild) => Effect.Effect<EquipBuildResult, EquipErrors>
   readonly slots: (characterId: string) => Effect.Effect<LoadoutSlots, ReadErrors>
 }
@@ -60,11 +59,9 @@ export class Builds extends Context.Service<Builds, BuildsService>()("Builds") {
 
 const WEAPON_ORDER = ["kinetic", "energy", "power"]
 
-/** The rows a build leaves on the character: what it equips and what it keeps on. */
 const keptRows = (plan: Plan) =>
   plan.rows.filter((row) => row.action === "equip" || row.action === "none")
 
-/** Undefined for a plan that names no character, which a build always does. */
 export const buildFacets = (plan: Plan): BuildFacets | undefined => {
   if (plan.loadout === undefined) return undefined
   const kept = keptRows(plan)
@@ -109,7 +106,6 @@ export const buildReadiness = (
   })
 }
 
-/** Highest stat total, then power, then masterworked; the copy most worth equipping. */
 const better = (a: OwnedItem, b: OwnedItem) =>
   (b.statTotal ?? 0) - (a.statTotal ?? 0) ||
   (b.power ?? 0) - (a.power ?? 0) ||
@@ -117,13 +113,10 @@ const better = (a: OwnedItem, b: OwnedItem) =>
 
 export interface Substitution {
   readonly recipe: BuildRecipe
-  /** Names of the pieces another copy of the same item stands in for. */
   readonly substituted: ReadonlyArray<string>
-  /** The saved rows no copy is left for, each unticked and marked. */
   readonly lost: ReadonlyArray<PlanRow>
 }
 
-/** Rewrites a saved recipe for the items owned now, swapping each lost piece for the best copy of the same item. */
 export const substitute = (recipe: BuildRecipe, plan: Plan, inventory: Inventory): Substitution => {
   const owned = new Map(inventory.items.map((item) => [item.itemInstanceId, item]))
   const taken = new Set(recipe.rows.map((row) => row.itemInstanceId))
@@ -167,7 +160,6 @@ export const substitute = (recipe: BuildRecipe, plan: Plan, inventory: Inventory
   }
 }
 
-/** The rows in the recipe's order, the lost ones back where they were. */
 const inRecipeOrder = (
   recipe: BuildRecipe,
   composed: ReadonlyArray<PlanRow>,
@@ -180,7 +172,6 @@ const inRecipeOrder = (
   })
 }
 
-/** What the record keeps: a plan to propose again, with nothing of its first run on it. */
 export const normalizePlan = (plan: Plan): Plan => {
   const { saveTo: _saveTo, ...rest } = plan
   const change = plan.loadout?.change

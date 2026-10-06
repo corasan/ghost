@@ -462,7 +462,6 @@ function SynergyPartView({ part }: { part: SynergyPart }) {
   }
 }
 
-/** How the exotic, the weapons, the set bonuses, the mods and the artifact play into the build. */
 function Synergy({ parts }: { parts: readonly SynergyPart[] }) {
   return (
     <View>
@@ -485,12 +484,6 @@ const eyebrow = (loadout: SubclassLoadout | undefined) =>
     .join(" · ")
     .toUpperCase()
 
-/**
- * The build card unfolded in the same order: what each part of the subclass
- * does, the stats now, with the build and masterworked, every piece and weapon
- * by name, the artifact picks, and how it all plays together. The plan sheet
- * and a saved build show the same sections.
- */
 export function BuildSections({
   plan,
   name,

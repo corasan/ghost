@@ -288,10 +288,6 @@ function SaveFromBuild({ buildId }: { buildId: string }) {
   return <SaveSavedInGame build={build} />
 }
 
-/**
- * Saving a build: always in Ghost, and in game on request. A proposed build
- * comes by `jobId`; a build already saved comes by `buildId` to go in game.
- */
 export default function SaveBuildScreen() {
   const { jobId, buildId } = useLocalSearchParams<{ jobId?: string; buildId?: string }>()
   if (buildId) return <SaveFromBuild buildId={buildId} />

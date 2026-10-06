@@ -413,12 +413,6 @@ function Verdict({ plan }: { plan: Plan }) {
   )
 }
 
-/**
- * A build in bands: the subclass it sits on, the six stats it lands on, the
- * pieces as tiles, the weapons with their perks, the artifact picks, the set
- * bonuses the pieces turn on, and one line saying what
- * confirming will do.
- */
 export function BuildCard({ job, plan }: { job: Job; plan: Plan }) {
   const selection = usePlanSelection(job.id, plan)
   const apply = useApplyPlan()

@@ -9,7 +9,6 @@ const differ = (
   worn: ReadonlyArray<{ readonly name: string }>,
 ) => names(planned).join("|") !== names(worn).join("|")
 
-/** What keeps the character from wearing the plan, each in a few words; empty when it wears it all. */
 export const drift = (
   plan: Plan,
   inventory: Inventory,
