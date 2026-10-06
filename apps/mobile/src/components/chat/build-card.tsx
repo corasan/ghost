@@ -1,21 +1,12 @@
-import type {
-  ArtifactPlan,
-  GuardianClass,
-  Job,
-  LoadoutPlug,
-  Plan,
-  SubclassLoadout,
-  PlanRow,
-} from "@ghost/contract"
+import type { GuardianClass, Job, Plan, PlanRow } from "@ghost/contract"
 import { router } from "expo-router"
 import { Pressable, StyleSheet, Text, View } from "react-native"
 
 import { ItemIcon } from "@/components/ghost/item-icon"
-import { PlugIcon } from "@/components/ghost/plug-icon"
 import { SetBonusIcons } from "@/components/ghost/set-bonus"
 import { SubclassMark } from "@/components/ghost/subclass-mark"
 import { Body, Button, Cond, Cut, Meta, Mono, StatIcon } from "@/components/ghost/ui"
-import { Ghost, Type } from "@/constants/theme"
+import { Ghost } from "@/constants/theme"
 import { errorMessage, useApplyPlan, useUndoPlan } from "@/lib/api"
 import { orderBuildStats } from "@/lib/build-order"
 import { sentence } from "@/lib/format"
@@ -25,9 +16,7 @@ import {
   hasStatMods,
   headline,
   type ModPip,
-  modPips,
   pendingMasterwork,
-  shortPlugName,
   signed,
   slotLabel,
   splitRows,
@@ -66,64 +55,6 @@ export function BuildHeader({
         </Cond>
       </View>
       {plan.loadout ? <SubclassMark loadout={plan.loadout} size={36} /> : null}
-    </View>
-  )
-}
-
-type Shown = { name: string; icon: string | null; swap?: boolean | undefined }
-
-function Plugs({ plugs }: { plugs: readonly Shown[] }) {
-  return (
-    <View style={styles.plugs}>
-      {plugs.map((plug) => (
-        <View key={plug.name} style={styles.plug}>
-          <PlugIcon icon={plug.icon} size={16} />
-          <Body size={13} color={plug.swap ? Ghost.accent : Ghost.soft} style={{ lineHeight: 17 }}>
-            {plug.name}
-          </Body>
-        </View>
-      ))}
-    </View>
-  )
-}
-
-const shown = (plug: LoadoutPlug, name = plug.name): Shown => ({
-  name,
-  icon: plug.icon ?? null,
-  swap: plug.swap,
-})
-
-function Loadout({ loadout }: { loadout: SubclassLoadout }) {
-  const replaces = loadout.change?.replaces
-  const lines = [
-    {
-      label: "Subclass",
-      plugs: replaces
-        ? [
-            {
-              name: `${loadout.subclass} · replaces ${replaces}`,
-              icon: loadout.icon ?? null,
-              swap: true,
-            },
-          ]
-        : [],
-    },
-    { label: "Super", plugs: loadout.super ? [shown(loadout.super)] : [] },
-    { label: "Aspects", plugs: loadout.aspects.map((aspect) => shown(aspect)) },
-    {
-      label: "Fragments",
-      plugs: loadout.fragments.map((each) => shown(each, shortPlugName(each.name))),
-    },
-  ].filter((line) => line.plugs.length > 0)
-  if (lines.length === 0) return null
-  return (
-    <View style={{ marginTop: 14, gap: 7 }}>
-      {lines.map((line) => (
-        <View key={line.label} style={styles.loadoutLine}>
-          <Meta style={styles.loadoutLabel}>{line.label}</Meta>
-          <Plugs plugs={line.plugs} />
-        </View>
-      ))}
     </View>
   )
 }
@@ -240,7 +171,6 @@ function Tile({
 }) {
   const arriving = !applied && row.origin !== undefined && row.action !== "none"
   const result = applied && row.outcome ? outcomeLabel[row.outcome] : null
-  const pips = modPips(row)
   return (
     <Pressable
       accessibilityRole="button"
@@ -260,11 +190,6 @@ function Tile({
           power={row.power}
         />
       </View>
-      {pips ? (
-        <View style={{ marginTop: 6 }}>
-          <ModPips pips={pips} fill />
-        </View>
-      ) : null}
       <Meta
         size={12}
         color={result ? Ghost.danger : arriving ? Ghost.accent : Ghost.dim}
@@ -274,86 +199,6 @@ function Tile({
         {result ?? (arriving && row.origin ? sentence(row.origin) : slotLabel(row.slot, classType))}
       </Meta>
     </Pressable>
-  )
-}
-
-function WeaponLine({ row, applied }: { row: PlanRow; applied: boolean }) {
-  const arriving = !applied && row.origin !== undefined && row.action !== "none"
-  const result = applied && row.outcome ? outcomeLabel[row.outcome] : null
-  const perks = row.perks ?? []
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={row.name}
-      accessibilityHint="Opens item details"
-      onPress={() => router.push({ pathname: "/item/[id]", params: { id: row.itemInstanceId } })}
-      style={({ pressed }) => [styles.weapon, pressed && { opacity: 0.6 }]}
-    >
-      <View style={arriving ? { boxShadow: `0 0 0 1px ${Ghost.accent}` } : undefined}>
-        <ItemIcon
-          icon={row.icon}
-          size={40}
-          element={row.damageType}
-          gearTier={row.gearTier}
-          masterwork={row.masterwork}
-        />
-      </View>
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Body size={14} style={{ fontFamily: Type.bodyMedium, lineHeight: 18 }} lines={1}>
-          {row.name}
-        </Body>
-        <Meta size={12} color={Ghost.dim} lines={2}>
-          {result ? <Text style={{ color: Ghost.danger }}>{result} · </Text> : null}
-          {arriving && row.origin ? (
-            <Text style={{ color: Ghost.accent }}>{sentence(row.origin)} · </Text>
-          ) : null}
-          {row.typeName ?? row.meta}
-          {perks.map((perk) => (
-            <Text key={perk.name} style={perk.good ? { color: Ghost.good } : undefined}>
-              {" · "}
-              {perk.name}
-            </Text>
-          ))}
-        </Meta>
-      </View>
-    </Pressable>
-  )
-}
-
-function Weapons({ rows, applied }: { rows: readonly PlanRow[]; applied: boolean }) {
-  return (
-    <View style={[styles.band, { gap: 10 }]}>
-      {rows.map((row) => (
-        <WeaponLine key={row.itemInstanceId} row={row} applied={applied} />
-      ))}
-    </View>
-  )
-}
-
-function Artifact({ artifact }: { artifact: ArtifactPlan }) {
-  const toSelect = artifact.picks.filter((pick) => pick.state === "select_in_game").length
-  const notes = [
-    toSelect > 0 ? `${toSelect} to select in game` : null,
-    artifact.reset ? "reset the artifact first" : null,
-  ].filter((note) => note !== null)
-  return (
-    <View style={styles.band}>
-      <View style={styles.loadoutLine}>
-        <Meta style={styles.loadoutLabel}>Artifact</Meta>
-        <Plugs
-          plugs={artifact.picks.map((pick) => ({
-            name: pick.name,
-            icon: pick.icon,
-            swap: pick.state === "select_in_game",
-          }))}
-        />
-      </View>
-      {notes.length > 0 ? (
-        <Meta size={12} color={artifact.reset ? Ghost.gold : Ghost.accent} style={{ marginTop: 8 }}>
-          {sentence(notes.join(", "))}.
-        </Meta>
-      ) : null}
-    </View>
   )
 }
 
@@ -389,6 +234,8 @@ function Verdict({ plan }: { plan: Plan }) {
   const failed = failures(plan)
   const pending = pendingMasterwork(plan)
   const outcome = verdict(plan)
+  const toSelect =
+    plan.artifact?.picks.filter((pick) => pick.state === "select_in_game").length ?? 0
   if (plan.status === "undone") return <>Undone.</>
   if (plan.status === "applied") {
     return failed > 0 ? (
@@ -409,6 +256,9 @@ function Verdict({ plan }: { plan: Plan }) {
         </Text>
       ) : null}
       {pending > 0 ? <Text style={{ color: Ghost.gold }}> {pending} not masterworked.</Text> : null}
+      {toSelect > 0 ? (
+        <Text style={{ color: Ghost.gold }}> {toSelect} artifact perks to select in game.</Text>
+      ) : null}
     </>
   )
 }
@@ -427,13 +277,14 @@ export function BuildCard({ job, plan }: { job: Job; plan: Plan }) {
         plan={plan}
         eyebrow={upper(["Build plan", plan.loadout?.classType, plan.loadout?.subclass])}
       />
-      {plan.loadout ? <Loadout loadout={plan.loadout} /> : null}
       <Stats plan={plan} />
-      {pieces.length > 0 ? (
-        <Tiles rows={pieces} classType={plan.loadout?.classType} applied={applied} />
+      {plan.rows.length > 0 ? (
+        <Tiles
+          rows={[...pieces, ...weapons]}
+          classType={plan.loadout?.classType}
+          applied={applied}
+        />
       ) : null}
-      {weapons.length > 0 ? <Weapons rows={weapons} applied={applied} /> : null}
-      {plan.artifact ? <Artifact artifact={plan.artifact} /> : null}
       {plan.setBonuses?.length ? (
         <View style={styles.band}>
           <SetBonusIcons bonuses={plan.setBonuses} />
@@ -490,10 +341,6 @@ export function BuildCard({ job, plan }: { job: Job; plan: Plan }) {
 const styles = StyleSheet.create({
   card: { marginLeft: 14, padding: 16, paddingTop: 14 },
   header: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
-  loadoutLine: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
-  loadoutLabel: { width: 72, marginTop: 4 },
-  plugs: { flex: 1, flexDirection: "row", flexWrap: "wrap", columnGap: 12, rowGap: 6 },
-  plug: { flexDirection: "row", alignItems: "center", gap: 6 },
   band: { marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: Ghost.rule },
   statGrid: { flexDirection: "row", flexWrap: "wrap", columnGap: 14, rowGap: 18 },
   stat: { width: "29%", flexGrow: 1, gap: 6 },
@@ -506,7 +353,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: Ghost.rule,
   },
-  weapon: { flexDirection: "row", alignItems: "center", gap: 10 },
   verdict: { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 12 },
   action: { flexDirection: "row", marginTop: 12 },
 })
