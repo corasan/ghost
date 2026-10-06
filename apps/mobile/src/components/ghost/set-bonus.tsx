@@ -1,9 +1,10 @@
 import type { SetBonus } from "@ghost/contract"
-import { useState } from "react"
-import { Pressable, StyleSheet, View } from "react-native"
+import { useRef, useState } from "react"
+import { type HostInstance, Pressable, StyleSheet, View } from "react-native"
 
 import { PlugIcon } from "@/components/ghost/plug-icon"
-import { Body, Cut, Mono } from "@/components/ghost/ui"
+import { Tooltip } from "@/components/ghost/tooltip"
+import { Body, Mono } from "@/components/ghost/ui"
 import { Ghost, Type } from "@/constants/theme"
 import { setBonusLine } from "@/lib/plan-card"
 
@@ -11,7 +12,6 @@ const ICON = 24
 const ICON_GAP = 8
 const LABEL_WIDTH = 72
 const LABEL_GAP = 10
-const CARET = 9
 
 /** A set bonus's name, the pieces it needs, and what it does. */
 export function SetBonusText({ bonus, size = 13 }: { bonus: SetBonus; size?: number }) {
@@ -33,63 +33,43 @@ export function SetBonusText({ bonus, size = 13 }: { bonus: SetBonus; size?: num
 }
 
 /**
- * The build's active set bonuses as icons; tapping one opens a tip under the
- * row that points at it, tapping it again or the tip closes it.
+ * The build's set bonuses as icons; tapping one floats a tip pointing at it,
+ * and any touch outside the tip closes it.
  */
-export function SetBonusIcons({
-  bonuses,
-  under = Ghost.panel,
-}: {
-  bonuses: readonly SetBonus[]
-  under?: string
-}) {
-  const [open, setOpen] = useState<number>()
-  const shown = open === undefined ? undefined : bonuses[open]
+export function SetBonusIcons({ bonuses }: { bonuses: readonly SetBonus[] }) {
+  const anchors = useRef<(HostInstance | null)[]>([])
+  const [open, setOpen] = useState<{ index: number; anchor: HostInstance }>()
+  const shown = open && bonuses[open.index]
   return (
-    <View>
-      <View style={styles.row}>
-        <Mono style={styles.label}>SET BONUS</Mono>
-        {bonuses.map((bonus, i) => (
-          <Pressable
-            key={`${bonus.set}${bonus.name}`}
-            accessibilityRole="button"
-            accessibilityLabel={bonus.name}
-            accessibilityHint="Shows what the set bonus does"
-            accessibilityState={{ expanded: open === i }}
-            hitSlop={6}
-            onPress={() => setOpen((was) => (was === i ? undefined : i))}
-            style={({ pressed }) => [
-              open === i && { boxShadow: `0 0 0 1px ${Ghost.accent}` },
-              pressed && { opacity: 0.6 },
-            ]}
-          >
-            <PlugIcon icon={bonus.icon} size={ICON} />
-          </Pressable>
-        ))}
-      </View>
-      {shown && open !== undefined ? (
+    <View style={styles.row}>
+      <Mono style={styles.label}>SET BONUS</Mono>
+      {bonuses.map((bonus, i) => (
         <Pressable
+          key={`${bonus.set}${bonus.name}`}
+          ref={(view) => {
+            anchors.current[i] = view
+          }}
           accessibilityRole="button"
-          accessibilityHint="Closes the set bonus"
-          onPress={() => setOpen(undefined)}
-          style={styles.tipSlot}
+          accessibilityLabel={bonus.name}
+          accessibilityHint="Shows what the set bonus does"
+          accessibilityState={{ expanded: open?.index === i }}
+          hitSlop={6}
+          onPress={() => {
+            const anchor = anchors.current[i]
+            if (anchor) setOpen({ index: i, anchor })
+          }}
+          style={({ pressed }) => [
+            open?.index === i && { boxShadow: `0 0 0 1px ${Ghost.accent}` },
+            pressed && { opacity: 0.6 },
+          ]}
         >
-          <Cut
-            cut={6}
-            fill={Ghost.swatch}
-            border={Ghost.ruleStrong}
-            under={under}
-            style={styles.tip}
-          >
-            <SetBonusText bonus={shown} />
-          </Cut>
-          <View
-            style={[
-              styles.caret,
-              { left: LABEL_WIDTH + LABEL_GAP + open * (ICON + ICON_GAP) + (ICON - CARET) / 2 },
-            ]}
-          />
+          <PlugIcon icon={bonus.icon} size={ICON} />
         </Pressable>
+      ))}
+      {open && shown ? (
+        <Tooltip key={open.index} anchor={open.anchor} onClose={() => setOpen(undefined)}>
+          <SetBonusText bonus={shown} />
+        </Tooltip>
       ) : null}
     </View>
   )
@@ -98,17 +78,4 @@ export function SetBonusIcons({
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: ICON_GAP },
   label: { width: LABEL_WIDTH, marginRight: LABEL_GAP - ICON_GAP },
-  tipSlot: { marginTop: 10 },
-  tip: { paddingVertical: 10, paddingHorizontal: 12 },
-  caret: {
-    position: "absolute",
-    top: -CARET / 2 + 0.5,
-    width: CARET,
-    height: CARET,
-    backgroundColor: Ghost.swatch,
-    borderTopWidth: 1,
-    borderLeftWidth: 1,
-    borderColor: Ghost.ruleStrong,
-    transform: [{ rotate: "45deg" }],
-  },
 })

@@ -37,6 +37,7 @@ import {
   verdict,
 } from "./plan-card"
 import { defaultSelection } from "./selection"
+import { placeTooltip } from "./tooltip"
 import {
   activeFilters,
   emptyFilter,
@@ -535,5 +536,42 @@ describe("chargedMods", () => {
       ["Arc Weapon Surge", 2, "+10% Arc weapon damage"],
       ["Melee Font", 1, undefined],
     ])
+  })
+})
+
+describe("tooltip placement", () => {
+  const host = { width: 400, height: 800 }
+  const place = (anchor: { x: number; y: number }, height = 100) =>
+    placeTooltip({
+      anchor: { ...anchor, width: 24, height: 24 },
+      host,
+      height,
+      maxWidth: 300,
+      margin: 12,
+      gap: 8,
+      caretInset: 14,
+    })
+
+  test("sits below the anchor, centred on it, with the caret on the anchor", () => {
+    expect(place({ x: 188, y: 100 })).toEqual({
+      left: 50,
+      top: 132,
+      width: 300,
+      caret: 150,
+      side: "below",
+    })
+  })
+
+  test("keeps inside the host near an edge, the caret on the anchor but clear of the corners", () => {
+    expect(place({ x: 20, y: 100 })).toMatchObject({ left: 12, caret: 20 })
+    expect(place({ x: 370, y: 100 })).toMatchObject({ left: 88, caret: 286 })
+  })
+
+  test("flips above the anchor when only above has room", () => {
+    expect(place({ x: 188, y: 700 })).toMatchObject({ side: "above", top: 592 })
+  })
+
+  test("stays below when neither side has room", () => {
+    expect(place({ x: 188, y: 60 }, 760)).toMatchObject({ side: "below", top: 92 })
   })
 })

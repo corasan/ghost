@@ -9,6 +9,7 @@ import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client
 import { useFonts } from "expo-font"
 import { DarkTheme, Stack, ThemeProvider } from "expo-router"
 import { KeyboardProvider } from "react-native-keyboard-controller"
+import { PortalProvider } from "react-native-teleport"
 import * as SecureStore from "expo-secure-store"
 import * as SplashScreen from "expo-splash-screen"
 import { StatusBar } from "expo-status-bar"
@@ -16,6 +17,7 @@ import { useEffect } from "react"
 import { Platform } from "react-native"
 
 import { AnimatedSplashOverlay } from "@/components/animated-icon"
+import { TooltipLayer } from "@/components/ghost/tooltip"
 import { Ghost } from "@/constants/theme"
 import { useHealth } from "@/lib/api"
 import { persistOptions, queryClient } from "@/lib/query"
@@ -99,7 +101,11 @@ export default function RootLayout() {
         <ThemeProvider value={theme}>
           <StatusBar style="light" />
           <AnimatedSplashOverlay />
-          <RootStack />
+          <PortalProvider>
+            <TooltipLayer name="app">
+              <RootStack />
+            </TooltipLayer>
+          </PortalProvider>
         </ThemeProvider>
       </PersistQueryClientProvider>
     </KeyboardProvider>
