@@ -40,11 +40,23 @@ export type BungieTokens = typeof BungieTokens.Type
 
 const decodeTokens = Schema.decodeEffect(Schema.fromJsonString(BungieTokens))
 
-/** Every item action names the item and the character it acts through. */
-export interface ItemAction {
-  readonly itemId: string
+/** Every action runs through one character of one membership. */
+export interface CharacterAction {
   readonly characterId: string
   readonly membershipType: number
+}
+
+/** Every item action names the item and the character it acts through. */
+export interface ItemAction extends CharacterAction {
+  readonly itemId: string
+}
+
+/** Saves what the character has equipped into one of its in-game loadout slots, under the given identity. */
+export interface LoadoutSnapshot extends CharacterAction {
+  readonly loadoutIndex: number
+  readonly nameHash: number
+  readonly colorHash: number
+  readonly iconHash: number
 }
 
 export interface TransferItemInput extends ItemAction {
@@ -70,6 +82,10 @@ export interface BungieClientService {
   /** Puts a free plug such as an armor mod into a socket. The item must be on that character. */
   readonly insertPlug: (
     input: ItemAction & { readonly socketIndex: number; readonly plugHash: number },
+  ) => Effect.Effect<unknown, BungieError | BungieNotLinked>
+  /** Overwrites the slot with whatever the character wears right now. */
+  readonly snapshotLoadout: (
+    input: LoadoutSnapshot,
   ) => Effect.Effect<unknown, BungieError | BungieNotLinked>
 }
 
@@ -167,7 +183,7 @@ export const BungieClientLive = Layer.effect(
 
     const get = (path: string) => authed(HttpClientRequest.get(`${PLATFORM}${path}`))
 
-    const post = <Body extends ItemAction>(path: string, body: Body) =>
+    const post = <Body extends CharacterAction>(path: string, body: Body) =>
       HttpClientRequest.bodyJson(HttpClientRequest.post(`${PLATFORM}${path}`), body).pipe(
         Effect.mapError(toBungieError),
         Effect.flatMap(authed),
@@ -190,6 +206,7 @@ export const BungieClientLive = Layer.effect(
           ...item,
           plug: { socketIndex, socketArrayType: 0, plugItemHash: plugHash },
         }),
+      snapshotLoadout: (input) => post("/Destiny2/Actions/Loadouts/SnapshotLoadout/", input),
     }
   }),
 ).pipe(Layer.provide(FetchHttpClient.layer))
