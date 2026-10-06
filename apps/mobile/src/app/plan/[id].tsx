@@ -18,6 +18,7 @@ import { RowRight } from "@/components/chat/plan-block"
 import { ChargeNote, ChargeTag, Situational } from "@/components/ghost/charge"
 import { ItemIcon } from "@/components/ghost/item-icon"
 import { PlugIcon } from "@/components/ghost/plug-icon"
+import { SetBonusText } from "@/components/ghost/set-bonus"
 import { SubclassBanner } from "@/components/ghost/subclass-banner"
 import { Body, Button, Chevron, Mono } from "@/components/ghost/ui"
 import { Ghost, Gutter, Type } from "@/constants/theme"
@@ -25,7 +26,14 @@ import { errorMessage, useApplyPlan, useJob } from "@/lib/api"
 import { chargedMods } from "@/lib/charge"
 import { firstSentence } from "@/lib/effect-text"
 import { useFooterHeight } from "@/lib/footer"
-import { bySlot, modPips, pendingMasterwork, signed } from "@/lib/plan-card"
+import {
+  bySlot,
+  modPips,
+  pendingMasterwork,
+  signed,
+  type SynergyPart,
+  synergyParts,
+} from "@/lib/plan-card"
 import { usePlanSelection } from "@/lib/selection"
 import { useBottomInset } from "@/lib/insets"
 
@@ -286,6 +294,71 @@ function Piece({
   )
 }
 
+const SYNERGY_LABEL: Record<SynergyPart["kind"], string> = {
+  exotic: "EXOTIC",
+  setBonuses: "SET BONUS",
+  mods: "MODS",
+}
+
+function Prose({ text }: { text: string | undefined }) {
+  if (!text) return null
+  return (
+    <Body size={14} color={Ghost.soft} style={{ lineHeight: 20 }}>
+      {text}
+    </Body>
+  )
+}
+
+function SynergyPartView({ part }: { part: SynergyPart }) {
+  switch (part.kind) {
+    case "exotic":
+      return (
+        <>
+          <View style={styles.plug}>
+            <ItemIcon icon={part.row.icon} size={36} gearTier={part.row.gearTier} />
+            <Body size={14} style={{ flex: 1, fontFamily: Type.bodyMedium, lineHeight: 18 }}>
+              {part.row.name}
+            </Body>
+          </View>
+          <Prose text={part.text} />
+        </>
+      )
+    case "setBonuses":
+      return (
+        <>
+          {part.bonuses.map((bonus) => (
+            <View key={`${bonus.set}${bonus.name}`} style={[styles.plug, styles.bonus]}>
+              <PlugIcon icon={bonus.icon} size={28} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <SetBonusText bonus={bonus} />
+              </View>
+            </View>
+          ))}
+          <Prose text={part.text} />
+        </>
+      )
+    case "mods":
+      return <Prose text={part.text} />
+  }
+}
+
+/** How the exotic, the set bonuses and the mods play into the build. */
+function Synergy({ parts }: { parts: readonly SynergyPart[] }) {
+  return (
+    <View>
+      <Mono style={styles.label}>SYNERGY</Mono>
+      {parts.map((part) => (
+        <View key={part.kind} style={styles.synergyPart}>
+          <Mono size={8} style={{ letterSpacing: 1 }}>
+            {SYNERGY_LABEL[part.kind]}
+          </Mono>
+          <SynergyPartView part={part} />
+        </View>
+      ))}
+    </View>
+  )
+}
+
 function Confirm({ job, plan, inset }: { job: Job; plan: Plan; inset: number }) {
   const selection = usePlanSelection(job.id, plan)
   const apply = useApplyPlan()
@@ -315,7 +388,8 @@ function Confirm({ job, plan, inset }: { job: Job; plan: Plan; inset: number }) 
 
 /**
  * The build card unfolded in the same order: what each part of the subclass
- * does, the stats now, with the build and masterworked, and every piece by name.
+ * does, the stats now, with the build and masterworked, every piece by name,
+ * and how the exotic, set bonuses and mods play together.
  */
 export default function PlanDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
@@ -339,6 +413,7 @@ export default function PlanDetailsScreen() {
   const pieces = bySlot(plan.rows)
   const charged = chargedMods(plan.rows.flatMap((row) => row.armorMods ?? []))
   const copies = new Map(charged.map((entry) => [entry.mod.name, entry.copies]))
+  const synergy = synergyParts(plan)
 
   return (
     <View collapsable={false} style={{ flex: 1 }}>
@@ -389,6 +464,11 @@ export default function PlanDetailsScreen() {
             <Situational summary={plan.situational} mods={charged} />
           </View>
         ) : null}
+        {synergy.length > 0 ? (
+          <View style={[styles.section, { marginTop: 24 }]}>
+            <Synergy parts={synergy} />
+          </View>
+        ) : null}
       </ScrollView>
       <View collapsable={false} onLayout={footer.onLayout} style={styles.footerSlot}>
         <Confirm job={job.data} plan={plan} inset={bottomInset} />
@@ -410,6 +490,8 @@ const styles = StyleSheet.create({
   pieceBody: { paddingLeft: 60, paddingTop: 2, paddingBottom: 12, gap: 10 },
   modsHead: { flexDirection: "row", justifyContent: "space-between", paddingBottom: 4 },
   modIcon: { width: 28, height: 28, backgroundColor: Ghost.swatch },
+  synergyPart: { borderTopWidth: 1, borderTopColor: Ghost.rule, paddingVertical: 10, gap: 8 },
+  bonus: { alignItems: "flex-start" },
   mod: { paddingVertical: 5, borderTopWidth: 1, borderTopColor: Ghost.rule },
   modHead: { flexDirection: "row", alignItems: "center", gap: 10 },
   footer: {
