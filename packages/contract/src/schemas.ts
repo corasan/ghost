@@ -273,7 +273,11 @@ export class SubclassLoadout extends Schema.Class<SubclassLoadout>("SubclassLoad
   change: Schema.optional(SubclassChange),
 }) {}
 
-/** One armor set bonus the build's pieces turn on, from the current patch's manifest. */
+/**
+ * One armor set bonus from the current patch's manifest. It is on when the
+ * pieces worn reach the pieces it needs; below that it is one the build or
+ * piece is short of.
+ */
 export class SetBonus extends Schema.Class<SetBonus>("SetBonus")({
   name: Schema.String,
   description: Schema.String,
@@ -282,8 +286,10 @@ export class SetBonus extends Schema.Class<SetBonus>("SetBonus")({
   set: Schema.String,
   /** Pieces of the set the bonus needs. */
   required: Schema.Number,
-  /** Pieces of the set the build wears. */
+  /** Pieces of the set worn. */
   worn: Schema.Number,
+  /** How well the bonus fits the build Ghost was asked for, from 0 to 1, when Jev judged it. */
+  fit: Schema.optional(Schema.Number),
 }) {}
 
 /** How each part of a build feeds the rest, in Ghost's words; a part the build lacks is left out. */
@@ -314,7 +320,7 @@ export class Plan extends Schema.Class<Plan>("Plan")({
   note: Schema.NullOr(Schema.String),
   /** How the build's conditional bonuses, such as armor charge, play out together, in Ghost's words. */
   situational: Schema.optional(Schema.String),
-  /** Armor set bonuses the build's pieces turn on, fewest pieces needed first. */
+  /** Armor set bonuses the build's pieces turn on, then those one piece away, fewest pieces needed first. */
   setBonuses: Schema.optional(Schema.Array(SetBonus)),
   synergy: Schema.optional(Synergy),
   /** Label of the confirm button, for example "APPLY BUILD". */
@@ -445,6 +451,8 @@ export class ItemDetail extends Schema.Class<ItemDetail>("ItemDetail")({
   perks: Schema.Array(ItemPerk),
   /** The six armor stats; empty for weapons. */
   stats: Schema.Array(PlanStat),
+  /** Every bonus of the armor set the piece belongs to, counting the set pieces its character wears; absent when it is in no set. */
+  setBonuses: Schema.optional(Schema.Array(SetBonus)),
 }) {}
 
 export class ItemNotFound extends Schema.TaggedError<ItemNotFound>()("ItemNotFound", {
