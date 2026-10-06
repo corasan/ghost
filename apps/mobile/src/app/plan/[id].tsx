@@ -310,13 +310,18 @@ function Prose({ text }: { text: string | undefined }) {
   )
 }
 
-function BonusRow({ bonus }: { bonus: SetBonus }) {
+function BonusRow({ bonus, offBuild = false }: { bonus: SetBonus; offBuild?: boolean }) {
   return (
     <View style={[styles.plug, styles.bonus]}>
       <PlugIcon icon={bonus.icon} size={28} />
       <View style={{ flex: 1, minWidth: 0 }}>
         <SetBonusText bonus={bonus} />
       </View>
+      {offBuild ? (
+        <Mono size={8} color={Ghost.gold} style={{ letterSpacing: 1, marginTop: 4 }}>
+          OFF-BUILD
+        </Mono>
+      ) : null}
     </View>
   )
 }
@@ -338,8 +343,8 @@ function SynergyPartView({ part }: { part: SynergyPart }) {
     case "setBonuses":
       return (
         <>
-          {part.on.map((bonus) => (
-            <BonusRow key={`${bonus.set}${bonus.name}`} bonus={bonus} />
+          {part.on.map(({ bonus, offBuild }) => (
+            <BonusRow key={`${bonus.set}${bonus.name}`} bonus={bonus} offBuild={offBuild} />
           ))}
           {part.short.length > 0 ? (
             <View style={[styles.short, part.on.length > 0 && { marginTop: 4 }]}>

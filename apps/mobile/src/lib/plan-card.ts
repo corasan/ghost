@@ -178,9 +178,19 @@ export const splitSetBonuses = (bonuses: readonly SetBonus[]): SetBonusSplit => 
   short: bonuses.filter((bonus) => piecesAway(bonus) > 0),
 })
 
+/** An active bonus, flagged when Jev judged it a poor fit for the build. */
+export type ActiveBonus = { bonus: SetBonus; offBuild: boolean }
+
+const OFF_BUILD_FIT = 0.5
+
 export type SynergyPart =
   | { kind: "exotic"; row: PlanRow; text: string }
-  | ({ kind: "setBonuses"; text: string | undefined } & SetBonusSplit)
+  | {
+      kind: "setBonuses"
+      on: readonly ActiveBonus[]
+      short: readonly SetBonus[]
+      text: string | undefined
+    }
   | { kind: "mods"; text: string }
 
 const ARMOR_SLOTS: ReadonlySet<ItemSlot | undefined> = new Set<ItemSlot>([
@@ -201,8 +211,15 @@ export const synergyParts = (plan: Plan): SynergyPart[] => {
   const bonuses = plan.setBonuses ?? []
   const parts: SynergyPart[] = []
   if (exoticRow && exotic) parts.push({ kind: "exotic", row: exoticRow, text: exotic })
-  if (bonuses.length > 0 || setText)
-    parts.push({ kind: "setBonuses", ...splitSetBonuses(bonuses), text: setText })
+  if (bonuses.length > 0 || setText) {
+    const { on, short } = splitSetBonuses(bonuses)
+    parts.push({
+      kind: "setBonuses",
+      on: on.map((bonus) => ({ bonus, offBuild: (bonus.fit ?? 1) < OFF_BUILD_FIT })),
+      short,
+      text: setText,
+    })
+  }
   if (mods) parts.push({ kind: "mods", text: mods })
   return parts
 }

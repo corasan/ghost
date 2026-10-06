@@ -484,7 +484,7 @@ describe("build card", () => {
       )
       expect(parts).toEqual([
         { kind: "exotic", row: exoticArms, text: "e" },
-        { kind: "setBonuses", on: [bonus], short: [], text: "s" },
+        { kind: "setBonuses", on: [{ bonus, offBuild: false }], short: [], text: "s" },
         { kind: "mods", text: "m" },
       ])
     })
@@ -496,14 +496,19 @@ describe("build card", () => {
 
     test("active set bonuses show without Ghost's words, and nothing shows for an older plan", () => {
       expect(synergyParts(plan({ rows: [exoticArms], setBonuses: [bonus] }))).toEqual([
-        { kind: "setBonuses", on: [bonus], short: [], text: undefined },
+        { kind: "setBonuses", on: [{ bonus, offBuild: false }], short: [], text: undefined },
       ])
       expect(kinds(plan({ rows: [exoticArms] }))).toEqual([])
     })
 
     test("bonuses the build turns on come before the ones it is a piece short of", () => {
       expect(synergyParts(plan({ rows: [], setBonuses: [lastDiscipline, bonus] }))).toEqual([
-        { kind: "setBonuses", on: [bonus], short: [lastDiscipline], text: undefined },
+        {
+          kind: "setBonuses",
+          on: [{ bonus, offBuild: false }],
+          short: [lastDiscipline],
+          text: undefined,
+        },
       ])
     })
 
@@ -511,6 +516,22 @@ describe("build card", () => {
       expect(synergyParts(plan({ rows: [], setBonuses: [lastDiscipline] }))).toEqual([
         { kind: "setBonuses", on: [], short: [lastDiscipline], text: undefined },
       ])
+    })
+
+    test("an active bonus Jev judged a poor fit is off-build; one a piece away never is", () => {
+      const fitted = (fit: number, worn: number) => new SetBonus({ ...bonus, fit, worn })
+      const part = synergyParts(
+        plan({ rows: [], setBonuses: [fitted(0.3, 2), fitted(0.5, 2), fitted(0.2, 1)] }),
+      )[0]
+      expect(part).toEqual({
+        kind: "setBonuses",
+        on: [
+          { bonus: fitted(0.3, 2), offBuild: true },
+          { bonus: fitted(0.5, 2), offBuild: false },
+        ],
+        short: [fitted(0.2, 1)],
+        text: undefined,
+      })
     })
 
     test("the set line names the pieces needed, the set, and how far the build is from it", () => {
