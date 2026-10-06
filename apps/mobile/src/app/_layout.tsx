@@ -44,6 +44,11 @@ function RootStack() {
     headerTintColor: Ghost.ink,
     contentStyle: { backgroundColor: Ghost.panel },
   } as const
+  const fullSheet = {
+    ...sheet,
+    sheetAllowedDetents: [1],
+    sheetExpandsWhenScrolledToEdge: false,
+  }
   const health = useHealth()
   const known = health.data?.bungieLinked
   useEffect(() => {
@@ -57,16 +62,16 @@ function RootStack() {
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Ghost.bg } }}>
       <Stack.Protected guard={linked}>
         <Stack.Screen name="(app)" />
-        <Stack.Screen name="item/[id]" options={{ ...sheet, sheetAllowedDetents: [1] }} />
+        <Stack.Screen name="item/[id]" options={fullSheet} />
         <Stack.Screen
           name="item-actions/[id]"
           options={{ ...sheet, sheetAllowedDetents: [0.5, 1] }}
         />
-        <Stack.Screen name="plan/[id]" options={{ ...sheet, sheetAllowedDetents: [1] }} />
-        <Stack.Screen name="subclass" options={{ ...sheet, sheetAllowedDetents: [1] }} />
+        <Stack.Screen name="plan/[id]" options={fullSheet} />
+        <Stack.Screen name="subclass" options={fullSheet} />
         <Stack.Screen name="vault-filter" options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />
-        <Stack.Screen name="save-build" options={{ ...sheet, sheetAllowedDetents: [1] }} />
-        <Stack.Screen name="build/[id]" options={{ ...sheet, sheetAllowedDetents: [1] }} />
+        <Stack.Screen name="save-build" options={fullSheet} />
+        <Stack.Screen name="build/[id]" options={fullSheet} />
         <Stack.Screen name="build-filter" options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />
       </Stack.Protected>
       <Stack.Protected guard={!linked}>
