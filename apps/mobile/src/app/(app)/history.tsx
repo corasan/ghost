@@ -2,7 +2,7 @@ import type { HistoryGroup } from "@ghost/contract"
 import { LegendList } from "@legendapp/list/react-native"
 import { Pressable, StyleSheet, View } from "react-native"
 
-import { Body, Cond, Mono, PageHeader } from "@/components/ghost/ui"
+import { Body, Cond, Meta, PageHeader } from "@/components/ghost/ui"
 import { usePullRefresh } from "@/lib/refresh"
 import { Ghost, Gutter, Type } from "@/constants/theme"
 import { useHistory, useUndoPlan } from "@/lib/api"
@@ -16,7 +16,7 @@ const tone = {
   undone: Ghost.muted,
 } as const
 
-const statusLabel = { ok: "OK", failed: "FAILED", held: "HELD", undone: "UNDONE" } as const
+const statusLabel = { ok: "Done", failed: "Failed", held: "Held", undone: "Undone" } as const
 
 function Group({ group }: { group: HistoryGroup }) {
   const undo = useUndoPlan()
@@ -27,17 +27,17 @@ function Group({ group }: { group: HistoryGroup }) {
         <Body size={16} style={{ fontFamily: Type.bodyMedium, flex: 1 }} lines={1}>
           “{group.prompt}”
         </Body>
-        <Mono>{clock(group.at)}</Mono>
+        <Meta>{clock(group.at)}</Meta>
       </View>
       {group.calls.length > 0 ? (
         <View style={styles.calls}>
           {group.calls.map((call) => (
             <View key={`${call.label}${call.status}`} style={styles.between}>
               <View style={[styles.dot, { backgroundColor: tone[call.status] }]} />
-              <Mono size={12} color={Ghost.soft} style={{ letterSpacing: 0, flex: 1 }} lines={1}>
+              <Body size={14} color={Ghost.soft} style={{ flex: 1 }} lines={1}>
                 {call.label}
-              </Mono>
-              <Mono color={tone[call.status]}>{statusLabel[call.status]}</Mono>
+              </Body>
+              <Meta color={tone[call.status]}>{statusLabel[call.status]}</Meta>
             </View>
           ))}
         </View>
@@ -53,13 +53,13 @@ function Group({ group }: { group: HistoryGroup }) {
             <Cond size={13}>{undo.isPending ? "UNDOING…" : "UNDO"}</Cond>
           </Pressable>
         ) : null}
-        <Mono>
+        <Meta>
           {group.undone
-            ? "UNDONE"
+            ? "Undone"
             : group.calls.length === 0
-              ? "ANSWER ONLY · NOTHING MOVED"
-              : `${moves} ${moves === 1 ? "CALL" : "CALLS"} · ${group.undoable ? "REVERSIBLE" : "NOTHING TO UNDO"}`}
-        </Mono>
+              ? "Answer only · nothing moved"
+              : `${moves} ${moves === 1 ? "call" : "calls"} · ${group.undoable ? "reversible" : "nothing to undo"}`}
+        </Meta>
       </View>
     </View>
   )
@@ -86,7 +86,7 @@ export default function HistoryScreen() {
         contentContainerStyle={{ paddingBottom: bottomInset + 24 }}
         ListHeaderComponent={
           <View style={{ paddingBottom: 26 }}>
-            <PageHeader title="HISTORY" subtitle="TODAY" figure={today} caption="ACTIONS" />
+            <PageHeader title="HISTORY" subtitle="Today" figure={today} caption="Actions" />
           </View>
         }
         ItemSeparatorComponent={() => <View style={{ height: 22 }} />}

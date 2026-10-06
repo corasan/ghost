@@ -8,11 +8,11 @@ import { PlanRowView } from "@/components/chat/plan-block"
 import { liveLabel } from "@/lib/plan-card"
 import { Unavailable } from "@/components/ghost/unavailable"
 import { ItemIcon } from "@/components/ghost/item-icon"
-import { Body, Button, Chip, Cond, Cut, Mono, PageHeader, Said, Tick } from "@/components/ghost/ui"
+import { Body, Button, Chip, Cond, Cut, Meta, PageHeader, Said, Tick } from "@/components/ghost/ui"
 import { Ghost, Gutter, Type } from "@/constants/theme"
 import { useApplyPlan, useCreateJob, useJobs, useSetDecision, useVault } from "@/lib/api"
 import { useCharacter } from "@/lib/character"
-import { upper } from "@/lib/format"
+import { sentence } from "@/lib/format"
 import { usePullRefresh } from "@/lib/refresh"
 import { usePlanSelection } from "@/lib/selection"
 import { useSessionId } from "@/lib/session"
@@ -29,15 +29,17 @@ import { useBottomInset } from "@/lib/insets"
 
 function itemMeta(item: ItemSummary) {
   if (isWeapon(item)) {
-    const head = [item.typeName, item.damageType === "none" ? null : item.damageType]
+    const head = [item.typeName, item.damageType === "none" ? null : sentence(item.damageType)]
       .filter(Boolean)
-      .map((s) => upper(String(s)))
       .join(" · ")
     return item.perks.length > 0 ? `${head} · ${item.perks.slice(-2).join(" · ")}` : head
   }
-  return [item.typeName, item.classType, item.statTotal !== null ? `${item.statTotal} TOTAL` : null]
+  return [
+    item.typeName,
+    item.classType ? sentence(item.classType) : null,
+    item.statTotal !== null ? `${item.statTotal} total` : null,
+  ]
     .filter(Boolean)
-    .map((s) => upper(String(s)))
     .join(" · ")
 }
 
@@ -76,12 +78,12 @@ function VaultRow({
           <Body size={15} style={{ fontFamily: Type.bodyMedium, flexShrink: 1 }} lines={1}>
             {item.name}
           </Body>
-          {item.decision === "junk" ? <Tag label="JUNK" color={Ghost.danger} /> : null}
+          {item.decision === "junk" ? <Tag label="Junk" color={Ghost.danger} /> : null}
           {item.duplicates > 0 ? <Tag label={`×${item.duplicates + 1}`} color={Ghost.dim} /> : null}
         </View>
-        <Mono style={{ marginTop: 3, letterSpacing: 0.7 }} lines={1}>
+        <Meta style={{ marginTop: 2 }} lines={1}>
           {itemMeta(item)}
-        </Mono>
+        </Meta>
       </View>
       <Cond size={17} color={Ghost.gold} style={{ letterSpacing: 0 }}>
         {item.power ?? "—"}
@@ -93,9 +95,9 @@ function VaultRow({
 function Tag({ label, color }: { label: string; color: string }) {
   return (
     <View style={{ borderWidth: 1, borderColor: color, paddingHorizontal: 5, paddingVertical: 1 }}>
-      <Mono size={11} color={color}>
+      <Meta size={12} color={color}>
         {label}
-      </Mono>
+      </Meta>
     </View>
   )
 }
@@ -195,9 +197,9 @@ function Filters({ shown }: { shown: number }) {
           onPress={() => router.push("/vault-filter")}
           style={[styles.filter, active.length > 0 && { borderColor: Ghost.accent }]}
         >
-          <Mono size={11} color={active.length > 0 ? Ghost.accent : Ghost.dim}>
-            {active.length > 0 ? `FILTER · ${active.length}` : "FILTER"}
-          </Mono>
+          <Meta size={12} color={active.length > 0 ? Ghost.accent : Ghost.muted}>
+            {active.length > 0 ? `Filter · ${active.length}` : "Filter"}
+          </Meta>
           <Cond size={13}>{SORT_LABEL[filter.sort]}</Cond>
         </Pressable>
       </View>
@@ -215,7 +217,7 @@ function Filters({ shown }: { shown: number }) {
               onPress={() => replaceVaultFilter(removeFilter(filter, each.id))}
             />
           ))}
-          <Mono style={{ marginLeft: 6 }}>{shown} SHOWN</Mono>
+          <Meta style={{ marginLeft: 6 }}>{shown} shown</Meta>
         </ScrollView>
       ) : null}
     </View>
@@ -268,12 +270,12 @@ export default function VaultScreen() {
       <PageHeader
         title="VAULT"
         subtitle={
-          cleanup ? "CLEANUP MODE" : reviewing ? "GHOST IS REVIEWING" : `${shown.length} SHOWN`
+          cleanup ? "Cleanup mode" : reviewing ? "Ghost is reviewing" : `${shown.length} shown`
         }
         subtitleColor={cleanup ? Ghost.danger : Ghost.dim}
         figure={vault.data ? count : "—"}
         figureSuffix={vault.data ? `/${capacity}` : undefined}
-        caption={vault.data ? `${capacity - count} FREE` : "SPACE"}
+        caption={vault.data ? `${capacity - count} free` : "Space"}
       >
         <View style={styles.meter}>
           <View

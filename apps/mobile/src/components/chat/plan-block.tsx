@@ -4,7 +4,8 @@ import { useState } from "react"
 import { Alert, Pressable, StyleSheet, View } from "react-native"
 
 import { ItemIcon } from "@/components/ghost/item-icon"
-import { Body, Button, Cond, Cut, Mono, TierStats, Tick } from "@/components/ghost/ui"
+import { Body, Button, Cond, Cut, Meta, Mono, TierStats, Tick } from "@/components/ghost/ui"
+import { sentence } from "@/lib/format"
 import { Ghost, Rarity, Type } from "@/constants/theme"
 import { errorMessage, useApplyPlan, useUndoPlan } from "@/lib/api"
 import { liveLabel } from "@/lib/plan-card"
@@ -25,9 +26,9 @@ const outcomeTone = { ok: Ghost.good, failed: Ghost.danger, skipped: Ghost.dim }
 export function RowRight({ row, applied }: { row: PlanRow; applied: boolean }) {
   if (applied && row.outcome) {
     return (
-      <Mono color={outcomeTone[row.outcome]}>
-        {row.outcome === "ok" ? "DONE" : row.outcome === "failed" ? "FAILED" : "HELD"}
-      </Mono>
+      <Meta color={outcomeTone[row.outcome]}>
+        {row.outcome === "ok" ? "Done" : row.outcome === "failed" ? "Failed" : "Held"}
+      </Meta>
     )
   }
   if (row.score !== null) {
@@ -37,7 +38,7 @@ export function RowRight({ row, applied }: { row: PlanRow; applied: boolean }) {
         <Cond size={20} color={color} style={{ letterSpacing: 0, lineHeight: 20 }}>
           {row.score}
         </Cond>
-        <Mono size={11}>ROLL</Mono>
+        <Meta size={12}>Roll</Meta>
       </View>
     )
   }
@@ -106,9 +107,9 @@ export function PlanRowView({
             <Body size={15} style={{ fontFamily: Type.bodyMedium, lineHeight: 18 }} lines={1}>
               {row.name}
             </Body>
-            <Mono style={{ marginTop: 3, letterSpacing: 0.7 }} lines={1}>
+            <Meta color={row.error ? Ghost.danger : Ghost.muted} style={{ marginTop: 2 }} lines={1}>
               {row.error ?? row.meta}
-            </Mono>
+            </Meta>
           </View>
           <RowRight row={row} applied={applied} />
         </View>
@@ -150,9 +151,9 @@ function Featured({ plan, row }: { plan: Plan; row: PlanRow }) {
               </Cond>
             ) : null}
           </View>
-          <Mono color={tone} style={{ marginTop: 5 }} lines={1}>
+          <Meta color={tone} style={{ marginTop: 4 }} lines={1}>
             {row.meta}
-          </Mono>
+          </Meta>
           <View style={styles.perks}>
             {featured.perks.map((perk) => (
               <View
@@ -171,7 +172,7 @@ function Featured({ plan, row }: { plan: Plan; row: PlanRow }) {
         <View style={{ paddingHorizontal: 14, paddingBottom: 14, gap: 7 }}>
           {featured.stats.map((stat, i) => (
             <View key={stat.label} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <Mono style={{ width: 66 }}>{stat.label}</Mono>
+              <Meta style={{ width: 70 }}>{sentence(stat.label)}</Meta>
               <View style={{ flex: 1, height: 3, backgroundColor: Ghost.rule }}>
                 <View
                   style={{
@@ -181,7 +182,7 @@ function Featured({ plan, row }: { plan: Plan; row: PlanRow }) {
                   }}
                 />
               </View>
-              <Mono color={Ghost.ink} style={{ width: 28, textAlign: "right" }}>
+              <Mono size={13} color={Ghost.ink} style={{ width: 32, textAlign: "right" }}>
                 {stat.value}
               </Mono>
             </View>
@@ -231,11 +232,11 @@ function ItemPlan({ job, plan, onAsk }: { job: Job; plan: Plan; onAsk: (prompt: 
 
   const right = applied
     ? plan.status === "undone"
-      ? "UNDONE"
+      ? "Undone"
       : failed > 0
-        ? `APPLIED · ${failed} FAILED`
-        : "APPLIED"
-    : (plan.subtitle ?? (selection.actionableCount > 0 ? `${ticked} MOVING · ${held} HELD` : null))
+        ? `Applied · ${failed} failed`
+        : "Applied"
+    : (plan.subtitle ?? (selection.actionableCount > 0 ? `${ticked} moving · ${held} held` : null))
 
   const confirm = () => {
     // Junk tags and equips are easy to reverse, but a big batch deserves a
@@ -257,9 +258,9 @@ function ItemPlan({ job, plan, onAsk }: { job: Job; plan: Plan; onAsk: (prompt: 
           {plan.title}
         </Mono>
         {right ? (
-          <Mono size={11} color={applied && failed > 0 ? Ghost.danger : Ghost.dim} lines={1}>
+          <Meta color={applied && failed > 0 ? Ghost.danger : Ghost.muted} lines={1}>
             {right}
-          </Mono>
+          </Meta>
         ) : null}
       </View>
 
@@ -282,20 +283,20 @@ function ItemPlan({ job, plan, onAsk }: { job: Job; plan: Plan; onAsk: (prompt: 
       ))}
       {collapsed ? (
         <Pressable onPress={() => setExpanded(true)} style={styles.more}>
-          <Mono>
-            + {hidden.length} MORE ·{" "}
+          <Meta>
+            {hidden.length} more ·{" "}
             {applied
-              ? "TAP TO SHOW"
+              ? "tap to show"
               : hiddenTicked === hidden.length
-                ? "ALL MOVING"
-                : `${hiddenTicked} MOVING`}
-          </Mono>
+                ? "all moving"
+                : `${hiddenTicked} moving`}
+          </Meta>
         </Pressable>
       ) : null}
 
       {plan.note ? (
         <View style={styles.note}>
-          <Body size={13} color={Ghost.muted} style={{ lineHeight: 18 }}>
+          <Body size={14} color={Ghost.muted} style={{ lineHeight: 20 }}>
             {plan.note}
           </Body>
         </View>
