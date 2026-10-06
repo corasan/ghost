@@ -155,13 +155,32 @@ export const verdict = (plan: Plan) => {
   return { plain, change: changes.length > 0 ? `${changes.join(", ")}.` : "" }
 }
 
-/** "2-PIECE · TECHSEC" */
-export const setBonusLine = (bonus: SetBonus) =>
-  `${bonus.required}-PIECE · ${bonus.set}`.toUpperCase()
+const piecesAway = (bonus: SetBonus) => Math.max(0, bonus.required - bonus.worn)
+
+/** "2-PIECE · TECHSEC", then "1 PIECE AWAY" while the build is short of it. */
+export const setBonusLine = (bonus: SetBonus) => {
+  const away = piecesAway(bonus)
+  return [
+    `${bonus.required}-PIECE`,
+    bonus.set,
+    away > 0 ? `${away} ${away === 1 ? "PIECE" : "PIECES"} AWAY` : null,
+  ]
+    .filter((part) => part !== null)
+    .join(" · ")
+    .toUpperCase()
+}
+
+/** A build's set bonuses: the ones its pieces turn on, then the ones it is short of. */
+export type SetBonusSplit = { on: readonly SetBonus[]; short: readonly SetBonus[] }
+
+export const splitSetBonuses = (bonuses: readonly SetBonus[]): SetBonusSplit => ({
+  on: bonuses.filter((bonus) => piecesAway(bonus) === 0),
+  short: bonuses.filter((bonus) => piecesAway(bonus) > 0),
+})
 
 export type SynergyPart =
   | { kind: "exotic"; row: PlanRow; text: string }
-  | { kind: "setBonuses"; bonuses: readonly SetBonus[]; text: string | undefined }
+  | ({ kind: "setBonuses"; text: string | undefined } & SetBonusSplit)
   | { kind: "mods"; text: string }
 
 const ARMOR_SLOTS: ReadonlySet<ItemSlot | undefined> = new Set<ItemSlot>([
@@ -174,7 +193,7 @@ const ARMOR_SLOTS: ReadonlySet<ItemSlot | undefined> = new Set<ItemSlot>([
 
 /**
  * How the exotic armor, the set bonuses and the mods feed the build, in that
- * order. A part needs Ghost's words, except active set bonuses, which show without them.
+ * order. A part needs Ghost's words, except set bonuses, which show without them.
  */
 export const synergyParts = (plan: Plan): SynergyPart[] => {
   const { exotic, setBonuses: setText, mods } = plan.synergy ?? {}
@@ -182,7 +201,8 @@ export const synergyParts = (plan: Plan): SynergyPart[] => {
   const bonuses = plan.setBonuses ?? []
   const parts: SynergyPart[] = []
   if (exoticRow && exotic) parts.push({ kind: "exotic", row: exoticRow, text: exotic })
-  if (bonuses.length > 0 || setText) parts.push({ kind: "setBonuses", bonuses, text: setText })
+  if (bonuses.length > 0 || setText)
+    parts.push({ kind: "setBonuses", ...splitSetBonuses(bonuses), text: setText })
   if (mods) parts.push({ kind: "mods", text: mods })
   return parts
 }

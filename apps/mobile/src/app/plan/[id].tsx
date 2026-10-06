@@ -6,6 +6,7 @@ import type {
   Plan,
   SubclassLoadout,
   PlanRow,
+  SetBonus,
 } from "@ghost/contract"
 import { Image } from "expo-image"
 import { router, useLocalSearchParams } from "expo-router"
@@ -309,6 +310,17 @@ function Prose({ text }: { text: string | undefined }) {
   )
 }
 
+function BonusRow({ bonus }: { bonus: SetBonus }) {
+  return (
+    <View style={[styles.plug, styles.bonus]}>
+      <PlugIcon icon={bonus.icon} size={28} />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <SetBonusText bonus={bonus} />
+      </View>
+    </View>
+  )
+}
+
 function SynergyPartView({ part }: { part: SynergyPart }) {
   switch (part.kind) {
     case "exotic":
@@ -326,14 +338,19 @@ function SynergyPartView({ part }: { part: SynergyPart }) {
     case "setBonuses":
       return (
         <>
-          {part.bonuses.map((bonus) => (
-            <View key={`${bonus.set}${bonus.name}`} style={[styles.plug, styles.bonus]}>
-              <PlugIcon icon={bonus.icon} size={28} />
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <SetBonusText bonus={bonus} />
-              </View>
-            </View>
+          {part.on.map((bonus) => (
+            <BonusRow key={`${bonus.set}${bonus.name}`} bonus={bonus} />
           ))}
+          {part.short.length > 0 ? (
+            <View style={[styles.short, part.on.length > 0 && { marginTop: 4 }]}>
+              <Mono size={8} style={{ letterSpacing: 1 }}>
+                ONE PIECE AWAY
+              </Mono>
+              {part.short.map((bonus) => (
+                <BonusRow key={`${bonus.set}${bonus.name}`} bonus={bonus} />
+              ))}
+            </View>
+          ) : null}
           <Prose text={part.text} />
         </>
       )
@@ -492,6 +509,7 @@ const styles = StyleSheet.create({
   modIcon: { width: 28, height: 28, backgroundColor: Ghost.swatch },
   synergyPart: { borderTopWidth: 1, borderTopColor: Ghost.rule, paddingVertical: 10, gap: 8 },
   bonus: { alignItems: "flex-start" },
+  short: { opacity: 0.5, gap: 8 },
   mod: { paddingVertical: 5, borderTopWidth: 1, borderTopColor: Ghost.rule },
   modHead: { flexDirection: "row", alignItems: "center", gap: 10 },
   footer: {

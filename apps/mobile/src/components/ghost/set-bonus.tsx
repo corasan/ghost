@@ -6,7 +6,7 @@ import { PlugIcon } from "@/components/ghost/plug-icon"
 import { Tooltip } from "@/components/ghost/tooltip"
 import { Body, Mono } from "@/components/ghost/ui"
 import { Ghost, Type } from "@/constants/theme"
-import { setBonusLine } from "@/lib/plan-card"
+import { setBonusLine, splitSetBonuses } from "@/lib/plan-card"
 
 const ICON = 24
 const ICON_GAP = 8
@@ -33,42 +33,51 @@ export function SetBonusText({ bonus, size = 13 }: { bonus: SetBonus; size?: num
 }
 
 /**
- * The build's set bonuses as icons; tapping one floats a tip pointing at it,
- * and any touch outside the tip closes it.
+ * The build's set bonuses as icons, the ones it is short of dimmed after the
+ * ones it turns on; tapping one floats a tip pointing at it, and any touch
+ * outside the tip closes it.
  */
 export function SetBonusIcons({ bonuses }: { bonuses: readonly SetBonus[] }) {
-  const anchors = useRef<(HostInstance | null)[]>([])
-  const [open, setOpen] = useState<{ index: number; anchor: HostInstance }>()
-  const shown = open && bonuses[open.index]
+  const anchors = useRef(new Map<SetBonus, HostInstance>())
+  const [open, setOpen] = useState<{ bonus: SetBonus; anchor: HostInstance }>()
+  const { on, short } = splitSetBonuses(bonuses)
+  const icon = (bonus: SetBonus, isShort: boolean) => (
+    <Pressable
+      key={`${bonus.set}${bonus.name}`}
+      ref={(view) => {
+        if (view) anchors.current.set(bonus, view)
+        else anchors.current.delete(bonus)
+      }}
+      accessibilityRole="button"
+      accessibilityLabel={isShort ? `${bonus.name}, ${setBonusLine(bonus)}` : bonus.name}
+      accessibilityHint="Shows what the set bonus does"
+      accessibilityState={{ expanded: open?.bonus === bonus }}
+      hitSlop={6}
+      onPress={() => {
+        const anchor = anchors.current.get(bonus)
+        if (anchor) setOpen({ bonus, anchor })
+      }}
+      style={({ pressed }) => [
+        isShort && styles.short,
+        open?.bonus === bonus && { boxShadow: `0 0 0 1px ${Ghost.accent}` },
+        pressed && { opacity: 0.6 },
+      ]}
+    >
+      <PlugIcon icon={bonus.icon} size={ICON} />
+    </Pressable>
+  )
   return (
     <View style={styles.row}>
       <Mono style={styles.label}>SET BONUS</Mono>
-      {bonuses.map((bonus, i) => (
-        <Pressable
-          key={`${bonus.set}${bonus.name}`}
-          ref={(view) => {
-            anchors.current[i] = view
-          }}
-          accessibilityRole="button"
-          accessibilityLabel={bonus.name}
-          accessibilityHint="Shows what the set bonus does"
-          accessibilityState={{ expanded: open?.index === i }}
-          hitSlop={6}
-          onPress={() => {
-            const anchor = anchors.current[i]
-            if (anchor) setOpen({ index: i, anchor })
-          }}
-          style={({ pressed }) => [
-            open?.index === i && { boxShadow: `0 0 0 1px ${Ghost.accent}` },
-            pressed && { opacity: 0.6 },
-          ]}
+      {on.map((bonus) => icon(bonus, false))}
+      {short.map((bonus) => icon(bonus, true))}
+      {open ? (
+        <Tooltip
+          key={`${open.bonus.set}${open.bonus.name}`}
+          anchor={open.anchor}
+          onClose={() => setOpen(undefined)}
         >
-          <PlugIcon icon={bonus.icon} size={ICON} />
-        </Pressable>
-      ))}
-      {open && shown ? (
-        <Tooltip key={open.index} anchor={open.anchor} onClose={() => setOpen(undefined)}>
-          <SetBonusText bonus={shown} />
+          <SetBonusText bonus={open.bonus} />
         </Tooltip>
       ) : null}
     </View>
@@ -78,4 +87,12 @@ export function SetBonusIcons({ bonuses }: { bonuses: readonly SetBonus[] }) {
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: ICON_GAP },
   label: { width: LABEL_WIDTH, marginRight: LABEL_GAP - ICON_GAP },
+  short: {
+    opacity: 0.45,
+    padding: 1,
+    margin: -2,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: Ghost.muted,
+  },
 })

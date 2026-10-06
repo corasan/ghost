@@ -462,6 +462,14 @@ describe("build card", () => {
       required: 2,
       worn: 2,
     })
+    const lastDiscipline = new SetBonus({
+      name: "Steady Hands",
+      description: "",
+      icon: null,
+      set: "Last Discipline",
+      required: 4,
+      worn: 3,
+    })
     const exoticArms = row("Synthoceps", { tier: "exotic", slot: "arms" })
     const exoticWeapon = row("Gjallarhorn", { tier: "exotic", slot: "power" })
     const kinds = (built: Plan) => synergyParts(built).map((part) => part.kind)
@@ -476,7 +484,7 @@ describe("build card", () => {
       )
       expect(parts).toEqual([
         { kind: "exotic", row: exoticArms, text: "e" },
-        { kind: "setBonuses", bonuses: [bonus], text: "s" },
+        { kind: "setBonuses", on: [bonus], short: [], text: "s" },
         { kind: "mods", text: "m" },
       ])
     })
@@ -488,13 +496,26 @@ describe("build card", () => {
 
     test("active set bonuses show without Ghost's words, and nothing shows for an older plan", () => {
       expect(synergyParts(plan({ rows: [exoticArms], setBonuses: [bonus] }))).toEqual([
-        { kind: "setBonuses", bonuses: [bonus], text: undefined },
+        { kind: "setBonuses", on: [bonus], short: [], text: undefined },
       ])
       expect(kinds(plan({ rows: [exoticArms] }))).toEqual([])
     })
 
-    test("the set line names the pieces needed and the set", () => {
+    test("bonuses the build turns on come before the ones it is a piece short of", () => {
+      expect(synergyParts(plan({ rows: [], setBonuses: [lastDiscipline, bonus] }))).toEqual([
+        { kind: "setBonuses", on: [bonus], short: [lastDiscipline], text: undefined },
+      ])
+    })
+
+    test("a build only a piece short of a bonus still shows its set bonuses", () => {
+      expect(synergyParts(plan({ rows: [], setBonuses: [lastDiscipline] }))).toEqual([
+        { kind: "setBonuses", on: [], short: [lastDiscipline], text: undefined },
+      ])
+    })
+
+    test("the set line names the pieces needed, the set, and how far the build is from it", () => {
       expect(setBonusLine(bonus)).toBe("2-PIECE · TECHSEC")
+      expect(setBonusLine(lastDiscipline)).toBe("4-PIECE · LAST DISCIPLINE · 1 PIECE AWAY")
     })
   })
 })
