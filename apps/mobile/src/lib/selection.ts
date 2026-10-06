@@ -1,7 +1,7 @@
 import type { Plan } from "@ghost/contract"
 import { useSyncExternalStore } from "react"
 
-// Which plan rows the player has left ticked, per job. It lives outside the
+// Which plan rows (and subclass change) the player has left ticked, per job. It lives outside the
 // components because the same plan renders in two places (the chat and the
 // vault's cleanup mode), and list cells are recycled as they scroll, so
 // component state would be lost or shared with the wrong row.
@@ -9,10 +9,19 @@ import { useSyncExternalStore } from "react"
 const selections = new Map<string, ReadonlySet<string>>()
 const listeners = new Set<() => void>()
 
-const actionable = (plan: Plan) => plan.rows.filter((row) => row.action !== "none")
+const actionable = (plan: Plan) => {
+  const change = plan.loadout?.change
+  return [
+    ...(change === undefined ? [] : [{ id: change.itemInstanceId, selected: change.selected }]),
+    ...plan.rows
+      .filter((row) => row.action !== "none" || row.armorMods?.some((mod) => mod.swap))
+      .map((row) => ({ id: row.itemInstanceId, selected: row.selected })),
+  ]
+}
 
-const defaults = (plan: Plan) =>
-  new Set(actionable(plan).flatMap((row) => (row.selected ? [row.itemInstanceId] : [])))
+/** What starts ticked: Ghost's picks among the rows with something to do, and the subclass change. */
+export const defaultSelection = (plan: Plan) =>
+  new Set(actionable(plan).flatMap((entry) => (entry.selected ? [entry.id] : [])))
 
 const emit = () => {
   for (const listener of listeners) listener()
@@ -25,7 +34,7 @@ const subscribe = (listener: () => void) => {
 
 export function usePlanSelection(jobId: string, plan: Plan) {
   const selected = useSyncExternalStore(subscribe, () => selections.get(jobId))
-  const current = selected ?? defaults(plan)
+  const current = selected ?? defaultSelection(plan)
   const write = (next: ReadonlySet<string>) => {
     selections.set(jobId, next)
     emit()
@@ -37,8 +46,7 @@ export function usePlanSelection(jobId: string, plan: Plan) {
       if (!next.delete(id)) next.add(id)
       write(next)
     },
-    setAll: (on: boolean) =>
-      write(new Set(on ? actionable(plan).map((row) => row.itemInstanceId) : [])),
+    setAll: (on: boolean) => write(new Set(on ? actionable(plan).map((entry) => entry.id) : [])),
     actionableCount: actionable(plan).length,
   }
 }

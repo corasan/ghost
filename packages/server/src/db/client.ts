@@ -156,6 +156,54 @@ const migrations = {
     `
     yield* sql`CREATE INDEX IF NOT EXISTS creator_notes_video ON creator_notes (video_id)`
   }),
+  "0005_sessions_and_steps": Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    yield* sql`ALTER TABLE jobs ADD COLUMN session_id TEXT`
+    yield* sql`ALTER TABLE jobs ADD COLUMN steps TEXT NOT NULL DEFAULT '[]'`
+    yield* sql`UPDATE jobs SET session_id = 'first'`
+    yield* sql`CREATE INDEX IF NOT EXISTS jobs_session ON jobs (session_id, created_at)`
+  }),
+  "0006_mod_actions": Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    yield* sql`ALTER TABLE actions ADD COLUMN socket_index INTEGER`
+    yield* sql`ALTER TABLE actions ADD COLUMN plug_hash INTEGER`
+    yield* sql`ALTER TABLE actions ADD COLUMN previous_plug_hash INTEGER`
+  }),
+  "0007_charge_effects": Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    yield* sql`
+      CREATE TABLE IF NOT EXISTS charge_effects (
+        mod TEXT PRIMARY KEY,
+        effect TEXT NOT NULL,
+        source_label TEXT NOT NULL,
+        source_url TEXT,
+        source_as_of TEXT,
+        recorded_at TEXT NOT NULL
+      )
+    `
+  }),
+  "0008_saved_builds": Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    yield* sql`ALTER TABLE jobs ADD COLUMN recipe TEXT`
+    yield* sql`
+      CREATE TABLE IF NOT EXISTS saved_builds (
+        id TEXT PRIMARY KEY,
+        job_id TEXT UNIQUE,
+        name TEXT NOT NULL,
+        recipe TEXT NOT NULL,
+        plan TEXT NOT NULL,
+        in_game_character_id TEXT,
+        in_game_index INTEGER,
+        in_game_saved_at TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    `
+    yield* sql`
+      CREATE UNIQUE INDEX IF NOT EXISTS saved_builds_in_game
+      ON saved_builds (in_game_character_id, in_game_index)
+    `
+  }),
 }
 
 const SqliteLive = Layer.unwrap(

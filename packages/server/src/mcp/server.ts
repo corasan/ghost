@@ -1,8 +1,7 @@
 import { Layer } from "effect"
 import { McpProtocol, McpServer } from "effect/ai"
+import { MCP_PATH } from "./path.ts"
 import { GhostToolkit, GhostToolkitHandlers } from "./tools.ts"
-
-export const MCP_PATH = "/mcp"
 
 // The MCP server is mounted on the same Bun HTTP server as the REST API, so
 // there is exactly one process and one port. The Claude Agent SDK connects to

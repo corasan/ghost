@@ -1,4 +1,4 @@
-import type { GuardianCharacter } from "@ghost/contract"
+import type { GuardianClass } from "@ghost/contract"
 import * as SecureStore from "expo-secure-store"
 import { useSyncExternalStore } from "react"
 
@@ -29,11 +29,15 @@ function useSelectedId() {
   }, getSelectedCharacterId)
 }
 
+export function useWearer(classType: GuardianClass) {
+  const { character, characters } = useCharacter()
+  return character?.classType === classType
+    ? character
+    : characters.find((each) => each.classType === classType)
+}
+
 /** The selected character, falling back to the highest power one. */
-export function useCharacter(): {
-  character: GuardianCharacter | undefined
-  characters: readonly GuardianCharacter[]
-} {
+export function useCharacter() {
   const selected = useSelectedId()
   const guardian = useGuardian()
   const characters = guardian.data?.characters ?? []

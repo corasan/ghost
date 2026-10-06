@@ -5,6 +5,9 @@ import { SqlClient } from "effect/sql"
 import { Settings } from "../db/settings.ts"
 import { parseWishlist, type StoredRoll, WILDCARD_ITEM, type WishlistBlock } from "./parse.ts"
 
+const decodeTags = Schema.decodeSync(Schema.fromJsonString(Schema.Array(Schema.String)))
+const decodePerkHashes = Schema.decodeSync(Schema.fromJsonString(Schema.Array(Schema.Number)))
+
 // Roll quality comes from DIM's curated community wishlist (the file DIM
 // subscribes to by default), not from the model's memory. It is downloaded
 // into SQLite and re-checked at most every 12 hours with If-None-Match;
@@ -26,7 +29,7 @@ export class WishlistError extends Schema.TaggedError<WishlistError>()("Wishlist
   message: Schema.String,
 }) {}
 
-export interface WishlistShape {
+export interface WishlistService {
   /** Download or revalidate when the local copy is older than 12 hours. */
   readonly ensure: Effect.Effect<void, WishlistError>
   /** Rolls per item hash in file order, wildcard rolls appended to each. */
@@ -39,7 +42,7 @@ export interface WishlistShape {
   readonly source: Effect.Effect<Source>
 }
 
-export class Wishlist extends Context.Service<Wishlist, WishlistShape>()("Wishlist") {}
+export class Wishlist extends Context.Service<Wishlist, WishlistService>()("Wishlist") {}
 
 interface JoinedRow {
   readonly item_hash: number
@@ -64,7 +67,7 @@ export const WishlistLive = Layer.effect(
     // One object per block id, so callers can group rolls by block identity.
     const blocks = new Map<number, WishlistBlock>()
 
-    const fail = (error: unknown) => new WishlistError({ message: String(error) })
+    const fail = (cause: unknown) => new WishlistError({ message: String(cause) })
     const setting = (key: string) =>
       settings.get(key).pipe(Effect.orDie, Effect.map(Option.getOrNull))
 
@@ -153,7 +156,7 @@ export const WishlistLive = Layer.effect(
       if (known !== undefined) return known
       const block: WishlistBlock = {
         notes: row.notes,
-        tags: JSON.parse(row.tags) as Array<string>,
+        tags: decodeTags(row.tags),
         sectionTitle: row.section_title,
         sectionDescription: row.section_description,
         sectionUrl: row.section_url,
@@ -176,7 +179,7 @@ export const WishlistLive = Layer.effect(
         `.pipe(Effect.orDie)
         const all = rows.map((row): StoredRoll => ({
           itemHash: row.item_hash,
-          perkHashes: JSON.parse(row.perk_hashes) as Array<number>,
+          perkHashes: decodePerkHashes(row.perk_hashes),
           trash: row.trash === 1,
           block: blockOf(row),
         }))
@@ -186,7 +189,7 @@ export const WishlistLive = Layer.effect(
           if (hash === WILDCARD_ITEM) continue
           result.set(hash, [...all.filter((r) => r.itemHash === hash), ...wildcard])
         }
-        return result as ReadonlyMap<number, ReadonlyArray<StoredRoll>>
+        return result
       })
 
     const asOf = setting(KEYS.changedAt)

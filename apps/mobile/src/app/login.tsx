@@ -3,13 +3,15 @@ import * as WebBrowser from "expo-web-browser"
 import { Pressable, StyleSheet, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
-import { Body, Button, Cond, Diamond, Mono } from "@/components/ghost/ui"
+import { Body, Button, Cond, Diamond, Meta, Mono } from "@/components/ghost/ui"
 import { Ghost } from "@/constants/theme"
 import { useBungieAuthStart, useHealth } from "@/lib/api"
 import { useServerUrl } from "@/lib/server-url"
+import { useBottomInset } from "@/lib/insets"
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets()
+  const bottomInset = useBottomInset()
   const serverUrl = useServerUrl()
   const health = useHealth()
   const authStart = useBungieAuthStart()
@@ -24,13 +26,13 @@ export default function LoginScreen() {
     })
 
   const status = online
-    ? { label: "SERVER · ONLINE", color: Ghost.good }
+    ? { label: "Server · online", color: Ghost.good }
     : health.isPending
-      ? { label: "SERVER · CONNECTING", color: Ghost.muted }
-      : { label: "SERVER · UNREACHABLE", color: Ghost.danger }
+      ? { label: "Server · connecting", color: Ghost.muted }
+      : { label: "Server · unreachable", color: Ghost.danger }
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: insets.bottom + 16 }]}>
+    <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: bottomInset + 16 }]}>
       <View style={styles.hero}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
           <Diamond size={12} />
@@ -59,8 +61,8 @@ export default function LoginScreen() {
         </Body>
         <Pressable hitSlop={12} style={styles.server} onPress={() => router.push("/settings")}>
           <View style={[styles.dot, { backgroundColor: status.color }]} />
-          <Mono color={status.color}>{status.label}</Mono>
-          <Mono color={Ghost.accent}>CHANGE ›</Mono>
+          <Meta color={status.color}>{status.label}</Meta>
+          <Meta color={Ghost.accent}>Change ›</Meta>
         </Pressable>
         <Mono style={{ letterSpacing: 0, textAlign: "center" }}>
           {serverUrl.replace(/^https?:\/\//, "")}

@@ -9,14 +9,14 @@ export interface CurrentJobInfo {
   readonly characterId: string | null
 }
 
-export interface CurrentJobShape {
+export interface CurrentJobService {
   readonly get: Effect.Effect<Option.Option<CurrentJobInfo>>
   readonly around: (
     job: CurrentJobInfo,
   ) => <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>
 }
 
-export class CurrentJob extends Context.Service<CurrentJob, CurrentJobShape>()("CurrentJob") {}
+export class CurrentJob extends Context.Service<CurrentJob, CurrentJobService>()("CurrentJob") {}
 
 export const CurrentJobLive = Layer.effect(
   CurrentJob,

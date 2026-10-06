@@ -5,7 +5,7 @@ import { Ghost } from "@/constants/theme"
 import { errorMessage, useHealth } from "@/lib/api"
 import { Body, Button, Cond } from "./ui"
 
-export function Unavailable({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+export function Unavailable({ error, onRetry }: { error: Error | null; onRetry: () => void }) {
   const health = useHealth()
 
   const state = health.isError

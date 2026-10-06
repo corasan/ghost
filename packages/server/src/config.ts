@@ -1,10 +1,11 @@
 import { Config, Context, Effect, Layer, Redacted } from "effect"
 
-export interface AppConfigShape {
+export interface AppConfigValues {
   readonly host: string
   readonly port: number
   readonly dataDir: string
   readonly model: string
+  readonly effort: string
   /** Comma-separated @handles, UC… channel ids or names to search; empty turns creator notes off. */
   readonly youtubeChannels: string
   readonly bungie: {
@@ -12,9 +13,13 @@ export interface AppConfigShape {
     readonly clientId: string
     readonly clientSecret: Redacted.Redacted<string>
   }
+  readonly jev: {
+    readonly apiKey: Redacted.Redacted<string>
+    readonly model: string
+  }
 }
 
-export class AppConfig extends Context.Service<AppConfig, AppConfigShape>()("AppConfig") {}
+export class AppConfig extends Context.Service<AppConfig, AppConfigValues>()("AppConfig") {}
 
 // Every setting is read once at startup. Config.withDefault keeps local runs
 // zero-config; the Bungie values default to empty so the server boots before
@@ -24,6 +29,7 @@ const config = Config.all({
   port: Config.Port("GHOST_PORT").pipe(Config.withDefault(4848)),
   dataDir: Config.String("GHOST_DATA_DIR").pipe(Config.withDefault("./data")),
   model: Config.String("GHOST_MODEL").pipe(Config.withDefault("claude-sonnet-5-5")),
+  effort: Config.String("GHOST_EFFORT").pipe(Config.withDefault("high")),
   youtubeChannels: Config.String("GHOST_YOUTUBE_CHANNELS").pipe(
     Config.withDefault("@Datto,@CammyCakes,@FalloutPlays,Aegis Destiny 2"),
   ),
@@ -34,9 +40,13 @@ const config = Config.all({
       Config.withDefault(Redacted.make("")),
     ),
   }),
+  jev: Config.all({
+    apiKey: Config.Redacted("TYPESAFE_API_KEY").pipe(Config.withDefault(Redacted.make(""))),
+    model: Config.String("GHOST_JEV_MODEL").pipe(Config.withDefault("jev-latest")),
+  }),
 })
 
 export const AppConfigLive = Layer.effect(
   AppConfig,
-  Effect.map(config, (c): AppConfigShape => c),
+  Effect.map(config, (c): AppConfigValues => c),
 )

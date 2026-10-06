@@ -57,20 +57,20 @@ export interface FeedVideo {
   readonly description: string
 }
 
-const ENTITIES: Record<string, string> = {
-  amp: "&",
-  lt: "<",
-  gt: ">",
-  quot: '"',
-  apos: "'",
-}
+const ENTITIES = new Map([
+  ["amp", "&"],
+  ["lt", "<"],
+  ["gt", ">"],
+  ["quot", '"'],
+  ["apos", "'"],
+])
 
 export const decodeXml = (text: string) =>
   text.replace(/&(#x?[\da-f]+|\w+);/gi, (whole, code: string) => {
     if (code.startsWith("#x") || code.startsWith("#X"))
       return String.fromCodePoint(parseInt(code.slice(2), 16))
     if (code.startsWith("#")) return String.fromCodePoint(parseInt(code.slice(1), 10))
-    return ENTITIES[code] ?? whole
+    return ENTITIES.get(code) ?? whole
   })
 
 const tag = (xml: string, name: string) => {
@@ -110,16 +110,26 @@ export interface CaptionLine {
   readonly text: string
 }
 
-interface Json3 {
-  readonly events?: ReadonlyArray<{
-    readonly tStartMs?: number
-    readonly segs?: ReadonlyArray<{ readonly utf8?: string }>
-  }>
-}
+const decodeJson3 = Schema.decodeSync(
+  Schema.fromJsonString(
+    Schema.Struct({
+      events: Schema.optionalKey(
+        Schema.Array(
+          Schema.Struct({
+            tStartMs: Schema.optionalKey(Schema.Number),
+            segs: Schema.optionalKey(
+              Schema.Array(Schema.Struct({ utf8: Schema.optionalKey(Schema.String) })),
+            ),
+          }),
+        ),
+      ),
+    }),
+  ),
+)
 
 /** yt-dlp's json3 subtitle format: timed events, each a list of word segments. */
 export const parseJson3 = (raw: string): ReadonlyArray<CaptionLine> => {
-  const data = JSON.parse(raw) as Json3
+  const data = decodeJson3(raw)
   return (data.events ?? []).flatMap((event) => {
     const text = (event.segs ?? [])
       .map((s) => s.utf8 ?? "")
@@ -188,14 +198,14 @@ export const SummaryOutput = Schema.Struct({
 })
 export type SummaryOutput = typeof SummaryOutput.Type
 
-/** The JSON object in a model reply, with or without a code fence around it. */
-export const extractJson = (text: string): unknown => {
+/** The JSON object's text in a model reply, with or without a code fence around it. */
+export const extractJsonText = (text: string) => {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/)
   const body = fenced?.[1] ?? text
   const start = body.indexOf("{")
   const end = body.lastIndexOf("}")
   if (start < 0 || end <= start) throw new Error("no JSON object in summary")
-  return JSON.parse(body.slice(start, end + 1))
+  return body.slice(start, end + 1)
 }
 
 export interface CheckedNote {

@@ -1,11 +1,25 @@
-import type { Job, Plan, PlanRow } from "@ghost/contract"
+import type { Job, Plan, PlanPerk, PlanRow } from "@ghost/contract"
+import { router } from "expo-router"
 import { useState } from "react"
 import { Alert, Pressable, StyleSheet, View } from "react-native"
 
-import { Body, Button, Cond, Cut, Mono, Swatch, TierStats, Tick } from "@/components/ghost/ui"
+import { ItemIcon } from "@/components/ghost/item-icon"
+import {
+  Body,
+  Button,
+  Cond,
+  Cut,
+  Meta,
+  Mono,
+  StatLabel,
+  TierStats,
+  Tick,
+} from "@/components/ghost/ui"
 import { Ghost, Rarity, Type } from "@/constants/theme"
 import { errorMessage, useApplyPlan, useUndoPlan } from "@/lib/api"
+import { liveLabel } from "@/lib/plan-card"
 import { usePlanSelection } from "@/lib/selection"
+import { BuildCard } from "./build-card"
 
 // A plan is a block in the conversation, not a modal: the resulting stats,
 // one row per change that can be unticked, and one confirm. After it runs,
@@ -14,18 +28,16 @@ import { usePlanSelection } from "@/lib/selection"
 const COLLAPSED_ROWS = 4
 const COLLAPSE_OVER = 6
 
-/** "MOVE 8 TO VAULT" follows the ticks: the first number tracks the selection. */
-export const liveLabel = (label: string, count: number) =>
-  /\d+/.test(label) ? label.replace(/\d+/, String(count)) : label
+const openItem = (id: string) => router.push({ pathname: "/item/[id]", params: { id } })
 
 const outcomeTone = { ok: Ghost.good, failed: Ghost.danger, skipped: Ghost.dim } as const
 
-function RowRight({ row, applied }: { row: PlanRow; applied: boolean }) {
+export function RowRight({ row, applied }: { row: PlanRow; applied: boolean }) {
   if (applied && row.outcome) {
     return (
-      <Mono color={outcomeTone[row.outcome]}>
-        {row.outcome === "ok" ? "DONE" : row.outcome === "failed" ? "FAILED" : "HELD"}
-      </Mono>
+      <Meta color={outcomeTone[row.outcome]}>
+        {row.outcome === "ok" ? "Done" : row.outcome === "failed" ? "Failed" : "Held"}
+      </Meta>
     )
   }
   if (row.score !== null) {
@@ -35,7 +47,7 @@ function RowRight({ row, applied }: { row: PlanRow; applied: boolean }) {
         <Cond size={20} color={color} style={{ letterSpacing: 0, lineHeight: 20 }}>
           {row.score}
         </Cond>
-        <Mono size={8}>ROLL</Mono>
+        <Meta size={12}>Roll</Meta>
       </View>
     )
   }
@@ -66,30 +78,69 @@ export function PlanRowView({
   inset?: number
 }) {
   const actionable = row.action !== "none"
+  const tickable = actionable && !applied && onToggle !== undefined
   return (
-    <Pressable
-      accessibilityRole={actionable && !applied ? "checkbox" : undefined}
-      accessibilityState={{ checked: ticked }}
-      disabled={!actionable || applied || !onToggle}
-      onPress={onToggle}
+    <View
       style={[
         styles.row,
-        { paddingHorizontal: inset },
+        { paddingLeft: tickable ? 0 : inset, paddingRight: inset },
         actionable && !applied && !ticked && { opacity: 0.45 },
       ]}
     >
-      {actionable && !applied ? <Tick on={ticked} under={under} /> : null}
-      <Swatch tier={row.tier} icon={row.icon} size={40} />
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Body size={15} style={{ fontFamily: Type.bodyMedium, lineHeight: 18 }} lines={1}>
-          {row.name}
-        </Body>
-        <Mono style={{ marginTop: 3, letterSpacing: 0.7 }} lines={1}>
-          {row.error ?? row.meta}
-        </Mono>
-      </View>
-      <RowRight row={row} applied={applied} />
-    </Pressable>
+      {tickable ? (
+        <Pressable
+          accessibilityRole="checkbox"
+          accessibilityLabel={row.name}
+          accessibilityState={{ checked: ticked }}
+          onPress={onToggle}
+          style={{ alignSelf: "stretch", justifyContent: "center", paddingHorizontal: inset }}
+        >
+          <Tick on={ticked} under={under} />
+        </Pressable>
+      ) : null}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityHint="Opens item details"
+        onPress={() => openItem(row.itemInstanceId)}
+        style={({ pressed }) => [styles.rowBody, pressed && { opacity: 0.6 }]}
+      >
+        <View style={styles.rowHead}>
+          <ItemIcon
+            icon={row.icon}
+            size={48}
+            element={row.damageType}
+            gearTier={row.gearTier}
+            masterwork={row.masterwork}
+          />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Body size={15} style={{ fontFamily: Type.bodyMedium, lineHeight: 18 }} lines={1}>
+              {row.name}
+            </Body>
+            <Meta color={row.error ? Ghost.danger : Ghost.muted} style={{ marginTop: 2 }} lines={1}>
+              {row.error ?? row.meta}
+            </Meta>
+          </View>
+          <RowRight row={row} applied={applied} />
+        </View>
+      </Pressable>
+    </View>
+  )
+}
+
+export function Perks({ perks }: { perks: readonly PlanPerk[] }) {
+  return (
+    <View style={styles.perks}>
+      {perks.map((perk) => (
+        <View
+          key={perk.name}
+          style={[styles.perk, { borderColor: perk.good ? Ghost.good : Ghost.ruleStrong }]}
+        >
+          <Body size={12} color={perk.good ? Ghost.good : Ghost.muted}>
+            {perk.name}
+          </Body>
+        </View>
+      ))}
+    </View>
   )
 }
 
@@ -99,8 +150,22 @@ function Featured({ plan, row }: { plan: Plan; row: PlanRow }) {
   const tone = Rarity[row.tier]
   return (
     <View>
-      <View style={{ flexDirection: "row", gap: 14, padding: 14 }}>
-        <Swatch tier={row.tier} icon={row.icon} size={72} />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityHint="Opens item details"
+        onPress={() => openItem(row.itemInstanceId)}
+        style={({ pressed }) => [
+          { flexDirection: "row", gap: 14, padding: 14 },
+          pressed && { opacity: 0.6 },
+        ]}
+      >
+        <ItemIcon
+          icon={row.icon}
+          size={72}
+          element={row.damageType}
+          gearTier={row.gearTier}
+          masterwork={row.masterwork}
+        />
         <View style={{ flex: 1, minWidth: 0 }}>
           <View style={styles.between}>
             <Cond size={24} style={{ letterSpacing: 0.5, flexShrink: 1 }} lines={1}>
@@ -112,28 +177,17 @@ function Featured({ plan, row }: { plan: Plan; row: PlanRow }) {
               </Cond>
             ) : null}
           </View>
-          <Mono color={tone} style={{ marginTop: 5 }} lines={1}>
+          <Meta color={tone} style={{ marginTop: 4 }} lines={1}>
             {row.meta}
-          </Mono>
-          <View style={styles.perks}>
-            {featured.perks.map((perk) => (
-              <View
-                key={perk.name}
-                style={[styles.perk, { borderColor: perk.good ? Ghost.good : Ghost.ruleStrong }]}
-              >
-                <Body size={12} color={perk.good ? Ghost.good : Ghost.muted}>
-                  {perk.name}
-                </Body>
-              </View>
-            ))}
-          </View>
+          </Meta>
+          <Perks perks={featured.perks} />
         </View>
-      </View>
+      </Pressable>
       {featured.stats.length > 0 ? (
         <View style={{ paddingHorizontal: 14, paddingBottom: 14, gap: 7 }}>
           {featured.stats.map((stat, i) => (
             <View key={stat.label} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <Mono style={{ width: 66 }}>{stat.label}</Mono>
+              <StatLabel label={stat.label} size={13} style={{ width: 84 }} />
               <View style={{ flex: 1, height: 3, backgroundColor: Ghost.rule }}>
                 <View
                   style={{
@@ -143,7 +197,7 @@ function Featured({ plan, row }: { plan: Plan; row: PlanRow }) {
                   }}
                 />
               </View>
-              <Mono color={Ghost.ink} style={{ width: 28, textAlign: "right" }}>
+              <Mono size={13} color={Ghost.ink} style={{ width: 32, textAlign: "right" }}>
                 {stat.value}
               </Mono>
             </View>
@@ -154,8 +208,23 @@ function Featured({ plan, row }: { plan: Plan; row: PlanRow }) {
   )
 }
 
-export function PlanBlock({ job, onAsk }: { job: Job; onAsk: (prompt: string) => void }) {
-  const plan = job.plan as Plan
+export function PlanBlock({
+  job,
+  plan,
+  onAsk,
+}: {
+  job: Job
+  plan: Plan
+  onAsk: (prompt: string) => void
+}) {
+  return plan.kind === "build" ? (
+    <BuildCard job={job} plan={plan} />
+  ) : (
+    <ItemPlan job={job} plan={plan} onAsk={onAsk} />
+  )
+}
+
+function ItemPlan({ job, plan, onAsk }: { job: Job; plan: Plan; onAsk: (prompt: string) => void }) {
   const selection = usePlanSelection(job.id, plan)
   const apply = useApplyPlan()
   const undo = useUndoPlan()
@@ -178,11 +247,11 @@ export function PlanBlock({ job, onAsk }: { job: Job; onAsk: (prompt: string) =>
 
   const right = applied
     ? plan.status === "undone"
-      ? "UNDONE"
+      ? "Undone"
       : failed > 0
-        ? `APPLIED · ${failed} FAILED`
-        : "APPLIED"
-    : (plan.subtitle ?? (selection.actionableCount > 0 ? `${ticked} MOVING · ${held} HELD` : null))
+        ? `Applied · ${failed} failed`
+        : "Applied"
+    : (plan.subtitle ?? (selection.actionableCount > 0 ? `${ticked} moving · ${held} held` : null))
 
   const confirm = () => {
     // Junk tags and equips are easy to reverse, but a big batch deserves a
@@ -200,13 +269,13 @@ export function PlanBlock({ job, onAsk }: { job: Job; onAsk: (prompt: string) =>
   return (
     <Cut cut={12} fill={Ghost.panel} border={Ghost.line} style={{ marginLeft: 14 }}>
       <View style={[styles.between, { padding: 14, paddingBottom: 10 }]}>
-        <Mono size={10} color={Ghost.accent}>
+        <Mono size={11} color={Ghost.accent}>
           {plan.title}
         </Mono>
         {right ? (
-          <Mono size={10} color={applied && failed > 0 ? Ghost.danger : Ghost.dim} lines={1}>
+          <Meta color={applied && failed > 0 ? Ghost.danger : Ghost.muted} lines={1}>
             {right}
-          </Mono>
+          </Meta>
         ) : null}
       </View>
 
@@ -229,20 +298,20 @@ export function PlanBlock({ job, onAsk }: { job: Job; onAsk: (prompt: string) =>
       ))}
       {collapsed ? (
         <Pressable onPress={() => setExpanded(true)} style={styles.more}>
-          <Mono>
-            + {hidden.length} MORE ·{" "}
+          <Meta>
+            {hidden.length} more ·{" "}
             {applied
-              ? "TAP TO SHOW"
+              ? "tap to show"
               : hiddenTicked === hidden.length
-                ? "ALL MOVING"
-                : `${hiddenTicked} MOVING`}
-          </Mono>
+                ? "all moving"
+                : `${hiddenTicked} moving`}
+          </Meta>
         </Pressable>
       ) : null}
 
       {plan.note ? (
         <View style={styles.note}>
-          <Body size={13} color={Ghost.muted} style={{ lineHeight: 18 }}>
+          <Body size={14} color={Ghost.muted} style={{ lineHeight: 20 }}>
             {plan.note}
           </Body>
         </View>
@@ -299,11 +368,11 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingVertical: 10,
     borderTopWidth: 1,
     borderTopColor: Ghost.rule,
   },
+  rowBody: { flex: 1, gap: 9, paddingVertical: 10 },
+  rowHead: { flexDirection: "row", alignItems: "center", gap: 12 },
   more: {
     paddingHorizontal: 14,
     paddingVertical: 10,

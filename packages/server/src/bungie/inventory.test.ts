@@ -1,12 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import {
-  buildInventory,
-  type CharacterInfo,
-  isUpgrade,
-  type OwnedItem,
-  type Profile,
-  STAT,
-} from "./inventory.ts"
+import { buildInventory, isUpgrade, type OwnedItem, type Profile, STAT } from "./inventory.ts"
 import { BUCKETS, type ManifestItem } from "./manifest.ts"
 
 const def = (hash: number, fields: Partial<ManifestItem>): ManifestItem => ({
@@ -39,6 +32,15 @@ const defs = new Map<number, ManifestItem>([
   [11, def(11, { name: "Firefly", typeName: "Enhanced Trait" })],
   [12, def(12, { name: "Arrowhead Brake", typeName: "Barrel" })],
   [20, def(20, { name: "Sentinel", typeName: "Void Subclass", damageType: "void" })],
+  [40, def(40, { name: "Firepower", typeName: "Arms Armor Mod" })],
+  [41, def(41, { name: "Empty Mod Socket", typeName: "General Armor Mod" })],
+  [42, def(42, { name: "Iron Shader", typeName: "Shader" })],
+  [21, def(21, { name: "Lambda Shell", typeName: "Ghost Shell", icon: "https://b.net/shell.png" })],
+  [30, def(30, { name: "Ward of Dawn", typeName: "Super Ability", description: "A dome." })],
+  [31, def(31, { name: "Bastion", typeName: "Void Aspect" })],
+  [32, def(32, { name: "Echo of Persistence", typeName: "Void Fragment" })],
+  [33, def(33, { name: "Empty Fragment Socket", typeName: "Void Fragment" })],
+  [34, def(34, { name: "Shield Bash", typeName: "Void Melee" })],
 ])
 
 const armorStats = (each: number) =>
@@ -78,6 +80,7 @@ const profile: Profile = {
         items: [
           { itemHash: 2, itemInstanceId: "e1", quantity: 1, bucketHash: BUCKETS.helmet, state: 1 },
           { itemHash: 20, itemInstanceId: "s1", quantity: 1, bucketHash: BUCKETS.subclass },
+          { itemHash: 21, itemInstanceId: "g1", quantity: 1, bucketHash: BUCKETS.ghost },
         ],
       },
     },
@@ -86,13 +89,23 @@ const profile: Profile = {
     instances: {
       data: {
         v1: { damageType: 1, primaryStat: { value: 2000 } },
-        e1: { primaryStat: { value: 1990 } },
+        e1: { primaryStat: { value: 1990 }, energy: { energyCapacity: 10, energyUsed: 3 } },
         v2: { primaryStat: { value: 1995 } },
       },
     },
     stats: { data: { e1: { stats: armorStats(10) }, v2: { stats: armorStats(12) } } },
     sockets: {
       data: {
+        e1: { sockets: [{ plugHash: 42 }, { plugHash: 40 }, { plugHash: 41 }] },
+        s1: {
+          sockets: [
+            { plugHash: 34 },
+            { plugHash: 30 },
+            { plugHash: 31 },
+            { plugHash: 32 },
+            { plugHash: 33 },
+          ],
+        },
         v1: {
           sockets: [
             { plugHash: 12, isEnabled: true, isVisible: true },
@@ -111,8 +124,16 @@ const seen = new Map([
   ["v2", { decision: null, firstSeenAt: "2026-09-01T00:00:00.000Z", baseline: true }],
 ])
 
-const inv = buildInventory(profile, defs, seen)
-const byId = (id: string) => inv.items.find((i) => i.itemInstanceId === id) as OwnedItem
+const techsec = { name: "Techsec", items: [2], perks: [] }
+
+const inv = buildInventory(profile, defs, seen, new Map([[2, techsec]]))
+
+const fixture = <A>(value: A | undefined): A => {
+  if (value === undefined) throw new Error("the fixture has no such entry")
+  return value
+}
+
+const byId = (id: string) => fixture(inv.items.find((i) => i.itemInstanceId === id))
 
 describe("buildInventory", () => {
   test("reads membership, characters and vault usage", () => {
@@ -120,16 +141,44 @@ describe("buildInventory", () => {
     expect(inv.membershipId).toBe("m1")
     expect(inv.characters.map((c) => c.characterId)).toEqual(["c2", "c1"])
     expect(inv.vaultCount).toBe(3)
-    const titan = inv.characters[1] as CharacterInfo
+    const titan = fixture(inv.characters[1])
     expect(titan.classType).toBe("titan")
     expect(titan.subclass).toBe("Sentinel")
     expect(titan.element).toBe("void")
     expect(titan.stats.resilience).toBe(100)
     expect(titan.postmasterCount).toBe(2)
+    expect(titan.ghostIcon).toBe("https://b.net/shell.png")
+    expect(inv.characters[0]?.ghostIcon).toBeNull()
+  })
+
+  test("sorts the subclass's plugs into super, aspects and fragments, without empty sockets", () => {
+    const titan = fixture(inv.characters[1])
+    expect(titan.loadout).toEqual({
+      super: { hash: 30, name: "Ward of Dawn", description: "A dome.", icon: null },
+      abilities: [{ hash: 34, name: "Shield Bash", description: "", icon: null, kind: "melee" }],
+      aspects: [{ hash: 31, name: "Bastion", description: "", icon: null }],
+      fragments: [{ hash: 32, name: "Echo of Persistence", description: "", icon: null }],
+    })
+    expect(fixture(inv.characters[0]).loadout).toEqual({
+      super: null,
+      abilities: [],
+      aspects: [],
+      fragments: [],
+    })
+  })
+
+  test("armor lists its mod sockets in order, empty ones as null, and its energy", () => {
+    expect(byId("e1").modSockets).toEqual([
+      { index: 1, plugHash: 40, empty: false },
+      { index: 2, plugHash: 41, empty: true },
+    ])
+    expect(byId("e1").energy).toEqual({ used: 3, capacity: 10 })
+    expect(byId("v1").modSockets).toEqual([])
+    expect(byId("v2").energy).toBeNull()
   })
 
   test("keeps instanced items only and never the subclass", () => {
-    expect(inv.items.map((i) => i.itemInstanceId).sort()).toEqual(["e1", "p1", "v1", "v2"])
+    expect(inv.items.map((i) => i.itemInstanceId).sort()).toEqual(["e1", "g1", "p1", "v1", "v2"])
   })
 
   test("vault weapon: slot from definition, element, state bits, trait perks in order", () => {
@@ -151,9 +200,10 @@ describe("buildInventory", () => {
     expect(weapon.plugHashes).toEqual([12, 10, 11])
   })
 
-  test("equipped armor: stat total, class lock, duplicates", () => {
+  test("equipped armor: stat total, class lock, duplicates, armor set", () => {
     const helm = byId("e1")
     expect(helm).toMatchObject({
+      set: techsec,
       location: "character",
       characterId: "c1",
       equipped: true,
@@ -177,8 +227,8 @@ describe("buildInventory", () => {
 })
 
 describe("isUpgrade", () => {
-  const titan = inv.characters.find((c) => c.characterId === "c1") as CharacterInfo
-  const hunter = inv.characters.find((c) => c.characterId === "c2") as CharacterInfo
+  const titan = fixture(inv.characters.find((c) => c.characterId === "c1"))
+  const hunter = fixture(inv.characters.find((c) => c.characterId === "c2"))
   const item = (fields: Partial<OwnedItem>): OwnedItem => ({ ...byId("v2"), ...fields })
 
   test("armor needs more than 2 points over what is equipped", () => {

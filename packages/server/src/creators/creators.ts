@@ -1,6 +1,6 @@
 import { mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs"
 import { join } from "node:path"
-import { Context, DateTime, Effect, Layer, Semaphore } from "effect"
+import { Context, DateTime, Effect, Layer, Schema, Semaphore } from "effect"
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http"
 import { SqlClient } from "effect/sql"
 import { Summarizer } from "../agent/summarize.ts"
@@ -20,6 +20,8 @@ import {
   transcriptText,
   videoUrl,
 } from "./parse.ts"
+
+const decodeNames = Schema.decodeSync(Schema.fromJsonString(Schema.Array(Schema.String)))
 
 // Creator videos are often where a new meta shows up first, so Ghost keeps
 // short, dated notes from a few Destiny channels. New uploads come from each
@@ -54,7 +56,7 @@ export interface CreatorChannel {
   readonly error: string | null
 }
 
-export interface CreatorNotesShape {
+export interface CreatorNotesService {
   /** Poll feeds and summarize new uploads. Never fails; problems are logged and stored. */
   readonly refresh: Effect.Effect<void>
   readonly search: (
@@ -67,7 +69,7 @@ export interface CreatorNotesShape {
   }>
 }
 
-export class CreatorNotes extends Context.Service<CreatorNotes, CreatorNotesShape>()(
+export class CreatorNotes extends Context.Service<CreatorNotes, CreatorNotesService>()(
   "CreatorNotes",
 ) {}
 
@@ -205,7 +207,7 @@ export const CreatorNotesLive = Layer.effect(
       Effect.map(manifest.findByName(names), (defs) => {
         const map = new Map<string, string>()
         for (const def of defs) map.set(def.name.toLowerCase(), def.name)
-        return map as ReadonlyMap<string, string>
+        return map
       })
 
     const processVideo = (video: FeedVideo) =>
@@ -297,7 +299,7 @@ export const CreatorNotesLive = Layer.effect(
                 setChannel(ref, { error: String(error) }),
                 Effect.logWarning(`creator feed ${ref.value} failed: ${String(error)}`),
               ),
-              [] as ReadonlyArray<FeedVideo>,
+              [],
             ),
           ),
         )
@@ -349,7 +351,7 @@ export const CreatorNotesLive = Layer.effect(
           row,
           topic: row.topic,
           claim: row.claim,
-          names: JSON.parse(row.names) as Array<string>,
+          names: decodeNames(row.names),
           publishedAt: row.published_at,
         }))
         const channels = yield* sql<ChannelRow>`
@@ -363,7 +365,7 @@ export const CreatorNotesLive = Layer.effect(
             claim: row.claim,
             topic: row.topic,
             names,
-            unverifiedNames: JSON.parse(row.unverified) as Array<string>,
+            unverifiedNames: decodeNames(row.unverified),
             channel: row.channel_title,
             video: row.title,
             publishedAt: row.published_at,

@@ -5,7 +5,8 @@ import type { DamageType, GuardianClass, ItemSummary, ItemTier } from "@ghost/co
 // on the network. Pure functions so they can be tested with `bun test`.
 
 export type Category = "all" | "weapons" | "armor"
-export type Flag = "dupes" | "junk" | "unlocked" | "new"
+const FLAGS = ["dupes", "junk", "unlocked", "new"] as const
+export type Flag = (typeof FLAGS)[number]
 export type Sort = "power" | "newest" | "stats" | "name"
 
 export interface VaultFilter {
@@ -105,7 +106,7 @@ export function flagCounts(
   const counts: Record<Flag, number> = { dupes: 0, junk: 0, unlocked: 0, new: 0 }
   for (const item of items) {
     if (!inCategory(item, category)) continue
-    for (const flag of Object.keys(counts) as Flag[]) {
+    for (const flag of FLAGS) {
       if (matchesFlag(item, flag, now)) counts[flag]++
     }
   }
@@ -118,5 +119,39 @@ export const toggle = <T>(set: ReadonlySet<T>, value: T): ReadonlySet<T> => {
   return next
 }
 
-export const activeCount = (filter: VaultFilter) =>
-  filter.tiers.size + filter.elements.size + filter.classes.size + filter.flags.size
+export const SORT_LABEL: Record<Sort, string> = {
+  power: "POWER",
+  newest: "NEWEST",
+  stats: "STAT TOTAL",
+  name: "A–Z",
+}
+
+type Facet = "tiers" | "elements" | "classes" | "flags"
+const FACETS: readonly Facet[] = ["tiers", "elements", "classes", "flags"]
+
+export interface ActiveFilter {
+  readonly id: string
+  readonly label: string
+}
+
+/** Everything narrowing the list right now, as chips the player can tap to remove. */
+export const activeFilters = (filter: VaultFilter): ActiveFilter[] => [
+  ...(filter.category === "all" ? [] : [{ id: "category", label: filter.category.toUpperCase() }]),
+  ...FACETS.flatMap((facet) =>
+    [...filter[facet]].map((value) => ({
+      id: `${facet}:${value}`,
+      label: facet === "classes" ? `${value.toUpperCase()} ARMOR` : value.toUpperCase(),
+    })),
+  ),
+]
+
+export const removeFilter = (filter: VaultFilter, id: string): VaultFilter => {
+  if (id === "category") return { ...filter, category: "all" }
+  const facet = FACETS.find((each) => id.startsWith(`${each}:`))
+  if (facet === undefined) return filter
+  const value = id.slice(facet.length + 1)
+  return {
+    ...filter,
+    [facet]: new Set([...filter[facet]].filter((each) => each !== value)),
+  }
+}

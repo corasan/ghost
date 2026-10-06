@@ -4,20 +4,30 @@ import { HttpRouter, HttpServer } from "effect/http"
 import { ActivityLive } from "./activity/activity.ts"
 import { ClaudeAgentLive } from "./agent/claude.ts"
 import { SummarizerLive } from "./agent/summarize.ts"
+import { SituationalWriterLive } from "./agent/situational.ts"
 import { CurrentJobLive } from "./agent/current-job.ts"
+import { JevLive } from "./agent/jev.ts"
 import { JobRunnerLive } from "./agent/runner.ts"
+import { AgentConfigLive } from "./agent/settings.ts"
 import { ApiLive } from "./api/index.ts"
+import { ArtifactsLive } from "./bungie/artifact.ts"
+import { BuildsLive } from "./builds/builds.ts"
 import { BungieClientLive } from "./bungie/client.ts"
 import { GuardianLive } from "./bungie/guardian.ts"
+import { LoadoutsLive } from "./bungie/loadouts.ts"
 import { ManifestLive } from "./bungie/manifest.ts"
 import { ProfileRefreshLive, ProfileStoreLive } from "./bungie/profile.ts"
 import { AppConfig, AppConfigLive } from "./config.ts"
 import { CreatorNotesLive, CreatorRefreshLive } from "./creators/creators.ts"
 import { ActionsRepoLive } from "./db/actions.ts"
+import { BuildsRepoLive } from "./db/builds.ts"
+import { ChargeEffectsLive } from "./db/charge.ts"
 import { DatabaseLive } from "./db/client.ts"
 import { ItemsRepoLive } from "./db/items.ts"
 import { JobsRepoLive } from "./db/jobs.ts"
 import { SettingsLive } from "./db/settings.ts"
+import { ItemsLive } from "./items/items.ts"
+import { LoggerLive, requestLogger } from "./log.ts"
 import { McpLive } from "./mcp/server.ts"
 import { PlansLive } from "./plans/executor.ts"
 import { WishlistLive } from "./wishlist/wishlist.ts"
@@ -29,7 +39,9 @@ const Repositories = Layer.mergeAll(
   JobsRepoLive,
   ItemsRepoLive,
   ActionsRepoLive,
+  BuildsRepoLive,
   SettingsLive,
+  ChargeEffectsLive,
 ).pipe(Layer.provideMerge(DatabaseLive))
 
 const Clients = Layer.mergeAll(
@@ -38,14 +50,20 @@ const Clients = Layer.mergeAll(
   WishlistLive,
   ClaudeAgentLive,
   SummarizerLive,
+  SituationalWriterLive,
   CurrentJobLive,
-).pipe(Layer.provideMerge(Repositories))
+  JevLive,
+).pipe(Layer.provideMerge(AgentConfigLive), Layer.provideMerge(Repositories))
 
 const Profile = Layer.mergeAll(ProfileStoreLive, CreatorNotesLive).pipe(Layer.provideMerge(Clients))
 
-const Services = Layer.mergeAll(GuardianLive, ActivityLive, PlansLive).pipe(
-  Layer.provideMerge(Profile),
+const Reads = LoadoutsLive.pipe(Layer.provideMerge(Profile))
+
+const Services = Layer.mergeAll(GuardianLive, ActivityLive, PlansLive, ArtifactsLive).pipe(
+  Layer.provideMerge(Reads),
 )
+
+const Actions = Layer.mergeAll(ItemsLive, BuildsLive).pipe(Layer.provideMerge(Services))
 
 const Routes = Layer.mergeAll(ApiLive, McpLive)
 
@@ -56,14 +74,15 @@ const ServerLive = Layer.unwrap(
   }),
 )
 
-const Main = HttpRouter.serve(Routes).pipe(
+const Main = HttpRouter.serve(Routes, { disableLogger: true, middleware: requestLogger }).pipe(
   Layer.provide(HttpServer.layerServices),
   Layer.merge(JobRunnerLive),
   Layer.merge(ProfileRefreshLive),
   Layer.merge(CreatorRefreshLive),
-  Layer.provide(Services),
+  Layer.provide(Actions),
   Layer.provide(ServerLive),
   Layer.provide(AppConfigLive),
+  Layer.provide(LoggerLive),
 )
 
 BunRuntime.runMain(Layer.launch(Main))

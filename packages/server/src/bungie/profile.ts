@@ -11,6 +11,8 @@ import {
   profileHashes,
 } from "./inventory.ts"
 import { Manifest } from "./manifest.ts"
+import { setsByItem } from "./sets.ts"
+import { PlugSets } from "./subclass.ts"
 
 // One GetProfile call feeds every screen and agent tool. It is cached for 30
 // seconds so a burst of requests (the app refetching, the agent searching)
@@ -28,12 +30,14 @@ interface Membership {
   readonly membershipType: number
 }
 
-export interface ProfileStoreShape {
+export interface ProfileStoreService {
   readonly inventory: Effect.Effect<Inventory, BungieError | BungieNotLinked>
+  /** What each character can slot on its subclasses, read from the same profile response as the inventory. */
+  readonly plugSets: Effect.Effect<PlugSets, BungieError | BungieNotLinked>
   readonly invalidate: Effect.Effect<void>
 }
 
-export class ProfileStore extends Context.Service<ProfileStore, ProfileStoreShape>()(
+export class ProfileStore extends Context.Service<ProfileStore, ProfileStoreService>()(
   "ProfileStore",
 ) {}
 
@@ -45,8 +49,8 @@ export const ProfileStoreLive = Layer.effect(
     const items = yield* ItemsRepo
     const membershipRef = yield* Ref.make<Membership | null>(null)
 
-    const decodeFailure = (error: unknown) =>
-      Effect.die(new Error(`unexpected Bungie response: ${String(error)}`))
+    const decodeFailure = (cause: unknown) =>
+      Effect.die(new Error(`unexpected Bungie response: ${String(cause)}`))
 
     // Memberships never change for an account, so one successful lookup is enough.
     const membership = Effect.gen(function* () {
@@ -74,21 +78,31 @@ export const ProfileStoreLive = Layer.effect(
       const profile = yield* Schema.decodeUnknownEffect(Profile)(raw).pipe(
         Effect.catch(decodeFailure),
       )
+      const plugSets = yield* Schema.decodeUnknownEffect(PlugSets)(raw).pipe(
+        Effect.catch(decodeFailure),
+      )
       const defs = yield* manifest.lookup(profileHashes(profile))
+      const sets = setsByItem(yield* manifest.armorSets)
       // Sync needs the item list and the summaries need what sync wrote
       // (first-seen times), so the pure build runs twice; it is cheap.
-      const draft = buildInventory(profile, defs, new Map())
+      const draft = buildInventory(profile, defs, new Map(), sets)
       yield* items.sync(draft.items).pipe(Effect.orDie)
       const seen = yield* items.decisions.pipe(Effect.orDie)
-      const inventory = buildInventory(profile, defs, seen)
-      return { ...inventory, membershipType: m.membershipType, membershipId: m.membershipId }
+      const inventory = {
+        ...buildInventory(profile, defs, seen, sets),
+        membershipType: m.membershipType,
+        membershipId: m.membershipId,
+      }
+      return { inventory, plugSets }
     })
 
     const [cached, invalidate] = yield* Effect.cachedInvalidateWithTTL(load, "30 seconds")
     // A failure (not linked yet, Bungie down) must not stick for 30 seconds.
-    const inventory = cached.pipe(Effect.tapError(() => invalidate))
+    const loaded = cached.pipe(Effect.tapError(() => invalidate))
+    const inventory = Effect.map(loaded, (profile) => profile.inventory)
+    const plugSets = Effect.map(loaded, (profile) => profile.plugSets)
 
-    return { inventory, invalidate }
+    return { inventory, plugSets, invalidate }
   }),
 )
 

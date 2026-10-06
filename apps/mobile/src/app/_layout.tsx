@@ -8,12 +8,16 @@ import { JetBrainsMono_500Medium } from "@expo-google-fonts/jetbrains-mono/500Me
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client"
 import { useFonts } from "expo-font"
 import { DarkTheme, Stack, ThemeProvider } from "expo-router"
+import { KeyboardProvider } from "react-native-keyboard-controller"
+import { PortalProvider } from "react-native-teleport"
 import * as SecureStore from "expo-secure-store"
 import * as SplashScreen from "expo-splash-screen"
 import { StatusBar } from "expo-status-bar"
 import { useEffect } from "react"
+import { Platform } from "react-native"
 
 import { AnimatedSplashOverlay } from "@/components/animated-icon"
+import { TooltipLayer } from "@/components/ghost/tooltip"
 import { Ghost } from "@/constants/theme"
 import { useHealth } from "@/lib/api"
 import { persistOptions, queryClient } from "@/lib/query"
@@ -27,9 +31,24 @@ const theme = {
 
 const LINKED_KEY = "ghost.linked"
 
-// Chat is the whole app. Guardian, Vault, Recent and History are pages that
-// push over it from the menu and swipe back to it; there is no tab bar.
+const presentation = Platform.OS === "ios" ? "formSheet" : "modal"
+
 function RootStack() {
+  const sheet = {
+    presentation,
+    sheetGrabberVisible: true,
+    headerShown: Platform.OS === "android",
+    title: "",
+    headerStyle: { backgroundColor: Ghost.panel },
+    headerShadowVisible: false,
+    headerTintColor: Ghost.ink,
+    contentStyle: { backgroundColor: Ghost.panel },
+  } as const
+  const fullSheet = {
+    ...sheet,
+    sheetAllowedDetents: [1],
+    sheetExpandsWhenScrolledToEdge: false,
+  }
   const health = useHealth()
   const known = health.data?.bungieLinked
   useEffect(() => {
@@ -42,11 +61,18 @@ function RootStack() {
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Ghost.bg } }}>
       <Stack.Protected guard={linked}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="guardian" />
-        <Stack.Screen name="vault" />
-        <Stack.Screen name="recent" />
-        <Stack.Screen name="history" />
+        <Stack.Screen name="(app)" />
+        <Stack.Screen name="item/[id]" options={fullSheet} />
+        <Stack.Screen
+          name="item-actions/[id]"
+          options={{ ...sheet, sheetAllowedDetents: [0.5, 1] }}
+        />
+        <Stack.Screen name="plan/[id]" options={fullSheet} />
+        <Stack.Screen name="subclass" options={fullSheet} />
+        <Stack.Screen name="vault-filter" options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />
+        <Stack.Screen name="save-build" options={fullSheet} />
+        <Stack.Screen name="build/[id]" options={fullSheet} />
+        <Stack.Screen name="build-filter" options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />
       </Stack.Protected>
       <Stack.Protected guard={!linked}>
         <Stack.Screen name="login" />
@@ -57,7 +83,7 @@ function RootStack() {
         options={{
           headerShown: true,
           title: "Settings",
-          presentation: "formSheet",
+          presentation,
           sheetAllowedDetents: [0.6, 1],
           sheetGrabberVisible: true,
         }}
@@ -78,12 +104,18 @@ export default function RootLayout() {
   })
   if (!fontsLoaded && !fontError) return null
   return (
-    <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
-      <ThemeProvider value={theme}>
-        <StatusBar style="light" />
-        <AnimatedSplashOverlay />
-        <RootStack />
-      </ThemeProvider>
-    </PersistQueryClientProvider>
+    <KeyboardProvider>
+      <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
+        <ThemeProvider value={theme}>
+          <StatusBar style="light" />
+          <AnimatedSplashOverlay />
+          <PortalProvider>
+            <TooltipLayer name="app">
+              <RootStack />
+            </TooltipLayer>
+          </PortalProvider>
+        </ThemeProvider>
+      </PersistQueryClientProvider>
+    </KeyboardProvider>
   )
 }

@@ -57,14 +57,16 @@ describe("parseWishlist", () => {
     expect(inline?.notes).toBe("Inline note wins.")
     expect(inline?.tags).toEqual(["pvp", "mkb"])
     // Same notes share one block.
-    expect(parsed.rolls[0]?.block).toBe(parsed.rolls[1]?.block as number)
+    expect(parsed.rolls[0]?.block).toBe(parsed.rolls[1]?.block)
   })
 
   test("block notes end at the first line that is not a roll", () => {
-    expect(parsed.blocks[parsed.rolls[3]?.block as number]?.notes).toBe(
-      "Constructed by @Adamsdown_Boy: first-choice PvE roll.",
-    )
-    expect(parsed.blocks[parsed.rolls[4]?.block as number]?.notes).toBeNull()
+    const blockOf = (index: number) => {
+      const roll = parsed.rolls[index]
+      return roll === undefined ? undefined : parsed.blocks[roll.block]
+    }
+    expect(blockOf(3)?.notes).toBe("Constructed by @Adamsdown_Boy: first-choice PvE roll.")
+    expect(blockOf(4)?.notes).toBeNull()
   })
 
   test("finds dates written either way", () => {
@@ -77,20 +79,20 @@ describe("checkRoll", () => {
   const stored = (hash: number): ReadonlyArray<StoredRoll> =>
     parsed.rolls
       .filter((r) => r.itemHash === hash || r.itemHash === WILDCARD_ITEM)
-      .map((r) => ({
-        ...r,
-        block: parsed.blocks[r.block] as NonNullable<(typeof parsed.blocks)[number]>,
-      }))
+      .flatMap((r) => {
+        const block = parsed.blocks[r.block]
+        return block === undefined ? [] : [{ ...r, block }]
+      })
 
-  const names: Record<number, string> = {
-    1: "Rimestealer",
-    2: "Headstone",
-    3: "Tactical Mag",
-    4: "Alloy Mag",
-    41: "Alloy Mag",
-    21: "Enhanced Headstone",
-  }
-  const nameOf = (h: number) => names[h]
+  const names = new Map([
+    [1, "Rimestealer"],
+    [2, "Headstone"],
+    [3, "Tactical Mag"],
+    [4, "Alloy Mag"],
+    [41, "Alloy Mag"],
+    [21, "Enhanced Headstone"],
+  ])
+  const nameOf = (h: number) => names.get(h)
 
   test("a roll matches when every listed perk is on the item", () => {
     const check = checkRoll([1, 2, 3, 99], stored(100), nameOf)

@@ -1,11 +1,14 @@
 import { $ } from "bun"
+import { Schema } from "effect"
 import qrcode from "qrcode-terminal"
 
 const port = process.env.GHOST_PORT ?? "4848"
 
 await $`tailscale serve --bg --https=${port} http://127.0.0.1:${port}`.quiet()
 
-const status = (await $`tailscale status --json`.json()) as { Self: { DNSName: string } }
+const TailscaleStatus = Schema.Struct({ Self: Schema.Struct({ DNSName: Schema.String }) })
+
+const status = Schema.decodeUnknownSync(TailscaleStatus)(await $`tailscale status --json`.json())
 const url = `https://${status.Self.DNSName.replace(/\.$/, "")}:${port}`
 const link = `ghost://connect?url=${encodeURIComponent(url)}`
 

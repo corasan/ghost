@@ -1,6 +1,7 @@
 node_modules/
 dist/
 build/
+!apps/mobile/src/app/build/
 *.log
 .DS_Store
 .env

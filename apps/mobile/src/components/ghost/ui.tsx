@@ -1,22 +1,26 @@
-import type { ItemTier } from "@ghost/contract"
 import { Image } from "expo-image"
-import { router } from "expo-router"
-import type { ReactNode } from "react"
+import { router, useNavigation } from "expo-router"
+import type { DrawerNavigationProp } from "expo-router/drawer"
+import type { ReactNode, Ref } from "react"
 import {
+  type HostInstance,
   Pressable,
   type StyleProp,
   StyleSheet,
   Text,
   type TextStyle,
   View,
-  type ViewStyle,
+  type ViewProps,
 } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
-import { Ghost, Gutter, Rarity, Type } from "@/constants/theme"
+import { Ghost, Gutter, Type } from "@/constants/theme"
+import { useGuardian } from "@/lib/api"
+import { sentence } from "@/lib/format"
 
-// The design's three voices: JetBrains Mono for labels and numbers that are
-// data, Barlow Condensed for headings and buttons, Barlow for sentences.
+// The design's three voices: JetBrains Mono for numbers and short section
+// labels, Barlow Condensed for headings and buttons, Barlow for sentences and
+// the metadata under a name.
 // Letter spacing is specified in em in the design, so it scales with size.
 
 type TextProps = {
@@ -27,11 +31,11 @@ type TextProps = {
   lines?: number
 }
 
-export function Mono({ children, size = 9, color = Ghost.dim, style, lines }: TextProps) {
+export function Mono({ children, size = 11, color = Ghost.dim, style, lines }: TextProps) {
   return (
     <Text
       numberOfLines={lines}
-      style={[{ fontFamily: Type.mono, fontSize: size, color, letterSpacing: size * 0.12 }, style]}
+      style={[{ fontFamily: Type.mono, fontSize: size, color, letterSpacing: size * 0.08 }, style]}
     >
       {children}
     </Text>
@@ -49,14 +53,71 @@ export function Cond({ children, size = 15, color = Ghost.ink, style, lines }: T
   )
 }
 
-export function Body({ children, size = 15, color = Ghost.ink, style, lines }: TextProps) {
+export function Body({
+  children,
+  size = 15,
+  color = Ghost.ink,
+  style,
+  lines,
+  ref,
+}: TextProps & { ref?: Ref<HostInstance> }) {
   return (
     <Text
+      ref={ref}
       numberOfLines={lines}
       style={[{ fontFamily: Type.body, fontSize: size, lineHeight: size * 1.4, color }, style]}
     >
       {children}
     </Text>
+  )
+}
+
+export function Meta({ children, size = 13, color = Ghost.muted, style, lines }: TextProps) {
+  return (
+    <Text
+      numberOfLines={lines}
+      style={[{ fontFamily: Type.body, fontSize: size, lineHeight: size * 1.35, color }, style]}
+    >
+      {children}
+    </Text>
+  )
+}
+
+/** Bungie's glyph for an armor stat, tinted; nothing until the server has sent the icons. */
+export function StatIcon({
+  label,
+  size = 14,
+  color = Ghost.dim,
+}: {
+  label: string
+  size?: number
+  color?: string
+}) {
+  const icon = useGuardian().data?.statIcons?.[sentence(label)]
+  return icon ? (
+    <Image source={icon} tintColor={color} style={{ width: size, height: size }} />
+  ) : null
+}
+
+/** An armor stat's name after its glyph. */
+export function StatLabel({
+  label,
+  size = 12,
+  color = Ghost.dim,
+  style,
+}: {
+  label: string
+  size?: number
+  color?: string
+  style?: ViewProps["style"]
+}) {
+  return (
+    <View style={[{ flexDirection: "row", alignItems: "center", gap: 3 }, style]}>
+      <StatIcon label={label} size={size + 2} color={color} />
+      <Meta size={size} color={color} lines={1} style={{ flexShrink: 1 }}>
+        {sentence(label)}
+      </Meta>
+    </View>
   )
 }
 
@@ -89,11 +150,11 @@ export function Chevron({
   size = 7,
   color = Ghost.dim,
 }: {
-  direction?: "right" | "down" | "left"
+  direction?: "right" | "down" | "left" | "up"
   size?: number
   color?: string
 }) {
-  const rotate = direction === "right" ? "45deg" : direction === "down" ? "135deg" : "225deg"
+  const rotate = { right: "45deg", down: "135deg", left: "225deg", up: "-45deg" }[direction]
   return (
     <View
       style={{
@@ -106,6 +167,21 @@ export function Chevron({
       }}
     />
   )
+}
+
+export function Bars({ color = Ghost.ink }: { color?: string }) {
+  return (
+    <View style={{ width: 18, gap: 4 }}>
+      <View style={{ height: 1.5, backgroundColor: color }} />
+      <View style={{ height: 1.5, width: 12, backgroundColor: color }} />
+      <View style={{ height: 1.5, backgroundColor: color }} />
+    </View>
+  )
+}
+
+export function useOpenDrawer() {
+  const navigation = useNavigation<DrawerNavigationProp<Record<string, undefined>>>()
+  return () => navigation.openDrawer()
 }
 
 /**
@@ -126,7 +202,7 @@ export function Cut({
   fill?: string
   border?: string
   under?: string
-  style?: StyleProp<ViewStyle>
+  style?: ViewProps["style"]
   children?: ReactNode
 }) {
   const inset = border ? 1 : 0
@@ -250,53 +326,50 @@ export function Tick({ on, under = Ghost.panel }: { on: boolean; under?: string 
   )
 }
 
-/** Item art with its rarity on the left edge. */
-export function Swatch({
-  tier,
-  icon,
-  size,
-}: {
-  tier: ItemTier
-  icon?: string | null
-  size: number
-}) {
-  return (
-    <View
-      style={{ width: size, height: size, backgroundColor: Ghost.swatch, flexDirection: "row" }}
-    >
-      <View style={{ width: 3, backgroundColor: Rarity[tier] }} />
-      {icon ? (
-        <Image source={icon} style={{ flex: 1 }} recyclingKey={icon} transition={120} />
-      ) : null}
-    </View>
-  )
-}
-
-/** A stat as a number over ten ticks, one tick per ten points. */
+/**
+ * A stat as a number over ten ticks, one tick per ten points. When the armor
+ * behind it is not masterworked yet, the masterworked value follows in gold
+ * and the ticks it would add are outlined.
+ */
 export function TierStat({
   label,
   value,
   highlight,
+  masterworked,
 }: {
   label: string
   value: number
   highlight?: boolean
+  masterworked?: number
 }) {
   const color = highlight ? Ghost.good : Ghost.ink
   const lit = Math.min(10, Math.floor(value / 10))
+  const gained = Math.min(10, Math.floor((masterworked ?? value) / 10))
   return (
     <View style={{ flex: 1 }}>
-      <Cond size={20} color={color} style={{ letterSpacing: 0, lineHeight: 20 }}>
-        {value}
-      </Cond>
-      <Mono size={8} style={{ marginTop: 3 }}>
-        {label}
-      </Mono>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+        <StatIcon label={label} color={color} />
+        <Cond size={20} color={color} style={{ letterSpacing: 0, lineHeight: 22 }}>
+          {value}
+        </Cond>
+        {masterworked !== undefined ? (
+          <Cond size={13} color={Ghost.gold} style={{ letterSpacing: 0 }}>
+            › {masterworked}
+          </Cond>
+        ) : null}
+      </View>
+      <Meta size={12} style={{ marginTop: 2 }} lines={1}>
+        {sentence(label)}
+      </Meta>
       <View style={{ flexDirection: "row", gap: 2, marginTop: 6 }}>
         {Array.from({ length: 10 }, (_, i) => (
           <View
             key={i}
-            style={{ flex: 1, height: 3, backgroundColor: i < lit ? color : Ghost.line }}
+            style={{
+              flex: 1,
+              height: 3,
+              backgroundColor: i < lit ? color : i < gained ? Ghost.gold : Ghost.line,
+            }}
           />
         ))}
       </View>
@@ -307,13 +380,63 @@ export function TierStat({
 export function TierStats({
   stats,
 }: {
-  stats: readonly { readonly label: string; readonly value: number; readonly target?: boolean }[]
+  stats: readonly {
+    readonly label: string
+    readonly value: number
+    readonly target?: boolean
+    readonly masterworked?: number
+  }[]
 }) {
   return (
     <View style={{ flexDirection: "row", gap: 8 }}>
       {stats.map((stat) => (
-        <TierStat key={stat.label} label={stat.label} value={stat.value} highlight={stat.target} />
+        <TierStat
+          key={stat.label}
+          label={stat.label}
+          value={stat.value}
+          highlight={stat.target}
+          masterworked={stat.masterworked}
+        />
       ))}
+    </View>
+  )
+}
+
+type ArmorStat = { readonly label: string; readonly value: number; readonly masterworked?: number }
+
+/**
+ * An armor piece's six stats in one line. A stat that masterworking would
+ * raise shows where it is now and, in gold, where it would end up.
+ */
+export function ArmorStatLine({ stats }: { stats: readonly ArmorStat[] }) {
+  const pending = stats.some((stat) => stat.masterworked !== undefined)
+  const now = stats.reduce((sum, stat) => sum + stat.value, 0)
+  const then = stats.reduce((sum, stat) => sum + (stat.masterworked ?? stat.value), 0)
+  return (
+    <View style={{ gap: 5 }}>
+      <View style={{ flexDirection: "row" }}>
+        {stats.map((stat) => (
+          <View key={stat.label} style={{ flex: 1 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+              <StatIcon label={stat.label} size={12} />
+              <Mono size={14} color={stat.value > 0 ? Ghost.ink : Ghost.dim}>
+                {stat.value}
+                {stat.masterworked !== undefined ? (
+                  <Text style={{ color: Ghost.gold }}>›{stat.masterworked}</Text>
+                ) : null}
+              </Mono>
+            </View>
+            <Meta size={12} style={{ marginTop: 2 }} lines={1}>
+              {sentence(stat.label)}
+            </Meta>
+          </View>
+        ))}
+      </View>
+      {pending ? (
+        <Meta color={Ghost.gold}>
+          Not masterworked · {now} now › {then} masterworked
+        </Meta>
+      ) : null}
     </View>
   )
 }
@@ -343,7 +466,7 @@ export function Nudge({ text, action, prompt }: { text: string; action: string; 
   return (
     <Pressable
       accessibilityRole="button"
-      onPress={() => router.dismissTo({ pathname: "/", params: { draft: prompt } })}
+      onPress={() => router.navigate({ pathname: "/", params: { draft: prompt } })}
       style={styles.nudge}
     >
       <View style={{ width: 2, alignSelf: "stretch", backgroundColor: Ghost.accent }} />
@@ -358,8 +481,8 @@ export function Nudge({ text, action, prompt }: { text: string; action: string; 
 }
 
 /**
- * Header shared by the menu pages: a way back to chat, a big condensed
- * title, and the page's one number on the right.
+ * Header shared by the drawer pages: the menu, a big condensed title, and
+ * the page's one number on the right.
  */
 export function PageHeader({
   title,
@@ -381,17 +504,19 @@ export function PageHeader({
   children?: ReactNode
 }) {
   const insets = useSafeAreaInsets()
+  const openDrawer = useOpenDrawer()
   return (
     <View style={{ paddingTop: insets.top + 14, paddingHorizontal: Gutter }}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Back to Ghost"
+        accessibilityLabel="Open menu"
         hitSlop={14}
-        onPress={() => router.back()}
-        style={{ alignSelf: "flex-start" }}
+        onPress={openDrawer}
+        style={{ alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 10 }}
       >
-        <Mono size={10} color={Ghost.accent}>
-          ‹ GHOST
+        <Bars color={Ghost.accent} />
+        <Mono size={11} color={Ghost.accent}>
+          GHOST
         </Mono>
       </Pressable>
       <View style={styles.headerRow}>
@@ -399,18 +524,16 @@ export function PageHeader({
           <Cond size={44} style={styles.headline} lines={1}>
             {title}
           </Cond>
-          <Mono size={10} color={subtitleColor} style={{ marginTop: 8 }}>
+          <Meta color={subtitleColor} style={{ marginTop: 6 }}>
             {subtitle}
-          </Mono>
+          </Meta>
         </View>
         <View style={{ alignItems: "flex-end" }}>
           <Cond size={44} color={figureColor} style={styles.headline}>
             {figure}
             {figureSuffix ? <Text style={{ color: Ghost.dim }}>{figureSuffix}</Text> : null}
           </Cond>
-          <Mono size={10} style={{ marginTop: 8 }}>
-            {caption}
-          </Mono>
+          <Meta style={{ marginTop: 6 }}>{caption}</Meta>
         </View>
       </View>
       {children}
@@ -418,7 +541,7 @@ export function PageHeader({
   )
 }
 
-export function Rule({ style }: { style?: StyleProp<ViewStyle> }) {
+export function Rule({ style }: { style?: ViewProps["style"] }) {
   return <View style={[{ height: 1, backgroundColor: Ghost.rule }, style]} />
 }
 

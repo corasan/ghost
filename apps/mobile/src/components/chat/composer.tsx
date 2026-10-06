@@ -1,8 +1,10 @@
 import { Pressable, TextInput, View } from "react-native"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { useReanimatedKeyboardAnimation } from "react-native-keyboard-controller"
+import Animated, { interpolate, useAnimatedStyle } from "react-native-reanimated"
 
 import { Body, Chevron, Cut, Mono } from "@/components/ghost/ui"
 import { Ghost, Type } from "@/constants/theme"
+import { useBottomInset } from "@/lib/insets"
 
 export const STARTERS = [
   "Best hand cannon for Trials",
@@ -46,26 +48,31 @@ export function Composer({
   onChange,
   onSend,
   sending,
-  keyboardOpen,
 }: {
   value: string
   onChange: (text: string) => void
   onSend: () => void
   sending: boolean
-  keyboardOpen: boolean
 }) {
-  const insets = useSafeAreaInsets()
+  const bottomInset = useBottomInset()
   const ready = value.trim() !== "" && !sending
+  const { progress } = useReanimatedKeyboardAnimation()
+  const resting = Math.max(bottomInset, 12)
+  const lift = useAnimatedStyle(() => ({
+    paddingBottom: interpolate(progress.value, [0, 1], [resting, 10]),
+  }))
   return (
-    <View
-      style={{
-        flexDirection: "row",
-        alignItems: "flex-end",
-        gap: 8,
-        paddingTop: 12,
-        paddingHorizontal: 16,
-        paddingBottom: keyboardOpen ? 10 : Math.max(insets.bottom, 12),
-      }}
+    <Animated.View
+      style={[
+        {
+          flexDirection: "row",
+          alignItems: "flex-start",
+          gap: 8,
+          paddingTop: 12,
+          paddingHorizontal: 16,
+        },
+        lift,
+      ]}
     >
       <Cut fill={Ghost.panel} border={Ghost.line} style={{ flex: 1, minHeight: 46 }}>
         <TextInput
@@ -105,6 +112,6 @@ export function Composer({
           </View>
         </Cut>
       </Pressable>
-    </View>
+    </Animated.View>
   )
 }

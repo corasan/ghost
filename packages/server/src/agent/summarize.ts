@@ -1,7 +1,7 @@
 import { query } from "@anthropic-ai/claude-agent-sdk"
 import { Context, Effect, Layer, Schema } from "effect"
 import { AppConfig } from "../config.ts"
-import { extractJson, SummaryOutput } from "../creators/parse.ts"
+import { extractJsonText, SummaryOutput } from "../creators/parse.ts"
 import { AgentFailed } from "./claude.ts"
 
 export interface VideoToSummarize {
@@ -13,11 +13,11 @@ export interface VideoToSummarize {
   readonly timed: boolean
 }
 
-export interface SummarizerShape {
+export interface SummarizerService {
   readonly summarize: (video: VideoToSummarize) => Effect.Effect<SummaryOutput, AgentFailed>
 }
 
-export class Summarizer extends Context.Service<Summarizer, SummarizerShape>()("Summarizer") {}
+export class Summarizer extends Context.Service<Summarizer, SummarizerService>()("Summarizer") {}
 
 const SYSTEM_PROMPT = `You turn a Destiny 2 creator's video into short notes for a companion app that advises players.
 
@@ -69,12 +69,12 @@ export const SummarizerLive = Layer.effect(
       }).pipe(
         Effect.flatMap((text) =>
           Effect.try({
-            try: () => extractJson(text),
+            try: () => extractJsonText(text),
             catch: (error) => new AgentFailed({ message: String(error) }),
           }),
         ),
         Effect.flatMap((json) =>
-          Schema.decodeUnknownEffect(SummaryOutput)(json).pipe(
+          Schema.decodeEffect(Schema.fromJsonString(SummaryOutput))(json).pipe(
             Effect.mapError((error) => new AgentFailed({ message: String(error) })),
           ),
         ),

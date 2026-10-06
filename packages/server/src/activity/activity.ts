@@ -7,7 +7,6 @@ import {
 } from "@ghost/contract"
 import { Context, DateTime, Effect, Layer, Option } from "effect"
 import type { BungieError } from "../bungie/client.ts"
-import { POSTMASTER_CAPACITY, VAULT_CAPACITY } from "../bungie/guardian.ts"
 import { type Inventory, isUpgrade, type OwnedItem, pickCharacter } from "../bungie/inventory.ts"
 import { Manifest } from "../bungie/manifest.ts"
 import { ProfileStore } from "../bungie/profile.ts"
@@ -22,7 +21,7 @@ import { sessionWindow } from "./session.ts"
 
 const KEYS = { lastActiveAt: "session.lastActiveAt", since: "session.since" } as const
 
-export interface ActivityShape {
+export interface ActivityService {
   /** Never fails on Bungie: without a profile it falls back to manifest data. */
   readonly recent: (characterId?: string) => Effect.Effect<ReadonlyArray<RecentItem>>
   readonly decide: (
@@ -34,7 +33,7 @@ export interface ActivityShape {
   ) => Effect.Effect<Briefing, BungieError | BungieNotLinked>
 }
 
-export class Activity extends Context.Service<Activity, ActivityShape>()("Activity") {}
+export class Activity extends Context.Service<Activity, ActivityService>()("Activity") {}
 
 const fromOwned = (row: SeenRow, item: OwnedItem, upgrade: boolean) =>
   new RecentItem({
@@ -45,6 +44,9 @@ const fromOwned = (row: SeenRow, item: OwnedItem, upgrade: boolean) =>
     tier: item.tier,
     slot: item.slot,
     power: item.power,
+    damageType: item.damageType,
+    masterwork: item.masterwork,
+    gearTier: item.gearTier ?? null,
     location: item.location,
     upgrade,
   })
@@ -140,14 +142,15 @@ export const ActivityLive = Layer.effect(
         })
         const recentRows = yield* items.recent.pipe(Effect.orDie)
         const actionsToday = yield* actions.countOkSince(startOfLocalDay(nowMs)).pipe(Effect.orDie)
+        const capacities = yield* manifest.capacities
         return new Briefing({
           since,
           newCount: fresh.length,
           upgrades,
           postmasterCount: character?.postmasterCount ?? 0,
-          postmasterCapacity: POSTMASTER_CAPACITY,
+          postmasterCapacity: capacities.postmaster,
           vaultCount: inv.vaultCount,
-          vaultCapacity: VAULT_CAPACITY,
+          vaultCapacity: capacities.vault,
           recentCount: recentRows.length,
           undecidedCount: recentRows.filter((r) => r.decision === null).length,
           actionsToday,

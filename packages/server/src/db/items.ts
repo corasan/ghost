@@ -59,7 +59,7 @@ export interface SyncItem {
 
 export const RECENT_WINDOW_MS = 48 * 60 * 60 * 1000
 
-export interface ItemsRepoShape {
+export interface ItemsRepoService {
   readonly sync: (items: ReadonlyArray<SyncItem>) => Effect.Effect<void, SqlError.SqlError>
   /** Non-baseline items first seen in the last 48 hours, newest first. */
   readonly recent: Effect.Effect<ReadonlyArray<SeenRow>, SqlError.SqlError>
@@ -77,7 +77,7 @@ export interface ItemsRepoShape {
   ) => Effect.Effect<void, SqlError.SqlError>
 }
 
-export class ItemsRepo extends Context.Service<ItemsRepo, ItemsRepoShape>()("ItemsRepo") {}
+export class ItemsRepo extends Context.Service<ItemsRepo, ItemsRepoService>()("ItemsRepo") {}
 
 const BATCH = 200
 

@@ -1,4 +1,17 @@
-import { type CreateJob, GhostApi, type ItemDecision, type Job, RecentItem } from "@ghost/contract"
+import {
+  type AgentEffort,
+  type CreateJob,
+  type EquipBuild,
+  GhostApi,
+  type ItemAction,
+  type ItemDecision,
+  ItemSummary,
+  type Job,
+  RecentItem,
+  type SaveBuild,
+  type SavedBuild,
+  VaultSnapshot,
+} from "@ghost/contract"
 import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Effect } from "effect"
 import { FetchHttpClient } from "effect/http"
@@ -30,17 +43,35 @@ const run = async <A, E>(f: (api: Api) => Effect.Effect<A, E>) =>
 // server never shows the old server's cached data.
 export const queryKeys = {
   health: (url: string) => [url, "health"] as const,
-  jobs: (url: string) => [url, "jobs"] as const,
+  jobs: (url: string, sessionId?: string | null) => [url, "jobs", sessionId ?? "all"] as const,
+  sessions: (url: string) => [url, "sessions"] as const,
+  item: (url: string, id: string) => [url, "item", id] as const,
+  agent: (url: string) => [url, "agent"] as const,
   recent: (url: string, characterId: string | undefined) => [url, "recent", characterId] as const,
   guardian: (url: string) => [url, "guardian"] as const,
   vault: (url: string) => [url, "vault"] as const,
   briefing: (url: string, characterId: string | undefined) =>
     [url, "briefing", characterId] as const,
   history: (url: string) => [url, "history"] as const,
+  situational: (url: string, characterId: string | undefined) =>
+    [url, "situational", characterId] as const,
+  job: (url: string, id: string) => [url, "job", id] as const,
+  builds: (url: string) => [url, "builds"] as const,
+  loadoutSlots: (url: string, characterId: string | undefined) =>
+    [url, "loadoutSlots", characterId] as const,
 }
 
 /** Queries worth keeping on disk so the app opens on real data, not spinners. */
-export const PERSISTED = new Set(["jobs", "recent", "guardian", "vault", "briefing", "history"])
+export const PERSISTED = new Set([
+  "jobs",
+  "sessions",
+  "recent",
+  "guardian",
+  "vault",
+  "briefing",
+  "history",
+  "builds",
+])
 
 const HEALTH_TIMEOUT_MS = 8_000
 
@@ -71,15 +102,54 @@ export function useHealth() {
 const busy = (jobs: readonly Job[] | undefined) =>
   jobs?.some((job) => job.status === "queued" || job.status === "running") ?? false
 
+const NO_JOBS: readonly Job[] = []
+
 // The chat polls quickly only while Ghost is thinking; an idle chat checks
 // in rarely, so the phone isn't waking the server every few seconds.
-export function useJobs() {
+export function useJobs(sessionId?: string | null) {
   const url = useServerUrl()
   return useQuery({
-    queryKey: queryKeys.jobs(url),
-    queryFn: () => run((api) => api.jobs.list()),
+    queryKey: queryKeys.jobs(url, sessionId),
+    queryFn: () =>
+      sessionId === null
+        ? NO_JOBS
+        : run((api) => api.jobs.list({ query: sessionId === undefined ? {} : { sessionId } })),
     refetchInterval: (query) => (busy(query.state.data) ? 1_500 : 30_000),
     staleTime: 5_000,
+  })
+}
+
+export function useJob(id: string) {
+  const url = useServerUrl()
+  const queryClient = useQueryClient()
+  return useQuery({
+    queryKey: queryKeys.job(url, id),
+    queryFn: () => run((api) => api.jobs.get({ params: { id } })),
+    initialData: () =>
+      queryClient
+        .getQueriesData<readonly Job[]>({ queryKey: [url, "jobs"] })
+        .flatMap(([, jobs]) => jobs ?? [])
+        .find((job) => job.id === id),
+    staleTime: 5_000,
+  })
+}
+
+export function useSessions() {
+  const url = useServerUrl()
+  return useQuery({
+    queryKey: queryKeys.sessions(url),
+    queryFn: () => run((api) => api.jobs.sessions()),
+    staleTime: 15_000,
+  })
+}
+
+export function useItemDetail(id: string) {
+  const url = useServerUrl()
+  return useQuery({
+    queryKey: queryKeys.item(url, id),
+    queryFn: () => run((api) => api.items.detail({ params: { id } })),
+    staleTime: 30_000,
+    retry: false,
   })
 }
 
@@ -128,6 +198,22 @@ export function useBriefing(characterId: string | undefined) {
   })
 }
 
+const SITUATIONAL_POLL = 5_000
+
+/** Asks again while Ghost is still researching, since the server answers before it is done. */
+export function useSituational(characterId: string | undefined) {
+  const url = useServerUrl()
+  return useQuery({
+    queryKey: queryKeys.situational(url, characterId),
+    queryFn: () =>
+      run((api) => api.guardian.situational({ query: { characterId: characterId ?? "" } })),
+    enabled: characterId !== undefined,
+    staleTime: 60_000,
+    refetchInterval: (query) => (query.state.data?.pending ? SITUATIONAL_POLL : false),
+    retry: false,
+  })
+}
+
 export function useHistory() {
   const url = useServerUrl()
   return useQuery({
@@ -140,7 +226,7 @@ export function useHistory() {
 /** After items move, everything that shows items or counts is out of date. */
 const invalidateInventory = (queryClient: QueryClient) =>
   Promise.all(
-    ["jobs", "recent", "guardian", "vault", "briefing", "history"].map((key) =>
+    ["jobs", "recent", "guardian", "vault", "briefing", "history", "builds"].map((key) =>
       queryClient.invalidateQueries({ queryKey: [getServerUrl(), key] }),
     ),
   )
@@ -164,10 +250,22 @@ export function useSetDecision() {
               : item,
           ),
       )
+      queryClient.setQueriesData<VaultSnapshot>({ queryKey: [getServerUrl(), "vault"] }, (vault) =>
+        vault
+          ? new VaultSnapshot({
+              ...vault,
+              items: vault.items.map((item) =>
+                item.itemInstanceId === input.id
+                  ? new ItemSummary({ ...item, decision: input.decision })
+                  : item,
+              ),
+            })
+          : vault,
+      )
     },
     onSettled: () =>
       Promise.all(
-        ["recent", "vault", "briefing"].map((key) =>
+        ["recent", "vault", "briefing", "item"].map((key) =>
           queryClient.invalidateQueries({ queryKey: [getServerUrl(), key] }),
         ),
       ),
@@ -179,17 +277,21 @@ export function useCreateJob() {
   return useMutation({
     mutationFn: (input: CreateJob) => run((api) => api.jobs.create({ payload: input })),
     onSuccess: (job) => {
-      queryClient.setQueryData<readonly Job[]>(queryKeys.jobs(getServerUrl()), (jobs) => [
+      const url = getServerUrl()
+      queryClient.setQueryData<readonly Job[]>(queryKeys.jobs(url, job.sessionId), (jobs) => [
         job,
         ...(jobs ?? []),
       ])
-      return queryClient.invalidateQueries({ queryKey: queryKeys.jobs(getServerUrl()) })
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: [url, "jobs"] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.sessions(url) }),
+      ])
     },
   })
 }
 
 const replaceJob = (queryClient: QueryClient, job: Job) =>
-  queryClient.setQueryData<readonly Job[]>(queryKeys.jobs(getServerUrl()), (jobs) =>
+  queryClient.setQueriesData<readonly Job[]>({ queryKey: [getServerUrl(), "jobs"] }, (jobs) =>
     jobs?.map((each) => (each.id === job.id ? job : each)),
   )
 
@@ -218,20 +320,130 @@ export function useUndoPlan() {
   })
 }
 
+export function useItemAction() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { id: string } & ItemAction) =>
+      run((api) =>
+        api.items.act({
+          params: { id: input.id },
+          payload: { action: input.action, characterId: input.characterId ?? null },
+        }),
+      ),
+    onSuccess: () =>
+      Promise.all([
+        invalidateInventory(queryClient),
+        queryClient.invalidateQueries({ queryKey: [getServerUrl(), "item"] }),
+      ]),
+  })
+}
+
+export function useAgentSettings() {
+  const url = useServerUrl()
+  return useQuery({
+    queryKey: queryKeys.agent(url),
+    queryFn: () => run((api) => api.agent.settings()),
+    staleTime: 60_000,
+    retry: false,
+  })
+}
+
+export function useSetAgentEffort() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (effort: AgentEffort) => run((api) => api.agent.configure({ payload: { effort } })),
+    onSuccess: (settings) => queryClient.setQueryData(queryKeys.agent(getServerUrl()), settings),
+  })
+}
+
 export function useBungieAuthStart() {
   return useMutation({ mutationFn: () => run((api) => api.auth.start()) })
 }
 
-/** True when the error is the server saying the Bungie account is not linked. */
-export const isNotLinked = (error: unknown) =>
-  typeof error === "object" &&
-  error !== null &&
-  (error as { _tag?: string })._tag === "BungieNotLinked"
-
-export const errorMessage = (error: unknown) => {
-  if (typeof error === "object" && error !== null) {
-    if ("reason" in error) return String((error as { reason: unknown }).reason)
-    if ("message" in error) return String((error as { message: unknown }).message)
-  }
-  return String(error)
+export function useSavedBuilds() {
+  const url = useServerUrl()
+  return useQuery({
+    queryKey: queryKeys.builds(url),
+    queryFn: () => run((api) => api.builds.list()),
+    staleTime: 30_000,
+  })
 }
+
+const seedJob = (queryClient: QueryClient, job: Job) =>
+  queryClient.setQueryData(queryKeys.job(getServerUrl(), job.id), job)
+
+const refreshBuilds = (queryClient: QueryClient) =>
+  queryClient.invalidateQueries({ queryKey: queryKeys.builds(getServerUrl()) })
+
+const patchBuilds = (
+  queryClient: QueryClient,
+  patch: (builds: readonly SavedBuild[]) => readonly SavedBuild[],
+) =>
+  queryClient.setQueryData<readonly SavedBuild[]>(queryKeys.builds(getServerUrl()), (builds) =>
+    builds ? patch(builds) : builds,
+  )
+
+export function useSaveBuild() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: SaveBuild) => run((api) => api.builds.save({ payload })),
+    onSuccess: (result) => {
+      if (result.confirm) seedJob(queryClient, result.confirm)
+      return Promise.all([
+        refreshBuilds(queryClient),
+        queryClient.invalidateQueries({ queryKey: [getServerUrl(), "jobs"] }),
+      ])
+    },
+  })
+}
+
+export function useRenameBuild() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { id: string; name: string }) =>
+      run((api) => api.builds.rename({ params: { id: input.id }, payload: { name: input.name } })),
+    onSuccess: (build) => {
+      patchBuilds(queryClient, (builds) =>
+        builds.map((each) => (each.id === build.id ? build : each)),
+      )
+      return refreshBuilds(queryClient)
+    },
+  })
+}
+
+export function useDeleteBuild() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => run((api) => api.builds.remove({ params: { id } })),
+    onSuccess: (_, id) => {
+      patchBuilds(queryClient, (builds) => builds.filter((each) => each.id !== id))
+      return refreshBuilds(queryClient)
+    },
+  })
+}
+
+export function useEquipBuild() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...payload }: { id: string } & EquipBuild) =>
+      run((api) => api.builds.equip({ params: { id }, payload })),
+    onSuccess: (result) => {
+      seedJob(queryClient, result.job)
+      return queryClient.invalidateQueries({ queryKey: [getServerUrl(), "jobs"] })
+    },
+  })
+}
+
+export function useLoadoutSlots(characterId: string | undefined) {
+  const url = useServerUrl()
+  return useQuery({
+    queryKey: queryKeys.loadoutSlots(url, characterId),
+    queryFn: () => run((api) => api.builds.slots({ query: { characterId: characterId ?? "" } })),
+    enabled: characterId !== undefined,
+    staleTime: 30_000,
+    retry: false,
+  })
+}
+
+export const errorMessage = (error: Error | null) =>
+  error === null ? String(error) : "reason" in error ? String(error.reason) : error.message

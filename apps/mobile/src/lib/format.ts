@@ -5,32 +5,34 @@ export function clock(iso: string) {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
 }
 
-/** "TODAY", "3H OLD", "2D OLD": how stale a piece of data is. */
+/** "Just now", "3h old", "2d old": how stale a piece of data is. */
 export function age(iso: string, now: number = Date.now()) {
   const hours = (now - Date.parse(iso)) / 3_600_000
-  if (!Number.isFinite(hours)) return "DATE UNKNOWN"
-  if (hours < 1) return "JUST NOW"
-  if (hours < 24) return `${Math.floor(hours)}H OLD`
-  return `${Math.floor(hours / 24)}D OLD`
+  if (!Number.isFinite(hours)) return "Date unknown"
+  if (hours < 1) return "Just now"
+  if (hours < 24) return `${Math.floor(hours)}h old`
+  return `${Math.floor(hours / 24)}d old`
 }
 
 export const isToday = (iso: string) => new Date(iso).toDateString() === new Date().toDateString()
 
 export const upper = (s: string) => s.toUpperCase()
 
+export const sentence = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()
+
 export const sourceLabel = (source: string) =>
   source === "postmaster"
-    ? "FROM POSTMASTER"
+    ? "From postmaster"
     : source === "drop" || source === "unknown"
-      ? "DROPS"
-      : upper(source)
+      ? "Drops"
+      : sentence(source)
 
 export const locationLabel = (location: RecentItem["location"]) =>
   location === "vault"
-    ? "NOW IN VAULT"
+    ? "Now in vault"
     : location === "postmaster"
-      ? "IN POSTMASTER"
-      : "ON CHARACTER"
+      ? "In postmaster"
+      : "On character"
 
 export interface RecentGroup {
   readonly key: string

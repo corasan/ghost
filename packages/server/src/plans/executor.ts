@@ -3,19 +3,25 @@ import {
   type ItemLocation,
   type Job,
   type JobNotFound,
+  LoadoutSaveTo,
   Plan,
   PlanNotApplicable,
   PlanRow,
   type RowOutcome,
   type BungieNotLinked,
+  SubclassChange,
+  SubclassLoadout,
 } from "@ghost/contract"
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Predicate } from "effect"
 import { BungieClient, type BungieError } from "../bungie/client.ts"
-import { type OwnedItem, pickCharacter } from "../bungie/inventory.ts"
+import { type Inventory, type OwnedItem, pickCharacter } from "../bungie/inventory.ts"
+import { Loadouts } from "../bungie/loadouts.ts"
 import { ProfileStore } from "../bungie/profile.ts"
 import { type ActionKind, ActionsRepo, type NewAction } from "../db/actions.ts"
+import { BuildsRepo } from "../db/builds.ts"
 import { ItemsRepo } from "../db/items.ts"
 import { JobsRepo } from "../db/jobs.ts"
+import { drift } from "./drift.ts"
 import { historyCalls } from "./history.ts"
 
 // The agent only proposes. Confirming a plan runs here: each selected row
@@ -25,15 +31,16 @@ import { historyCalls } from "./history.ts"
 
 type PlanErrors = JobNotFound | PlanNotApplicable | BungieError | BungieNotLinked
 
-export interface PlansShape {
+export interface PlansService {
   readonly apply: (jobId: string, selected: ReadonlyArray<string>) => Effect.Effect<Job, PlanErrors>
   readonly undo: (jobId: string) => Effect.Effect<Job, PlanErrors>
   readonly history: Effect.Effect<ReadonlyArray<HistoryGroup>>
 }
 
-export class Plans extends Context.Service<Plans, PlansShape>()("Plans") {}
+export class Plans extends Context.Service<Plans, PlansService>()("Plans") {}
 
 const SPACING = "100 millis"
+const PROFILE_LAG = "1500 millis"
 
 interface Where {
   location: ItemLocation
@@ -52,8 +59,83 @@ export const PlansLive = Layer.effect(
     const jobs = yield* JobsRepo
     const items = yield* ItemsRepo
     const actions = yield* ActionsRepo
+    const builds = yield* BuildsRepo
+    const loadouts = yield* Loadouts
 
     const record = (action: NewAction) => actions.record(action).pipe(Effect.orDie)
+
+    const freshInventory = profile.invalidate.pipe(Effect.andThen(profile.inventory))
+
+    const settledDrift = (plan: Plan, characterId: string) =>
+      Effect.gen(function* () {
+        const first = drift(plan, yield* freshInventory, characterId)
+        if (first.length === 0) return first
+        yield* Effect.sleep(PROFILE_LAG)
+        return drift(plan, yield* freshInventory, characterId)
+      })
+
+    const saveLoadout = (jobId: string, saveTo: LoadoutSaveTo, applied: Plan, inv: Inventory) =>
+      Effect.gen(function* () {
+        const drifted = yield* settledDrift(applied, saveTo.characterId)
+        if (drifted.length > 0) {
+          return new LoadoutSaveTo({
+            ...saveTo,
+            outcome: "skipped",
+            error: `not saved in game: ${drifted.join("; ")}`,
+          })
+        }
+        const result = yield* Effect.result(
+          bungie.snapshotLoadout({
+            loadoutIndex: saveTo.index,
+            characterId: saveTo.characterId,
+            membershipType: inv.membershipType,
+            nameHash: saveTo.nameHash,
+            colorHash: saveTo.colorHash,
+            iconHash: saveTo.iconHash,
+          }),
+        )
+        yield* record({
+          jobId,
+          itemInstanceId: `${saveTo.characterId}/${saveTo.index}`,
+          itemHash: saveTo.nameHash,
+          name: saveTo.replaces,
+          kind: "snapshot_loadout",
+          characterId: saveTo.characterId,
+          fromLocation: null,
+          fromCharacterId: null,
+          previousItemId: null,
+          status: result._tag === "Success" ? "ok" : "failed",
+          error: result._tag === "Success" ? null : describe(result.failure),
+        })
+        if (result._tag === "Failure") {
+          return new LoadoutSaveTo({
+            ...saveTo,
+            outcome: "failed",
+            error: describe(result.failure),
+          })
+        }
+        yield* builds
+          .claimInGameSlot(saveTo.buildId, { characterId: saveTo.characterId, index: saveTo.index })
+          .pipe(
+            Effect.catchTag("BuildNotFound", () =>
+              Effect.logWarning(`build ${saveTo.buildId} was deleted before its slot was saved`),
+            ),
+            Effect.orDie,
+          )
+        yield* loadouts.invalidate
+        return new LoadoutSaveTo({ ...saveTo, outcome: "ok", error: null })
+      }).pipe(
+        Effect.catchTags({
+          BungieError: (error) =>
+            Effect.succeed(
+              new LoadoutSaveTo({ ...saveTo, outcome: "failed", error: describe(error) }),
+            ),
+          BungieNotLinked: (error) =>
+            Effect.succeed(
+              new LoadoutSaveTo({ ...saveTo, outcome: "failed", error: describe(error) }),
+            ),
+        }),
+      )
 
     const apply = (jobId: string, selected: ReadonlyArray<string>) =>
       Effect.gen(function* () {
@@ -69,22 +151,18 @@ export const PlansLive = Layer.effect(
         const owned = new Map(inv.items.map((i) => [i.itemInstanceId, i]))
         // Where each item is now, updated as calls succeed, so later rows in
         // the same batch see the moves earlier rows made.
-        const where = new Map<string, Where>(
-          inv.items.map((i) => [
-            i.itemInstanceId,
-            { location: i.location, characterId: i.characterId, equipped: i.equipped },
-          ]),
-        )
+        const where = new Map<string, Where>()
         const fallbackCharacter = pickCharacter(inv, job.characterId)?.characterId ?? null
         const moved = new Set<string>()
         const picked = new Set(selected)
 
         const call = (
-          item: OwnedItem,
+          item: Pick<OwnedItem, "itemInstanceId" | "itemHash" | "name">,
           kind: ActionKind,
-          fields: Pick<NewAction, "characterId" | "fromLocation" | "fromCharacterId"> & {
-            readonly previousItemId?: string | null
-          },
+          fields: Pick<NewAction, "characterId" | "fromLocation" | "fromCharacterId"> &
+            Partial<
+              Pick<NewAction, "previousItemId" | "socketIndex" | "plugHash" | "previousPlugHash">
+            >,
           request: Effect.Effect<unknown, BungieError | BungieNotLinked>,
         ) => {
           const base = {
@@ -110,7 +188,17 @@ export const PlansLive = Layer.effect(
           )
         }
 
-        const state = (item: OwnedItem) => where.get(item.itemInstanceId) as Where
+        const state = (item: OwnedItem) => {
+          const known = where.get(item.itemInstanceId)
+          if (known !== undefined) return known
+          const now: Where = {
+            location: item.location,
+            characterId: item.characterId,
+            equipped: item.equipped,
+          }
+          where.set(item.itemInstanceId, now)
+          return now
+        }
         const transfer = (item: OwnedItem, characterId: string, transferToVault: boolean) =>
           bungie.transferItem({
             itemReferenceHash: item.itemHash,
@@ -178,8 +266,8 @@ export const PlansLive = Layer.effect(
             const at = state(item)
             if (at.equipped) return
             const previous = inv.items.find((other) => {
-              const o = where.get(other.itemInstanceId)
-              return o?.equipped === true && o.characterId === target && other.slot === item.slot
+              const o = state(other)
+              return o.equipped && o.characterId === target && other.slot === item.slot
             })
             yield* call(
               item,
@@ -220,6 +308,40 @@ export const PlansLive = Layer.effect(
             ),
           )
 
+        const insertMods = (row: PlanRow, item: OwnedItem) =>
+          Effect.gen(function* () {
+            for (const mod of row.armorMods ?? []) {
+              if (mod.swap !== true || mod.plugHash === undefined || mod.socketIndex === undefined)
+                continue
+              const at = state(item)
+              if (at.location !== "character" || at.characterId === null) {
+                return yield* Effect.fail(`it must be on a character to take ${mod.name}`)
+              }
+              yield* call(
+                item,
+                "insert_mod",
+                {
+                  characterId: at.characterId,
+                  fromLocation: "character",
+                  fromCharacterId: at.characterId,
+                  socketIndex: mod.socketIndex,
+                  plugHash: mod.plugHash,
+                  previousPlugHash: mod.previousPlugHash ?? null,
+                },
+                bungie.insertPlug({
+                  itemId: item.itemInstanceId,
+                  characterId: at.characterId,
+                  membershipType: inv.membershipType,
+                  socketIndex: mod.socketIndex,
+                  plugHash: mod.plugHash,
+                }),
+              ).pipe(Effect.mapError((reason) => `${mod.name}: ${reason}`))
+              yield* Effect.sleep(SPACING)
+            }
+          })
+
+        const swapsMods = (row: PlanRow) => row.armorMods?.some((mod) => mod.swap === true) ?? false
+
         const runRow = (row: PlanRow, item: OwnedItem): Effect.Effect<void, string> => {
           const target = row.characterId ?? fallbackCharacter
           switch (row.action) {
@@ -242,15 +364,124 @@ export const PlansLive = Layer.effect(
           }
         }
 
+        const changeSubclass = (change: SubclassChange) =>
+          Effect.gen(function* () {
+            const owner = inv.characters.find((c) => c.characterId === change.characterId)
+            const subclass = owner?.subclasses.find(
+              (each) => each.itemInstanceId === change.itemInstanceId,
+            )
+            if (owner === undefined || subclass === undefined) {
+              return yield* Effect.fail("that subclass is no longer on the character")
+            }
+            const fields = {
+              characterId: owner.characterId,
+              fromLocation: "character",
+              fromCharacterId: owner.characterId,
+            }
+            if (!subclass.equipped) {
+              yield* call(
+                subclass,
+                "equip",
+                {
+                  ...fields,
+                  previousItemId:
+                    owner.subclasses.find((each) => each.equipped)?.itemInstanceId ?? null,
+                },
+                bungie.equipItem({
+                  itemId: subclass.itemInstanceId,
+                  characterId: owner.characterId,
+                  membershipType: inv.membershipType,
+                }),
+              )
+              yield* Effect.sleep(SPACING)
+            }
+            for (const swap of change.swaps) {
+              yield* call(
+                subclass,
+                "insert_subclass_plug",
+                {
+                  ...fields,
+                  socketIndex: swap.socketIndex,
+                  plugHash: swap.plugHash,
+                  previousPlugHash: swap.previousPlugHash,
+                },
+                bungie.insertPlug({
+                  itemId: subclass.itemInstanceId,
+                  characterId: owner.characterId,
+                  membershipType: inv.membershipType,
+                  socketIndex: swap.socketIndex,
+                  plugHash: swap.plugHash,
+                }),
+              ).pipe(Effect.mapError((reason) => `${swap.name}: ${reason}`))
+              yield* Effect.sleep(SPACING)
+            }
+          })
+
+        const change = plan.loadout?.change
+        const changed =
+          change === undefined
+            ? undefined
+            : picked.has(change.itemInstanceId)
+              ? yield* Effect.result(changeSubclass(change)).pipe(
+                  Effect.map(
+                    (result) =>
+                      new SubclassChange({
+                        ...change,
+                        outcome: result._tag === "Success" ? "ok" : "failed",
+                        error: result._tag === "Success" ? null : result.failure,
+                      }),
+                  ),
+                )
+              : yield* record({
+                  jobId,
+                  itemInstanceId: change.itemInstanceId,
+                  itemHash: change.itemHash,
+                  name: plan.loadout?.subclass ?? null,
+                  kind: "held",
+                  characterId: change.characterId,
+                  fromLocation: "character",
+                  fromCharacterId: change.characterId,
+                  previousItemId: null,
+                  status: "held",
+                  error: null,
+                }).pipe(Effect.as(new SubclassChange({ ...change, outcome: "skipped" })))
+
         const rows: Array<PlanRow> = []
         for (const row of plan.rows) {
           const finish = (outcome: RowOutcome | null, error: string | null) =>
             rows.push(new PlanRow({ ...row, outcome, error }))
+          const item = owned.get(row.itemInstanceId)
           if (row.action === "none") {
-            finish(null, null)
+            if (!swapsMods(row)) {
+              finish(null, null)
+              continue
+            }
+            if (!picked.has(row.itemInstanceId)) {
+              yield* record({
+                jobId,
+                itemInstanceId: row.itemInstanceId,
+                itemHash: row.itemHash,
+                name: row.name,
+                kind: "held",
+                characterId: row.characterId,
+                fromLocation: item?.location ?? null,
+                fromCharacterId: item?.characterId ?? null,
+                previousItemId: null,
+                status: "held",
+                error: null,
+              })
+              finish("skipped", null)
+              continue
+            }
+            if (item === undefined) {
+              finish("failed", "it is no longer in your inventory")
+              continue
+            }
+            const modded = yield* Effect.result(insertMods(row, item))
+            if (modded._tag === "Success") finish("ok", null)
+            else finish("failed", modded.failure)
             continue
           }
-          const item = owned.get(row.itemInstanceId)
           if (!picked.has(row.itemInstanceId)) {
             yield* record({
               jobId,
@@ -272,15 +503,24 @@ export const PlansLive = Layer.effect(
             finish("failed", "it is no longer in your inventory")
             continue
           }
-          const result = yield* Effect.result(runRow(row, item))
+          const result = yield* Effect.result(
+            runRow(row, item).pipe(Effect.andThen(insertMods(row, item))),
+          )
           if (result._tag === "Success") finish("ok", null)
           else finish("failed", result.failure)
           yield* Effect.sleep(SPACING)
         }
 
-        yield* jobs
-          .setPlan(jobId, new Plan({ ...plan, rows, status: "applied" }))
-          .pipe(Effect.orDie)
+        const loadout =
+          plan.loadout === undefined || changed === undefined
+            ? plan.loadout
+            : new SubclassLoadout({ ...plan.loadout, change: changed })
+        const applied = new Plan({ ...plan, rows, loadout, status: "applied" })
+        const saveTo =
+          plan.saveTo === undefined
+            ? undefined
+            : yield* saveLoadout(jobId, plan.saveTo, applied, inv)
+        yield* jobs.setPlan(jobId, new Plan({ ...applied, saveTo })).pipe(Effect.orDie)
         yield* items.tagJob([...moved], jobId).pipe(Effect.orDie)
         yield* profile.invalidate
         return yield* jobs.get(jobId).pipe(Effect.catchTag("SqlError", Effect.die))
@@ -290,7 +530,7 @@ export const PlansLive = Layer.effect(
       Effect.gen(function* () {
         const job = yield* jobs.get(jobId).pipe(Effect.catchTag("SqlError", Effect.die))
         const done = (yield* actions.forJobs([jobId]).pipe(Effect.orDie))
-          .filter((a) => a.status === "ok")
+          .filter((a) => a.status === "ok" && a.kind !== "snapshot_loadout")
           .reverse()
         if (done.length === 0) {
           return yield* new PlanNotApplicable({ reason: "nothing to undo" })
@@ -322,10 +562,21 @@ export const PlansLive = Layer.effect(
                       characterId: action.characterId,
                       membershipType,
                     })
-                  : action.kind === "tag_junk"
-                    ? items.setDecision(action.itemInstanceId, null).pipe(Effect.orDie)
-                    : // A postmaster pull cannot be reversed; the item stays on the character.
-                      Effect.void
+                  : (action.kind === "insert_mod" || action.kind === "insert_subclass_plug") &&
+                      action.characterId !== null &&
+                      Predicate.isNotNullish(action.socketIndex) &&
+                      Predicate.isNotNullish(action.previousPlugHash)
+                    ? bungie.insertPlug({
+                        itemId: action.itemInstanceId,
+                        characterId: action.characterId,
+                        membershipType,
+                        socketIndex: action.socketIndex,
+                        plugHash: action.previousPlugHash,
+                      })
+                    : action.kind === "tag_junk"
+                      ? items.setDecision(action.itemInstanceId, null).pipe(Effect.orDie)
+                      : // A postmaster pull cannot be reversed; the item stays on the character.
+                        Effect.void
           const result = yield* Effect.result(reverse)
           if (result._tag === "Success") {
             yield* actions.setStatus(action.id, "undone").pipe(Effect.orDie)
@@ -341,7 +592,13 @@ export const PlansLive = Layer.effect(
         }
 
         if (job.plan !== null && failures === 0) {
-          yield* jobs.setPlan(jobId, new Plan({ ...job.plan, status: "undone" })).pipe(Effect.orDie)
+          const saveTo =
+            job.plan.saveTo?.outcome === "ok"
+              ? new LoadoutSaveTo({ ...job.plan.saveTo, error: "The in-game slot was kept." })
+              : job.plan.saveTo
+          yield* jobs
+            .setPlan(jobId, new Plan({ ...job.plan, saveTo, status: "undone" }))
+            .pipe(Effect.orDie)
         }
         yield* profile.invalidate
         return yield* jobs.get(jobId).pipe(Effect.catchTag("SqlError", Effect.die))

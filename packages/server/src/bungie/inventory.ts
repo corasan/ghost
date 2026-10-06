@@ -1,14 +1,22 @@
 import {
+  type AbilityKind,
   CharacterStats,
   type DamageType,
   type GuardianClass,
   type ItemDecision,
   type ItemLocation,
   type ItemSlot,
+  ItemPerk,
   type ItemSummary,
 } from "@ghost/contract"
 import { Schema } from "effect"
-import { BUCKETS, damageForType, type ManifestItem, slotForBucket } from "./manifest.ts"
+import {
+  type ArmorSet,
+  BUCKETS,
+  damageForType,
+  type ManifestItem,
+  slotForBucket,
+} from "./manifest.ts"
 
 // Turns one GetProfile response into the flat list of owned items and the
 // per-character facts every screen and tool reads. Pure on purpose: the
@@ -28,6 +36,13 @@ export type RawItem = typeof RawItem.Type
 const Instance = Schema.Struct({
   damageType: Schema.optional(Schema.Number),
   primaryStat: Schema.optional(Schema.Struct({ value: Schema.Number })),
+  gearTier: Schema.optional(Schema.Number),
+  energy: Schema.optional(
+    Schema.Struct({
+      energyCapacity: Schema.optional(Schema.Number),
+      energyUsed: Schema.optional(Schema.Number),
+    }),
+  ),
 })
 
 const ItemStats = Schema.Struct({
@@ -61,7 +76,8 @@ const byInstance = <S extends Schema.Top>(value: S) =>
 
 // Components: 100 profile, 102 vault, 200 characters, 201 character
 // inventories (incl. postmaster), 205 equipment, 300 instances (power,
-// element), 304 item stats (armor totals), 305 sockets (weapon perks).
+// element), 304 item stats (armor totals), 305 sockets (weapon perks) and
+// the profile and character plug sets.
 export const PROFILE_COMPONENTS = [100, 102, 200, 201, 205, 300, 304, 305]
 
 export const Profile = Schema.Struct({
@@ -101,6 +117,96 @@ export type OwnedItem = Schema.Struct.Type<typeof ItemSummary.fields> & {
   readonly armorStats: ArmorStats | null
   /** Every plug in the weapon's sockets, in order; what wishlist rolls are matched against. */
   readonly plugHashes: ReadonlyArray<number>
+  /** Armor only: its mod sockets in socket order. */
+  readonly modSockets: ReadonlyArray<ModSocket>
+  readonly energy: { readonly used: number; readonly capacity: number } | null
+  /** Exotic armor only: its intrinsic perk. */
+  readonly exoticPerk: ItemPerk | null
+  /** Armor only: the armor set it belongs to. */
+  readonly set: ArmorSet | null
+}
+
+export interface ModSocket {
+  /** Position among the item's sockets, which is how Bungie addresses it. */
+  readonly index: number
+  readonly plugHash: number
+  readonly empty: boolean
+}
+
+export interface SubclassPlug {
+  readonly hash: number
+  readonly name: string
+  readonly description: string
+  readonly icon: string | null
+}
+
+export interface SlottedPlugs {
+  readonly super: SubclassPlug | null
+  readonly abilities: ReadonlyArray<SubclassPlug & { readonly kind: AbilityKind }>
+  readonly aspects: ReadonlyArray<SubclassPlug>
+  readonly fragments: ReadonlyArray<SubclassPlug>
+}
+
+const ARMOR_MOD = /\barmor mod$/i
+const EMPTY_SOCKET = /^empty /i
+
+export type SubclassPart = "super" | AbilityKind | "aspect" | "fragment"
+
+const PART_TYPES: ReadonlyArray<readonly [SubclassPart, RegExp]> = [
+  ["super", /\bsuper\b/i],
+  ["class", /\bclass ability\b/i],
+  ["jump", /\bmovement\b/i],
+  ["melee", /\bmelee\b/i],
+  ["grenade", /\bgrenade\b/i],
+  ["aspect", /\baspect\b/i],
+  ["fragment", /\bfragment\b/i],
+]
+
+export const ABILITY_KINDS: ReadonlyArray<AbilityKind> = ["class", "jump", "melee", "grenade"]
+
+/** Which part of a subclass a plug fills, read from its type name, such as "Void Fragment". */
+export const subclassPart = (typeName: string): SubclassPart | null =>
+  PART_TYPES.find(([, type]) => type.test(typeName))?.[0] ?? null
+
+export const isEmptyPlug = (name: string) => EMPTY_SOCKET.test(name)
+
+const toPlug = ({ hash, name, description, icon }: ManifestItem): SubclassPlug => ({
+  hash,
+  name,
+  description,
+  icon,
+})
+
+/** Sorts a subclass's slotted plugs into super, abilities, aspects and fragments; empty sockets are dropped. */
+export const slottedPlugs = (
+  plugHashes: ReadonlyArray<number>,
+  defs: ReadonlyMap<number, ManifestItem>,
+): SlottedPlugs => {
+  const plugs = plugHashes.flatMap((hash) => {
+    const def = defs.get(hash)
+    return def === undefined || EMPTY_SOCKET.test(def.name) ? [] : [def]
+  })
+  const of = (part: SubclassPart) =>
+    plugs.filter((plug) => subclassPart(plug.typeName) === part).map(toPlug)
+  return {
+    super: of("super")[0] ?? null,
+    abilities: ABILITY_KINDS.flatMap((kind) => {
+      const plug = of(kind)[0]
+      return plug === undefined ? [] : [{ ...plug, kind }]
+    }),
+    aspects: of("aspect"),
+    fragments: of("fragment"),
+  }
+}
+
+export interface OwnedSubclass {
+  readonly itemInstanceId: string
+  readonly itemHash: number
+  readonly name: string
+  readonly icon: string | null
+  readonly element: DamageType
+  readonly equipped: boolean
+  readonly sockets: ReadonlyArray<{ readonly plugHash: number; readonly enabled: boolean }>
 }
 
 export interface CharacterInfo {
@@ -108,7 +214,11 @@ export interface CharacterInfo {
   readonly classType: GuardianClass
   readonly light: number
   readonly subclass: string | null
+  readonly subclassIcon: string | null
+  readonly ghostIcon: string | null
   readonly element: DamageType
+  readonly loadout: SlottedPlugs
+  readonly subclasses: ReadonlyArray<OwnedSubclass>
   readonly stats: CharacterStats
   /** Everything in the postmaster, stackables included, since all of it counts toward 21. */
   readonly postmasterCount: number
@@ -121,7 +231,7 @@ export interface Inventory {
   readonly characters: ReadonlyArray<CharacterInfo>
   /** Instanced items only; materials and consumables are not things Ghost moves. */
   readonly items: ReadonlyArray<OwnedItem>
-  /** Every vault entry, stacks included, since that is what fills the 700 slots. */
+  /** Every vault entry, stacks included, since that is what fills the vault. */
   readonly vaultCount: number
 }
 
@@ -140,23 +250,28 @@ export const isArmor = (slot: ItemSlot) => ARMOR_SLOTS.has(slot)
 export const isWeapon = (slot: ItemSlot) => WEAPON_SLOTS.has(slot)
 
 // Older subclass definitions carry no damage type; their names do.
-const SUBCLASS_ELEMENTS: Record<string, DamageType> = {
-  Arcstrider: "arc",
-  Striker: "arc",
-  Stormcaller: "arc",
-  Gunslinger: "solar",
-  Sunbreaker: "solar",
-  Dawnblade: "solar",
-  Nightstalker: "void",
-  Sentinel: "void",
-  Voidwalker: "void",
-  Revenant: "stasis",
-  Behemoth: "stasis",
-  Shadebinder: "stasis",
-  Threadrunner: "strand",
-  Berserker: "strand",
-  Broodweaver: "strand",
-}
+const SUBCLASS_ELEMENTS = new Map<string, DamageType>([
+  ["Arcstrider", "arc"],
+  ["Striker", "arc"],
+  ["Stormcaller", "arc"],
+  ["Gunslinger", "solar"],
+  ["Sunbreaker", "solar"],
+  ["Dawnblade", "solar"],
+  ["Nightstalker", "void"],
+  ["Sentinel", "void"],
+  ["Voidwalker", "void"],
+  ["Revenant", "stasis"],
+  ["Behemoth", "stasis"],
+  ["Shadebinder", "stasis"],
+  ["Threadrunner", "strand"],
+  ["Berserker", "strand"],
+  ["Broodweaver", "strand"],
+])
+
+const elementOf = (subclass: ManifestItem): DamageType =>
+  subclass.damageType !== "none"
+    ? subclass.damageType
+    : (SUBCLASS_ELEMENTS.get(subclass.name) ?? "none")
 
 const statsFrom = (stats: Readonly<Record<string, number>>) =>
   new CharacterStats({
@@ -195,6 +310,7 @@ export const buildInventory = (
   profile: Profile,
   defs: ReadonlyMap<number, ManifestItem>,
   seen: ReadonlyMap<string, SeenInfo>,
+  sets: ReadonlyMap<number, ArmorSet>,
 ): Inventory => {
   const instances = profile.itemComponents?.instances?.data ?? {}
   const itemStats = profile.itemComponents?.stats?.data ?? {}
@@ -229,18 +345,43 @@ export const buildInventory = (
       )
     }
     for (const raw of equipment) place(raw, "character", c.characterId, true)
-    const subclassHash = equipment.find((i) => i.bucketHash === BUCKETS.subclass)?.itemHash
-    const subclass = subclassHash === undefined ? undefined : defs.get(subclassHash)
-    const subclassElement =
-      subclass === undefined || subclass.damageType !== "none"
-        ? subclass?.damageType
-        : SUBCLASS_ELEMENTS[subclass.name]
+    const subclassItem = equipment.find((i) => i.bucketHash === BUCKETS.subclass)
+    const subclass = subclassItem === undefined ? undefined : defs.get(subclassItem.itemHash)
+    const subclasses = [...equipment, ...inventory].flatMap((raw): Array<OwnedSubclass> => {
+      const def = defs.get(raw.itemHash)
+      if (raw.bucketHash !== BUCKETS.subclass || raw.itemInstanceId === undefined || !def) return []
+      return [
+        {
+          itemInstanceId: raw.itemInstanceId,
+          itemHash: raw.itemHash,
+          name: def.name,
+          icon: def.icon,
+          element: elementOf(def),
+          equipped: raw === subclassItem,
+          sockets: (sockets[raw.itemInstanceId]?.sockets ?? []).map((socket) => ({
+            plugHash: socket.plugHash ?? 0,
+            enabled: socket.isEnabled !== false,
+          })),
+        },
+      ]
+    })
     characters.push({
       characterId: c.characterId,
       classType: classFor(c.classType),
       light: c.light,
       subclass: subclass?.name ?? null,
-      element: subclassElement ?? "none",
+      subclassIcon: subclass?.icon ?? null,
+      ghostIcon:
+        defs.get(equipment.find((i) => i.bucketHash === BUCKETS.ghost)?.itemHash ?? 0)?.icon ??
+        null,
+      element: subclass === undefined ? "none" : elementOf(subclass),
+      loadout: slottedPlugs(
+        (sockets[subclassItem?.itemInstanceId ?? ""]?.sockets ?? []).flatMap((socket) =>
+          socket.plugHash === undefined ? [] : [socket.plugHash],
+        ),
+        defs,
+      ),
+      subclasses,
       stats: statsFrom(c.stats),
       postmasterCount: inventory.filter((i) => i.bucketHash === BUCKETS.postmaster).length,
     })
@@ -274,6 +415,22 @@ export const buildInventory = (
             : [socket.plugHash],
         )
       : []
+    const modSockets = armor
+      ? (sockets[id]?.sockets ?? []).flatMap((socket, index): Array<ModSocket> => {
+          const plug = socket.plugHash === undefined ? undefined : defs.get(socket.plugHash)
+          if (plug === undefined || socket.isVisible === false || !ARMOR_MOD.test(plug.typeName))
+            return []
+          return [{ index, plugHash: plug.hash, empty: EMPTY_SOCKET.test(plug.name) }]
+        })
+      : []
+    const intrinsic =
+      armor && def?.tier === "exotic"
+        ? (sockets[id]?.sockets ?? [])
+            .map((socket) =>
+              socket.plugHash === undefined ? undefined : defs.get(socket.plugHash),
+            )
+            .find((plug) => plug?.typeName === "Intrinsic" && plug.description !== "")
+        : undefined
     const perks = plugHashes.flatMap((hash) => {
       const plug = defs.get(hash)
       return plug !== undefined && plug.typeName.includes("Trait") ? [plug.name] : []
@@ -300,6 +457,7 @@ export const buildInventory = (
       classType: armor && def !== undefined && def.classType < 3 ? classFor(def.classType) : null,
       locked: (state & 1) !== 0,
       masterwork: (state & 4) !== 0,
+      gearTier: instance?.gearTier || null,
       statTotal:
         armorStats === null
           ? null
@@ -315,6 +473,21 @@ export const buildInventory = (
       acquiredAt: memory === undefined || memory.baseline ? null : memory.firstSeenAt,
       armorStats,
       plugHashes,
+      modSockets,
+      energy:
+        armor && instance?.energy?.energyCapacity !== undefined
+          ? { used: instance.energy.energyUsed ?? 0, capacity: instance.energy.energyCapacity }
+          : null,
+      exoticPerk:
+        intrinsic === undefined
+          ? null
+          : new ItemPerk({
+              name: intrinsic.name,
+              description: intrinsic.description,
+              icon: intrinsic.icon,
+              trait: false,
+            }),
+      set: armor ? (sets.get(raw.itemHash) ?? null) : null,
     }
   })
 

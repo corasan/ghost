@@ -53,6 +53,19 @@ describe("historyCalls", () => {
     ])
   })
 
+  test("armor mod and subclass plug inserts are told apart", () => {
+    const calls = [
+      call("insert_subclass_plug"),
+      call("insert_mod"),
+      call("insert_subclass_plug"),
+      call("insert_mod"),
+    ]
+    expect(labels(calls)).toEqual([
+      "insertSocketPlugFree → subclass ×2 [ok]",
+      "insertSocketPlugFree → mod ×2 [ok]",
+    ])
+  })
+
   test("no actions, no calls", () => {
     expect(historyCalls([])).toEqual([])
   })
