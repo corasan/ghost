@@ -18,6 +18,7 @@ import {
   type StatMod,
   SubclassChange,
   SubclassSwap,
+  Synergy,
 } from "@ghost/contract"
 import { Effect, Option, Schema } from "effect"
 import { Tool, Toolkit } from "effect/ai"
@@ -46,6 +47,7 @@ import {
 } from "../bungie/manifest.ts"
 import {
   ARMOR_STATS,
+  armorAfter,
   armorStats,
   buildStats,
   type MissedTarget,
@@ -152,7 +154,7 @@ const ListSubclasses = Tool.make("list_subclasses", {
 
 const PresentPlan = Tool.make("present_plan", {
   description:
-    "Show the player a plan to confirm. Nothing moves until they tap the confirm button; the server then runs the selected rows. Call it once per request, after deciding. Row actions: to_vault, to_character, pull_postmaster, equip, tag_junk, or none (shown for comparison only). For a build, list the armor piece for every slot, including pieces that stay equipped (action none). The app works out the build's six stat totals itself from the pieces you equip, before and after, and what masterworking would add, so do not do that arithmetic or repeat those numbers in your reply. For a build, also pick the subclass in subclass: its name (from list_subclasses) and the super, class ability, jump, melee, grenade, aspects and fragments you want, by the names list_subclasses gives. Anything you leave out stays as that subclass has it. Name the fragments the build needs; they go into empty slots first, then replace from the last slot back, and slots you leave spare keep their fragment. The aspects' fragment slots cap the fragments. The server checks the picks and tells you what to fix; on confirm it equips the subclass and slots the plugs, and the build's stats count the chosen fragments. Leave subclass out only when the equipped subclass and its plugs already fit. For a build, also recommend armor mods in mods: one entry per mod to put in, naming the piece (it must be a row) and the mod exactly as list_armor_mods gives it, with replaces when the piece has no free socket of that kind. Only list mods that change; what is already slotted stays. The server checks sockets and energy and tells you what to fix. Every armor charge mod the build will run (charged true in get_armor_mods or list_armor_mods, already slotted or swapped in) needs its numbers: if it has no chargeEffect yet, look up what it adds while charged and how extra copies stack, and pass it in chargeEffects with the source, for example '+10% Arc weapon damage; 17% with two copies, 22% with three'. For a build, also write situational: one to three sentences on what the build's conditional bonuses (armor charge mods, and fragments or aspects that only work under a condition) add together once they are up, how the player keeps them up, and what they lose when they drop. For a build, pass stats only for the stat goals the player names: one entry each, label Health, Melee, Grenade, Super, Class or Weapons (Resilience is Health, Recovery is Class), target true, and value the number they asked for. The server refuses a build whose totals, after armor, mods and fragments, fall short of a goal; if the owned gear truly cannot reach it, pass shortfall with one sentence on why.",
+    "Show the player a plan to confirm. Nothing moves until they tap the confirm button; the server then runs the selected rows. Call it once per request, after deciding. Row actions: to_vault, to_character, pull_postmaster, equip, tag_junk, or none (shown for comparison only). For a build, list the armor piece for every slot, including pieces that stay equipped (action none). The app works out the build's six stat totals itself from the pieces you equip, before and after, and what masterworking would add, so do not do that arithmetic or repeat those numbers in your reply. For a build, also pick the subclass in subclass: its name (from list_subclasses) and the super, class ability, jump, melee, grenade, aspects and fragments you want, by the names list_subclasses gives. Anything you leave out stays as that subclass has it. Name the fragments the build needs; they go into empty slots first, then replace from the last slot back, and slots you leave spare keep their fragment. The aspects' fragment slots cap the fragments. The server checks the picks and tells you what to fix; on confirm it equips the subclass and slots the plugs, and the build's stats count the chosen fragments. Leave subclass out only when the equipped subclass and its plugs already fit. For a build, also recommend armor mods in mods: one entry per mod to put in, naming the piece (it must be a row) and the mod exactly as list_armor_mods gives it, with replaces when the piece has no free socket of that kind. Only list mods that change; what is already slotted stays. The server checks sockets and energy and tells you what to fix. Every armor charge mod the build will run (charged true in get_armor_mods or list_armor_mods, already slotted or swapped in) needs its numbers: if it has no chargeEffect yet, look up what it adds while charged and how extra copies stack, and pass it in chargeEffects with the source, for example '+10% Arc weapon damage; 17% with two copies, 22% with three'. For a build, also write situational: one to three sentences on what the build's conditional bonuses (armor charge mods, and fragments or aspects that only work under a condition) add together once they are up, how the player keeps them up, and what they lose when they drop. For a build, also write synergy, one or two sentences per part on how it feeds the rest of the build: exotic, what the exotic armor's perk does for this subclass and its loop; setBonuses, how the set bonuses the armor turns on (get_armor_mods lists them) fit the loop; mods, how the armor mods back the loop. Leave out a part the build lacks; the server refuses a build that has a part without its synergy. For a build, pass stats only for the stat goals the player names: one entry each, label Health, Melee, Grenade, Super, Class or Weapons (Resilience is Health, Recovery is Class), target true, and value the number they asked for. The server refuses a build whose totals, after armor, mods and fragments, fall short of a goal; if the owned gear truly cannot reach it, pass shortfall with one sentence on why.",
   parameters: Schema.Struct({
     kind: PlanKind,
     title: Schema.String,
@@ -196,6 +198,7 @@ const PresentPlan = Tool.make("present_plan", {
       ),
     ),
     situational: Schema.optional(Schema.String),
+    synergy: Schema.optional(Schema.Struct(Synergy.fields)),
     shortfall: Schema.optional(Schema.String),
     subclass: Schema.optional(SubclassInput),
     sources: Schema.optional(Schema.Array(SourceInput)),
@@ -456,6 +459,28 @@ const describeMiss = (
   )
   return `${miss.label} ${miss.value}, asked ${miss.requested}${lowering.length > 0 ? ` (lowered by ${lowering.join(", ")})` : ""}`
 }
+
+/** The parts of a build whose synergy the agent has not written yet, each saying what to write. */
+export const synergyMissing = ({
+  exotic,
+  setBonuses,
+  modded,
+  synergy,
+}: {
+  readonly exotic: Pick<OwnedItem, "name" | "exoticPerk"> | undefined
+  readonly setBonuses: ReadonlyArray<SetBonus>
+  readonly modded: boolean
+  readonly synergy: Schema.Struct.Type<typeof Synergy.fields> | undefined
+}): ReadonlyArray<string> =>
+  [
+    exotic !== undefined && !synergy?.exotic?.trim()
+      ? `exotic, on what ${exotic.name}${exotic.exoticPerk === null ? "" : ` (${exotic.exoticPerk})`} does for this subclass and its loop`
+      : null,
+    setBonuses.length > 0 && !synergy?.setBonuses?.trim()
+      ? `setBonuses, on how the active set bonuses fit: ${setBonuses.map(setBonusLine).join(" / ")}`
+      : null,
+    modded && !synergy?.mods?.trim() ? "mods, on how the armor mods back the loop" : null,
+  ].filter((part) => part !== null)
 
 const statChanges = (mods: Readonly<Record<string, number>>) =>
   Object.entries(namedMods(mods) ?? {})
@@ -1092,17 +1117,21 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
               ...Object.entries(chosen?.statChange ?? {}),
             ])
               modChange[stat] = (modChange[stat] ?? 0) + delta
+            const worn =
+              builtFor === undefined
+                ? []
+                : inv.items.filter(
+                    (i) => i.equipped && i.characterId === builtFor.characterId && isArmor(i.slot),
+                  )
+            const incoming = pieces
+              .filter(({ row }) => row.action === "equip")
+              .map(({ item }) => item)
             const planStats =
               input.kind === "build" && builtFor !== undefined
                 ? buildStats({
                     character: builtFor,
-                    worn: inv.items.filter(
-                      (i) =>
-                        i.equipped && i.characterId === builtFor.characterId && isArmor(i.slot),
-                    ),
-                    incoming: pieces
-                      .filter(({ row }) => row.action === "equip")
-                      .map(({ item }) => item),
+                    worn,
+                    incoming,
                     targets: (input.stats ?? []).filter((s) => s.target).map((s) => s.label),
                     facts,
                     modChange,
@@ -1115,6 +1144,27 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
             const misses = input.kind === "build" ? missedTargets(planStats, goals) : []
             if (misses.length > 0 && input.shortfall === undefined) {
               return `Error: the build misses stat goals: ${misses.map((miss) => describeMiss(miss, loadout?.fragments ?? [])).join("; ")}. Raise them with other armor pieces, stat mods, or fragments that do not lower them, then call present_plan again. If the owned gear truly cannot reach a goal, call again with shortfall saying why in one sentence.`
+            }
+            const armor =
+              input.kind === "build" && builtFor !== undefined
+                ? armorAfter(worn, incoming).final
+                : []
+            const setBonuses = setBonusesFor(
+              armor.length > 0 ? yield* manifest.armorSets : [],
+              armor.map((item) => item.itemHash),
+            )
+            const unwritten = synergyMissing({
+              exotic: armor.find((item) => item.tier === "exotic"),
+              setBonuses,
+              modded: rows.some(
+                (row) =>
+                  armor.some((item) => item.itemInstanceId === row.itemInstanceId) &&
+                  (row.armorMods ?? []).length > 0,
+              ),
+              synergy: input.synergy,
+            })
+            if (unwritten.length > 0) {
+              return `Error: the build needs synergy, one or two sentences per part on how it feeds the rest of the build: ${unwritten.join("; ")}. Call present_plan again with synergy.`
             }
             const note =
               misses.length > 0 && input.shortfall !== undefined
@@ -1137,6 +1187,11 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
               rows,
               note,
               situational: input.situational,
+              setBonuses: setBonuses.length > 0 ? setBonuses : undefined,
+              synergy:
+                input.kind === "build" && input.synergy !== undefined
+                  ? new Synergy(input.synergy)
+                  : undefined,
               confirmLabel: input.confirmLabel,
               status: "proposed",
             })

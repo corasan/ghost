@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import type { ItemSlot } from "@ghost/contract"
+import { type ItemSlot, SetBonus } from "@ghost/contract"
 import { Effect, Layer } from "effect"
 import { Jev, JevUnavailable } from "../agent/jev.ts"
 import type { Inventory, OwnedItem, SubclassPart } from "../bungie/inventory.ts"
@@ -12,6 +12,7 @@ import {
   searchItems,
   subclassDetail,
   type SubclassView,
+  synergyMissing,
   topPerSlot,
 } from "./tools.ts"
 
@@ -271,5 +272,47 @@ describe("subclass detail", () => {
       ranking: "unavailable",
     })
     expect(run(undefined)).toEqual(subclassDetail(view, "titan"))
+  })
+})
+
+describe("synergyMissing", () => {
+  const forceConverter = new SetBonus({
+    name: "Force Converter",
+    description: "After a final blow with a Rocket Launcher, sprint to gain Speed Booster.",
+    icon: null,
+    set: "AION Renewal",
+    required: 2,
+    worn: 2,
+  })
+  const exotic = owned("x0", "chest", {
+    name: "Starfire Protocol",
+    tier: "exotic",
+    exoticPerk: "Fusion Overdrive: an extra grenade charge.",
+  })
+  const full = { exotic, setBonuses: [forceConverter], modded: true }
+
+  test("asks for every part the build has and lacks synergy for", () => {
+    const parts = synergyMissing({ ...full, synergy: { exotic: " " } })
+    expect(parts).toHaveLength(3)
+    expect(parts[0]).toContain("Starfire Protocol (Fusion Overdrive: an extra grenade charge.)")
+    expect(parts[1]).toContain(
+      "Force Converter (AION Renewal, 2 pieces, wearing 2): After a final blow",
+    )
+    expect(parts[2]).toStartWith("mods")
+  })
+
+  test("accepts a build once each of its parts has synergy", () => {
+    expect(
+      synergyMissing({
+        ...full,
+        synergy: { exotic: "Grenades.", setBonuses: "Speed.", mods: "Energy." },
+      }),
+    ).toEqual([])
+  })
+
+  test("asks for no part the build lacks", () => {
+    expect(
+      synergyMissing({ exotic: undefined, setBonuses: [], modded: false, synergy: undefined }),
+    ).toEqual([])
   })
 })
