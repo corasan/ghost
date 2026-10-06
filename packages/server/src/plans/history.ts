@@ -13,6 +13,7 @@ const CALL_NAMES: Record<Exclude<ActionKind, "held">, string> = {
   tag_junk: "tagJunk",
   insert_mod: "insertSocketPlugFree → mod",
   insert_subclass_plug: "insertSocketPlugFree → subclass",
+  snapshot_loadout: "snapshotLoadout",
 }
 
 type Grouped = Pick<ActionRecord, "kind" | "status" | "name" | "characterId">

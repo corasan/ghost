@@ -12,6 +12,7 @@ import { AgentConfig } from "../agent/settings.ts"
 import { Activity } from "../activity/activity.ts"
 import { BungieClient, type BungieError } from "../bungie/client.ts"
 import { Guardian } from "../bungie/guardian.ts"
+import { Builds } from "../builds/builds.ts"
 import { JobsRepo } from "../db/jobs.ts"
 import { Items } from "../items/items.ts"
 import { Plans } from "../plans/executor.ts"
@@ -114,17 +115,28 @@ const GuardianLive = HttpApiBuilder.group(GhostApi, "guardian", (handlers) =>
     ),
 )
 
-const notImplemented = (route: string) =>
-  Effect.die(new Error(`builds.${route} is not implemented`))
-
 const BuildsLive = HttpApiBuilder.group(GhostApi, "builds", (handlers) =>
   handlers
-    .handle("list", () => notImplemented("list"))
-    .handle("save", () => notImplemented("save"))
-    .handle("rename", () => notImplemented("rename"))
-    .handle("remove", () => notImplemented("remove"))
-    .handle("equip", () => notImplemented("equip"))
-    .handle("slots", () => notImplemented("slots")),
+    .handle("list", () => Effect.flatMap(Builds, (builds) => builds.list))
+    .handle("save", ({ payload }) =>
+      Effect.flatMap(Builds, (builds) => builds.save(payload)).pipe(
+        Effect.catchTag("BungieError", toBungieFailed),
+      ),
+    )
+    .handle("rename", ({ params, payload }) =>
+      Effect.flatMap(Builds, (builds) => builds.rename(params.id, payload.name)),
+    )
+    .handle("remove", ({ params }) => Effect.flatMap(Builds, (builds) => builds.remove(params.id)))
+    .handle("equip", ({ params, payload }) =>
+      Effect.flatMap(Builds, (builds) => builds.equip(params.id, payload)).pipe(
+        Effect.catchTag("BungieError", toBungieFailed),
+      ),
+    )
+    .handle("slots", ({ query }) =>
+      Effect.flatMap(Builds, (builds) => builds.slots(query.characterId)).pipe(
+        Effect.catchTag("BungieError", toBungieFailed),
+      ),
+    ),
 )
 
 const AgentLive = HttpApiBuilder.group(GhostApi, "agent", (handlers) =>
