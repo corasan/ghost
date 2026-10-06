@@ -164,28 +164,28 @@ export const modSwaps = (plan: Plan) =>
     0,
   )
 
-const subclassChange = (plan: Plan): string | null => {
-  const change = plan.loadout?.change
-  if (change === undefined) return null
-  if (change.replaces !== null) return `→ ${plan.loadout?.subclass ?? "subclass"}`
-  const plugs = change.swaps.length
-  return plugs === 0 ? null : `${plugs} subclass ${plugs === 1 ? "plug" : "plugs"}`
-}
-
 export const failures = (plan: Plan) =>
   plan.rows.filter((row) => row.outcome === "failed").length +
   (plan.loadout?.change?.outcome === "failed" ? 1 : 0)
 
-export const verdict = (plan: Plan) => {
+export type Tally = { readonly count: number; readonly label: string; readonly inGame?: true }
+
+export const tallies = (plan: Plan): ReadonlyArray<Tally> => {
   const acting = plan.rows.filter((row) => row.action !== "none")
   const moving = acting.filter((row) => row.origin !== undefined).length
-  const mods = modSwaps(plan)
-  const parts = [
-    moving > 0 ? `${moving} to move` : acting.length > 0 ? `${acting.length} to equip` : null,
-    subclassChange(plan),
-    mods > 0 ? `${mods} ${mods === 1 ? "mod" : "mods"}` : null,
-  ].filter((part) => part !== null)
-  return parts.length === 0 ? "Nothing changes" : parts.join(" · ")
+  const change = plan.loadout?.change
+  const subclass = change === undefined ? 0 : change.replaces !== null ? 1 : change.swaps.length
+  const toSelect =
+    plan.artifact?.picks.filter((pick) => pick.state === "select_in_game").length ?? 0
+  return [
+    { count: moving > 0 ? moving : acting.length, label: moving > 0 ? "move" : "equip" },
+    {
+      count: subclass,
+      label: change?.replaces === null ? (subclass === 1 ? "plug" : "plugs") : "subclass",
+    },
+    { count: modSwaps(plan), label: "mods" },
+    { count: toSelect, label: "in game", inGame: true as const },
+  ].filter((tally) => tally.count > 0)
 }
 
 const piecesAway = (bonus: SetBonus) => Math.max(0, bonus.required - bonus.worn)

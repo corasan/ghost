@@ -47,7 +47,7 @@ import {
   slotLabel,
   splitRows,
   synergyParts,
-  verdict,
+  tallies,
 } from "./plan-card"
 import { defaultSelection } from "./selection"
 import { placeTooltip } from "./tooltip"
@@ -384,13 +384,16 @@ describe("build card", () => {
     ])
   })
 
-  test("mod swaps are counted in the verdict and drawn as their own pip", () => {
+  test("mod swaps are counted in the tallies and drawn as their own pip", () => {
     const swap = new ArmorMod({ name: "Firepower", description: "", cost: 2, mods: [], swap: true })
     const helm = row("helm", { armorMods: [armorMod("Super Mod", [["SUPER", 10]]), swap] })
     const vaulted = row("arms", { action: "equip", origin: "VAULT", armorMods: [swap] })
     expect(modPips(helm)).toEqual(["stat", "swap"])
-    expect(verdict(plan({ rows: [helm] }))).toBe("1 mod")
-    expect(verdict(plan({ rows: [helm, vaulted] }))).toBe("1 to move · 2 mods")
+    expect(tallies(plan({ rows: [helm] }))).toEqual([{ count: 1, label: "mods" }])
+    expect(tallies(plan({ rows: [helm, vaulted] }))).toEqual([
+      { count: 1, label: "move" },
+      { count: 2, label: "mods" },
+    ])
   })
 
   test("a piece shows a pip per socket: stat mods, other mods, then free slots", () => {
@@ -417,7 +420,7 @@ describe("build card", () => {
     expect(bySlot(rows).map((each) => each.name)).toEqual(["helm", "legs", "mark"])
   })
 
-  test("a subclass change starts ticked and the verdict names the switch, or counts its plugs when the subclass stays", () => {
+  test("a subclass change starts ticked and the tallies count the switch, or its plugs when the subclass stays", () => {
     const change = (replaces: string | null, swaps: number) =>
       new SubclassChange({
         itemInstanceId: "sentinel",
@@ -451,22 +454,23 @@ describe("build card", () => {
       })
     const swap = new ArmorMod({ name: "Firepower", description: "", cost: 2, mods: [], swap: true })
     const helm = row("helm", { armorMods: [swap] })
-    expect(verdict(plan({ loadout: loadout("Behemoth", 3), rows: [helm] }))).toBe(
-      "→ Sentinel · 1 mod",
-    )
-    expect(verdict(plan({ loadout: loadout(null, 2) }))).toBe("2 subclass plugs")
+    expect(tallies(plan({ loadout: loadout("Behemoth", 3), rows: [helm] }))).toEqual([
+      { count: 1, label: "subclass" },
+      { count: 1, label: "mods" },
+    ])
+    expect(tallies(plan({ loadout: loadout(null, 2) }))).toEqual([{ count: 2, label: "plugs" }])
     expect([
       ...defaultSelection(plan({ loadout: loadout("Behemoth", 0), rows: [row("worn")] })),
     ]).toEqual(["sentinel"])
   })
 
-  test("the verdict counts pieces that come from elsewhere before pieces that only get equipped", () => {
+  test("the tallies count pieces that come from elsewhere before pieces that only get equipped", () => {
     const worn = row("worn")
     const carried = row("carried", { action: "equip" })
     const vaulted = row("vaulted", { action: "equip", origin: "VAULT" })
-    expect(verdict(plan({ rows: [worn] }))).toBe("Nothing changes")
-    expect(verdict(plan({ rows: [worn, carried] }))).toBe("1 to equip")
-    expect(verdict(plan({ rows: [worn, carried, vaulted] }))).toBe("1 to move")
+    expect(tallies(plan({ rows: [worn] }))).toEqual([])
+    expect(tallies(plan({ rows: [worn, carried] }))).toEqual([{ count: 1, label: "equip" }])
+    expect(tallies(plan({ rows: [worn, carried, vaulted] }))).toEqual([{ count: 1, label: "move" }])
   })
 
   describe("synergy", () => {

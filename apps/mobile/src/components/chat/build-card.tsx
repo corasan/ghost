@@ -21,7 +21,7 @@ import {
   slotLabel,
   splitRows,
   statTicks,
-  verdict,
+  tallies,
 } from "@/lib/plan-card"
 import { usePlanSelection } from "@/lib/selection"
 
@@ -229,23 +229,46 @@ function Tiles({
 
 function Verdict({ plan }: { plan: Plan }) {
   const failed = failures(plan)
-  if (plan.status === "undone") return <>Undone</>
-  if (plan.status === "applied") {
-    return failed > 0 ? (
-      <>
-        Applied · <Text style={{ color: Ghost.danger }}>{failed} failed</Text>
-      </>
-    ) : (
-      <>Applied</>
+  if (plan.status !== "proposed") {
+    return (
+      <Body size={14} color={Ghost.soft}>
+        {plan.status === "undone" ? "Undone" : "Applied"}
+        {plan.status === "applied" && failed > 0 ? (
+          <Text style={{ color: Ghost.danger }}> · {failed} failed</Text>
+        ) : null}
+      </Body>
     )
   }
-  const toSelect =
-    plan.artifact?.picks.filter((pick) => pick.state === "select_in_game").length ?? 0
+  const counts = tallies(plan)
+  if (counts.length === 0) {
+    return (
+      <Body size={14} color={Ghost.soft}>
+        Nothing changes
+      </Body>
+    )
+  }
   return (
-    <>
-      <Text style={{ color: Ghost.accent }}>{verdict(plan)}</Text>
-      {toSelect > 0 ? <Text style={{ color: Ghost.gold }}> · {toSelect} perks in game</Text> : null}
-    </>
+    <View style={styles.tallies}>
+      {counts.map((tally) => (
+        <View
+          key={tally.label}
+          accessible
+          accessibilityLabel={`${tally.count} ${tally.label}`}
+          style={styles.tally}
+        >
+          <Cond
+            size={18}
+            color={tally.inGame ? Ghost.gold : Ghost.accent}
+            style={{ lineHeight: 18 }}
+          >
+            {tally.count}
+          </Cond>
+          <Meta size={12} color={Ghost.dim}>
+            {tally.label}
+          </Meta>
+        </View>
+      ))}
+    </View>
   )
 }
 
@@ -280,9 +303,9 @@ export function BuildCard({ job, plan }: { job: Job; plan: Plan }) {
       ) : null}
 
       <View style={[styles.band, styles.verdict]}>
-        <Body size={14} color={Ghost.soft} style={{ flex: 1, lineHeight: 19 }}>
+        <View style={{ flex: 1 }}>
           <Verdict plan={plan} />
-        </Body>
+        </View>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Build details"
@@ -342,6 +365,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: Ghost.rule,
   },
+  tallies: { flexDirection: "row", flexWrap: "wrap", columnGap: 14, rowGap: 6 },
+  tally: { flexDirection: "row", alignItems: "baseline", gap: 4 },
   verdict: { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 12 },
   action: { flexDirection: "row", gap: 8, marginTop: 12 },
 })
