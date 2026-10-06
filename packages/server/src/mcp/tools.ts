@@ -54,7 +54,13 @@ import {
   unknownSubclass,
 } from "../plans/compose.ts"
 import { type BuildRecipe, PlanInput, SourceInput } from "../plans/recipe.ts"
-import { checkRoll, perkMatcher, type RollMatch, recommendations } from "../wishlist/parse.ts"
+import {
+  checkRoll,
+  perkMatcher,
+  type RollMatch,
+  recommendations,
+  scoreFor,
+} from "../wishlist/parse.ts"
 import { Wishlist, WISHLIST_URL } from "../wishlist/wishlist.ts"
 
 // These are the tools Claude sees. They read the cached inventory and the
@@ -657,31 +663,6 @@ export const findSubclassDetail = (
     )
   })
 
-// A full curated match is the strongest signal; "god" tags mark the
-// curator's top pick. Partial matches scale with how many listed perks the
-// roll has, and a trash match overrides everything.
-const scoreFor = (
-  full: ReadonlyArray<RollMatch>,
-  partial: ReadonlyArray<RollMatch>,
-  rolls: number,
-) => {
-  if (full.some((m) => m.roll.trash)) return { score: 10, basis: "matches a wishlist trash roll" }
-  const keepers = full.filter((m) => !m.roll.trash)
-  if (keepers.some((m) => m.roll.block.tags.some((t) => /god/i.test(t)))) {
-    return { score: 95, basis: "fully matches a wishlist roll tagged god" }
-  }
-  if (keepers.length > 0) return { score: 85, basis: "fully matches a wishlist roll" }
-  const best = partial[0]
-  if (best !== undefined) {
-    return {
-      score: Math.round(40 + (40 * best.matched) / best.total),
-      basis: `has ${best.matched} of ${best.total} perks of the closest wishlist roll`,
-    }
-  }
-  if (rolls > 0) return { score: 30, basis: "has none of the wishlist's recommended perks" }
-  return { score: null, basis: "the wishlist has no entries for this weapon" }
-}
-
 export const GhostToolkitHandlers = GhostToolkit.toLayer(
   Effect.gen(function* () {
     const profile = yield* ProfileStore
@@ -739,12 +720,13 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
       )
 
     const composing = <A, E>(
-      effect: Effect.Effect<A, E, Manifest | ProfileStore | ChargeEffects>,
+      effect: Effect.Effect<A, E, Manifest | ProfileStore | ChargeEffects | Wishlist>,
     ): Effect.Effect<A, E> =>
       effect.pipe(
         Effect.provideService(Manifest, manifest),
         Effect.provideService(ProfileStore, profile),
         Effect.provideService(ChargeEffects, chargeEffects),
+        Effect.provideService(Wishlist, wishlist),
       )
 
     const present_plan = (input: PlanInput) =>

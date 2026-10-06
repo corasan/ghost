@@ -285,3 +285,48 @@ export const recommendations = (
     combos: group.combos,
   }))
 }
+
+// A full curated match is the strongest signal; "god" tags mark the
+// curator's top pick. Partial matches scale with how many listed perks the
+// roll has, and a trash match overrides everything.
+export const scoreFor = (
+  full: ReadonlyArray<RollMatch>,
+  partial: ReadonlyArray<RollMatch>,
+  rolls: number,
+) => {
+  if (full.some((m) => m.roll.trash)) return { score: 10, basis: "matches a wishlist trash roll" }
+  const keepers = full.filter((m) => !m.roll.trash)
+  if (keepers.some((m) => m.roll.block.tags.some((t) => /god/i.test(t)))) {
+    return { score: 95, basis: "fully matches a wishlist roll tagged god" }
+  }
+  if (keepers.length > 0) return { score: 85, basis: "fully matches a wishlist roll" }
+  const best = partial[0]
+  if (best !== undefined) {
+    return {
+      score: Math.round(40 + (40 * best.matched) / best.total),
+      basis: `has ${best.matched} of ${best.total} perks of the closest wishlist roll`,
+    }
+  }
+  if (rolls > 0) return { score: 30, basis: "has none of the wishlist's recommended perks" }
+  return { score: null, basis: "the wishlist has no entries for this weapon" }
+}
+
+/** A weapon's trait perks, each good when the best wishlist roll it matches lists it, and its suggested score. */
+export const judgeWeapon = (
+  item: { readonly perks: ReadonlyArray<string>; readonly plugHashes: ReadonlyArray<number> },
+  rolls: ReadonlyArray<StoredRoll>,
+  nameOf: (hash: number) => string | undefined,
+) => {
+  const check = checkRoll(item.plugHashes, rolls, nameOf)
+  const best = check.full.find((match) => !match.roll.trash) ?? check.partial[0]
+  const listed = new Set(
+    (best?.roll.perkHashes ?? []).flatMap((hash) => {
+      const name = nameOf(hash)
+      return name === undefined ? [] : [perkKey(name)]
+    }),
+  )
+  return {
+    perks: item.perks.map((name) => ({ name, good: listed.has(perkKey(name)) })),
+    score: scoreFor(check.full, check.partial, rolls.length).score,
+  }
+}

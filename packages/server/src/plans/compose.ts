@@ -48,6 +48,8 @@ import { isActive, setBonusesFor } from "../bungie/sets.ts"
 import { planSubclass, subclassSockets, unlockedPlugs } from "../bungie/subclass.ts"
 import { ChargeEffects } from "../db/charge.ts"
 import { title } from "../items/items.ts"
+import { judgeWeapon, type StoredRoll } from "../wishlist/parse.ts"
+import { Wishlist } from "../wishlist/wishlist.ts"
 import type { BuildRecipe, SourceInput, SubclassInput } from "./recipe.ts"
 
 /** Why a plan cannot be made, worded for the agent to fix and call present_plan again. */
@@ -285,11 +287,35 @@ export interface ComposedBuild {
 
 const refuse = (message: string) => new BuildRefusal({ message })
 
+/** Each weapon's trait perks and wishlist score; a weapon reads as unscored when the wishlist is out of reach. */
+const judgeWeapons = (weapons: ReadonlyArray<OwnedItem>) =>
+  Effect.gen(function* () {
+    if (weapons.length === 0) return new Map<string, ReturnType<typeof judgeWeapon>>()
+    const manifest = yield* Manifest
+    const wishlist = yield* Wishlist
+    const rolls = yield* wishlist
+      .rollsFor(weapons.map((weapon) => weapon.itemHash))
+      .pipe(Effect.orElseSucceed((): ReadonlyMap<number, ReadonlyArray<StoredRoll>> => new Map()))
+    const defs = yield* manifest
+      .lookup([
+        ...weapons.flatMap((weapon) => weapon.plugHashes),
+        ...[...rolls.values()].flat().flatMap((roll) => roll.perkHashes),
+      ])
+      .pipe(Effect.orElseSucceed((): ReadonlyMap<number, ManifestItem> => new Map()))
+    const nameOf = (hash: number) => defs.get(hash)?.name
+    return new Map(
+      weapons.map((weapon) => [
+        weapon.itemInstanceId,
+        judgeWeapon(weapon, rolls.get(weapon.itemHash) ?? [], nameOf),
+      ]),
+    )
+  })
+
 /** Make the plan a recipe describes from what the player owns now. */
 export const composeBuild = (
   recipe: BuildRecipe,
   inv: Inventory,
-): Effect.Effect<ComposedBuild, BuildRefusal, Manifest | ProfileStore | ChargeEffects> =>
+): Effect.Effect<ComposedBuild, BuildRefusal, Manifest | ProfileStore | ChargeEffects | Wishlist> =>
   Effect.gen(function* () {
     const manifest = yield* Manifest
     const chargeEffects = yield* ChargeEffects
@@ -371,6 +397,11 @@ export const composeBuild = (
         })),
       )
       .pipe(Effect.orDie)
+    const weapons =
+      recipe.kind === "build"
+        ? pieces.filter(({ item }) => isWeapon(item.slot)).map(({ item }) => item)
+        : []
+    const judged = yield* judgeWeapons(weapons)
     const drafted = pieces.map(({ row: r, item }) => {
       const characterId =
         r.action === "pull_postmaster"
@@ -403,7 +434,7 @@ export const composeBuild = (
         tier: item.tier,
         meta: r.meta ?? DEFAULT_META[r.action](item, className),
         power: item.power,
-        score: r.score ?? null,
+        score: r.score ?? judged.get(item.itemInstanceId)?.score ?? null,
         action: r.action,
         characterId,
         selected:
@@ -424,6 +455,8 @@ export const composeBuild = (
             ? undefined
             : { used: mods.energyUsed, capacity: item.energy.capacity },
         origin: from === undefined ? undefined : title(from),
+        perks: judged.get(item.itemInstanceId)?.perks.map((perk) => new PlanPerk(perk)),
+        typeName: judged.has(item.itemInstanceId) ? item.typeName : undefined,
       })
     })
     const effects = yield* chargeEffects
@@ -527,10 +560,7 @@ export const composeBuild = (
     return {
       plan,
       armor,
-      weapons:
-        recipe.kind === "build"
-          ? pieces.filter(({ item }) => isWeapon(item.slot)).map(({ item }) => item)
-          : [],
+      weapons,
       misses,
       modSwaps: [...swapsFor.values()].flat().length,
       subclassChanges: chosen === null ? null : chosen.summary,

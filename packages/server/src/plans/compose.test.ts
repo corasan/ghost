@@ -5,6 +5,8 @@ import type { CharacterInfo, Inventory, OwnedItem } from "../bungie/inventory.ts
 import { Manifest } from "../bungie/manifest.ts"
 import { ProfileStore } from "../bungie/profile.ts"
 import { ChargeEffects } from "../db/charge.ts"
+import type { ManifestItem } from "../bungie/manifest.ts"
+import { Wishlist } from "../wishlist/wishlist.ts"
 import { buildRules, composeBuild, synergyMissing } from "./compose.ts"
 import type { BuildRecipe } from "./recipe.ts"
 
@@ -183,7 +185,46 @@ const weapon = (id: string, slot: ItemSlot, fields: Partial<OwnedItem> = {}) =>
     ...fields,
   })
 
-const kinetic = weapon("kinetic-1", "kinetic", { equipped: true })
+const kinetic = weapon("kinetic-1", "kinetic", {
+  itemHash: 500,
+  typeName: "Hand Cannon",
+  equipped: true,
+  perks: ["Outlaw", "Rampage"],
+  plugHashes: [101, 103],
+})
+
+const trait = (hash: number, name: string): ManifestItem => ({
+  hash,
+  name,
+  typeName: "Trait",
+  icon: null,
+  tier: "common",
+  slot: "other",
+  damageType: "none",
+  bucketHash: 0,
+  classType: 3,
+  description: "",
+})
+
+const traits = new Map([
+  [101, trait(101, "Outlaw")],
+  [102, trait(102, "Kill Clip")],
+  [103, trait(103, "Rampage")],
+])
+
+const outlawKillClip = {
+  itemHash: 500,
+  perkHashes: [101, 102],
+  trash: false,
+  block: {
+    notes: null,
+    tags: [],
+    sectionTitle: null,
+    sectionDescription: null,
+    sectionUrl: null,
+    sectionDate: null,
+  },
+}
 const energy = weapon("energy-1", "energy", { equipped: true })
 const energySpare = weapon("energy-2", "energy")
 const power = weapon("power-1", "power", { equipped: true })
@@ -208,7 +249,7 @@ const ComposeTest = Layer.mergeAll(
     elementIcons: Effect.succeed({}),
     capacities: Effect.succeed({ vault: 700, postmaster: 21 }),
     ensure: Effect.void,
-    lookup: () => Effect.succeed(new Map()),
+    lookup: () => Effect.succeed(traits),
     findByName: () => Effect.succeed([]),
   }),
   Layer.succeed(ProfileStore, {
@@ -219,6 +260,12 @@ const ComposeTest = Layer.mergeAll(
   Layer.succeed(ChargeEffects, {
     forMods: () => Effect.succeed(new Map()),
     record: () => Effect.void,
+  }),
+  Layer.succeed(Wishlist, {
+    ensure: Effect.void,
+    rollsFor: () => Effect.succeed(new Map([[500, [outlawKillClip]]])),
+    asOf: Effect.succeed(null),
+    source: Effect.die("unused"),
   }),
 )
 
@@ -264,6 +311,25 @@ describe("composeBuild", () => {
     expect(build.plan.stats.find((stat) => stat.label === "GRENADE")?.value).toBe(50)
     expect(build.subclassChanges).toBeNull()
     expect(build.plan.purpose).toBe("Solar Titan grenade build")
+  })
+
+  test("fills a weapon row's type, its perks the wishlist roll lists and the wishlist score", async () => {
+    const build = await Effect.runPromise(compose(recipe()))
+    const row = build.plan.rows.find((r) => r.itemInstanceId === "kinetic-1")
+    expect(row?.typeName).toBe("Hand Cannon")
+    expect(row?.perks?.map((perk) => [perk.name, perk.good])).toEqual([
+      ["Outlaw", true],
+      ["Rampage", false],
+    ])
+    expect(row?.score).toBe(60)
+  })
+
+  test("keeps the score the agent gave a weapon", async () => {
+    const rows = recipe().rows.map((row) =>
+      row.itemInstanceId === "kinetic-1" ? { ...row, score: 90 } : row,
+    )
+    const build = await Effect.runPromise(compose(recipe({ rows })))
+    expect(build.plan.rows.find((r) => r.itemInstanceId === "kinetic-1")?.score).toBe(90)
   })
 
   test("refuses ids the player does not own, word for word", async () => {
@@ -329,7 +395,7 @@ describe("buildRules", () => {
 
   test("refuses a build without synergy for its weapons", async () => {
     expect(await verdict(recipe({ synergy: { exotic: "Grenades." } }))).toStartWith(
-      "Error: the build needs synergy, one or two sentences per part on how it feeds the rest of the build: weapons, on how the three weapons feed the loop: Weapon kinetic-1 (Auto Rifle, kinetic)",
+      "Error: the build needs synergy, one or two sentences per part on how it feeds the rest of the build: weapons, on how the three weapons feed the loop: Weapon kinetic-1 (Hand Cannon, kinetic)",
     )
   })
 
