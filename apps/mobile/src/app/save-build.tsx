@@ -16,6 +16,7 @@ import {
 } from "@/lib/api"
 import { useCharacter, useWearer } from "@/lib/character"
 import { sentence } from "@/lib/format"
+import { useFooterHeight } from "@/lib/footer"
 import { useBottomInset } from "@/lib/insets"
 import { type SlotChoice, slotChoice } from "@/lib/loadout-slots"
 
@@ -115,18 +116,28 @@ function Sheet({
   footer: ReactNode
 }) {
   const bottomInset = useBottomInset()
+  const footerSlot = useFooterHeight()
   return (
     <View collapsable={false} style={{ flex: 1 }}>
       <ScrollView
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ padding: 20, paddingTop: 28, gap: 22 }}
+        contentContainerStyle={{
+          padding: 20,
+          paddingTop: 28,
+          paddingBottom: footerSlot.height + 28,
+          gap: 22,
+        }}
       >
         <Cond size={24} style={{ letterSpacing: 0.5 }}>
           {title}
         </Cond>
         {children}
       </ScrollView>
-      <View style={[styles.footer, { paddingBottom: bottomInset + 12 }]}>
+      <View
+        collapsable={false}
+        onLayout={footerSlot.onLayout}
+        style={[styles.footer, { paddingBottom: bottomInset + 12 }]}
+      >
         {error ? (
           <Body size={13} color={Ghost.danger}>
             {error}
@@ -305,6 +316,10 @@ const styles = StyleSheet.create({
   },
   where: { flexDirection: "row", gap: 12, paddingVertical: 10 },
   footer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
     gap: 8,
     paddingHorizontal: 20,
     paddingTop: 12,
