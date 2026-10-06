@@ -94,7 +94,7 @@ export function Tooltip({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Close"
-          onPressIn={onClose}
+          onPress={onClose}
           style={StyleSheet.absoluteFill}
         />
         {place ? (
