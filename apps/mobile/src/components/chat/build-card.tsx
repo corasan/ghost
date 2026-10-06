@@ -24,14 +24,13 @@ import {
   failures,
   hasStatMods,
   headline,
-  litTicks,
   type ModPip,
   modPips,
   pendingMasterwork,
   shortPlugName,
   signed,
   slotLabel,
-  STAT_TICKS,
+  statTicks,
   verdict,
 } from "@/lib/plan-card"
 import { usePlanSelection } from "@/lib/selection"
@@ -126,53 +125,70 @@ function Loadout({ loadout }: { loadout: SubclassLoadout }) {
   )
 }
 
+function Swatch({ color, label }: { color: string; label: string }) {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+      <View style={{ width: 8, height: 3, backgroundColor: color }} />
+      <Meta size={12} color={Ghost.dim}>
+        {label}
+      </Meta>
+    </View>
+  )
+}
+
 function Stats({ plan }: { plan: Plan }) {
   const applied = appliedTotals(plan)
+  const added = new Map(applied.map((mod) => [mod.label, mod.delta]))
   return (
     <View style={styles.band}>
-      <View style={{ flexDirection: "row", gap: 3 }}>
+      <View style={styles.statGrid}>
         {orderBuildStats(plan.stats).map((stat) => {
-          const tone = stat.target ? Ghost.good : Ghost.ink
+          const tone = stat.target ? Ghost.accent : Ghost.ink
+          const delta = added.get(stat.label) ?? 0
           return (
-            <View key={stat.label} style={{ flex: 1 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
-                <StatIcon label={stat.label} size={13} color={tone} />
-                <Cond size={24} color={tone} style={{ letterSpacing: 0, lineHeight: 26 }}>
+            <View key={stat.label} style={styles.stat}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <StatIcon
+                  label={stat.label}
+                  size={22}
+                  color={stat.target ? Ghost.accent : Ghost.muted}
+                />
+                <Meta color={stat.target ? Ghost.accent : Ghost.dim} lines={1}>
+                  {sentence(stat.label)}
+                </Meta>
+              </View>
+              <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6 }}>
+                <Cond size={34} color={tone} style={{ letterSpacing: 0, lineHeight: 34 }}>
                   {stat.value}
                 </Cond>
+                {delta !== 0 ? (
+                  <Mono size={10} color={delta > 0 ? Ghost.good : Ghost.danger}>
+                    {signed(delta)}
+                  </Mono>
+                ) : null}
               </View>
-              <Meta size={12} style={{ marginTop: 3 }} lines={1}>
-                {sentence(stat.label)}
-              </Meta>
-              <View style={{ flexDirection: "row", gap: 2, marginTop: 6 }}>
-                {Array.from({ length: STAT_TICKS }, (_, i) => (
-                  <View
-                    key={i}
-                    style={{
-                      flex: 1,
-                      height: 3,
-                      backgroundColor: i < litTicks(stat.value) ? tone : Ghost.line,
-                    }}
-                  />
+              <View style={{ flexDirection: "row", gap: 2 }}>
+                {statTicks(stat.value, delta).map((tick, i) => (
+                  <View key={i} style={styles.tick}>
+                    <View style={{ flex: tick.base, backgroundColor: tone }} />
+                    <View style={{ flex: tick.added, backgroundColor: Ghost.good }} />
+                    <View style={{ flex: 1 - tick.base - tick.added }} />
+                  </View>
                 ))}
               </View>
             </View>
           )
         })}
       </View>
-      {applied.length > 0 ? (
-        <Meta style={{ marginTop: 10 }}>
-          {hasStatMods(plan) ? "Fragments and mods applied" : "Fragments applied"}
-          {applied.map((mod) => (
-            <Text key={mod.label}>
-              {" · "}
-              <Text style={{ color: mod.delta > 0 ? Ghost.good : Ghost.danger }}>
-                {signed(mod.delta)} {sentence(mod.label)}
-              </Text>
-            </Text>
-          ))}
-        </Meta>
-      ) : null}
+      <View style={styles.legend}>
+        <Swatch color={Ghost.ink} label="Base" />
+        {applied.length > 0 ? (
+          <Swatch color={Ghost.good} label={hasStatMods(plan) ? "Fragments + mods" : "Fragments"} />
+        ) : null}
+        {plan.stats.some((stat) => stat.target) ? (
+          <Swatch color={Ghost.accent} label="Asked for" />
+        ) : null}
+      </View>
     </View>
   )
 }
@@ -394,6 +410,17 @@ const styles = StyleSheet.create({
   plugs: { flex: 1, flexDirection: "row", flexWrap: "wrap", columnGap: 12, rowGap: 6 },
   plug: { flexDirection: "row", alignItems: "center", gap: 6 },
   band: { marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: Ghost.rule },
+  statGrid: { flexDirection: "row", flexWrap: "wrap", columnGap: 14, rowGap: 18 },
+  stat: { width: "29%", flexGrow: 1, gap: 6 },
+  tick: { flex: 1, height: 4, flexDirection: "row", backgroundColor: Ghost.line },
+  legend: {
+    flexDirection: "row",
+    gap: 14,
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: Ghost.rule,
+  },
   verdict: { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 12 },
   action: { flexDirection: "row", marginTop: 12 },
 })

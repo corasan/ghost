@@ -30,7 +30,7 @@ import {
   bySlot,
   fragmentTotals,
   headline,
-  litTicks,
+  statTicks,
   modPips,
   setBonusLine,
   slotLabel,
@@ -310,8 +310,19 @@ describe("build card", () => {
     expect(headline(plan())).toBe("SUNBREAKER")
   })
 
-  test("a stat lights one tick per twenty points and tops out at two hundred", () => {
-    expect([17, 42, 165, 230].map(litTicks)).toEqual([0, 2, 8, 10])
+  test("a stat fills one tick per twenty points and tops out at two hundred", () => {
+    const filled = (value: number) => statTicks(value, 0).reduce((sum, tick) => sum + tick.base, 0)
+    expect([10, 42, 165, 230].map(filled)).toEqual([0.5, 2.1, 8.25, 10])
+  })
+
+  test("the points fragments and mods add fill the ticks after the base", () => {
+    expect(statTicks(110, 30).slice(3, 6)).toEqual([
+      { base: 1, added: 0 },
+      { base: 0, added: 1 },
+      { base: 0, added: 0.5 },
+    ])
+    expect(statTicks(90, 30)[3]).toEqual({ base: 0, added: 1 })
+    expect(statTicks(50, -10)[2]).toEqual({ base: 0.5, added: 0 })
   })
 
   test("fragment changes add up per stat, gains first, and cancel out", () => {

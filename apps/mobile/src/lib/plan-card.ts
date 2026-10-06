@@ -21,8 +21,17 @@ export const headline = (plan: Plan) => {
 const POINTS_PER_TICK = 20
 export const STAT_TICKS = 10
 
-export const litTicks = (value: number) =>
-  Math.max(0, Math.min(STAT_TICKS, Math.floor(value / POINTS_PER_TICK)))
+const fill = (points: number, tick: number) =>
+  Math.max(0, Math.min(1, (points - tick * POINTS_PER_TICK) / POINTS_PER_TICK))
+
+export type StatTick = { base: number; added: number }
+
+/** How full each tick is, split into the stat without fragments and mods and the part they add. */
+export const statTicks = (value: number, added: number): StatTick[] =>
+  Array.from({ length: STAT_TICKS }, (_, tick) => {
+    const base = fill(value - Math.max(0, added), tick)
+    return { base, added: fill(value, tick) - base }
+  })
 
 const totals = (lists: readonly (readonly StatMod[])[]): StatMod[] => {
   const sums = new Map<string, number>()
