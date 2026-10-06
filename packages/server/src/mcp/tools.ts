@@ -769,8 +769,12 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
             const plan = new Plan({
               ...build.plan,
               setBonuses: judged.setBonuses.length > 0 ? judged.setBonuses : undefined,
+              saveable: recipe.kind === "build" ? true : undefined,
             })
             yield* jobs.setPlan(job.value.id, plan).pipe(Effect.orDie)
+            if (recipe.kind === "build") {
+              yield* jobs.setRecipe(job.value.id, recipe).pipe(Effect.orDie)
+            }
             if (recipe.sources !== undefined && recipe.sources.length > 0) {
               yield* jobs.addSources(job.value.id, toSources(recipe.sources)).pipe(Effect.orDie)
             }

@@ -213,6 +213,7 @@ describe("composeBuild", () => {
     expect(build.armor.map((item) => item.itemInstanceId)).toEqual(["chest-exotic"])
     expect(build.plan.stats.find((stat) => stat.label === "GRENADE")?.value).toBe(50)
     expect(build.subclassChanges).toBeNull()
+    expect(build.plan.purpose).toBe("Solar Titan grenade build")
   })
 
   test("refuses ids the player does not own, word for word", async () => {

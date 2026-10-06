@@ -478,6 +478,7 @@ export const composeBuild = (
           : undefined,
       confirmLabel: recipe.confirmLabel,
       status: "proposed",
+      purpose: recipe.kind === "build" ? recipe.purpose : undefined,
     })
     return {
       plan,
