@@ -1,9 +1,9 @@
 import { SetBonus } from "@ghost/contract"
 import type { ArmorSet } from "./manifest.ts"
 
-/** The name of the set each armor item hash belongs to. */
-export const setNames = (sets: ReadonlyArray<ArmorSet>): ReadonlyMap<number, string> =>
-  new Map(sets.flatMap((set) => set.items.map((hash): [number, string] => [hash, set.name])))
+/** The set each armor item hash belongs to. */
+export const setsByItem = (sets: ReadonlyArray<ArmorSet>): ReadonlyMap<number, ArmorSet> =>
+  new Map(sets.flatMap((set) => set.items.map((hash): [number, ArmorSet] => [hash, set])))
 
 export const isActive = (bonus: Pick<SetBonus, "required" | "worn">) => bonus.worn >= bonus.required
 

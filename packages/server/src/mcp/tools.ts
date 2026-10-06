@@ -13,7 +13,7 @@ import {
   PlanPerk,
   PlanRow,
   PlanStat,
-  type SetBonus,
+  SetBonus,
   Source,
   type StatMod,
   SubclassChange,
@@ -40,6 +40,7 @@ import {
 } from "../bungie/inventory.ts"
 import {
   type ArmorModEntry,
+  type ArmorSet,
   Manifest,
   type ManifestItem,
   type PlugFacts,
@@ -154,7 +155,7 @@ const ListSubclasses = Tool.make("list_subclasses", {
 
 const PresentPlan = Tool.make("present_plan", {
   description:
-    "Show the player a plan to confirm. Nothing moves until they tap the confirm button; the server then runs the selected rows. Call it once per request, after deciding. Row actions: to_vault, to_character, pull_postmaster, equip, tag_junk, or none (shown for comparison only). For a build, list the armor piece for every slot, including pieces that stay equipped (action none). The app works out the build's six stat totals itself from the pieces you equip, before and after, and what masterworking would add, so do not do that arithmetic or repeat those numbers in your reply. For a build, also pick the subclass in subclass: its name (from list_subclasses) and the super, class ability, jump, melee, grenade, aspects and fragments you want, by the names list_subclasses gives. Anything you leave out stays as that subclass has it. Name the fragments the build needs; they go into empty slots first, then replace from the last slot back, and slots you leave spare keep their fragment. The aspects' fragment slots cap the fragments. The server checks the picks and tells you what to fix; on confirm it equips the subclass and slots the plugs, and the build's stats count the chosen fragments. Leave subclass out only when the equipped subclass and its plugs already fit. For a build, also recommend armor mods in mods: one entry per mod to put in, naming the piece (it must be a row) and the mod exactly as list_armor_mods gives it, with replaces when the piece has no free socket of that kind. Only list mods that change; what is already slotted stays. The server checks sockets and energy and tells you what to fix. Every armor charge mod the build will run (charged true in get_armor_mods or list_armor_mods, already slotted or swapped in) needs its numbers: if it has no chargeEffect yet, look up what it adds while charged and how extra copies stack, and pass it in chargeEffects with the source, for example '+10% Arc weapon damage; 17% with two copies, 22% with three'. For a build, also write situational: one to three sentences on what the build's conditional bonuses (armor charge mods, and fragments or aspects that only work under a condition) add together once they are up, how the player keeps them up, and what they lose when they drop. For a build, also write synergy, one or two sentences per part on how it feeds the rest of the build: exotic, what the exotic armor's perk does for this subclass and its loop; setBonuses, how the set bonuses the armor turns on (get_armor_mods lists them) fit the loop; mods, how the armor mods back the loop. Leave out a part the build lacks; the server refuses a build that has a part without its synergy. For a build, pass stats only for the stat goals the player names: one entry each, label Health, Melee, Grenade, Super, Class or Weapons (Resilience is Health, Recovery is Class), target true, and value the number they asked for. The server refuses a build whose totals, after armor, mods and fragments, fall short of a goal; if the owned gear truly cannot reach it, pass shortfall with one sentence on why.",
+    "Show the player a plan to confirm. Nothing moves until they tap the confirm button; the server then runs the selected rows. Call it once per request, after deciding. Row actions: to_vault, to_character, pull_postmaster, equip, tag_junk, or none (shown for comparison only). For a build, list the armor piece for every slot, including pieces that stay equipped (action none). The app works out the build's six stat totals itself from the pieces you equip, before and after, and what masterworking would add, so do not do that arithmetic or repeat those numbers in your reply. For a build, also pick the subclass in subclass: its name (from list_subclasses) and the super, class ability, jump, melee, grenade, aspects and fragments you want, by the names list_subclasses gives. Anything you leave out stays as that subclass has it. Name the fragments the build needs; they go into empty slots first, then replace from the last slot back, and slots you leave spare keep their fragment. The aspects' fragment slots cap the fragments. The server checks the picks and tells you what to fix; on confirm it equips the subclass and slots the plugs, and the build's stats count the chosen fragments. Leave subclass out only when the equipped subclass and its plugs already fit. For a build, also recommend armor mods in mods: one entry per mod to put in, naming the piece (it must be a row) and the mod exactly as list_armor_mods gives it, with replaces when the piece has no free socket of that kind. Only list mods that change; what is already slotted stays. The server checks sockets and energy and tells you what to fix. Every armor charge mod the build will run (charged true in get_armor_mods or list_armor_mods, already slotted or swapped in) needs its numbers: if it has no chargeEffect yet, look up what it adds while charged and how extra copies stack, and pass it in chargeEffects with the source, for example '+10% Arc weapon damage; 17% with two copies, 22% with three'. For a build, also write situational: one to three sentences on what the build's conditional bonuses (armor charge mods, and fragments or aspects that only work under a condition) add together once they are up, how the player keeps them up, and what they lose when they drop. For a build, also write synergy, one or two sentences per part on how it feeds the rest of the build: exotic, what the exotic armor's perk does for this subclass and its loop; setBonuses, how the set bonuses the armor turns on (get_armor_mods lists them) fit the loop, plus any bonus one piece away worth chasing; mods, how the armor mods back the loop. Leave out a part the build lacks; the server refuses a build that has a part without its synergy. For a build, also pass purpose; the server judges the set bonuses against it and tells you when one the armor turns on fits the build poorly. Prefer armor whose set bonuses fit the build. For a build, pass stats only for the stat goals the player names: one entry each, label Health, Melee, Grenade, Super, Class or Weapons (Resilience is Health, Recovery is Class), target true, and value the number they asked for. The server refuses a build whose totals, after armor, mods and fragments, fall short of a goal; if the owned gear truly cannot reach it, pass shortfall with one sentence on why.",
   parameters: Schema.Struct({
     kind: PlanKind,
     title: Schema.String,
@@ -199,6 +200,12 @@ const PresentPlan = Tool.make("present_plan", {
     ),
     situational: Schema.optional(Schema.String),
     synergy: Schema.optional(Schema.Struct(Synergy.fields)),
+    purpose: Schema.optional(
+      Schema.String.annotate({
+        description:
+          "What the build does, in plain words: subclass and element, activity, stat goals and playstyle, for example 'Void Sentinel Titan build, 100 Health and 100 Class, overshields and Devour'. Pass it for every build, so the set bonuses can be judged against it.",
+      }),
+    ),
     shortfall: Schema.optional(Schema.String),
     subclass: Schema.optional(SubclassInput),
     sources: Schema.optional(Schema.Array(SourceInput)),
@@ -234,8 +241,16 @@ const ModSlot = Schema.Literals(["general", "helmet", "arms", "chest", "legs", "
 
 const GetArmorMods = Tool.make("get_armor_mods", {
   description:
-    "What is slotted in owned armor pieces right now: each piece's energy (used and capacity) and its mod sockets, with the kind of mod each takes (general or the piece's slot), the mod in it, its energy cost and any stats it adds. Sockets of kind other (tuning, set bonuses) cannot be changed by a plan. Each piece names the armor set it belongs to, and setBonuses lists the set bonuses the pieces turn on together (status on) and those one more piece of the set would turn on (status one piece away); a bonus needs that many pieces of its set worn. Call it with every armor piece of a build before recommending mods, so the mods and the set bonuses can back the same loop.",
-  parameters: Schema.Struct({ itemInstanceIds: Schema.Array(Schema.String) }),
+    "What is slotted in owned armor pieces right now: each piece's energy (used and capacity) and its mod sockets, with the kind of mod each takes (general or the piece's slot), the mod in it, its energy cost and any stats it adds. Sockets of kind other (tuning, set bonuses) cannot be changed by a plan. Each piece names the armor set it belongs to, and setBonuses lists the set bonuses the pieces turn on together (status on) and those one more piece of the set would turn on (status one piece away); a bonus needs that many pieces of its set worn. With purpose, each set bonus gets a fit from 0 to 1, how well it serves that build; prefer armor whose set bonuses fit, and when a bonus one piece away fits well, weigh swapping a piece to turn it on. If the result says ranking unavailable, nothing has a fit. Call it with every armor piece of a build before recommending mods, so the mods and the set bonuses can back the same loop.",
+  parameters: Schema.Struct({
+    itemInstanceIds: Schema.Array(Schema.String),
+    purpose: Schema.optional(
+      Schema.String.annotate({
+        description:
+          "What the build does, in plain words: subclass and element, activity, stat goals and playstyle, for example 'Void Sentinel Titan build, 100 Health and 100 Class, overshields and Devour'. Pass it when weighing a build's armor, so its set bonuses are judged against it.",
+      }),
+    ),
+  }),
   success: Json,
 })
 
@@ -325,6 +340,7 @@ const setBonusLine = (bonus: SetBonus) =>
 const setBonusRow = (bonus: SetBonus) => ({
   status: isActive(bonus) ? "on" : "one piece away",
   bonus: setBonusLine(bonus),
+  fit: bonus.fit,
 })
 
 const compact = (i: OwnedItem) => ({
@@ -346,7 +362,7 @@ const compact = (i: OwnedItem) => ({
   stats: i.armorStats === null ? undefined : named(i.armorStats),
   perks: i.perks.length > 0 ? i.perks : undefined,
   exoticPerk: i.exoticPerk ?? undefined,
-  set: i.set ?? undefined,
+  set: i.set?.name,
   duplicates: i.duplicates,
   decision: i.decision ?? undefined,
 })
@@ -386,6 +402,9 @@ const statsHighestFirst = (stats: ArmorStats) =>
     .toSorted((a, b) => b[1] - a[1])
     .map(([label, value]) => `${label} ${value}`)
 
+const setPerkText = (perk: ArmorSet["perks"][number]) =>
+  `${perk.required} pieces ${perk.name} (${oneLine(clip(perk.description, 300) ?? "")})`
+
 export const rankingText = (i: OwnedItem) => {
   const stats = i.armorStats === null ? [] : statsHighestFirst(i.armorStats)
   return [
@@ -397,7 +416,7 @@ export const rankingText = (i: OwnedItem) => {
     stats.length > 0 ? `stats, highest first: ${stats.join(", ")} (total ${i.statTotal})` : null,
     i.perks.length > 0 ? `perks: ${i.perks.join(", ")}` : null,
     i.exoticPerk === null ? null : `exotic perk: ${i.exoticPerk}`,
-    i.set === null ? null : `armor set: ${i.set}`,
+    i.set === null ? null : `armor set ${i.set.name}: ${i.set.perks.map(setPerkText).join(", ")}`,
   ]
     .filter((part) => part !== null)
     .join("; ")
@@ -464,6 +483,44 @@ const describeMiss = (
   )
   return `${miss.label} ${miss.value}, asked ${miss.requested}${lowering.length > 0 ? ` (lowered by ${lowering.join(", ")})` : ""}`
 }
+
+const setBonusText = (bonus: SetBonus) =>
+  `${bonus.name}; ${bonus.set} armor set bonus for wearing ${bonus.required} pieces; effect: ${oneLine(clip(bonus.description, 300) ?? "")}`
+
+interface JudgedSetBonuses {
+  readonly setBonuses: ReadonlyArray<SetBonus>
+  readonly ranking?: "unavailable"
+}
+
+/** The set bonuses, each with Jev's fit for the build `purpose` describes. */
+export const judgeSetBonuses = (
+  purpose: string | undefined,
+  setBonuses: ReadonlyArray<SetBonus>,
+): Effect.Effect<JudgedSetBonuses, never, Jev> =>
+  Effect.gen(function* () {
+    if (purpose === undefined || setBonuses.length === 0) return { setBonuses }
+    const jev = yield* Jev
+    return yield* jev
+      .rank(
+        purpose,
+        setBonuses.map((bonus, i) => ({ id: String(i), text: setBonusText(bonus) })),
+        "set bonus",
+      )
+      .pipe(
+        Effect.map((fit) => ({
+          setBonuses: setBonuses.map(
+            (bonus, i) => new SetBonus({ ...bonus, fit: round2(fit.get(String(i)) ?? 0) }),
+          ),
+        })),
+        Effect.catchTag("JevUnavailable", () =>
+          Effect.succeed({ setBonuses, ranking: "unavailable" as const }),
+        ),
+      )
+  })
+
+/** Active set bonuses Jev judged a poor fit for the build. */
+export const offBuildBonuses = (setBonuses: ReadonlyArray<SetBonus>) =>
+  setBonuses.filter((bonus) => isActive(bonus) && bonus.fit !== undefined && bonus.fit < 0.5)
 
 /** The parts of a build whose synergy the agent has not written yet, each saying what to write. */
 export const synergyMissing = ({
@@ -1173,6 +1230,10 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
             if (unwritten.length > 0) {
               return `Error: the build needs synergy, one or two sentences per part on how it feeds the rest of the build: ${unwritten.join("; ")}. Call present_plan again with synergy.`
             }
+            const judged = yield* judgeSetBonuses(input.purpose, setBonuses).pipe(
+              Effect.provideService(Jev, jev),
+            )
+            const offBuild = offBuildBonuses(judged.setBonuses)
             const note =
               misses.length > 0 && input.shortfall !== undefined
                 ? [input.shortfall, input.note].filter((part) => part !== undefined).join(" ")
@@ -1194,7 +1255,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
               rows,
               note,
               situational: input.situational,
-              setBonuses: setBonuses.length > 0 ? setBonuses : undefined,
+              setBonuses: judged.setBonuses.length > 0 ? judged.setBonuses : undefined,
               synergy:
                 input.kind === "build" && input.synergy !== undefined
                   ? new Synergy(input.synergy)
@@ -1227,7 +1288,11 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
                 : chosen.summary.length > 0
                   ? ` Subclass: ${chosen.summary.join(", ")}.`
                   : " Subclass: already as picked, nothing changes."
-            return `Plan saved with ${rows.length} rows (${actionable} actionable, ${swapped} mod swaps).${subclassNote} The player will see it under your answer and confirm in the app.${missing}`
+            const offBuildNote =
+              offBuild.length > 0
+                ? ` These set bonuses the armor turns on fit the build poorly: ${offBuild.map((bonus) => `${bonus.name} (${bonus.set}, fit ${bonus.fit})`).join(", ")}; tell the player the trade-off or reconsider the armor.`
+                : ""
+            return `Plan saved with ${rows.length} rows (${actionable} actionable, ${swapped} mod swaps).${subclassNote} The player will see it under your answer and confirm in the app.${missing}${offBuildNote}`
           }),
         )
       })
@@ -1312,9 +1377,8 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
 
     const get_armor_mods = ({
       itemInstanceIds,
-    }: {
-      readonly itemInstanceIds: ReadonlyArray<string>
-    }) =>
+      purpose,
+    }: (typeof GetArmorMods)["parametersSchema"]["Type"]) =>
       withInventory((inv) =>
         Effect.gen(function* () {
           const picked = inv.items.filter(
@@ -1335,20 +1399,24 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
                 .flatMap((socket) => (socket.mod?.charged ? [socket.mod.name] : [])),
             )
             .pipe(Effect.orDie)
-          const sets = yield* manifest.armorSets
+          const judged = yield* judgeSetBonuses(
+            purpose,
+            setBonusesFor(
+              yield* manifest.armorSets,
+              picked.map((item) => item.itemHash),
+            ),
+          ).pipe(Effect.provideService(Jev, jev))
           return JSON.stringify({
             unknownIds: itemInstanceIds.filter(
               (id) => !picked.some((i) => i.itemInstanceId === id),
             ),
-            setBonuses: setBonusesFor(
-              sets,
-              picked.map((item) => item.itemHash),
-            ).map(setBonusRow),
+            ranking: judged.ranking,
+            setBonuses: judged.setBonuses.map(setBonusRow),
             pieces: picked.map((item) => ({
               id: item.itemInstanceId,
               name: item.name,
               slot: item.slot,
-              set: item.set ?? undefined,
+              set: item.set?.name,
               energy: item.energy,
               sockets: (sockets.get(item.itemInstanceId) ?? []).map((socket) => ({
                 kind: modSlotOf(socket.category) ?? "other",

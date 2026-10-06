@@ -8,6 +8,8 @@ import {
   findArmorMods,
   findItems,
   findSubclassDetail,
+  judgeSetBonuses,
+  offBuildBonuses,
   rankingText,
   searchItems,
   subclassDetail,
@@ -102,9 +104,17 @@ describe("rankingText", () => {
     ).toContain("exotic perk: Phoenix Rising: Sunspots heal allies.")
   })
 
-  test("names the armor set a piece belongs to", () => {
-    expect(rankingText(owned("s0", "arms", { set: "AION Renewal" }))).toContain(
-      "armor set: AION Renewal",
+  test("names the armor set a piece belongs to with what each of its bonuses does", () => {
+    const set = {
+      name: "Last Discipline",
+      items: [1],
+      perks: [
+        { name: "Terminal Velocity", description: "Sprint\n faster.", icon: null, required: 2 },
+        { name: "Power Loader", description: "Reload heavy.", icon: null, required: 4 },
+      ],
+    }
+    expect(rankingText(owned("s0", "arms", { set }))).toEndWith(
+      "; armor set Last Discipline: 2 pieces Terminal Velocity (Sprint faster.), 4 pieces Power Loader (Reload heavy.)",
     )
   })
 })
@@ -334,5 +344,65 @@ describe("synergyMissing", () => {
     expect(
       synergyMissing({ exotic: undefined, setBonuses: [], modded: false, synergy: undefined }),
     ).toEqual([])
+  })
+})
+
+const bonus = (name: string, required: number, worn: number, fit?: number) =>
+  new SetBonus({
+    name,
+    description: `${name} effect`,
+    icon: null,
+    set: "Techsec",
+    required,
+    worn,
+    fit,
+  })
+
+describe("judgeSetBonuses", () => {
+  const bonuses = [bonus("Two", 2, 3), bonus("Four", 4, 3), bonus("Six", 6, 5)]
+  const judge = (purpose: string | undefined, jev: Layer.Layer<Jev>) =>
+    Effect.runSync(judgeSetBonuses(purpose, bonuses).pipe(Effect.provide(jev)))
+
+  test("gives each bonus Jev's fit, rounded, asking about set bonuses, in the order given", () => {
+    const subjects: Array<string | undefined> = []
+    const recording = Layer.succeed(Jev, {
+      rank: (intent, candidates, subject) => {
+        subjects.push(subject)
+        return Effect.succeed(
+          new Map(candidates.map((c, i) => [c.id, (i + 1) / candidates.length])),
+        )
+      },
+    })
+    const judged = judge("Arc Hunter melee build", recording)
+    expect(judged.setBonuses.map((b) => [b.name, b.fit])).toEqual([
+      ["Two", 0.33],
+      ["Four", 0.67],
+      ["Six", 1],
+    ])
+    expect(judged.ranking).toBeUndefined()
+    expect(subjects).toEqual(["set bonus"])
+  })
+
+  test("leaves fit off and says so when Jev is unavailable", () => {
+    const judged = judge("Arc Hunter melee build", failing)
+    expect(judged.ranking).toBe("unavailable")
+    expect(judged.setBonuses.map((b) => b.fit)).toEqual([undefined, undefined, undefined])
+  })
+
+  test("asks Jev nothing without a purpose", () => {
+    expect(judge(undefined, failing)).toEqual({ setBonuses: bonuses })
+  })
+})
+
+describe("offBuildBonuses", () => {
+  test("names only active bonuses Jev judged below half a fit", () => {
+    expect(
+      offBuildBonuses([
+        bonus("Poor", 2, 2, 0.3),
+        bonus("Even", 2, 2, 0.5),
+        bonus("Unjudged", 2, 2),
+        bonus("Away", 4, 3, 0.1),
+      ]).map((b) => b.name),
+    ).toEqual(["Poor"])
   })
 })

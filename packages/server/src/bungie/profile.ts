@@ -11,7 +11,7 @@ import {
   profileHashes,
 } from "./inventory.ts"
 import { Manifest } from "./manifest.ts"
-import { setNames } from "./sets.ts"
+import { setsByItem } from "./sets.ts"
 import { PlugSets } from "./subclass.ts"
 
 // One GetProfile call feeds every screen and agent tool. It is cached for 30
@@ -82,7 +82,7 @@ export const ProfileStoreLive = Layer.effect(
         Effect.catch(decodeFailure),
       )
       const defs = yield* manifest.lookup(profileHashes(profile))
-      const sets = setNames(yield* manifest.armorSets)
+      const sets = setsByItem(yield* manifest.armorSets)
       // Sync needs the item list and the summaries need what sync wrote
       // (first-seen times), so the pure build runs twice; it is cheap.
       const draft = buildInventory(profile, defs, new Map(), sets)

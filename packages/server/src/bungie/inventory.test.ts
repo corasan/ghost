@@ -124,7 +124,9 @@ const seen = new Map([
   ["v2", { decision: null, firstSeenAt: "2026-09-01T00:00:00.000Z", baseline: true }],
 ])
 
-const inv = buildInventory(profile, defs, seen, new Map([[2, "Techsec"]]))
+const techsec = { name: "Techsec", items: [2], perks: [] }
+
+const inv = buildInventory(profile, defs, seen, new Map([[2, techsec]]))
 
 const fixture = <A>(value: A | undefined): A => {
   if (value === undefined) throw new Error("the fixture has no such entry")
@@ -201,7 +203,7 @@ describe("buildInventory", () => {
   test("equipped armor: stat total, class lock, duplicates, armor set", () => {
     const helm = byId("e1")
     expect(helm).toMatchObject({
-      set: "Techsec",
+      set: techsec,
       location: "character",
       characterId: "c1",
       equipped: true,

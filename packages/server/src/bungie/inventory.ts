@@ -9,7 +9,13 @@ import {
   type ItemSummary,
 } from "@ghost/contract"
 import { Schema } from "effect"
-import { BUCKETS, damageForType, type ManifestItem, slotForBucket } from "./manifest.ts"
+import {
+  type ArmorSet,
+  BUCKETS,
+  damageForType,
+  type ManifestItem,
+  slotForBucket,
+} from "./manifest.ts"
 
 // Turns one GetProfile response into the flat list of owned items and the
 // per-character facts every screen and tool reads. Pure on purpose: the
@@ -115,8 +121,8 @@ export type OwnedItem = Schema.Struct.Type<typeof ItemSummary.fields> & {
   readonly energy: { readonly used: number; readonly capacity: number } | null
   /** Exotic armor only: its intrinsic perk as "Name: effect". */
   readonly exoticPerk: string | null
-  /** Armor only: the name of the armor set it belongs to. */
-  readonly set: string | null
+  /** Armor only: the armor set it belongs to. */
+  readonly set: ArmorSet | null
 }
 
 export interface ModSocket {
@@ -303,7 +309,7 @@ export const buildInventory = (
   profile: Profile,
   defs: ReadonlyMap<number, ManifestItem>,
   seen: ReadonlyMap<string, SeenInfo>,
-  sets: ReadonlyMap<number, string>,
+  sets: ReadonlyMap<number, ArmorSet>,
 ): Inventory => {
   const instances = profile.itemComponents?.instances?.data ?? {}
   const itemStats = profile.itemComponents?.stats?.data ?? {}
