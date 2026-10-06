@@ -21,12 +21,12 @@ const WEAPON_SLOTS: readonly ItemSummary["slot"][] = ["kinetic", "energy", "powe
 const ARMOR_SLOTS: readonly ItemSummary["slot"][] = ["helmet", "arms", "chest", "legs", "class"]
 
 const STAT_LABELS: readonly (readonly [keyof CharacterStats, string])[] = [
-  ["resilience", "HLT"],
-  ["strength", "MEL"],
-  ["discipline", "GRN"],
-  ["intellect", "SUP"],
-  ["recovery", "CLS"],
-  ["mobility", "WPN"],
+  ["resilience", "Health"],
+  ["strength", "Melee"],
+  ["discipline", "Grenade"],
+  ["intellect", "Super"],
+  ["recovery", "Class"],
+  ["mobility", "Weapons"],
 ]
 
 const STRONG_STAT = 100

@@ -14,7 +14,7 @@ import { continueSession, startFreshSession, useSessionId } from "@/lib/session"
 import { useBottomInset } from "@/lib/insets"
 
 const where = (url: string) =>
-  /localhost|127\.0\.0\.1/.test(url) ? "LOCAL" : /\.ts\.net/.test(url) ? "TAILNET" : "REMOTE"
+  /localhost|127\.0\.0\.1/.test(url) ? "local" : /\.ts\.net/.test(url) ? "tailnet" : "remote"
 
 /**
  * The app's navigation. It leads with the character so switching is one
