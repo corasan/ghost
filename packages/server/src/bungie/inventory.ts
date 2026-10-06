@@ -6,6 +6,7 @@ import {
   type ItemDecision,
   type ItemLocation,
   type ItemSlot,
+  ItemPerk,
   type ItemSummary,
 } from "@ghost/contract"
 import { Schema } from "effect"
@@ -119,8 +120,8 @@ export type OwnedItem = Schema.Struct.Type<typeof ItemSummary.fields> & {
   /** Armor only: its mod sockets in socket order. */
   readonly modSockets: ReadonlyArray<ModSocket>
   readonly energy: { readonly used: number; readonly capacity: number } | null
-  /** Exotic armor only: its intrinsic perk as "Name: effect". */
-  readonly exoticPerk: string | null
+  /** Exotic armor only: its intrinsic perk. */
+  readonly exoticPerk: ItemPerk | null
   /** Armor only: the armor set it belongs to. */
   readonly set: ArmorSet | null
 }
@@ -477,7 +478,15 @@ export const buildInventory = (
         armor && instance?.energy?.energyCapacity !== undefined
           ? { used: instance.energy.energyUsed ?? 0, capacity: instance.energy.energyCapacity }
           : null,
-      exoticPerk: intrinsic === undefined ? null : `${intrinsic.name}: ${intrinsic.description}`,
+      exoticPerk:
+        intrinsic === undefined
+          ? null
+          : new ItemPerk({
+              name: intrinsic.name,
+              description: intrinsic.description,
+              icon: intrinsic.icon,
+              trait: false,
+            }),
       set: armor ? (sets.get(raw.itemHash) ?? null) : null,
     }
   })

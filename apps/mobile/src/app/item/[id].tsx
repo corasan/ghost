@@ -1,4 +1,4 @@
-import type { ItemDetail } from "@ghost/contract"
+import type { ItemDetail, ItemPerk } from "@ghost/contract"
 import { Image } from "expo-image"
 import { useLocalSearchParams } from "expo-router"
 import { ScrollView, View } from "react-native"
@@ -55,6 +55,26 @@ function ArmorSetSection({ set }: { set: ArmorSet }) {
 }
 
 const PERK_ICON = 36
+
+function ExoticPerk({ perk }: { perk: ItemPerk }) {
+  return (
+    <View style={{ paddingHorizontal: 20, gap: 12 }}>
+      <Mono>EXOTIC PERK</Mono>
+      <View style={{ flexDirection: "row", gap: 12 }}>
+        <View style={{ width: 2, backgroundColor: Ghost.gold }} />
+        <PerkIcon icon={perk.icon} round={false} enhanced={false} />
+        <View style={{ flex: 1 }}>
+          <Body size={15} color={Ghost.gold} style={{ fontFamily: Type.bodyMedium }}>
+            {perk.name}
+          </Body>
+          <Body size={14} color={Ghost.muted} style={{ lineHeight: 20, marginTop: 2 }}>
+            {perk.description.trim()}
+          </Body>
+        </View>
+      </View>
+    </View>
+  )
+}
 
 function PerkIcon({
   icon,
@@ -127,13 +147,14 @@ export default function ItemScreen() {
     )
   }
 
-  const { item, perks, stats, setBonuses } = detail.data
+  const { item, perks, stats, setBonuses, exoticPerk } = detail.data
   const set = armorSet(setBonuses)
   return (
     <ScrollView
       contentContainerStyle={{ paddingTop: 28, paddingBottom: bottomInset + 20, gap: 22 }}
     >
       <ItemHeader item={item} size={72} />
+      {exoticPerk ? <ExoticPerk perk={exoticPerk} /> : null}
       {stats.length > 0 ? <Stats stats={stats} /> : null}
       {set ? <ArmorSetSection set={set} /> : null}
       {perks.length > 0 ? <Perks perks={perks} /> : null}

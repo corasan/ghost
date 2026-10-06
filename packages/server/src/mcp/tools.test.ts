@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { type ItemSlot, OFF_BUILD_FIT, SetBonus } from "@ghost/contract"
+import { ItemPerk, type ItemSlot, OFF_BUILD_FIT, SetBonus } from "@ghost/contract"
 import { Effect, Layer } from "effect"
 import { Jev, JevUnavailable } from "../agent/jev.ts"
 import type { Inventory, OwnedItem, SubclassPart } from "../bungie/inventory.ts"
@@ -97,7 +97,12 @@ describe("rankingText", () => {
       rankingText(
         owned("e0", "legs", {
           tier: "exotic",
-          exoticPerk: "Phoenix Rising: Sunspots heal allies.",
+          exoticPerk: new ItemPerk({
+            name: "Phoenix Rising",
+            description: "Sunspots heal allies.",
+            icon: null,
+            trait: false,
+          }),
         }),
       ),
     ).toContain("exotic perk: Phoenix Rising: Sunspots heal allies.")

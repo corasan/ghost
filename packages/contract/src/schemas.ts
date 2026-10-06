@@ -629,6 +629,8 @@ export class ItemDetail extends Schema.Class<ItemDetail>("ItemDetail")({
   stats: Schema.Array(PlanStat),
   /** Every bonus of the armor set the piece belongs to, counting the set pieces its character wears; absent when it is in no set. */
   setBonuses: Schema.optional(Schema.Array(SetBonus)),
+  /** Exotic armor's intrinsic perk. */
+  exoticPerk: Schema.optional(ItemPerk),
 }) {}
 
 export class ItemNotFound extends Schema.TaggedError<ItemNotFound>()("ItemNotFound", {

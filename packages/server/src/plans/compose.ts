@@ -105,7 +105,7 @@ export const synergyMissing = ({
   const active = setBonuses.filter(isActive)
   return [
     exotic !== undefined && !synergy?.exotic?.trim()
-      ? `exotic, on what ${exotic.name}${exotic.exoticPerk === null ? "" : ` (${exotic.exoticPerk})`} does for this subclass and its loop`
+      ? `exotic, on what ${exotic.name}${exotic.exoticPerk === null ? "" : ` (${exotic.exoticPerk.name}: ${exotic.exoticPerk.description})`} does for this subclass and its loop`
       : null,
     active.length > 0 && !synergy?.setBonuses?.trim()
       ? `setBonuses, on how the active set bonuses fit: ${active.map(setBonusLine).join(" / ")}`

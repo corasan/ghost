@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { type ItemSlot, SetBonus } from "@ghost/contract"
+import { ItemPerk, type ItemSlot, SetBonus } from "@ghost/contract"
 import { Effect, Layer } from "effect"
 import type { CharacterInfo, Inventory, OwnedItem } from "../bungie/inventory.ts"
 import { Manifest } from "../bungie/manifest.ts"
@@ -61,7 +61,12 @@ describe("synergyMissing", () => {
   const exotic = owned("x0", "chest", {
     name: "Starfire Protocol",
     tier: "exotic",
-    exoticPerk: "Fusion Overdrive: an extra grenade charge.",
+    exoticPerk: new ItemPerk({
+      name: "Fusion Overdrive",
+      description: "an extra grenade charge.",
+      icon: null,
+      trait: false,
+    }),
   })
   const bow = { name: "Le Monarque", typeName: "Combat Bow", damageType: "void" as const }
   const full = {
@@ -184,7 +189,12 @@ const wornChest = owned("chest-worn", "chest", {
 const starfire = owned("chest-exotic", "chest", {
   name: "Starfire Protocol",
   tier: "exotic",
-  exoticPerk: "Fusion Overdrive: an extra grenade charge.",
+  exoticPerk: new ItemPerk({
+    name: "Fusion Overdrive",
+    description: "an extra grenade charge.",
+    icon: null,
+    trait: false,
+  }),
   armorStats: {
     mobility: 0,
     resilience: 10,

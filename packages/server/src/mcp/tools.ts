@@ -277,7 +277,8 @@ const compact = (i: OwnedItem) => ({
   statTotal: i.statTotal ?? undefined,
   stats: i.armorStats === null ? undefined : named(i.armorStats),
   perks: i.perks.length > 0 ? i.perks : undefined,
-  exoticPerk: i.exoticPerk ?? undefined,
+  exoticPerk:
+    i.exoticPerk === null ? undefined : `${i.exoticPerk.name}: ${i.exoticPerk.description}`,
   set: i.set?.name,
   duplicates: i.duplicates,
   decision: i.decision ?? undefined,
@@ -331,7 +332,7 @@ export const rankingText = (i: OwnedItem) => {
     i.masterwork ? "masterworked" : null,
     stats.length > 0 ? `stats, highest first: ${stats.join(", ")} (total ${i.statTotal})` : null,
     i.perks.length > 0 ? `perks: ${i.perks.join(", ")}` : null,
-    i.exoticPerk === null ? null : `exotic perk: ${i.exoticPerk}`,
+    i.exoticPerk === null ? null : `exotic perk: ${i.exoticPerk.name}: ${i.exoticPerk.description}`,
     i.set === null ? null : `armor set ${i.set.name}: ${i.set.perks.map(setPerkText).join(", ")}`,
   ]
     .filter((part) => part !== null)

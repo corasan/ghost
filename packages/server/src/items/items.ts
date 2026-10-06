@@ -136,6 +136,7 @@ export const ItemsLive = Layer.effect(
           perks: perksFrom(item.plugHashes, defs),
           stats: armorStats(item),
           setBonuses: pieceSetBonuses(item, inv.items),
+          exoticPerk: item.exoticPerk ?? undefined,
         })
       })
 
