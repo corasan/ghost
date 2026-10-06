@@ -100,6 +100,19 @@ export const statLabel = (key: StatKey, label: string, facts: StatFacts) =>
 
 type Piece = Pick<OwnedItem, "itemInstanceId" | "slot" | "armorStats" | "masterwork">
 
+/** The armor a character wears once the incoming pieces replace what is worn in their slots. */
+export const armorAfter = <P extends Pick<OwnedItem, "itemInstanceId" | "slot">>(
+  worn: ReadonlyArray<P>,
+  incoming: ReadonlyArray<P>,
+) => {
+  const arriving = incoming.filter(
+    (piece) =>
+      isArmor(piece.slot) && !worn.some((on) => on.itemInstanceId === piece.itemInstanceId),
+  )
+  const leaving = worn.filter((on) => arriving.some((piece) => piece.slot === on.slot))
+  return { arriving, leaving, final: [...worn.filter((on) => !leaving.includes(on)), ...arriving] }
+}
+
 /**
  * The six stats of a build: what the character has with the incoming pieces
  * worn, and what that becomes with every worn piece masterworked. It starts from the character's own totals and swaps only the
@@ -121,12 +134,7 @@ export const buildStats = ({
   /** What the plan's mod swaps add to each stat, keyed by stat hash. */
   readonly modChange?: Readonly<Record<string, number>>
 }): ReadonlyArray<PlanStat> => {
-  const arriving = incoming.filter(
-    (piece) =>
-      isArmor(piece.slot) && !worn.some((on) => on.itemInstanceId === piece.itemInstanceId),
-  )
-  const leaving = worn.filter((on) => arriving.some((piece) => piece.slot === on.slot))
-  const final = [...worn.filter((on) => !leaving.includes(on)), ...arriving]
+  const { arriving, leaving, final } = armorAfter(worn, incoming)
   const wanted = new Set(targets.flatMap((label) => ALIASES[label.trim().toLowerCase()] ?? []))
   const sum = (pieces: ReadonlyArray<Piece>, key: StatKey) =>
     pieces.reduce((total, piece) => total + (piece.armorStats?.[key] ?? 0), 0)
