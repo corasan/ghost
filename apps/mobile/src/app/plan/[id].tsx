@@ -299,6 +299,8 @@ const SYNERGY_LABEL: Record<SynergyPart["kind"], string> = {
   exotic: "Exotic",
   setBonuses: "Set bonuses",
   mods: "Mods",
+  weapons: "Weapons",
+  artifact: "Artifact",
 }
 
 function Prose({ text }: { text: string | undefined }) {
@@ -357,7 +359,22 @@ function SynergyPartView({ part }: { part: SynergyPart }) {
           <Prose text={part.text} />
         </>
       )
+    case "weapons":
+      return (
+        <>
+          {part.exotic ? (
+            <View style={styles.plug}>
+              <ItemIcon icon={part.exotic.icon} size={36} element={part.exotic.damageType} />
+              <Body size={14} style={{ flex: 1, fontFamily: Type.bodyMedium, lineHeight: 18 }}>
+                {part.exotic.name}
+              </Body>
+            </View>
+          ) : null}
+          <Prose text={part.text} />
+        </>
+      )
     case "mods":
+    case "artifact":
       return <Prose text={part.text} />
   }
 }

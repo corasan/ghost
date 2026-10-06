@@ -6,6 +6,7 @@ import {
   ChargeEffect,
   ItemSummary,
   LoadoutPlug,
+  LoadoutSaveTo,
   Plan,
   SubclassChange,
   SubclassLoadout,
@@ -32,8 +33,10 @@ import {
   headline,
   statTicks,
   modPips,
+  saveToLine,
   setBonusLine,
   slotLabel,
+  splitRows,
   synergyParts,
   verdict,
 } from "./plan-card"
@@ -505,6 +508,31 @@ describe("build card", () => {
       expect(kinds(built)).toEqual([])
     })
 
+    test("weapons follow the exotic armor and carry the exotic weapon; the artifact comes last", () => {
+      const parts = synergyParts(
+        plan({
+          rows: [exoticArms, row("Fatebringer", { slot: "kinetic" }), exoticWeapon],
+          setBonuses: [bonus],
+          synergy: new Synergy({ exotic: "e", weapons: "w", mods: "m", artifact: "a" }),
+        }),
+      )
+      expect(parts.map((part) => part.kind)).toEqual([
+        "exotic",
+        "weapons",
+        "setBonuses",
+        "mods",
+        "artifact",
+      ])
+      expect(parts[1]).toEqual({ kind: "weapons", exotic: exoticWeapon, text: "w" })
+    })
+
+    test("weapons and artifact show only when Ghost wrote about them", () => {
+      expect(kinds(plan({ rows: [exoticWeapon] }))).toEqual([])
+      expect(synergyParts(plan({ rows: [], synergy: new Synergy({ weapons: "w" }) }))).toEqual([
+        { kind: "weapons", exotic: undefined, text: "w" },
+      ])
+    })
+
     test("active set bonuses show without Ghost's words, and nothing shows for an older plan", () => {
       expect(synergyParts(plan({ rows: [exoticArms], setBonuses: [bonus] }))).toEqual([
         { kind: "setBonuses", on: [{ bonus, offBuild: false }], short: [], text: undefined },
@@ -549,6 +577,42 @@ describe("build card", () => {
       expect(setBonusLine(bonus)).toBe("2-piece · Techsec")
       expect(setBonusLine(lastDiscipline)).toBe("4-piece · Last Discipline · 1 piece away")
     })
+  })
+
+  test("weapons sit apart from the armor, kinetic to power", () => {
+    const rows = [
+      row("rocket", { slot: "power" }),
+      row("chest", { slot: "chest" }),
+      row("bow", { slot: "kinetic" }),
+      row("helm", { slot: "helmet" }),
+      row("smg", { slot: "energy" }),
+    ]
+    const { pieces, weapons } = splitRows(rows)
+    expect(pieces.map((each) => each.name)).toEqual(["helm", "chest"])
+    expect(weapons.map((each) => each.name)).toEqual(["bow", "smg", "rocket"])
+  })
+
+  test("an in-game save names the slot as the game counts it and what it overwrites", () => {
+    const saveTo = (patch: Partial<LoadoutSaveTo>) =>
+      new LoadoutSaveTo({
+        buildId: "b",
+        characterId: "c1",
+        index: 2,
+        nameHash: 1,
+        colorHash: 2,
+        iconHash: 3,
+        replaces: null,
+        outcome: null,
+        error: null,
+        ...patch,
+      })
+    expect(saveToLine(saveTo({ replaces: "Raid" }))).toEqual({
+      tone: "plan",
+      text: "Saves to slot 3 in game, replacing Raid.",
+    })
+    expect(
+      saveToLine(saveTo({ outcome: "skipped", error: "Gjallarhorn is not equipped" })),
+    ).toEqual({ tone: "held", text: "Not saved to slot 3: Gjallarhorn is not equipped." })
   })
 })
 
