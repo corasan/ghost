@@ -90,7 +90,9 @@ const optionalNumber = Schema.optionalKey(Schema.Number)
 const optionalString = Schema.optionalKey(Schema.String)
 
 const PlugDefinition = Schema.Struct({
-  displayProperties: Schema.optionalKey(Schema.Struct({ description: optionalString })),
+  displayProperties: Schema.optionalKey(
+    Schema.Struct({ name: optionalString, description: optionalString, icon: optionalString }),
+  ),
   investmentStats: Schema.optionalKey(
     Schema.Array(
       Schema.Struct({
@@ -160,6 +162,61 @@ export const statModsFrom = (definition: PlugDefinition, conditional: boolean): 
     ),
   )
 
+/** A bonus an armor set grants once enough of its pieces are worn. */
+const ArmorSetPerk = Schema.Struct({
+  name: Schema.String,
+  description: Schema.String,
+  icon: Schema.NullOr(Schema.String),
+  /** Pieces of the set the bonus needs. */
+  required: Schema.Number,
+})
+
+/** An armor set from the current patch: the item hashes that belong to it and its bonuses. */
+const ArmorSet = Schema.Struct({
+  name: Schema.String,
+  items: Schema.Array(Schema.Number),
+  perks: Schema.Array(ArmorSetPerk),
+})
+export type ArmorSet = typeof ArmorSet.Type
+
+const EquipableItemSetDefinition = Schema.Struct({
+  displayProperties: Schema.optionalKey(Schema.Struct({ name: optionalString })),
+  setItems: Schema.optionalKey(Schema.Array(Schema.Number)),
+  setPerks: Schema.optionalKey(
+    Schema.Array(
+      Schema.Struct({ requiredSetCount: optionalNumber, sandboxPerkHash: optionalNumber }),
+    ),
+  ),
+})
+type EquipableItemSetDefinition = typeof EquipableItemSetDefinition.Type
+
+export const armorSetsFrom = (
+  definitions: Readonly<Record<string, EquipableItemSetDefinition | undefined>>,
+  perks: ReadonlyMap<number, PlugDefinition>,
+): ReadonlyArray<ArmorSet> =>
+  Object.values(definitions).flatMap((definition) => {
+    const name = definition?.displayProperties?.name ?? ""
+    const resolved = (definition?.setPerks ?? []).flatMap((perk) => {
+      const display =
+        perk.sandboxPerkHash === undefined
+          ? undefined
+          : perks.get(perk.sandboxPerkHash)?.displayProperties
+      return !display?.name || perk.requiredSetCount === undefined
+        ? []
+        : [
+            {
+              name: display.name,
+              description: display.description ?? "",
+              icon: display.icon ? `https://www.bungie.net${display.icon}` : null,
+              required: perk.requiredSetCount,
+            },
+          ]
+    })
+    return name === "" || resolved.length === 0
+      ? []
+      : [{ name, items: definition?.setItems ?? [], perks: resolved }]
+  })
+
 /** Bungie's own icon for each damage type, as an absolute URL. */
 export type ElementIcons = Partial<Record<DamageType, string>>
 
@@ -191,6 +248,8 @@ export interface ManifestService {
   readonly subclassPlugSets: (hash: number) => Effect.Effect<ReadonlyArray<number | null>>
   /** Every armor mod that fits a build socket. Slow the first time after a patch, then stored. Never fails. */
   readonly armorMods: Effect.Effect<ReadonlyArray<ArmorModEntry>>
+  /** Armor sets with their bonuses resolved. Slow the first time after a patch, then stored. Never fails. */
+  readonly armorSets: Effect.Effect<ReadonlyArray<ArmorSet>>
   /** Empty until first read. Never fails. */
   readonly elementIcons: Effect.Effect<ElementIcons>
   /** How many slots the vault and postmaster hold in the current patch. Never fails. */
@@ -351,6 +410,8 @@ const STAT_FACTS_KEY = "manifest.statFacts"
 const STAT_FACTS_VERSION_KEY = "manifest.statFacts.version"
 const ARMOR_MODS_KEY = "manifest.armorMods.v2"
 const ARMOR_MODS_VERSION_KEY = "manifest.armorMods.version"
+const ARMOR_SETS_KEY = "manifest.armorSets"
+const ARMOR_SETS_VERSION_KEY = "manifest.armorSets.version"
 export const BUILD_SOCKET = /^enhancements\.v2_/
 
 const ARMOR_CHARGE = /armor charge/i
@@ -429,6 +490,7 @@ export const ManifestLive = Layer.effect(
     // Two lookups racing at startup would otherwise both download the manifest.
     const lock = yield* Semaphore.make(1)
     const lockMods = yield* Semaphore.make(1)
+    const lockSets = yield* Semaphore.make(1)
 
     const plugs = new Map<number, PlugFacts>()
 
@@ -593,6 +655,7 @@ export const ManifestLive = Layer.effect(
       plugs.clear()
       plugSets.clear()
       armorMods = null
+      armorSets = null
       checkedAt = Date.now()
       yield* Effect.logInfo(`manifest: stored ${count} items`)
     }).pipe(lock.withPermits(1))
@@ -698,6 +761,66 @@ export const ManifestLive = Layer.effect(
       return found
     }).pipe(lockMods.withPermits(1))
 
+    let armorSets: ReadonlyArray<ArmorSet> | null = null
+
+    const readArmorSets = Effect.gen(function* () {
+      yield* Effect.ignore(ensure)
+      if (armorSets !== null) return armorSets
+      const version = Option.getOrNull(yield* settings.get(VERSION_KEY).pipe(Effect.orDie))
+      const storedFor = Option.getOrNull(
+        yield* settings.get(ARMOR_SETS_VERSION_KEY).pipe(Effect.orDie),
+      )
+      const stored = (yield* settings.get(ARMOR_SETS_KEY).pipe(Effect.orDie)).pipe(
+        Option.flatMap(storedJson(Schema.Array(ArmorSet))),
+      )
+      if (Option.isSome(stored) && storedFor === version) {
+        armorSets = stored.value
+        return armorSets
+      }
+      const index = yield* fetchJson(
+        "https://www.bungie.net/Platform/Destiny2/Manifest/",
+        IndexEnvelope,
+      )
+      const path =
+        index.Response.jsonWorldComponentContentPaths.en?.DestinyEquipableItemSetDefinition
+      if (path === undefined) return []
+      const definitions = yield* fetchJson(
+        `https://www.bungie.net${path}`,
+        definitionsOf(EquipableItemSetDefinition),
+      )
+      const perkHashes = new Set(
+        Object.values(definitions).flatMap((definition) =>
+          (definition.setPerks ?? []).flatMap((perk) =>
+            perk.sandboxPerkHash === undefined ? [] : [perk.sandboxPerkHash],
+          ),
+        ),
+      )
+      const perks = new Map<number, PlugDefinition>()
+      yield* Effect.forEach(
+        perkHashes,
+        (hash) =>
+          entity("DestinySandboxPerkDefinition", hash).pipe(
+            Effect.map((definition) => perks.set(hash, definition)),
+            Effect.catch((error) =>
+              Effect.logWarning(`manifest: set perk ${hash} failed: ${error.message}`),
+            ),
+          ),
+        { concurrency: 8, discard: true },
+      )
+      const found = armorSetsFrom(definitions, perks)
+      if (found.length === 0 || perks.size < perkHashes.size) return found
+      armorSets = found
+      yield* settings.set(ARMOR_SETS_KEY, JSON.stringify(found)).pipe(Effect.orDie)
+      if (version !== null) yield* settings.set(ARMOR_SETS_VERSION_KEY, version).pipe(Effect.orDie)
+      yield* Effect.logInfo(`manifest: resolved ${found.length} armor sets`)
+      return found
+    }).pipe(
+      Effect.catch((error) =>
+        Effect.logWarning(`manifest: armor sets failed: ${error.message}`).pipe(Effect.as([])),
+      ),
+      lockSets.withPermits(1),
+    )
+
     const readElementIcons = Effect.gen(function* () {
       yield* Effect.ignore(ensure)
       if (elementIcons !== null) return elementIcons
@@ -710,6 +833,7 @@ export const ManifestLive = Layer.effect(
 
     return {
       armorMods: readArmorMods,
+      armorSets: readArmorSets,
       elementIcons: readElementIcons,
       capacities: readCapacities,
       statFacts: readStatFacts,
