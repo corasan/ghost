@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { type ItemSlot, OFF_BUILD_FIT, SetBonus } from "@ghost/contract"
+import { ItemPerk, type ItemSlot, OFF_BUILD_FIT, SetBonus } from "@ghost/contract"
 import { Effect, Layer } from "effect"
 import { Jev, JevUnavailable } from "../agent/jev.ts"
 import type { Inventory, OwnedItem, SubclassPart } from "../bungie/inventory.ts"
@@ -14,7 +14,6 @@ import {
   searchItems,
   subclassDetail,
   type SubclassView,
-  synergyMissing,
   topPerSlot,
 } from "./tools.ts"
 
@@ -98,7 +97,12 @@ describe("rankingText", () => {
       rankingText(
         owned("e0", "legs", {
           tier: "exotic",
-          exoticPerk: "Phoenix Rising: Sunspots heal allies.",
+          exoticPerk: new ItemPerk({
+            name: "Phoenix Rising",
+            description: "Sunspots heal allies.",
+            icon: null,
+            trait: false,
+          }),
         }),
       ),
     ).toContain("exotic perk: Phoenix Rising: Sunspots heal allies.")
@@ -172,6 +176,7 @@ const facts = (fields: Partial<PlugFacts> = {}): PlugFacts => ({
   category: "enhancements.v2_general",
   artifact: false,
   charged: false,
+  keywords: [],
   description: "",
   ...fields,
 })
@@ -282,68 +287,6 @@ describe("subclass detail", () => {
       ranking: "unavailable",
     })
     expect(run(undefined)).toEqual(subclassDetail(view, "titan"))
-  })
-})
-
-describe("synergyMissing", () => {
-  const forceConverter = new SetBonus({
-    name: "Force Converter",
-    description: "After a final blow with a Rocket Launcher, sprint to gain Speed Booster.",
-    icon: null,
-    set: "AION Renewal",
-    required: 2,
-    worn: 2,
-  })
-  const exotic = owned("x0", "chest", {
-    name: "Starfire Protocol",
-    tier: "exotic",
-    exoticPerk: "Fusion Overdrive: an extra grenade charge.",
-  })
-  const full = { exotic, setBonuses: [forceConverter], modded: true }
-
-  test("asks for every part the build has and lacks synergy for", () => {
-    const parts = synergyMissing({ ...full, synergy: { exotic: " " } })
-    expect(parts).toHaveLength(3)
-    expect(parts[0]).toContain("Starfire Protocol (Fusion Overdrive: an extra grenade charge.)")
-    expect(parts[1]).toContain(
-      "Force Converter (AION Renewal, 2 pieces, wearing 2): After a final blow",
-    )
-    expect(parts[2]).toStartWith("mods")
-  })
-
-  test("accepts a build once each of its parts has synergy", () => {
-    expect(
-      synergyMissing({
-        ...full,
-        synergy: { exotic: "Grenades.", setBonuses: "Speed.", mods: "Energy." },
-      }),
-    ).toEqual([])
-  })
-
-  test("asks for setBonuses synergy only about the bonuses the build turns on", () => {
-    const aionFour = new SetBonus({ ...forceConverter, name: "AION Four", required: 4, worn: 3 })
-    expect(
-      synergyMissing({
-        exotic: undefined,
-        setBonuses: [aionFour],
-        modded: false,
-        synergy: undefined,
-      }),
-    ).toEqual([])
-    const [part] = synergyMissing({
-      exotic: undefined,
-      setBonuses: [forceConverter, aionFour],
-      modded: false,
-      synergy: undefined,
-    })
-    expect(part).toContain("Force Converter")
-    expect(part).not.toContain("AION Four")
-  })
-
-  test("asks for no part the build lacks", () => {
-    expect(
-      synergyMissing({ exotic: undefined, setBonuses: [], modded: false, synergy: undefined }),
-    ).toEqual([])
   })
 })
 

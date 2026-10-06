@@ -58,6 +58,7 @@ const STEPS = new Map<string, StepCopy>(
           .flatMap((part) => text(part) ?? [])
           .join(" · ") || null,
     },
+    get_artifact: { label: "Reading your artifact" },
     check_rolls: {
       label: "Scoring rolls against the wishlist",
       detail: (input) => count(input.itemInstanceIds?.length, "item"),

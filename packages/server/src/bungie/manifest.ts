@@ -52,10 +52,14 @@ export const capacitiesFrom = (
   postmaster: buckets[BUCKETS.postmaster]?.itemCount || FALLBACK_CAPACITIES.postmaster,
 })
 
-/** Name and effect of an armor stat in the current patch, keyed by stat hash. */
+/** Name, effect and icon URL of an armor stat in the current patch, keyed by stat hash. */
 const StatFacts = Schema.Record(
   Schema.String,
-  Schema.Struct({ name: Schema.String, effect: Schema.String }),
+  Schema.Struct({
+    name: Schema.String,
+    effect: Schema.String,
+    icon: Schema.optionalKey(Schema.String),
+  }),
 )
 export type StatFacts = typeof StatFacts.Type
 
@@ -64,6 +68,7 @@ const StatDefinition = Schema.Struct({
     Schema.Struct({
       name: Schema.optionalKey(Schema.String),
       description: Schema.optionalKey(Schema.String),
+      icon: Schema.optionalKey(Schema.String),
     }),
   ),
 })
@@ -75,10 +80,11 @@ export const statFactsFrom = (
 ): StatFacts =>
   Object.fromEntries(
     hashes.flatMap((hash) => {
-      const name = definitions[hash]?.displayProperties?.name
-      return name === undefined || name === ""
-        ? []
-        : [[hash, { name, effect: definitions[hash]?.displayProperties?.description ?? "" }]]
+      const display = definitions[hash]?.displayProperties
+      const name = display?.name
+      if (name === undefined || name === "") return []
+      const icon = display?.icon ? { icon: `https://www.bungie.net${display.icon}` } : {}
+      return [[hash, { name, effect: display?.description ?? "", ...icon }]]
     }),
   )
 
@@ -113,6 +119,7 @@ const PlugDefinition = Schema.Struct({
     }),
   ),
   perks: Schema.optionalKey(Schema.Array(Schema.Struct({ perkHash: optionalNumber }))),
+  traitHashes: Schema.optionalKey(Schema.Array(Schema.Number)),
   sockets: Schema.optionalKey(
     Schema.Struct({
       socketEntries: Schema.optionalKey(
@@ -122,6 +129,46 @@ const PlugDefinition = Schema.Struct({
   ),
 })
 export type PlugDefinition = typeof PlugDefinition.Type
+
+const KeywordFacts = Schema.Struct({
+  name: Schema.String,
+  description: Schema.String,
+  icon: Schema.NullOr(Schema.String),
+})
+export type KeywordFacts = typeof KeywordFacts.Type
+
+/** Keywords by trait hash. */
+const Keywords = Schema.Record(Schema.String, KeywordFacts)
+export type Keywords = typeof Keywords.Type
+
+const TraitDefinition = Schema.Struct({
+  displayHint: optionalString,
+  displayProperties: Schema.optionalKey(
+    Schema.Struct({ name: optionalString, description: optionalString, icon: optionalString }),
+  ),
+})
+type TraitDefinition = typeof TraitDefinition.Type
+
+/** The traits the game shows as keywords in its tooltips, such as Weaken or Volatile. */
+export const keywordsFrom = (
+  definitions: Readonly<Record<string, TraitDefinition | undefined>>,
+): Keywords =>
+  Object.fromEntries(
+    Object.entries(definitions).flatMap(([hash, definition]) => {
+      const shown = definition?.displayProperties
+      if (definition?.displayHint !== "keyword" || !shown?.name || !shown.description) return []
+      return [
+        [
+          hash,
+          {
+            name: shown.name,
+            description: shown.description,
+            icon: shown.icon ? `https://www.bungie.net${shown.icon}` : null,
+          },
+        ],
+      ]
+    }),
+  )
 
 /** What the lite definitions leave out about a subclass plug. */
 const PlugFacts = Schema.Struct({
@@ -139,6 +186,8 @@ const PlugFacts = Schema.Struct({
   /** Its effect depends on the wearer holding Armor Charge. */
   charged: Schema.Boolean,
   description: Schema.String,
+  /** The keywords Bungie tags the plug with, in the order it lists them. */
+  keywords: Schema.Array(Schema.Struct(KeywordFacts.fields)),
 })
 export type PlugFacts = typeof PlugFacts.Type
 
@@ -406,9 +455,9 @@ const storedJson = <S extends Schema.Codec<unknown, unknown>>(schema: S) =>
 const VERSION_KEY = "manifest.version"
 const CAPACITIES_KEY = "manifest.capacities"
 const CAPACITIES_VERSION_KEY = "manifest.capacities.version"
-const STAT_FACTS_KEY = "manifest.statFacts"
-const STAT_FACTS_VERSION_KEY = "manifest.statFacts.version"
-const ARMOR_MODS_KEY = "manifest.armorMods.v2"
+const STAT_FACTS_KEY = "manifest.statFacts.v2"
+const STAT_FACTS_VERSION_KEY = "manifest.statFacts.v2.version"
+const ARMOR_MODS_KEY = "manifest.armorMods.v3"
 const ARMOR_MODS_VERSION_KEY = "manifest.armorMods.version"
 const ARMOR_SETS_KEY = "manifest.armorSets"
 const ARMOR_SETS_VERSION_KEY = "manifest.armorSets.version"
@@ -424,6 +473,8 @@ export const modDescription = (itemText: string, facts: PlugFacts) =>
   facts.charged ? facts.description : itemText || facts.description
 const ELEMENT_ICONS_KEY = "manifest.elementIcons"
 const ELEMENT_ICONS_VERSION_KEY = "manifest.elementIcons.version"
+const KEYWORDS_KEY = "manifest.keywords"
+const KEYWORDS_VERSION_KEY = "manifest.keywords.version"
 const ARMOR_STAT_HASHES = [
   "2996146975",
   "392767087",
@@ -533,6 +584,7 @@ export const ManifestLive = Layer.effect(
                 ? definition
                 : yield* entity("DestinySandboxPerkDefinition", perk)
             const description = described.displayProperties?.description || own
+            const known = yield* readKeywords
             plugs.set(hash, {
               mods: statModsFrom(definition, false),
               classMods: statModsFrom(definition, true),
@@ -544,6 +596,7 @@ export const ManifestLive = Layer.effect(
               ),
               charged: ARMOR_CHARGE.test(own) || ARMOR_CHARGE.test(description),
               description,
+              keywords: (definition.traitHashes ?? []).flatMap((trait) => known[trait] ?? []),
             })
           }).pipe(
             Effect.catch((error) =>
@@ -621,6 +674,23 @@ export const ManifestLive = Layer.effect(
         ),
       )
 
+    let keywords: Keywords | null = null
+
+    const refreshKeywords = (remote: ManifestIndex) =>
+      Effect.gen(function* () {
+        const stored = yield* settings.get(KEYWORDS_VERSION_KEY).pipe(Effect.orDie)
+        if (Option.isSome(stored) && stored.value === remote.version) return
+        const path = remote.jsonWorldComponentContentPaths.en?.DestinyTraitDefinition
+        if (path === undefined) return
+        keywords = keywordsFrom(
+          yield* fetchJson(`https://www.bungie.net${path}`, definitionsOf(TraitDefinition)),
+        )
+        yield* settings.set(KEYWORDS_KEY, JSON.stringify(keywords)).pipe(Effect.orDie)
+        yield* settings.set(KEYWORDS_VERSION_KEY, remote.version).pipe(Effect.orDie)
+      }).pipe(
+        Effect.catch((error) => Effect.logWarning(`manifest: keywords failed: ${error.message}`)),
+      )
+
     const ensure = Effect.gen(function* () {
       if (Date.now() - checkedAt < CHECK_EVERY_MS) return
       const index = yield* fetchJson(
@@ -631,6 +701,7 @@ export const ManifestLive = Layer.effect(
       yield* refreshCapacities(remote)
       yield* refreshStatFacts(remote)
       yield* refreshElementIcons(remote)
+      yield* refreshKeywords(remote)
       const local = yield* settings.get(VERSION_KEY).pipe(Effect.orDie)
       // An empty table means an earlier download stored nothing, so the saved
       // version cannot be trusted.
@@ -820,6 +891,16 @@ export const ManifestLive = Layer.effect(
       ),
       lockSets.withPermits(1),
     )
+
+    const readKeywords = Effect.gen(function* () {
+      yield* Effect.ignore(ensure)
+      if (keywords !== null) return keywords
+      keywords = (yield* settings.get(KEYWORDS_KEY).pipe(Effect.orDie)).pipe(
+        Option.flatMap(storedJson(Keywords)),
+        Option.getOrElse(() => ({})),
+      )
+      return keywords
+    })
 
     const readElementIcons = Effect.gen(function* () {
       yield* Effect.ignore(ensure)

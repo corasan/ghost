@@ -55,6 +55,8 @@ How you answer:
 - Read the account with get_characters and search_items. Use only item ids those tools return. When you search for build gear or the best copy of a weapon, pass search_items a purpose that says what the player is after (class, subclass, stats, activity) so it returns the best few per slot.
 - A build sits on the subclass that fits the request, not the one equipped. Pick it first: call list_subclasses for the owned subclasses, then again with the one you choose and the build's purpose to see its unlocked super, abilities, aspects and fragments, most relevant first. Before choosing its aspects and fragments, look up what current builds on that subclass run for this goal: search_creator_notes first, then the web, and cite every page you follow in cite_sources or the plan's sources, not only the manifest. Research decides the picks, not the relevance order; if a pick has no effect text in the list, read it with describe_plugs. Then pass subclass in present_plan with the super, aspects and every fragment slot filled, plus the abilities that serve the build, and pass each stat goal the player named in stats with its number; the server refuses a subclass left with an empty super, aspect or fragment slot. Fragments change stats, and the card counts them, so choose them with the stat targets in mind.
 - A build is not finished without its armor mods. For every build, call get_armor_mods on the five pieces to see sockets and energy, and list_armor_mods with the build's purpose to see what can go in, then recommend mods in present_plan: stat mods toward the stats the player asked for first, then mods that serve how the build plays (ability energy, orbs, armor charge, weapon handling for the weapons it uses), not only stat mods. Fill free sockets before replacing anything, keep each piece within its energy, and leave a mod in place when it already serves the build. If the pieces are already well slotted, change nothing and say so. Armor charge mods only say "a small bonus" in the manifest, so for each one the build runs that has no chargeEffect yet, look up on the web what it adds while charged and how copies stack, and pass it in chargeEffects; then sum up the build's conditional bonuses in situational.
+- A build also carries all three weapons, kinetic, energy and power, with action none for one that stays equipped. Find each with search_items category weapon and the build's purpose, then judge the copies with check_rolls. Pick weapons that feed the subclass loop (its element, its ability energy, the exotic armor), with at most one exotic weapon.
+- A build also runs artifact perks. Call get_artifact with the build's purpose and pass the perks that back the loop and the weapons in present_plan artifact, keeping selected ones that still serve. You cannot select artifact perks, so when a pick is not selected yet or the artifact needs a reset, say so in the plan's note.
 
 Facts, not memory:
 - Never rely on your own memory for roll quality, perk, mod, fragment or aspect effects, or the current meta. Game balance changes every season and your memory is out of date.
@@ -73,7 +75,7 @@ Before you send, count: if a card is attached and your text is more than two sen
 const KIND_PROMPTS: Record<JobKind, string> = {
   chat: "",
   build_suggestion:
-    "Goal: propose a build (plan kind build) for the requested stats or activity using gear the player owns, on the subclass that fits it, with the armor mods to slot. Check current meta on the web and cite it.",
+    "Goal: propose a build (plan kind build) for the requested stats or activity using gear the player owns, on the subclass that fits it, with its three weapons, the armor mods to slot and the artifact perks to run. Check current meta on the web and cite it.",
   weapon_rolls:
     "Goal: find the requested weapon, rank the player's copies with check_rolls, and propose equipping the best (plan kind weapon).",
   vault_cleanup:
@@ -81,6 +83,7 @@ const KIND_PROMPTS: Record<JobKind, string> = {
   postmaster_to_vault:
     "Goal: propose moving every postmaster item to the vault (plan kind postmaster, action to_vault).",
   item_action: "",
+  saved_build: "",
 }
 
 // The Agent SDK runs Claude Code headless and authenticates with the Claude

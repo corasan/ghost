@@ -182,6 +182,28 @@ const migrations = {
       )
     `
   }),
+  "0008_saved_builds": Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    yield* sql`ALTER TABLE jobs ADD COLUMN recipe TEXT`
+    yield* sql`
+      CREATE TABLE IF NOT EXISTS saved_builds (
+        id TEXT PRIMARY KEY,
+        job_id TEXT UNIQUE,
+        name TEXT NOT NULL,
+        recipe TEXT NOT NULL,
+        plan TEXT NOT NULL,
+        in_game_character_id TEXT,
+        in_game_index INTEGER,
+        in_game_saved_at TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    `
+    yield* sql`
+      CREATE UNIQUE INDEX IF NOT EXISTS saved_builds_in_game
+      ON saved_builds (in_game_character_id, in_game_index)
+    `
+  }),
 }
 
 const SqliteLive = Layer.unwrap(

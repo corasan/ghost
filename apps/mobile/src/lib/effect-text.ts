@@ -1,5 +1,5 @@
 /** Bungie's effect text carries glyph tokens like "[Stasis]" that have no icon here. */
-const plain = (text: string) =>
+export const plain = (text: string) =>
   text
     .replace(/\[[^\]]*\]\s*:?\s*/g, "")
     .replace(/[ \t]+/g, " ")

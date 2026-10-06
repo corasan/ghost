@@ -1,34 +1,20 @@
 import {
-  type BungieNotLinked,
-  ChargeEffect,
   DamageType,
   GuardianClass,
   ItemLocation,
   ItemSlot,
   ItemTier,
   Plan,
-  PlanAction,
-  PlanFeatured,
-  PlanKind,
-  PlanPerk,
-  PlanRow,
   OFF_BUILD_FIT,
-  PlanStat,
   SetBonus,
-  Source,
-  type StatMod,
-  SubclassChange,
-  SubclassSwap,
-  Synergy,
 } from "@ghost/contract"
 import { Effect, Option, Schema } from "effect"
 import { Tool, Toolkit } from "effect/ai"
 import { CurrentJob } from "../agent/current-job.ts"
 import { Jev } from "../agent/jev.ts"
-import type { BungieError } from "../bungie/client.ts"
+import { type ArtifactPerk, Artifacts, type CharacterArtifact } from "../bungie/artifact.ts"
 import {
   type ArmorStats,
-  type CharacterInfo,
   type Inventory,
   isArmor,
   isWeapon,
@@ -45,44 +31,37 @@ import {
   Manifest,
   type ManifestItem,
   type PlugFacts,
-  type StatFacts,
 } from "../bungie/manifest.ts"
-import {
-  ARMOR_STATS,
-  armorAfter,
-  armorStats,
-  buildStats,
-  type MissedTarget,
-  missedTargets,
-  withMasterworkTotals,
-} from "../bungie/masterwork.ts"
-import {
-  describeLoadout,
-  loadoutPlugHashes,
-  loadoutStatChange,
-  plugStatMods,
-} from "../bungie/loadout.ts"
-import {
-  describeArmorMods,
-  type ModSwap,
-  planModSwaps,
-  socketsNow,
-  swapStatChange,
-  withChargeEffects,
-} from "../bungie/mods.ts"
+import { ARMOR_STATS } from "../bungie/masterwork.ts"
+import { plugStatMods } from "../bungie/loadout.ts"
+import { socketsNow } from "../bungie/mods.ts"
 import { ProfileStore } from "../bungie/profile.ts"
 import { isActive, setBonusesFor } from "../bungie/sets.ts"
-import {
-  planSubclass,
-  type SubclassSocket,
-  subclassSockets,
-  unlockedPlugs,
-} from "../bungie/subclass.ts"
+import type { SubclassSocket } from "../bungie/subclass.ts"
 import { CreatorNotes } from "../creators/creators.ts"
 import { NOTE_MAX_AGE_DAYS } from "../creators/parse.ts"
 import { ChargeEffects } from "../db/charge.ts"
 import { JobsRepo } from "../db/jobs.ts"
-import { checkRoll, perkMatcher, type RollMatch, recommendations } from "../wishlist/parse.ts"
+import {
+  buildRules,
+  composeBuild,
+  explain,
+  findSubclass,
+  oneLine,
+  setBonusLine,
+  type SubclassChoice,
+  subclassChoices,
+  toSource,
+  unknownSubclass,
+} from "../plans/compose.ts"
+import { type BuildRecipe, PlanInput, SourceInput } from "../plans/recipe.ts"
+import {
+  checkRoll,
+  perkMatcher,
+  type RollMatch,
+  recommendations,
+  scoreFor,
+} from "../wishlist/parse.ts"
 import { Wishlist, WISHLIST_URL } from "../wishlist/wishlist.ts"
 
 // These are the tools Claude sees. They read the cached inventory and the
@@ -91,12 +70,6 @@ import { Wishlist, WISHLIST_URL } from "../wishlist/wishlist.ts"
 // player confirms in the app.
 
 const Json = Schema.String
-
-const SourceInput = Schema.Struct({
-  label: Schema.String,
-  url: Schema.optional(Schema.NullOr(Schema.String)),
-  asOf: Schema.optional(Schema.NullOr(Schema.String)),
-})
 
 const GetCharacters = Tool.make("get_characters", {
   description:
@@ -127,17 +100,6 @@ const SearchItems = Tool.make("search_items", {
   success: Json,
 })
 
-const SubclassInput = Schema.Struct({
-  name: Schema.String,
-  super: Schema.optional(Schema.String),
-  classAbility: Schema.optional(Schema.String),
-  jump: Schema.optional(Schema.String),
-  melee: Schema.optional(Schema.String),
-  grenade: Schema.optional(Schema.String),
-  aspects: Schema.optional(Schema.Array(Schema.String)),
-  fragments: Schema.optional(Schema.Array(Schema.String)),
-})
-
 const ListSubclasses = Tool.make("list_subclasses", {
   description:
     "The subclasses a character owns and what the player has unlocked for each. Without subclass: each one's name, element and what is slotted now. With subclass (a name or an element): every super, class ability, jump, melee and grenade it can take, its aspects with the fragment slots each brings and effect text, and its fragments with stat changes and effect text. Use these names exactly in present_plan subclass. With subclass and purpose, every option is still listed, each with a relevance from 0 to 1 and sorted by it within its group, but only the most relevant options and what is slotted keep their effect text; read any other option's effect with describe_plugs. If the result says ranking unavailable, nothing is ranked.",
@@ -156,60 +118,22 @@ const ListSubclasses = Tool.make("list_subclasses", {
 
 const PresentPlan = Tool.make("present_plan", {
   description:
-    "Show the player a plan to confirm. Nothing moves until they tap the confirm button; the server then runs the selected rows. Call it once per request, after deciding. Row actions: to_vault, to_character, pull_postmaster, equip, tag_junk, or none (shown for comparison only). For a build, list the armor piece for every slot, including pieces that stay equipped (action none). The app works out the build's six stat totals itself from the pieces you equip, before and after, and what masterworking would add, so do not do that arithmetic or repeat those numbers in your reply. For a build, also pick the subclass in subclass: its name (from list_subclasses) and the super, class ability, jump, melee, grenade, aspects and fragments you want, by the names list_subclasses gives. Anything you leave out stays as that subclass has it. Name the fragments the build needs; they go into empty slots first, then replace from the last slot back, and slots you leave spare keep their fragment. The aspects' fragment slots cap the fragments. The server checks the picks and tells you what to fix; on confirm it equips the subclass and slots the plugs, and the build's stats count the chosen fragments. Leave subclass out only when the equipped subclass and its plugs already fit. For a build, also recommend armor mods in mods: one entry per mod to put in, naming the piece (it must be a row) and the mod exactly as list_armor_mods gives it, with replaces when the piece has no free socket of that kind. Only list mods that change; what is already slotted stays. The server checks sockets and energy and tells you what to fix. Every armor charge mod the build will run (charged true in get_armor_mods or list_armor_mods, already slotted or swapped in) needs its numbers: if it has no chargeEffect yet, look up what it adds while charged and how extra copies stack, and pass it in chargeEffects with the source, for example '+10% Arc weapon damage; 17% with two copies, 22% with three'. For a build, also write situational: one to three sentences on what the build's conditional bonuses (armor charge mods, and fragments or aspects that only work under a condition) add together once they are up, how the player keeps them up, and what they lose when they drop. For a build, also write synergy, one or two sentences per part on how it feeds the rest of the build: exotic, what the exotic armor's perk does for this subclass and its loop; setBonuses, how the set bonuses the armor turns on (get_armor_mods lists them) fit the loop, plus any bonus one piece away worth chasing; mods, how the armor mods back the loop. Leave out a part the build lacks; the server refuses a build that has a part without its synergy. For a build, also pass purpose; the server judges the set bonuses against it and tells you when one the armor turns on fits the build poorly. Prefer armor whose set bonuses fit the build. For a build, pass stats only for the stat goals the player names: one entry each, label Health, Melee, Grenade, Super, Class or Weapons (Resilience is Health, Recovery is Class), target true, and value the number they asked for. The server refuses a build whose totals, after armor, mods and fragments, fall short of a goal; if the owned gear truly cannot reach it, pass shortfall with one sentence on why.",
+    "Show the player a plan to confirm. Nothing moves until they tap the confirm button; the server then runs the selected rows. Call it once per request, after deciding. Row actions: to_vault, to_character, pull_postmaster, equip, tag_junk, or none (shown for comparison only). For a build, list the armor piece for every slot and one weapon for each of kinetic, energy and power, including pieces that stay equipped (action none), with at most one exotic weapon. The server fills in each weapon's type, its perks and, when you pass no score, its wishlist score. The app works out the build's six stat totals itself from the pieces you equip, before and after, and what masterworking would add, so do not do that arithmetic or repeat those numbers in your reply. For a build, also pick the subclass in subclass: its name (from list_subclasses) and the super, class ability, jump, melee, grenade, aspects and fragments you want, by the names list_subclasses gives. Anything you leave out stays as that subclass has it. Name the fragments the build needs; they go into empty slots first, then replace from the last slot back, and slots you leave spare keep their fragment. The aspects' fragment slots cap the fragments. The server checks the picks and tells you what to fix; on confirm it equips the subclass and slots the plugs, and the build's stats count the chosen fragments. Leave subclass out only when the equipped subclass and its plugs already fit. For a build, also recommend armor mods in mods: one entry per mod to put in, naming the piece (it must be a row) and the mod exactly as list_armor_mods gives it, with replaces when the piece has no free socket of that kind. Only list mods that change; what is already slotted stays. The server checks sockets and energy and tells you what to fix. Every armor charge mod the build will run (charged true in get_armor_mods or list_armor_mods, already slotted or swapped in) needs its numbers: if it has no chargeEffect yet, look up what it adds while charged and how extra copies stack, and pass it in chargeEffects with the source, for example '+10% Arc weapon damage; 17% with two copies, 22% with three'. For a build, also write situational: one to three sentences on what the build's conditional bonuses (armor charge mods, and fragments or aspects that only work under a condition) add together once they are up, how the player keeps them up, and what they lose when they drop. For a build, also write synergy, one or two sentences per part on how it feeds the rest of the build: exotic, what the exotic armor's perk does for this subclass and its loop; setBonuses, how the set bonuses the armor turns on (get_armor_mods lists them) fit the loop, plus any bonus one piece away worth chasing; mods, how the armor mods back the loop; weapons, how the three weapons, the exotic weapon included, feed the loop (every build needs it); artifact, how the artifact perks and any artifact-only mod back the loop and the weapons. Leave out a part the build lacks; the server refuses a build that has a part without its synergy. For a build, also pass artifact: the names of the Seasonal Artifact perks it runs, from get_artifact. The server checks them against the character's columns and points and marks which the player must select in game, or that the artifact needs a reset; say so in note, because only the player can select them. For a build, also pass purpose; the server judges the set bonuses against it and tells you when one the armor turns on fits the build poorly. Prefer armor whose set bonuses fit the build. For a build, pass stats only for the stat goals the player names: one entry each, label Health, Melee, Grenade, Super, Class or Weapons (Resilience is Health, Recovery is Class), target true, and value the number they asked for. The server refuses a build whose totals, after armor, mods and fragments, fall short of a goal; if the owned gear truly cannot reach it, pass shortfall with one sentence on why.",
+  parameters: PlanInput,
+  success: Json,
+})
+
+const GetArtifact = Tool.make("get_artifact", {
+  description:
+    "A character's Seasonal Artifact: the points it can spend, each column with the points spent in earlier columns it needs to open, and every perk with its effect text and whether it is selected now. Pick a build's artifact perks from it and pass their names in present_plan artifact. Ghost cannot select artifact perks; the player does that in game. With purpose, each perk gets a relevance from 0 to 1 and each column lists the most relevant first. If the result says ranking unavailable, nothing is ranked.",
   parameters: Schema.Struct({
-    kind: PlanKind,
-    title: Schema.String,
-    subtitle: Schema.optional(Schema.String),
-    note: Schema.optional(Schema.String),
-    confirmLabel: Schema.String,
-    stats: Schema.optional(
-      Schema.Array(
-        Schema.Struct({ label: Schema.String, value: Schema.Number, target: Schema.Boolean }),
-      ),
-    ),
-    featured: Schema.optional(
-      Schema.Struct({
-        itemInstanceId: Schema.String,
-        perks: Schema.Array(Schema.Struct({ name: Schema.String, good: Schema.Boolean })),
-        stats: Schema.Array(Schema.Struct({ label: Schema.String, value: Schema.Number })),
-      }),
-    ),
-    rows: Schema.Array(
-      Schema.Struct({
-        itemInstanceId: Schema.String,
-        action: PlanAction,
-        characterId: Schema.optional(Schema.String),
-        meta: Schema.optional(Schema.String),
-        score: Schema.optional(Schema.Number),
-        selected: Schema.optional(Schema.Boolean),
-      }),
-    ),
-    mods: Schema.optional(
-      Schema.Array(
-        Schema.Struct({
-          itemInstanceId: Schema.String,
-          mod: Schema.String,
-          replaces: Schema.optional(Schema.String),
-        }),
-      ),
-    ),
-    chargeEffects: Schema.optional(
-      Schema.Array(
-        Schema.Struct({ mod: Schema.String, effect: Schema.String, source: SourceInput }),
-      ),
-    ),
-    situational: Schema.optional(Schema.String),
-    synergy: Schema.optional(Schema.Struct(Synergy.fields)),
+    characterId: Schema.optional(Schema.String),
     purpose: Schema.optional(
       Schema.String.annotate({
         description:
-          "What the build does, in plain words: subclass and element, activity, stat goals and playstyle, for example 'Void Sentinel Titan build, 100 Health and 100 Class, overshields and Devour'. Pass it for every build, so the set bonuses can be judged against it.",
+          "What the build does, in plain words: subclass and element, weapons, activity and playstyle, for example 'Void Sentinel Titan build with a Combat Bow and Submachine Gun, overshields and Devour'. Pass it when choosing a build's artifact perks.",
       }),
     ),
-    shortfall: Schema.optional(Schema.String),
-    subclass: Schema.optional(SubclassInput),
-    sources: Schema.optional(Schema.Array(SourceInput)),
   }),
   success: Json,
 })
@@ -293,6 +217,7 @@ export const GhostToolkit = Toolkit.make(
   GetCharacters,
   SearchItems,
   PresentPlan,
+  GetArtifact,
   CheckRolls,
   RollRecommendations,
   DescribePlugs,
@@ -305,13 +230,6 @@ export const GhostToolkit = Toolkit.make(
 
 const clip = (text: string | null, max: number) =>
   text === null || text.length <= max ? text : `${text.slice(0, max)}…`
-
-// The model reads these, so failures come back as text it can relay
-// instead of a tool error it cannot explain.
-const explain = (error: BungieError | BungieNotLinked | { readonly message: string }) =>
-  "_tag" in error && error._tag === "BungieNotLinked"
-    ? "Error: the Bungie account is not linked yet. Tell the player to sign in with Bungie in the app."
-    : `Error: ${"message" in error ? error.message : String(error)}`
 
 const named = (stats: ArmorStats) =>
   Object.fromEntries(ARMOR_STATS.map(([key, label]) => [label.toLowerCase(), stats[key]]))
@@ -334,9 +252,6 @@ const namedMods = (mods: Readonly<Record<string, number>>) => {
   })
   return named.length > 0 ? Object.fromEntries(named) : undefined
 }
-
-const setBonusLine = (bonus: SetBonus) =>
-  `${bonus.name} (${bonus.set}, ${bonus.required} pieces, wearing ${bonus.worn}): ${oneLine(bonus.description)}`
 
 const setBonusRow = (bonus: SetBonus) => ({
   status: isActive(bonus) ? "on" : "one piece away",
@@ -362,7 +277,8 @@ const compact = (i: OwnedItem) => ({
   statTotal: i.statTotal ?? undefined,
   stats: i.armorStats === null ? undefined : named(i.armorStats),
   perks: i.perks.length > 0 ? i.perks : undefined,
-  exoticPerk: i.exoticPerk ?? undefined,
+  exoticPerk:
+    i.exoticPerk === null ? undefined : `${i.exoticPerk.name}: ${i.exoticPerk.description}`,
   set: i.set?.name,
   duplicates: i.duplicates,
   decision: i.decision ?? undefined,
@@ -416,7 +332,7 @@ export const rankingText = (i: OwnedItem) => {
     i.masterwork ? "masterworked" : null,
     stats.length > 0 ? `stats, highest first: ${stats.join(", ")} (total ${i.statTotal})` : null,
     i.perks.length > 0 ? `perks: ${i.perks.join(", ")}` : null,
-    i.exoticPerk === null ? null : `exotic perk: ${i.exoticPerk}`,
+    i.exoticPerk === null ? null : `exotic perk: ${i.exoticPerk.name}: ${i.exoticPerk.description}`,
     i.set === null ? null : `armor set ${i.set.name}: ${i.set.perks.map(setPerkText).join(", ")}`,
   ]
     .filter((part) => part !== null)
@@ -471,20 +387,6 @@ export const findItems = (inv: Inventory, f: SearchFilters): Effect.Effect<Found
       )
   })
 
-const oneLine = (text: string) => text.replace(/\s+/g, " ").trim()
-
-const describeMiss = (
-  miss: MissedTarget,
-  fragments: ReadonlyArray<{ readonly name: string; readonly mods: ReadonlyArray<StatMod> }>,
-) => {
-  const lowering = fragments.flatMap((fragment) =>
-    fragment.mods
-      .filter((mod) => mod.label === miss.label && mod.delta < 0)
-      .map((mod) => `${fragment.name} ${mod.delta}`),
-  )
-  return `${miss.label} ${miss.value}, asked ${miss.requested}${lowering.length > 0 ? ` (lowered by ${lowering.join(", ")})` : ""}`
-}
-
 const setBonusText = (bonus: SetBonus) =>
   `${bonus.name}; ${bonus.set} armor set bonus for wearing ${bonus.required} pieces; effect: ${oneLine(clip(bonus.description, 300) ?? "")}`
 
@@ -524,30 +426,6 @@ export const offBuildBonuses = (setBonuses: ReadonlyArray<SetBonus>) =>
   setBonuses.filter(
     (bonus) => isActive(bonus) && bonus.fit !== undefined && bonus.fit < OFF_BUILD_FIT,
   )
-
-/** The parts of a build whose synergy the agent has not written yet, each saying what to write. */
-export const synergyMissing = ({
-  exotic,
-  setBonuses,
-  modded,
-  synergy,
-}: {
-  readonly exotic: Pick<OwnedItem, "name" | "exoticPerk"> | undefined
-  readonly setBonuses: ReadonlyArray<SetBonus>
-  readonly modded: boolean
-  readonly synergy: Schema.Struct.Type<typeof Synergy.fields> | undefined
-}): ReadonlyArray<string> => {
-  const active = setBonuses.filter(isActive)
-  return [
-    exotic !== undefined && !synergy?.exotic?.trim()
-      ? `exotic, on what ${exotic.name}${exotic.exoticPerk === null ? "" : ` (${exotic.exoticPerk})`} does for this subclass and its loop`
-      : null,
-    active.length > 0 && !synergy?.setBonuses?.trim()
-      ? `setBonuses, on how the active set bonuses fit: ${active.map(setBonusLine).join(" / ")}`
-      : null,
-    modded && !synergy?.mods?.trim() ? "mods, on how the armor mods back the loop" : null,
-  ].filter((part) => part !== null)
-}
 
 const statChanges = (mods: Readonly<Record<string, number>>) =>
   Object.entries(namedMods(mods) ?? {})
@@ -803,38 +681,29 @@ export const findSubclassDetail = (
     )
   })
 
-const DEFAULT_META: Record<PlanAction, (item: OwnedItem, className: string) => string> = {
-  to_vault: (i) => `${i.typeName} → VAULT`,
-  to_character: (i, c) => `${i.typeName} → ${c}`,
-  pull_postmaster: (i, c) => `${i.typeName} · POSTMASTER → ${c}`,
-  equip: (i, c) => `${i.typeName} · EQUIP ON ${c}`,
-  tag_junk: (i) => `${i.typeName} · JUNK`,
-  none: (i) => i.typeName,
-}
-
-// A full curated match is the strongest signal; "god" tags mark the
-// curator's top pick. Partial matches scale with how many listed perks the
-// roll has, and a trash match overrides everything.
-const scoreFor = (
-  full: ReadonlyArray<RollMatch>,
-  partial: ReadonlyArray<RollMatch>,
-  rolls: number,
+export const artifactView = (
+  artifact: CharacterArtifact,
+  relevance?: ReadonlyMap<string, number>,
 ) => {
-  if (full.some((m) => m.roll.trash)) return { score: 10, basis: "matches a wishlist trash roll" }
-  const keepers = full.filter((m) => !m.roll.trash)
-  if (keepers.some((m) => m.roll.block.tags.some((t) => /god/i.test(t)))) {
-    return { score: 95, basis: "fully matches a wishlist roll tagged god" }
+  const scored = (perk: ArtifactPerk) => relevance?.get(String(perk.hash))
+  return {
+    artifact: artifact.name,
+    pointsAvailable: artifact.pointsAvailable,
+    pointsUsed: artifact.pointsUsed,
+    columns: artifact.tiers.map((tier) => ({
+      column: tier.column + 1,
+      unlocked: tier.unlocked,
+      opensAfter: tier.unlocksAt,
+      perks: [...tier.perks]
+        .sort((a, b) => (scored(b) ?? 0) - (scored(a) ?? 0))
+        .map((perk) => ({
+          name: perk.name,
+          selected: perk.active,
+          effect: clip(perk.description, 300),
+          relevance: scored(perk),
+        })),
+    })),
   }
-  if (keepers.length > 0) return { score: 85, basis: "fully matches a wishlist roll" }
-  const best = partial[0]
-  if (best !== undefined) {
-    return {
-      score: Math.round(40 + (40 * best.matched) / best.total),
-      basis: `has ${best.matched} of ${best.total} perks of the closest wishlist roll`,
-    }
-  }
-  if (rolls > 0) return { score: 30, basis: "has none of the wishlist's recommended perks" }
-  return { score: null, basis: "the wishlist has no entries for this weapon" }
 }
 
 export const GhostToolkitHandlers = GhostToolkit.toLayer(
@@ -847,134 +716,17 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
     const creators = yield* CreatorNotes
     const chargeEffects = yield* ChargeEffects
     const jev = yield* Jev
+    const artifacts = yield* Artifacts
 
     const withInventory = (f: (inv: Inventory) => Effect.Effect<string>) =>
       profile.inventory.pipe(
         Effect.matchEffect({ onFailure: (e) => Effect.succeed(explain(e)), onSuccess: f }),
       )
 
-    const toSource = (s: typeof SourceInput.Type) =>
-      new Source({ label: s.label, url: s.url ?? null, asOf: s.asOf ?? null })
-
     const toSources = (input: ReadonlyArray<typeof SourceInput.Type>) => input.map(toSource)
 
     const nameLookup = (hashes: Iterable<number>) =>
       Effect.map(manifest.lookup(hashes), (defs) => (hash: number) => defs.get(hash)?.name)
-
-    const subclassChoices = (character: CharacterInfo) =>
-      Effect.gen(function* () {
-        const sets = yield* profile.plugSets
-        return yield* Effect.forEach(
-          character.subclasses,
-          (subclass) =>
-            Effect.gen(function* () {
-              const plugSets = yield* manifest.subclassPlugSets(subclass.itemHash)
-              const unlocked = (set: number) => unlockedPlugs(sets, character.characterId, set)
-              const defs = yield* manifest.lookup([
-                ...subclass.sockets.map((socket) => socket.plugHash),
-                ...plugSets.flatMap((set) => (set === null ? [] : unlocked(set))),
-              ])
-              const sockets = subclassSockets({ subclass, plugSets, unlocked, defs })
-              const plugs = yield* manifest.plugFacts([
-                ...new Set(
-                  sockets
-                    .filter((socket) => socket.part === "aspect" || socket.part === "fragment")
-                    .flatMap((socket) => [socket.current, ...socket.options.map((o) => o.hash)]),
-                ),
-              ])
-              return { subclass, defs, sockets, plugs }
-            }),
-          { concurrency: 4 },
-        )
-      })
-
-    type SubclassChoice = Effect.Success<ReturnType<typeof subclassChoices>>[number]
-
-    const findSubclass = (choices: ReadonlyArray<SubclassChoice>, wanted: string) =>
-      choices.find(
-        ({ subclass }) =>
-          subclass.name.toLowerCase() === wanted.trim().toLowerCase() ||
-          subclass.element === wanted.trim().toLowerCase(),
-      )
-
-    const unknownSubclass = (choices: ReadonlyArray<SubclassChoice>, wanted: string) =>
-      `Error: "${wanted}" is not a subclass this character owns; pick from ${choices.map((c) => c.subclass.name).join(", ")}.`
-
-    const buildSubclass = (
-      character: CharacterInfo,
-      request: typeof SubclassInput.Type,
-      facts: StatFacts,
-    ) =>
-      Effect.gen(function* () {
-        const choices = yield* subclassChoices(character)
-        const choice = findSubclass(choices, request.name)
-        if (choice === undefined) return { error: unknownSubclass(choices, request.name) }
-        const planned = planSubclass({
-          name: choice.subclass.name,
-          sockets: choice.sockets,
-          request,
-          defs: choice.defs,
-          fragmentSlots: (hash) => choice.plugs.get(hash)?.fragmentSlots ?? 0,
-        })
-        if ("errors" in planned) {
-          return {
-            error: `Error: ${planned.errors.join(". ")}. Check list_subclasses and call present_plan again.`,
-          }
-        }
-        const equipped = character.subclasses.find((subclass) => subclass.equipped)
-        const switching = !choice.subclass.equipped
-        const change =
-          switching || planned.swaps.length > 0
-            ? new SubclassChange({
-                itemInstanceId: choice.subclass.itemInstanceId,
-                itemHash: choice.subclass.itemHash,
-                characterId: character.characterId,
-                replaces: switching ? (equipped?.name ?? null) : null,
-                previousItemId: switching ? (equipped?.itemInstanceId ?? null) : null,
-                swaps: planned.swaps.map(
-                  (swap) =>
-                    new SubclassSwap({
-                      name: swap.plug.name,
-                      socketIndex: swap.socketIndex,
-                      plugHash: swap.plug.hash,
-                      previousPlugHash: swap.previousPlugHash,
-                    }),
-                ),
-                selected: true,
-                outcome: null,
-                error: null,
-              })
-            : undefined
-        const worn = loadoutPlugHashes(character)
-        const plugs = new Map([...(yield* manifest.plugFacts(worn)), ...choice.plugs])
-        return {
-          loadout: describeLoadout({
-            character: {
-              classType: character.classType,
-              subclass: choice.subclass.name,
-              subclassIcon: choice.subclass.icon,
-              element: choice.subclass.element,
-              loadout: planned.loadout,
-            },
-            plugs,
-            facts,
-            swapped: new Map(
-              planned.swaps.map((swap) => [swap.plug.hash, swap.previous?.name ?? null]),
-            ),
-            change,
-          }),
-          statChange: loadoutStatChange({
-            from: worn,
-            to: loadoutPlugHashes({ loadout: planned.loadout }),
-            plugs,
-            classType: character.classType,
-          }),
-          summary: [
-            switching ? `equips ${choice.subclass.name}` : null,
-            planned.swaps.length > 0 ? `${planned.swaps.length} subclass plug changes` : null,
-          ].filter((part) => part !== null),
-        }
-      })
 
     const get_characters = () =>
       withInventory((inv) =>
@@ -1011,7 +763,18 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
         ),
       )
 
-    const present_plan = (input: (typeof PresentPlan)["parametersSchema"]["Type"]) =>
+    const composing = <A, E>(
+      effect: Effect.Effect<A, E, Manifest | ProfileStore | ChargeEffects | Wishlist | Artifacts>,
+    ): Effect.Effect<A, E> =>
+      effect.pipe(
+        Effect.provideService(Manifest, manifest),
+        Effect.provideService(ProfileStore, profile),
+        Effect.provideService(ChargeEffects, chargeEffects),
+        Effect.provideService(Wishlist, wishlist),
+        Effect.provideService(Artifacts, artifacts),
+      )
+
+    const present_plan = (input: PlanInput) =>
       Effect.gen(function* () {
         const job = yield* current.get
         if (Option.isNone(job)) {
@@ -1019,265 +782,33 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
         }
         return yield* withInventory((inv) =>
           Effect.gen(function* () {
-            const owned = new Map(inv.items.map((i) => [i.itemInstanceId, i]))
-            const classOf = new Map(inv.characters.map((c) => [c.characterId, c.classType]))
-            const ids = input.rows.map((r) => r.itemInstanceId)
-            if (input.featured !== undefined) ids.push(input.featured.itemInstanceId)
-            const unknown = ids.filter((id) => !owned.has(id))
-            if (unknown.length > 0) {
-              return `Error: unknown item ids ${unknown.join(", ")}. Use ids from search_items or get_characters.`
+            const recipe: BuildRecipe = {
+              ...input,
+              characterId: job.value.characterId || (inv.characters[0]?.characterId ?? null),
             }
-            const pieces = input.rows.flatMap((row) => {
-              const item = owned.get(row.itemInstanceId)
-              return item === undefined ? [] : [{ row, item }]
-            })
-            const badCharacter = input.rows.find(
-              (r) => r.characterId !== undefined && !classOf.has(r.characterId),
-            )
-            if (badCharacter !== undefined) {
-              return `Error: unknown characterId ${badCharacter.characterId}. Use ids from get_characters.`
-            }
-            const fallback = job.value.characterId || (inv.characters[0]?.characterId ?? null)
-            const facts = yield* manifest.statFacts
-            const slotted = input.rows.flatMap((r) =>
-              (owned.get(r.itemInstanceId)?.modSockets ?? []).map((socket) => socket.plugHash),
-            )
-            const modDefs = yield* manifest
-              .lookup(slotted)
-              .pipe(Effect.orElseSucceed((): ReadonlyMap<number, ManifestItem> => new Map()))
-            const modFacts = yield* manifest.plugFacts(slotted)
-            const wanted = input.mods ?? []
-            const stray = wanted.filter(
-              (m) => !input.rows.some((r) => r.itemInstanceId === m.itemInstanceId),
-            )
-            if (stray.length > 0) {
-              return `Error: mods name pieces that are not rows of the plan: ${stray.map((m) => m.itemInstanceId).join(", ")}. List each piece as a row (action none if it stays on).`
-            }
-            const researched = input.chargeEffects ?? []
-            const catalog =
-              wanted.length > 0 || researched.length > 0 ? yield* manifest.armorMods : []
-            const notCharged = researched.filter(
-              (r) =>
-                !catalog.some(
-                  (entry) => entry.charged && entry.name.toLowerCase() === r.mod.toLowerCase(),
-                ),
-            )
-            if (notCharged.length > 0) {
-              return `Error: chargeEffects names mods that are not armor charge mods: ${notCharged.map((r) => r.mod).join(", ")}. Use names from list_armor_mods with charged true.`
-            }
-            const swapsFor = new Map<string, ReadonlyArray<ModSwap>>()
-            const refused: Array<string> = []
-            for (const { row: r, item } of pieces) {
-              const requests = wanted.filter((m) => m.itemInstanceId === r.itemInstanceId)
-              if (requests.length === 0) continue
-              const planned = planModSwaps({
-                item,
-                sockets: socketsNow(item, modDefs, modFacts),
-                catalog,
-                requests,
-              })
-              refused.push(...planned.errors)
-              swapsFor.set(r.itemInstanceId, planned.swaps)
-            }
-            if (refused.length > 0) {
-              return `Error: ${refused.join(". ")}. Fix the mods and call present_plan again.`
-            }
-            yield* chargeEffects
-              .record(
-                researched.map((r) => ({
-                  mod: r.mod,
-                  effect: new ChargeEffect({ effect: r.effect, source: toSource(r.source) }),
-                })),
-              )
-              .pipe(Effect.orDie)
-            const drafted = pieces.map(({ row: r, item }) => {
-              const characterId =
-                r.action === "pull_postmaster"
-                  ? item.characterId
-                  : r.action === "to_character" || r.action === "equip"
-                    ? (r.characterId ?? fallback)
-                    : (r.characterId ?? null)
-              const className = (classOf.get(characterId ?? "") ?? "character").toUpperCase()
-              const arrives = r.action === "equip" || r.action === "to_character"
-              const origin = !arrives
-                ? undefined
-                : item.location !== "character"
-                  ? item.location.toUpperCase()
-                  : item.characterId !== characterId
-                    ? classOf.get(item.characterId ?? "")?.toUpperCase()
-                    : undefined
-              const mods =
-                item.armorStats === null
-                  ? undefined
-                  : describeArmorMods({
-                      sockets: socketsNow(item, modDefs, modFacts),
-                      swaps: swapsFor.get(item.itemInstanceId) ?? [],
-                      facts,
-                    })
-              return new PlanRow({
-                itemInstanceId: item.itemInstanceId,
-                itemHash: item.itemHash,
-                name: item.name,
-                icon: item.icon,
-                tier: item.tier,
-                meta: r.meta ?? DEFAULT_META[r.action](item, className).toUpperCase(),
-                power: item.power,
-                score: r.score ?? null,
-                action: r.action,
-                characterId,
-                selected:
-                  r.action === "none" && (swapsFor.get(item.itemInstanceId)?.length ?? 0) === 0
-                    ? false
-                    : (r.selected ?? true),
-                outcome: null,
-                error: null,
-                stats: item.armorStats === null ? undefined : armorStats(item),
-                slot: item.slot,
-                masterwork: item.masterwork,
-                damageType: item.damageType,
-                gearTier: item.gearTier ?? null,
-                armorMods: mods?.armorMods,
-                freeModSlots: mods?.freeModSlots,
-                energy:
-                  item.energy === null || mods === undefined
-                    ? undefined
-                    : { used: mods.energyUsed, capacity: item.energy.capacity },
-                origin,
-              })
-            })
-            const effects = yield* chargeEffects
-              .forMods(
-                drafted.flatMap((row) =>
-                  (row.armorMods ?? []).filter((mod) => mod.charged).map((mod) => mod.name),
-                ),
-              )
-              .pipe(Effect.orDie)
-            const rows = drafted.map((row) =>
-              row.armorMods === undefined
-                ? row
-                : new PlanRow({ ...row, armorMods: withChargeEffects(row.armorMods, effects) }),
-            )
-            const equipping = rows.filter((row) => row.action === "equip")
-            const builtFor = inv.characters.find(
-              (c) => c.characterId === (equipping[0]?.characterId ?? fallback),
-            )
-            const chosen =
-              input.kind === "build" && builtFor !== undefined && input.subclass !== undefined
-                ? yield* buildSubclass(builtFor, input.subclass, facts).pipe(
-                    Effect.catch((error) => Effect.succeed({ error: explain(error) })),
-                  )
-                : null
-            if (chosen !== null && "error" in chosen) return chosen.error
-            const loadout =
-              chosen !== null
-                ? chosen.loadout
-                : input.kind === "build" && builtFor !== undefined
-                  ? describeLoadout({
-                      character: builtFor,
-                      plugs: yield* manifest.plugFacts(loadoutPlugHashes(builtFor)),
-                      facts,
-                    })
-                  : undefined
-            const modChange: Record<string, number> = {}
-            for (const [stat, delta] of [
-              ...Object.entries(swapStatChange([...swapsFor.values()].flat())),
-              ...Object.entries(chosen?.statChange ?? {}),
-            ])
-              modChange[stat] = (modChange[stat] ?? 0) + delta
-            const worn =
-              builtFor === undefined
-                ? []
-                : inv.items.filter(
-                    (i) => i.equipped && i.characterId === builtFor.characterId && isArmor(i.slot),
-                  )
-            const incoming = pieces
-              .filter(({ row }) => row.action === "equip")
-              .map(({ item }) => item)
-            const planStats =
-              input.kind === "build" && builtFor !== undefined
-                ? buildStats({
-                    character: builtFor,
-                    worn,
-                    incoming,
-                    targets: (input.stats ?? []).filter((s) => s.target).map((s) => s.label),
-                    facts,
-                    modChange,
-                  })
-                : withMasterworkTotals(
-                    (input.stats ?? []).map((s) => new PlanStat(s)),
-                    pieces.map(({ item }) => item),
-                  )
-            const goals = (input.stats ?? []).filter((s) => s.target)
-            const misses = input.kind === "build" ? missedTargets(planStats, goals) : []
-            if (misses.length > 0 && input.shortfall === undefined) {
-              return `Error: the build misses stat goals: ${misses.map((miss) => describeMiss(miss, loadout?.fragments ?? [])).join("; ")}. Raise them with other armor pieces, stat mods, or fragments that do not lower them, then call present_plan again. If the owned gear truly cannot reach a goal, call again with shortfall saying why in one sentence.`
-            }
-            const armor =
-              input.kind === "build" && builtFor !== undefined
-                ? armorAfter(worn, incoming).final
-                : []
-            const setBonuses = setBonusesFor(
-              armor.length > 0 ? yield* manifest.armorSets : [],
-              armor.map((item) => item.itemHash),
-            )
-            const unwritten = synergyMissing({
-              exotic: armor.find((item) => item.tier === "exotic"),
-              setBonuses,
-              modded: rows.some(
-                (row) =>
-                  armor.some((item) => item.itemInstanceId === row.itemInstanceId) &&
-                  (row.armorMods ?? []).length > 0,
-              ),
-              synergy: input.synergy,
-            })
-            if (input.kind === "build" && !input.purpose?.trim()) {
-              return "Error: a build needs purpose: what it does, in plain words, so Jev can judge its set bonuses. Call present_plan again with purpose."
-            }
-            if (unwritten.length > 0) {
-              return `Error: the build needs synergy, one or two sentences per part on how it feeds the rest of the build: ${unwritten.join("; ")}. Call present_plan again with synergy.`
-            }
-            const judged = yield* judgeSetBonuses(input.purpose, setBonuses).pipe(
+            const build = yield* composing(composeBuild(recipe, inv))
+            const refusal = buildRules(recipe, build)
+            if (refusal !== undefined) return yield* refusal
+            const judged = yield* judgeSetBonuses(recipe.purpose, build.plan.setBonuses ?? []).pipe(
               Effect.provideService(Jev, jev),
             )
             const offBuild = offBuildBonuses(judged.setBonuses)
-            const note =
-              misses.length > 0 && input.shortfall !== undefined
-                ? [input.shortfall, input.note].filter((part) => part !== undefined).join(" ")
-                : (input.note ?? null)
             const plan = new Plan({
-              kind: input.kind,
-              title: input.title,
-              subtitle: input.subtitle ?? null,
-              stats: planStats,
-              featured:
-                input.featured === undefined
-                  ? null
-                  : new PlanFeatured({
-                      itemInstanceId: input.featured.itemInstanceId,
-                      perks: input.featured.perks.map((p) => new PlanPerk(p)),
-                      stats: input.featured.stats.map((s) => new PlanStat({ ...s, target: false })),
-                    }),
-              loadout,
-              rows,
-              note,
-              situational: input.situational,
+              ...build.plan,
               setBonuses: judged.setBonuses.length > 0 ? judged.setBonuses : undefined,
-              synergy:
-                input.kind === "build" && input.synergy !== undefined
-                  ? new Synergy(input.synergy)
-                  : undefined,
-              confirmLabel: input.confirmLabel,
-              status: "proposed",
+              saveable: recipe.kind === "build" ? true : undefined,
             })
             yield* jobs.setPlan(job.value.id, plan).pipe(Effect.orDie)
-            if (input.sources !== undefined && input.sources.length > 0) {
-              yield* jobs.addSources(job.value.id, toSources(input.sources)).pipe(Effect.orDie)
+            if (recipe.kind === "build") {
+              yield* jobs.setRecipe(job.value.id, recipe).pipe(Effect.orDie)
             }
-            const actionable = rows.filter((r) => r.action !== "none").length
-            const swapped = [...swapsFor.values()].flat().length
+            if (recipe.sources !== undefined && recipe.sources.length > 0) {
+              yield* jobs.addSources(job.value.id, toSources(recipe.sources)).pipe(Effect.orDie)
+            }
+            const actionable = plan.rows.filter((r) => r.action !== "none").length
             const unresearched = [
               ...new Set(
-                rows.flatMap((row) =>
+                plan.rows.flatMap((row) =>
                   (row.armorMods ?? [])
                     .filter((mod) => mod.charged && mod.chargeEffect === undefined)
                     .map((mod) => mod.name),
@@ -1289,19 +820,54 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
                 ? ` These armor charge mods still have no chargeEffect, so the card cannot say what they add: ${unresearched.join(", ")}. Look them up and call present_plan again with chargeEffects.`
                 : ""
             const subclassNote =
-              chosen === null
+              build.subclassChanges === null
                 ? ""
-                : chosen.summary.length > 0
-                  ? ` Subclass: ${chosen.summary.join(", ")}.`
+                : build.subclassChanges.length > 0
+                  ? ` Subclass: ${build.subclassChanges.join(", ")}.`
                   : " Subclass: already as picked, nothing changes."
             const offBuildNote =
               offBuild.length > 0
                 ? ` These set bonuses the armor turns on fit the build poorly: ${offBuild.map((bonus) => `${bonus.name} (${bonus.set}, fit ${bonus.fit})`).join(", ")}; tell the player the trade-off or reconsider the armor.`
                 : ""
-            return `Plan saved with ${rows.length} rows (${actionable} actionable, ${swapped} mod swaps).${subclassNote} The player will see it under your answer and confirm in the app.${missing}${offBuildNote}`
-          }),
+            return `Plan saved with ${plan.rows.length} rows (${actionable} actionable, ${build.modSwaps} mod swaps).${subclassNote} The player will see it under your answer and confirm in the app.${missing}${offBuildNote}`
+          }).pipe(Effect.catchTag("BuildRefusal", (refusal) => Effect.succeed(refusal.message))),
         )
       })
+
+    const get_artifact = (input: (typeof GetArtifact)["parametersSchema"]["Type"]) =>
+      withInventory((inv) =>
+        Effect.gen(function* () {
+          const job = yield* current.get
+          const character = pickCharacter(
+            inv,
+            input.characterId ?? Option.getOrNull(job)?.characterId,
+          )
+          if (character === undefined) return "Error: no characters on this account."
+          const artifact = yield* artifacts.forCharacter(character.characterId)
+          if (artifact === null) {
+            return "This character has no Seasonal Artifact, so a build for it takes no artifact perks."
+          }
+          if (input.purpose === undefined) return JSON.stringify(artifactView(artifact))
+          return yield* jev
+            .rank(
+              input.purpose,
+              artifact.tiers.flatMap((tier) =>
+                tier.perks.map((perk) => ({
+                  id: String(perk.hash),
+                  text: `${perk.name}: ${perk.description}`,
+                })),
+              ),
+            )
+            .pipe(
+              Effect.map((relevance) => JSON.stringify(artifactView(artifact, relevance))),
+              Effect.catchTag("JevUnavailable", () =>
+                Effect.succeed(
+                  JSON.stringify({ ...artifactView(artifact), ranking: "unavailable" }),
+                ),
+              ),
+            )
+        }).pipe(Effect.catch((error) => Effect.succeed(explain(error)))),
+      )
 
     const check_rolls = ({
       itemInstanceIds,
@@ -1476,7 +1042,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
             input.characterId ?? Option.getOrNull(job)?.characterId,
           )
           if (character === undefined) return "Error: no characters on this account."
-          const choices = yield* subclassChoices(character)
+          const choices = yield* composing(subclassChoices(character))
           const nameOf = (choice: SubclassChoice, hash: number) => {
             const def = choice.defs.get(hash)
             return def === undefined || /^empty /i.test(def.name) ? null : def.name
@@ -1573,6 +1139,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
       get_characters,
       search_items,
       present_plan,
+      get_artifact,
       check_rolls,
       roll_recommendations,
       describe_plugs,

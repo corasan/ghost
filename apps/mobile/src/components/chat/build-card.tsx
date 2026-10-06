@@ -1,38 +1,27 @@
-import type {
-  GuardianClass,
-  Job,
-  LoadoutPlug,
-  Plan,
-  SubclassLoadout,
-  PlanRow,
-} from "@ghost/contract"
+import type { GuardianClass, Job, Plan, PlanRow } from "@ghost/contract"
 import { router } from "expo-router"
 import { Pressable, StyleSheet, Text, View } from "react-native"
 
 import { ItemIcon } from "@/components/ghost/item-icon"
-import { PlugIcon } from "@/components/ghost/plug-icon"
 import { SetBonusIcons } from "@/components/ghost/set-bonus"
 import { SubclassMark } from "@/components/ghost/subclass-mark"
-import { Body, Button, Cond, Cut, Mono } from "@/components/ghost/ui"
+import { offersSave, SaveButton } from "@/components/plan/save-button"
+import { Body, Button, Cond, Cut, Meta, Mono, StatIcon } from "@/components/ghost/ui"
 import { Ghost } from "@/constants/theme"
 import { errorMessage, useApplyPlan, useUndoPlan } from "@/lib/api"
 import { orderBuildStats } from "@/lib/build-order"
+import { sentence } from "@/lib/format"
 import {
   appliedTotals,
-  bySlot,
   failures,
   hasStatMods,
   headline,
-  litTicks,
   type ModPip,
-  modPips,
-  pendingMasterwork,
-  shortPlugName,
-  shortStat,
   signed,
   slotLabel,
-  STAT_TICKS,
-  verdict,
+  splitRows,
+  statTicks,
+  tallies,
 } from "@/lib/plan-card"
 import { usePlanSelection } from "@/lib/selection"
 
@@ -47,11 +36,13 @@ const upper = (parts: ReadonlyArray<string | null | undefined>) =>
 export function BuildHeader({
   eyebrow,
   plan,
-  eyebrowSize = 9,
+  eyebrowSize = 11,
+  name,
 }: {
   eyebrow: string
   plan: Plan
   eyebrowSize?: number
+  name?: string | undefined
 }) {
   return (
     <View style={styles.header}>
@@ -59,8 +50,8 @@ export function BuildHeader({
         <Mono size={eyebrowSize} style={{ letterSpacing: eyebrowSize * 0.14 }} lines={1}>
           {eyebrow}
         </Mono>
-        <Cond size={30} style={{ letterSpacing: 0.6, lineHeight: 30, marginTop: 7 }}>
-          {headline(plan)}
+        <Cond size={30} style={{ letterSpacing: 0.6, lineHeight: 30, marginTop: 7 }} lines={2}>
+          {name?.toUpperCase() ?? headline(plan)}
         </Cond>
       </View>
       {plan.loadout ? <SubclassMark loadout={plan.loadout} size={36} /> : null}
@@ -68,108 +59,70 @@ export function BuildHeader({
   )
 }
 
-type Shown = { name: string; icon: string | null; swap?: boolean | undefined }
-
-function Plugs({ plugs }: { plugs: readonly Shown[] }) {
+function Swatch({ color, label }: { color: string; label: string }) {
   return (
-    <View style={styles.plugs}>
-      {plugs.map((plug) => (
-        <View key={plug.name} style={styles.plug}>
-          <PlugIcon icon={plug.icon} size={16} />
-          <Body size={13} color={plug.swap ? Ghost.accent : Ghost.soft} style={{ lineHeight: 17 }}>
-            {plug.name}
-          </Body>
-        </View>
-      ))}
-    </View>
-  )
-}
-
-const shown = (plug: LoadoutPlug, name = plug.name): Shown => ({
-  name,
-  icon: plug.icon ?? null,
-  swap: plug.swap,
-})
-
-function Loadout({ loadout }: { loadout: SubclassLoadout }) {
-  const replaces = loadout.change?.replaces
-  const lines = [
-    {
-      label: "SUBCLASS",
-      plugs: replaces
-        ? [
-            {
-              name: `${loadout.subclass} · replaces ${replaces}`,
-              icon: loadout.icon ?? null,
-              swap: true,
-            },
-          ]
-        : [],
-    },
-    { label: "SUPER", plugs: loadout.super ? [shown(loadout.super)] : [] },
-    { label: "ASPECTS", plugs: loadout.aspects.map((aspect) => shown(aspect)) },
-    {
-      label: "FRAGMENTS",
-      plugs: loadout.fragments.map((each) => shown(each, shortPlugName(each.name))),
-    },
-  ].filter((line) => line.plugs.length > 0)
-  if (lines.length === 0) return null
-  return (
-    <View style={{ marginTop: 14, gap: 7 }}>
-      {lines.map((line) => (
-        <View key={line.label} style={styles.loadoutLine}>
-          <Mono style={styles.loadoutLabel}>{line.label}</Mono>
-          <Plugs plugs={line.plugs} />
-        </View>
-      ))}
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+      <View style={{ width: 8, height: 3, backgroundColor: color }} />
+      <Meta size={12} color={Ghost.dim}>
+        {label}
+      </Meta>
     </View>
   )
 }
 
 function Stats({ plan }: { plan: Plan }) {
   const applied = appliedTotals(plan)
+  const added = new Map(applied.map((mod) => [mod.label, mod.delta]))
   return (
     <View style={styles.band}>
-      <View style={{ flexDirection: "row", gap: 6 }}>
+      <View style={styles.statGrid}>
         {orderBuildStats(plan.stats).map((stat) => {
-          const tone = stat.target ? Ghost.good : Ghost.ink
+          const tone = stat.target ? Ghost.accent : Ghost.ink
+          const delta = added.get(stat.label) ?? 0
           return (
-            <View key={stat.label} style={{ flex: 1 }}>
-              <Cond size={24} color={tone} style={{ letterSpacing: 0, lineHeight: 24 }}>
-                {stat.value}
-              </Cond>
-              <Mono size={8} style={{ marginTop: 4, letterSpacing: 0.8 }} lines={1}>
-                {stat.label}
-              </Mono>
-              <View style={{ flexDirection: "row", gap: 2, marginTop: 6 }}>
-                {Array.from({ length: STAT_TICKS }, (_, i) => (
-                  <View
-                    key={i}
-                    style={{
-                      flex: 1,
-                      height: 3,
-                      backgroundColor: i < litTicks(stat.value) ? tone : Ghost.line,
-                    }}
-                  />
+            <View key={stat.label} style={styles.stat}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <StatIcon
+                  label={stat.label}
+                  size={22}
+                  color={stat.target ? Ghost.accent : Ghost.muted}
+                />
+                <Meta color={stat.target ? Ghost.accent : Ghost.dim} lines={1}>
+                  {sentence(stat.label)}
+                </Meta>
+              </View>
+              <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6 }}>
+                <Cond size={22} color={tone} style={{ letterSpacing: 0, lineHeight: 22 }}>
+                  {stat.value}
+                </Cond>
+                {delta !== 0 ? (
+                  <Mono size={10} color={delta > 0 ? Ghost.good : Ghost.danger}>
+                    {signed(delta)}
+                  </Mono>
+                ) : null}
+              </View>
+              <View style={{ flexDirection: "row", gap: 2 }}>
+                {statTicks(stat.value, delta).map((tick, i) => (
+                  <View key={i} style={styles.tick}>
+                    <View style={{ flex: tick.base, backgroundColor: tone }} />
+                    <View style={{ flex: tick.added, backgroundColor: Ghost.good }} />
+                    <View style={{ flex: 1 - tick.base - tick.added }} />
+                  </View>
                 ))}
               </View>
             </View>
           )
         })}
       </View>
-      {applied.length > 0 ? (
-        <Mono style={{ marginTop: 8, letterSpacing: 0.9 }}>
-          {hasStatMods(plan) ? "FRAGMENTS + MODS APPLIED" : "FRAGMENTS APPLIED"}
-          {applied.map((mod) => (
-            <Text key={mod.label}>
-              {" · "}
-              <Text style={{ color: mod.delta > 0 ? Ghost.good : Ghost.danger }}>
-                {signed(mod.delta)} {shortStat(mod.label)}
-              </Text>
-            </Text>
-          ))}
-        </Mono>
-      ) : null}
+      <View style={styles.legend}>
+        <Swatch color={Ghost.ink} label="Base" />
+        {applied.length > 0 ? (
+          <Swatch color={Ghost.good} label={hasStatMods(plan) ? "Fragments + mods" : "Fragments"} />
+        ) : null}
+        {plan.stats.some((stat) => stat.target) ? (
+          <Swatch color={Ghost.accent} label="Asked for" />
+        ) : null}
+      </View>
     </View>
   )
 }
@@ -205,6 +158,9 @@ export function ModPips({ pips, fill = false }: { pips: readonly ModPip[]; fill?
   )
 }
 
+const originTag = (origin: string | undefined) =>
+  origin?.toLowerCase() === "inventory" ? "INV" : origin?.toUpperCase()
+
 const outcomeLabel = { ok: null, failed: "FAILED", skipped: "HELD" } as const
 
 function Tile({
@@ -218,45 +174,40 @@ function Tile({
 }) {
   const arriving = !applied && row.origin !== undefined && row.action !== "none"
   const result = applied && row.outcome ? outcomeLabel[row.outcome] : null
-  const pips = modPips(row)
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={row.name}
+      accessibilityLabel={arriving ? `${row.name}, from ${row.origin}` : row.name}
       accessibilityHint="Opens item details"
       onPress={() => router.push({ pathname: "/item/[id]", params: { id: row.itemInstanceId } })}
       style={({ pressed }) => [{ flex: 1 }, pressed && { opacity: 0.6 }]}
     >
-      <View style={arriving ? { boxShadow: `0 0 0 1px ${Ghost.accent}` } : undefined}>
-        <ItemIcon
-          icon={row.icon}
-          size={58}
-          fill
-          element={row.damageType}
-          gearTier={row.gearTier}
-          masterwork={row.masterwork}
-          power={row.power}
-        />
-      </View>
-      {pips ? (
-        <View style={{ marginTop: 6 }}>
-          <ModPips pips={pips} fill />
-        </View>
-      ) : null}
-      <Mono
-        size={8}
-        color={result ? Ghost.danger : arriving ? Ghost.accent : Ghost.dim}
-        style={{ letterSpacing: 0.8, marginTop: 6 }}
-        lines={1}
-      >
-        {result ?? (arriving ? row.origin : slotLabel(row.slot, classType))}
-      </Mono>
+      <ItemIcon
+        icon={row.icon}
+        size={58}
+        fill
+        element={row.damageType}
+        gearTier={row.gearTier}
+        masterwork={row.masterwork}
+        power={row.power}
+        tag={arriving ? originTag(row.origin) : undefined}
+      />
+      <Meta size={12} color={result ? Ghost.danger : Ghost.dim} style={{ marginTop: 5 }} lines={1}>
+        {result ?? slotLabel(row.slot, classType)}
+      </Meta>
     </Pressable>
   )
 }
 
-function Tiles({ plan, applied }: { plan: Plan; applied: boolean }) {
-  const rows = bySlot(plan.rows)
+function Tiles({
+  rows,
+  classType,
+  applied,
+}: {
+  rows: readonly PlanRow[]
+  classType: GuardianClass | undefined
+  applied: boolean
+}) {
   const lines = Array.from({ length: Math.ceil(rows.length / TILES_PER_ROW) }, (_, i) =>
     rows.slice(i * TILES_PER_ROW, (i + 1) * TILES_PER_ROW),
   )
@@ -265,12 +216,7 @@ function Tiles({ plan, applied }: { plan: Plan; applied: boolean }) {
       {lines.map((line, i) => (
         <View key={i} style={{ flexDirection: "row", gap: 8 }}>
           {line.map((row) => (
-            <Tile
-              key={row.itemInstanceId}
-              row={row}
-              applied={applied}
-              classType={plan.loadout?.classType}
-            />
+            <Tile key={row.itemInstanceId} row={row} applied={applied} classType={classType} />
           ))}
           {Array.from({ length: TILES_PER_ROW - line.length }, (_, pad) => (
             <View key={pad} style={{ flex: 1 }} />
@@ -283,43 +229,58 @@ function Tiles({ plan, applied }: { plan: Plan; applied: boolean }) {
 
 function Verdict({ plan }: { plan: Plan }) {
   const failed = failures(plan)
-  const pending = pendingMasterwork(plan)
-  const outcome = verdict(plan)
-  if (plan.status === "undone") return <>Undone.</>
-  if (plan.status === "applied") {
-    return failed > 0 ? (
-      <>
-        Applied. <Text style={{ color: Ghost.danger }}>{failed} failed.</Text>
-      </>
-    ) : (
-      <>Applied.</>
+  if (plan.status !== "proposed") {
+    return (
+      <Body size={14} color={Ghost.soft}>
+        {plan.status === "undone" ? "Undone" : "Applied"}
+        {plan.status === "applied" && failed > 0 ? (
+          <Text style={{ color: Ghost.danger }}> · {failed} failed</Text>
+        ) : null}
+      </Body>
+    )
+  }
+  const counts = tallies(plan)
+  if (counts.length === 0) {
+    return (
+      <Body size={14} color={Ghost.soft}>
+        Nothing changes
+      </Body>
     )
   }
   return (
-    <>
-      {outcome.plain}
-      {outcome.change ? (
-        <Text style={{ color: Ghost.accent }}>
-          {outcome.plain ? " " : ""}
-          {outcome.change}
-        </Text>
-      ) : null}
-      {pending > 0 ? <Text style={{ color: Ghost.gold }}> {pending} not masterworked.</Text> : null}
-    </>
+    <View style={styles.tallies}>
+      {counts.map((tally) => (
+        <View
+          key={tally.label}
+          accessible
+          accessibilityLabel={`${tally.count} ${tally.label}`}
+          style={styles.tally}
+        >
+          <Cond
+            size={18}
+            color={tally.inGame ? Ghost.gold : Ghost.accent}
+            style={{ lineHeight: 18 }}
+          >
+            {tally.count}
+          </Cond>
+          <Meta size={12} color={Ghost.dim}>
+            {tally.label}
+          </Meta>
+        </View>
+      ))}
+    </View>
   )
 }
 
-/**
- * A build in bands: the subclass it sits on, the six stats it lands on, the
- * pieces as tiles, the set bonuses they turn on, and one line saying what
- * confirming will do.
- */
 export function BuildCard({ job, plan }: { job: Job; plan: Plan }) {
   const selection = usePlanSelection(job.id, plan)
   const apply = useApplyPlan()
   const undo = useUndoPlan()
   const selected = [...selection.selected]
   const applied = plan.status !== "proposed"
+  const confirmable = plan.status === "proposed" && selection.actionableCount > 0
+  const saveable = offersSave(job, plan)
+  const { pieces, weapons } = splitRows(plan.rows)
 
   return (
     <Cut cut={10} fill={Ghost.panel} border={Ghost.line} style={styles.card}>
@@ -327,9 +288,14 @@ export function BuildCard({ job, plan }: { job: Job; plan: Plan }) {
         plan={plan}
         eyebrow={upper(["Build plan", plan.loadout?.classType, plan.loadout?.subclass])}
       />
-      {plan.loadout ? <Loadout loadout={plan.loadout} /> : null}
       <Stats plan={plan} />
-      <Tiles plan={plan} applied={applied} />
+      {plan.rows.length > 0 ? (
+        <Tiles
+          rows={[...pieces, ...weapons]}
+          classType={plan.loadout?.classType}
+          applied={applied}
+        />
+      ) : null}
       {plan.setBonuses?.length ? (
         <View style={styles.band}>
           <SetBonusIcons bonuses={plan.setBonuses} />
@@ -337,9 +303,9 @@ export function BuildCard({ job, plan }: { job: Job; plan: Plan }) {
       ) : null}
 
       <View style={[styles.band, styles.verdict]}>
-        <Body size={14} color={Ghost.soft} style={{ flex: 1, lineHeight: 19 }}>
+        <View style={{ flex: 1 }}>
           <Verdict plan={plan} />
-        </Body>
+        </View>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Build details"
@@ -359,24 +325,25 @@ export function BuildCard({ job, plan }: { job: Job; plan: Plan }) {
         </Body>
       ) : null}
 
-      {plan.status === "proposed" && selection.actionableCount > 0 ? (
+      {saveable || confirmable || plan.status === "applied" ? (
         <View style={styles.action}>
-          <Button
-            label={apply.isPending ? "WORKING…" : plan.confirmLabel.toUpperCase()}
-            tone="solid"
-            under={Ghost.panel}
-            disabled={selected.length === 0 || apply.isPending}
-            onPress={() => apply.mutate({ jobId: job.id, selected })}
-          />
-        </View>
-      ) : plan.status === "applied" ? (
-        <View style={styles.action}>
-          <Button
-            label={undo.isPending ? "UNDOING…" : "UNDO"}
-            under={Ghost.panel}
-            disabled={undo.isPending}
-            onPress={() => undo.mutate(job.id)}
-          />
+          {saveable ? <SaveButton job={job} /> : null}
+          {confirmable ? (
+            <Button
+              label={apply.isPending ? "WORKING…" : plan.confirmLabel.toUpperCase()}
+              tone="solid"
+              under={Ghost.panel}
+              disabled={selected.length === 0 || apply.isPending}
+              onPress={() => apply.mutate({ jobId: job.id, selected })}
+            />
+          ) : plan.status === "applied" ? (
+            <Button
+              label={undo.isPending ? "UNDOING…" : "UNDO"}
+              under={Ghost.panel}
+              disabled={undo.isPending}
+              onPress={() => undo.mutate(job.id)}
+            />
+          ) : null}
         </View>
       ) : null}
     </Cut>
@@ -386,11 +353,20 @@ export function BuildCard({ job, plan }: { job: Job; plan: Plan }) {
 const styles = StyleSheet.create({
   card: { marginLeft: 14, padding: 16, paddingTop: 14 },
   header: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
-  loadoutLine: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
-  loadoutLabel: { width: 72, marginTop: 4 },
-  plugs: { flex: 1, flexDirection: "row", flexWrap: "wrap", columnGap: 12, rowGap: 6 },
-  plug: { flexDirection: "row", alignItems: "center", gap: 6 },
   band: { marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: Ghost.rule },
+  statGrid: { flexDirection: "row", flexWrap: "wrap", columnGap: 14, rowGap: 18 },
+  stat: { width: "29%", flexGrow: 1, gap: 6 },
+  tick: { flex: 1, height: 4, flexDirection: "row", backgroundColor: Ghost.line },
+  legend: {
+    flexDirection: "row",
+    gap: 14,
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: Ghost.rule,
+  },
+  tallies: { flexDirection: "row", flexWrap: "wrap", columnGap: 14, rowGap: 6 },
+  tally: { flexDirection: "row", alignItems: "baseline", gap: 4 },
   verdict: { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 12 },
-  action: { flexDirection: "row", marginTop: 12 },
+  action: { flexDirection: "row", gap: 8, marginTop: 12 },
 })

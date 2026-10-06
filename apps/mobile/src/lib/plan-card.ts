@@ -1,6 +1,7 @@
 import {
   type GuardianClass,
   type ItemSlot,
+  type LoadoutSaveTo,
   OFF_BUILD_FIT,
   type Plan,
   type SubclassLoadout,
@@ -21,8 +22,17 @@ export const headline = (plan: Plan) => {
 const POINTS_PER_TICK = 20
 export const STAT_TICKS = 10
 
-export const litTicks = (value: number) =>
-  Math.max(0, Math.min(STAT_TICKS, Math.floor(value / POINTS_PER_TICK)))
+const fill = (points: number, tick: number) =>
+  Math.max(0, Math.min(1, (points - tick * POINTS_PER_TICK) / POINTS_PER_TICK))
+
+export type StatTick = { base: number; added: number }
+
+/** How full each tick is, split into the stat without fragments and mods and the part they add. */
+export const statTicks = (value: number, added: number): StatTick[] =>
+  Array.from({ length: STAT_TICKS }, (_, tick) => {
+    const base = fill(value - Math.max(0, added), tick)
+    return { base, added: fill(value, tick) - base }
+  })
 
 const totals = (lists: readonly (readonly StatMod[])[]): StatMod[] => {
   const sums = new Map<string, number>()
@@ -49,17 +59,6 @@ export const appliedTotals = (plan: Plan): StatMod[] =>
 export const hasStatMods = (plan: Plan) =>
   plan.rows.some((row) => row.armorMods?.some((mod) => mod.mods.length > 0))
 
-const SHORT_STAT = new Map([
-  ["HEALTH", "HLT"],
-  ["MELEE", "MEL"],
-  ["GRENADE", "GRN"],
-  ["SUPER", "SUP"],
-  ["CLASS", "CLS"],
-  ["WEAPONS", "WPN"],
-])
-
-export const shortStat = (label: string) => SHORT_STAT.get(label) ?? label.slice(0, 3)
-
 export type ModPip = "swap" | "stat" | "other" | "free"
 
 /** One pip per mod socket: a mod the plan puts in, a stat mod, any other mod, or a free slot. Undefined when the plan predates mods. */
@@ -79,20 +78,20 @@ export const signed = (delta: number) => (delta > 0 ? `+${delta}` : `−${Math.a
 export const shortPlugName = (name: string) => name.replace(/^\S+ of /, "")
 
 const CLASS_ITEM: Record<GuardianClass, string> = {
-  titan: "MARK",
-  hunter: "CLOAK",
-  warlock: "BOND",
+  titan: "Mark",
+  hunter: "Cloak",
+  warlock: "Bond",
 }
 
 const SLOT_LABEL: Record<ItemSlot, string> = {
-  helmet: "HELM",
-  arms: "ARMS",
-  chest: "CHEST",
-  legs: "LEGS",
-  class: "CLASS",
-  kinetic: "KINETIC",
-  energy: "ENERGY",
-  power: "POWER",
+  helmet: "Helm",
+  arms: "Arms",
+  chest: "Chest",
+  legs: "Legs",
+  class: "Class",
+  kinetic: "Kinetic",
+  energy: "Energy",
+  power: "Power",
   other: "",
 }
 
@@ -113,6 +112,49 @@ export const bySlot = (rows: readonly PlanRow[]): PlanRow[] =>
     ? [...rows].sort((a, b) => slotRank(a) - slotRank(b))
     : [...rows]
 
+const WEAPON_SLOTS: ReadonlySet<ItemSlot | undefined> = new Set<ItemSlot>([
+  "kinetic",
+  "energy",
+  "power",
+])
+
+export const isWeaponRow = (row: PlanRow) => WEAPON_SLOTS.has(row.slot)
+
+export const splitRows = (rows: readonly PlanRow[]) => {
+  const sorted = bySlot(rows)
+  return {
+    pieces: sorted.filter((row) => !isWeaponRow(row)),
+    weapons: sorted.filter(isWeaponRow),
+  }
+}
+
+export type SaveToLine = { text: string; tone: "plan" | "ok" | "held" | "failed" }
+
+export const saveToLine = (saveTo: LoadoutSaveTo): SaveToLine => {
+  const slot = `slot ${saveTo.index + 1}`
+  switch (saveTo.outcome) {
+    case null:
+      return {
+        tone: "plan",
+        text: saveTo.replaces
+          ? `Saves to ${slot} in game, replacing ${saveTo.replaces}.`
+          : `Saves to ${slot} in game.`,
+      }
+    case "ok":
+      return { tone: "ok", text: `Saved to ${slot} in game.` }
+    case "skipped":
+      return {
+        tone: "held",
+        text: `Not saved to ${slot}: ${saveTo.error ?? "the build did not end up equipped as planned"}.`,
+      }
+    case "failed":
+      return {
+        tone: "failed",
+        text: `Saving to ${slot} failed: ${saveTo.error ?? "Bungie refused it"}.`,
+      }
+  }
+}
+
 export const pendingMasterwork = (plan: Plan) =>
   plan.rows.filter((row) => row.stats?.some((stat) => stat.masterworked !== undefined)).length
 
@@ -122,38 +164,28 @@ export const modSwaps = (plan: Plan) =>
     0,
   )
 
-const modsChange = (count: number) => `${count} ${count === 1 ? "mod changes" : "mods change"}`
-
-/** What confirming does to the subclass: switching to it, or how many of its plugs change. */
-export const subclassChange = (plan: Plan): string | null => {
-  const change = plan.loadout?.change
-  if (change === undefined) return null
-  if (change.replaces !== null) return `Switches to ${plan.loadout?.subclass ?? "the subclass"}`
-  const plugs = change.swaps.length
-  return plugs === 0 ? null : `${plugs} subclass ${plugs === 1 ? "plug changes" : "plugs change"}`
-}
-
-/** Rows and the subclass change that failed when the plan ran. */
 export const failures = (plan: Plan) =>
   plan.rows.filter((row) => row.outcome === "failed").length +
   (plan.loadout?.change?.outcome === "failed" ? 1 : 0)
 
-/**
- * The one line under the tiles: what confirming will do. `plain` reads in the
- * body colour and `change` in blue, so moves, the subclass and mod swaps stand out.
- */
-export const verdict = (plan: Plan) => {
+export type Tally = { readonly count: number; readonly label: string; readonly inGame?: true }
+
+export const tallies = (plan: Plan): ReadonlyArray<Tally> => {
   const acting = plan.rows.filter((row) => row.action !== "none")
   const moving = acting.filter((row) => row.origin !== undefined).length
-  const mods = modSwaps(plan)
-  const changes = [
-    moving > 0 ? `${moving} ${moving === 1 ? "piece moves" : "pieces move"}` : null,
-    subclassChange(plan),
-    mods > 0 ? modsChange(mods) : null,
-  ].filter((part) => part !== null)
-  const plain =
-    moving > 0 ? "" : acting.length > 0 ? `${acting.length} to equip.` : "Nothing moves."
-  return { plain, change: changes.length > 0 ? `${changes.join(", ")}.` : "" }
+  const change = plan.loadout?.change
+  const subclass = change === undefined ? 0 : change.replaces !== null ? 1 : change.swaps.length
+  const toSelect =
+    plan.artifact?.picks.filter((pick) => pick.state === "select_in_game").length ?? 0
+  return [
+    { count: moving > 0 ? moving : acting.length, label: moving > 0 ? "move" : "equip" },
+    {
+      count: subclass,
+      label: change?.replaces === null ? (subclass === 1 ? "plug" : "plugs") : "subclass",
+    },
+    { count: modSwaps(plan), label: "mods" },
+    { count: toSelect, label: "in game", inGame: true as const },
+  ].filter((tally) => tally.count > 0)
 }
 
 const piecesAway = (bonus: SetBonus) => Math.max(0, bonus.required - bonus.worn)
@@ -162,13 +194,12 @@ const piecesAway = (bonus: SetBonus) => Math.max(0, bonus.required - bonus.worn)
 export const setBonusLine = (bonus: SetBonus) => {
   const away = piecesAway(bonus)
   return [
-    `${bonus.required}-PIECE`,
+    `${bonus.required}-piece`,
     bonus.set,
-    away > 0 ? `${away} ${away === 1 ? "PIECE" : "PIECES"} AWAY` : null,
+    away > 0 ? `${away} ${away === 1 ? "piece" : "pieces"} away` : null,
   ]
     .filter((part) => part !== null)
     .join(" · ")
-    .toUpperCase()
 }
 
 /** A build's set bonuses: the ones its pieces turn on, then the ones it is short of. */
@@ -212,6 +243,8 @@ export type SynergyPart =
       text: string | undefined
     }
   | { kind: "mods"; text: string }
+  | { kind: "weapons"; exotic: PlanRow | undefined; text: string }
+  | { kind: "artifact"; text: string }
 
 const ARMOR_SLOTS: ReadonlySet<ItemSlot | undefined> = new Set<ItemSlot>([
   "helmet",
@@ -221,16 +254,16 @@ const ARMOR_SLOTS: ReadonlySet<ItemSlot | undefined> = new Set<ItemSlot>([
   "class",
 ])
 
-/**
- * How the exotic armor, the set bonuses and the mods feed the build, in that
- * order. A part needs Ghost's words, except set bonuses, which show without them.
- */
 export const synergyParts = (plan: Plan): SynergyPart[] => {
-  const { exotic, setBonuses: setText, mods } = plan.synergy ?? {}
+  const { exotic, setBonuses: setText, mods, weapons, artifact } = plan.synergy ?? {}
   const exoticRow = plan.rows.find((row) => row.tier === "exotic" && ARMOR_SLOTS.has(row.slot))
   const bonuses = plan.setBonuses ?? []
   const parts: SynergyPart[] = []
   if (exoticRow && exotic) parts.push({ kind: "exotic", row: exoticRow, text: exotic })
+  if (weapons) {
+    const exoticWeapon = plan.rows.find((row) => row.tier === "exotic" && isWeaponRow(row))
+    parts.push({ kind: "weapons", exotic: exoticWeapon, text: weapons })
+  }
   if (bonuses.length > 0 || setText) {
     const { on, short } = splitSetBonuses(bonuses)
     parts.push({
@@ -241,5 +274,6 @@ export const synergyParts = (plan: Plan): SynergyPart[] => {
     })
   }
   if (mods) parts.push({ kind: "mods", text: mods })
+  if (artifact) parts.push({ kind: "artifact", text: artifact })
   return parts
 }

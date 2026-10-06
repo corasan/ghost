@@ -4,7 +4,7 @@ import { type HostInstance, Pressable, StyleSheet, View } from "react-native"
 
 import { PlugIcon } from "@/components/ghost/plug-icon"
 import { Tooltip } from "@/components/ghost/tooltip"
-import { Body, Mono } from "@/components/ghost/ui"
+import { Body, Meta } from "@/components/ghost/ui"
 import { Ghost, Type } from "@/constants/theme"
 import { setBonusLine, splitSetBonuses } from "@/lib/plan-card"
 
@@ -14,17 +14,17 @@ const LABEL_WIDTH = 72
 const LABEL_GAP = 10
 
 /** A set bonus's name, the pieces it needs, and what it does. */
-export function SetBonusText({ bonus, size = 13 }: { bonus: SetBonus; size?: number }) {
+export function SetBonusText({ bonus, size = 15 }: { bonus: SetBonus; size?: number }) {
   return (
     <>
-      <Body size={size + 1} style={{ fontFamily: Type.bodyMedium, lineHeight: size + 5 }}>
+      <Body size={size + 1} style={{ fontFamily: Type.bodyMedium, lineHeight: size + 6 }}>
         {bonus.name}
       </Body>
-      <Mono size={8} color={Ghost.accent} style={{ letterSpacing: 1, marginTop: 3 }}>
+      <Meta color={Ghost.accent} style={{ marginTop: 2 }}>
         {setBonusLine(bonus)}
-      </Mono>
+      </Meta>
       {bonus.description ? (
-        <Body size={size} color={Ghost.soft} style={{ lineHeight: size + 5, marginTop: 5 }}>
+        <Body size={size} color={Ghost.soft} style={{ lineHeight: size + 6, marginTop: 6 }}>
           {bonus.description}
         </Body>
       ) : null}
@@ -68,7 +68,7 @@ export function SetBonusIcons({ bonuses }: { bonuses: readonly SetBonus[] }) {
   )
   return (
     <View style={styles.row}>
-      <Mono style={styles.label}>SET BONUS</Mono>
+      <Meta style={styles.label}>Set bonus</Meta>
       {on.map((bonus) => icon(bonus, false))}
       {short.map((bonus) => icon(bonus, true))}
       {open ? (

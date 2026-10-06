@@ -3,6 +3,7 @@ import {
   type CreateJob,
   Job,
   JobNotFound,
+  type JobKind,
   JobStep,
   type JobStatus,
   Plan,
@@ -10,6 +11,7 @@ import {
 } from "@ghost/contract"
 import { Context, DateTime, Effect, Layer, Option, Schema } from "effect"
 import { SqlClient, type SqlError } from "effect/sql"
+import { BuildRecipe } from "../plans/recipe.ts"
 
 interface JobRow {
   readonly id: string
@@ -38,6 +40,9 @@ const StepJson = Schema.fromJsonString(JobStep)
 const encodePlan = Schema.encodeEffect(PlanJson)
 const encodeSources = Schema.encodeEffect(SourcesJson)
 const encodeStep = Schema.encodeEffect(StepJson)
+const RecipeJson = Schema.fromJsonString(BuildRecipe)
+const encodeRecipe = Schema.encodeEffect(RecipeJson)
+const decodeRecipe = Schema.decodeUnknownEffect(RecipeJson)
 const decodeRow = Schema.decodeUnknownEffect(
   Schema.Struct({
     ...Job.fields,
@@ -75,6 +80,7 @@ interface SessionRow {
 }
 
 export interface ManualJob {
+  readonly kind: Extract<JobKind, "item_action" | "saved_build">
   readonly prompt: string
   readonly characterId: string | null
   readonly plan: Plan
@@ -95,6 +101,8 @@ export interface JobsRepoService {
     patch?: { readonly result?: string; readonly error?: string },
   ) => Effect.Effect<void, SqlError.SqlError>
   readonly setPlan: (id: string, plan: Plan) => Effect.Effect<void, SqlError.SqlError>
+  readonly setRecipe: (id: string, recipe: BuildRecipe) => Effect.Effect<void, SqlError.SqlError>
+  readonly recipe: (id: string) => Effect.Effect<Option.Option<BuildRecipe>, SqlError.SqlError>
   /** Merged into what the job already cites; the same url (or label) is kept once. */
   readonly addSources: (
     id: string,
@@ -174,7 +182,7 @@ export const JobsRepoLive = Layer.effect(
         const plan = yield* encodePlan(input.plan).pipe(Effect.orDie)
         yield* sql`
           INSERT INTO jobs (id, session_id, kind, prompt, status, result, error, plan, character_id, created_at, updated_at)
-          VALUES (${id}, NULL, 'item_action', ${input.prompt}, 'done', NULL, NULL, ${plan}, ${input.characterId}, ${now}, ${now})
+          VALUES (${id}, NULL, ${input.kind}, ${input.prompt}, 'done', NULL, NULL, ${plan}, ${input.characterId}, ${now}, ${now})
         `
         return yield* get(id).pipe(Effect.orDie)
       })
@@ -209,6 +217,22 @@ export const JobsRepoLive = Layer.effect(
         const json = yield* encodePlan(plan).pipe(Effect.orDie)
         yield* sql`UPDATE jobs SET plan = ${json}, updated_at = ${now} WHERE id = ${id}`
       })
+
+    const setRecipe = (id: string, recipe: BuildRecipe) =>
+      Effect.gen(function* () {
+        const json = yield* encodeRecipe(recipe).pipe(Effect.orDie)
+        yield* sql`UPDATE jobs SET recipe = ${json} WHERE id = ${id}`
+      })
+
+    const recipe = (id: string) =>
+      sql<{ readonly recipe: string | null }>`SELECT recipe FROM jobs WHERE id = ${id}`.pipe(
+        Effect.flatMap((rows) => {
+          const json = rows[0]?.recipe
+          return json === undefined || json === null
+            ? Effect.succeedNone
+            : decodeRecipe(json).pipe(Effect.map(Option.some), Effect.orDie)
+        }),
+      )
 
     const addSources = (id: string, sources: ReadonlyArray<Source>) =>
       Effect.gen(function* () {
@@ -252,6 +276,8 @@ export const JobsRepoLive = Layer.effect(
       addStep,
       setStatus,
       setPlan,
+      setRecipe,
+      recipe,
       addSources,
       nextQueued,
     }

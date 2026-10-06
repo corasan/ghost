@@ -10,13 +10,17 @@ import { JevLive } from "./agent/jev.ts"
 import { JobRunnerLive } from "./agent/runner.ts"
 import { AgentConfigLive } from "./agent/settings.ts"
 import { ApiLive } from "./api/index.ts"
+import { ArtifactsLive } from "./bungie/artifact.ts"
+import { BuildsLive } from "./builds/builds.ts"
 import { BungieClientLive } from "./bungie/client.ts"
 import { GuardianLive } from "./bungie/guardian.ts"
+import { LoadoutsLive } from "./bungie/loadouts.ts"
 import { ManifestLive } from "./bungie/manifest.ts"
 import { ProfileRefreshLive, ProfileStoreLive } from "./bungie/profile.ts"
 import { AppConfig, AppConfigLive } from "./config.ts"
 import { CreatorNotesLive, CreatorRefreshLive } from "./creators/creators.ts"
 import { ActionsRepoLive } from "./db/actions.ts"
+import { BuildsRepoLive } from "./db/builds.ts"
 import { ChargeEffectsLive } from "./db/charge.ts"
 import { DatabaseLive } from "./db/client.ts"
 import { ItemsRepoLive } from "./db/items.ts"
@@ -35,6 +39,7 @@ const Repositories = Layer.mergeAll(
   JobsRepoLive,
   ItemsRepoLive,
   ActionsRepoLive,
+  BuildsRepoLive,
   SettingsLive,
   ChargeEffectsLive,
 ).pipe(Layer.provideMerge(DatabaseLive))
@@ -52,11 +57,13 @@ const Clients = Layer.mergeAll(
 
 const Profile = Layer.mergeAll(ProfileStoreLive, CreatorNotesLive).pipe(Layer.provideMerge(Clients))
 
-const Services = Layer.mergeAll(GuardianLive, ActivityLive, PlansLive).pipe(
-  Layer.provideMerge(Profile),
+const Reads = LoadoutsLive.pipe(Layer.provideMerge(Profile))
+
+const Services = Layer.mergeAll(GuardianLive, ActivityLive, PlansLive, ArtifactsLive).pipe(
+  Layer.provideMerge(Reads),
 )
 
-const Actions = ItemsLive.pipe(Layer.provideMerge(Services))
+const Actions = Layer.mergeAll(ItemsLive, BuildsLive).pipe(Layer.provideMerge(Services))
 
 const Routes = Layer.mergeAll(ApiLive, McpLive)
 

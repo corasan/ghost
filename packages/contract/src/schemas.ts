@@ -36,6 +36,9 @@ export const ItemSlot = Schema.Literals([
 ])
 export type ItemSlot = typeof ItemSlot.Type
 
+export const WeaponSlot = Schema.Literals(["kinetic", "energy", "power"])
+export type WeaponSlot = typeof WeaponSlot.Type
+
 export const GuardianClass = Schema.Literals(["titan", "hunter", "warlock"])
 export type GuardianClass = typeof GuardianClass.Type
 
@@ -47,6 +50,12 @@ export type ItemDecision = typeof ItemDecision.Type
  * field here, so the vault screen can slice 600 items locally without
  * asking the server again.
  */
+/** A mod slotted in a piece of armor, as the inventory shows it. */
+export class SlottedMod extends Schema.Class<SlottedMod>("SlottedMod")({
+  name: Schema.String,
+  icon: Schema.NullOr(Schema.String),
+}) {}
+
 export class ItemSummary extends Schema.Class<ItemSummary>("ItemSummary")({
   itemInstanceId: Schema.NullOr(Schema.String),
   itemHash: Schema.Number,
@@ -76,6 +85,8 @@ export class ItemSummary extends Schema.Class<ItemSummary>("ItemSummary")({
   /** How many other copies of the same item the player owns. */
   duplicates: Schema.Number,
   decision: Schema.NullOr(ItemDecision),
+  /** Armor only, in socket order; null for an empty socket. Sent only with the guardian snapshot. */
+  mods: Schema.optional(Schema.Array(Schema.NullOr(SlottedMod))),
   /** When Ghost first saw this instance; null for items from the first sync. */
   acquiredAt: Schema.NullOr(Schema.String),
 }) {}
@@ -161,6 +172,12 @@ export class ArmorMod extends Schema.Class<ArmorMod>("ArmorMod")({
   previousPlugHash: Schema.optional(Schema.Number),
 }) {}
 
+export class PlanPerk extends Schema.Class<PlanPerk>("PlanPerk")({
+  name: Schema.String,
+  /** Highlighted as part of what makes the roll good. */
+  good: Schema.Boolean,
+}) {}
+
 export class PlanRow extends Schema.Class<PlanRow>("PlanRow")({
   itemInstanceId: Schema.String,
   itemHash: Schema.Number,
@@ -191,12 +208,10 @@ export class PlanRow extends Schema.Class<PlanRow>("PlanRow")({
   energy: Schema.optional(Schema.Struct({ used: Schema.Number, capacity: Schema.Number })),
   /** Where a piece comes from when it is not already on the character, for example "VAULT" or "HUNTER". */
   origin: Schema.optional(Schema.String),
-}) {}
-
-export class PlanPerk extends Schema.Class<PlanPerk>("PlanPerk")({
-  name: Schema.String,
-  /** Highlighted as part of what makes the roll good. */
-  good: Schema.Boolean,
+  /** A weapon's trait perks; `good` when the wishlist roll calls for them. Weapon rows only. */
+  perks: Schema.optional(Schema.Array(PlanPerk)),
+  /** A weapon's type, for example "Combat Bow". Weapon rows only. */
+  typeName: Schema.optional(Schema.String),
 }) {}
 
 /** The winner of a "best weapon" answer, shown large above the runners-up. */
@@ -204,6 +219,13 @@ export class PlanFeatured extends Schema.Class<PlanFeatured>("PlanFeatured")({
   itemInstanceId: Schema.String,
   perks: Schema.Array(PlanPerk),
   stats: Schema.Array(PlanStat),
+}) {}
+
+/** A game term such as Weaken or Volatile, as the game defines it in tooltips. */
+export class Keyword extends Schema.Class<Keyword>("Keyword")({
+  name: Schema.String,
+  description: Schema.String,
+  icon: Schema.NullOr(Schema.String),
 }) {}
 
 export class LoadoutPlug extends Schema.Class<LoadoutPlug>("LoadoutPlug")({
@@ -218,6 +240,8 @@ export class LoadoutPlug extends Schema.Class<LoadoutPlug>("LoadoutPlug")({
   swap: Schema.optional(Schema.Boolean),
   /** The plug this one takes the place of, when the socket was not empty. */
   replaces: Schema.optional(Schema.NullOr(Schema.String)),
+  /** The keywords its effect text uses. */
+  keywords: Schema.optional(Schema.Array(Keyword)),
 }) {}
 
 export const AbilityKind = Schema.Literals(["class", "jump", "melee", "grenade"])
@@ -300,6 +324,52 @@ export class Synergy extends Schema.Class<Synergy>("Synergy")({
   exotic: Schema.optional(Schema.String),
   setBonuses: Schema.optional(Schema.String),
   mods: Schema.optional(Schema.String),
+  weapons: Schema.optional(Schema.String),
+  artifact: Schema.optional(Schema.String),
+}) {}
+
+/** The API cannot select artifact perks: one not already active is picked in game. */
+export const ArtifactPickState = Schema.Literals(["active", "select_in_game"])
+export type ArtifactPickState = typeof ArtifactPickState.Type
+
+export class ArtifactPick extends Schema.Class<ArtifactPick>("ArtifactPick")({
+  hash: Schema.Number,
+  name: Schema.String,
+  description: Schema.String,
+  icon: Schema.NullOr(Schema.String),
+  /** The artifact column the perk sits in, from 0. */
+  column: Schema.Number,
+  state: ArtifactPickState,
+}) {}
+
+export class ArtifactPlan extends Schema.Class<ArtifactPlan>("ArtifactPlan")({
+  artifactHash: Schema.Number,
+  name: Schema.String,
+  picks: Schema.Array(ArtifactPick),
+  pointsAvailable: Schema.Number,
+  /** Fitting the picks means un-selecting active perks, which needs an in-game reset. */
+  reset: Schema.Boolean,
+}) {}
+
+export const LoadoutSaveOutcome = Schema.Literals(["ok", "skipped", "failed"])
+export type LoadoutSaveOutcome = typeof LoadoutSaveOutcome.Type
+
+/**
+ * After the rows run, snapshot what the character has equipped into one of
+ * its in-game loadout slots. It runs only when the build ended up equipped
+ * as planned.
+ */
+export class LoadoutSaveTo extends Schema.Class<LoadoutSaveTo>("LoadoutSaveTo")({
+  buildId: Schema.String,
+  characterId: Schema.String,
+  index: Schema.Number,
+  nameHash: Schema.Number,
+  colorHash: Schema.Number,
+  iconHash: Schema.Number,
+  /** The name of the in-game loadout this overwrites; null for an empty slot. */
+  replaces: Schema.NullOr(Schema.String),
+  outcome: Schema.NullOr(LoadoutSaveOutcome),
+  error: Schema.NullOr(Schema.String),
 }) {}
 
 export const PlanKind = Schema.Literals(["build", "weapon", "postmaster", "cleanup", "transfer"])
@@ -329,6 +399,11 @@ export class Plan extends Schema.Class<Plan>("Plan")({
   /** Label of the confirm button, for example "APPLY BUILD". */
   confirmLabel: Schema.String,
   status: PlanStatus,
+  purpose: Schema.optional(Schema.String),
+  artifact: Schema.optional(ArtifactPlan),
+  saveTo: Schema.optional(LoadoutSaveTo),
+  /** The server kept what made this build, so it can be saved and equipped again. */
+  saveable: Schema.optional(Schema.Boolean),
 }) {}
 
 // ---- Jobs: one request to Ghost ----
@@ -341,6 +416,8 @@ export const JobKind = Schema.Literals([
   "postmaster_to_vault",
   /** A move the player made by hand from an item's actions; Ghost never ran. */
   "item_action",
+  /** Equipping a saved build, which the player started from Builds. */
+  "saved_build",
 ])
 export type JobKind = typeof JobKind.Type
 
@@ -406,6 +483,119 @@ export class PlanNotApplicable extends Schema.TaggedError<PlanNotApplicable>()(
   { reason: Schema.String },
 ) {}
 
+export class BuildFacets extends Schema.Class<BuildFacets>("BuildFacets")({
+  classType: GuardianClass,
+  element: DamageType,
+  subclass: Schema.NullOr(Schema.String),
+  exoticArmor: Schema.NullOr(Schema.String),
+  exoticWeapon: Schema.NullOr(Schema.String),
+  weaponTypes: Schema.Array(Schema.String),
+}) {}
+
+/** How the in-game slot a build was saved to compares with the build now. */
+export const InGameState = Schema.Literals(["matches", "changed", "cleared"])
+export type InGameState = typeof InGameState.Type
+
+export class BuildReadiness extends Schema.Class<BuildReadiness>("BuildReadiness")({
+  /** Names of the build's items the player no longer owns. */
+  missing: Schema.Array(Schema.String),
+  /** The build's artifact picks belong to an artifact that is no longer the current one. */
+  pastArtifact: Schema.Boolean,
+  /** Null when the build was never saved in game. */
+  inGame: Schema.NullOr(InGameState),
+}) {}
+
+export class InGameSlotRef extends Schema.Class<InGameSlotRef>("InGameSlotRef")({
+  characterId: Schema.String,
+  index: Schema.Number,
+  savedAt: Schema.String,
+}) {}
+
+export class SavedBuild extends Schema.Class<SavedBuild>("SavedBuild")({
+  id: Schema.String,
+  name: Schema.String,
+  plan: Plan,
+  facets: BuildFacets,
+  /** Null when Bungie could not be reached, so the list still loads. */
+  readiness: Schema.NullOr(BuildReadiness),
+  inGame: Schema.NullOr(InGameSlotRef),
+  /** The request that proposed the build; null once that job is gone. */
+  jobId: Schema.NullOr(Schema.String),
+  createdAt: Schema.String,
+  updatedAt: Schema.String,
+}) {}
+
+export const LoadoutSlotChoice = Schema.Struct({
+  characterId: Schema.String,
+  index: Schema.Number,
+  nameHash: Schema.Number,
+  colorHash: Schema.Number,
+  iconHash: Schema.Number,
+})
+export type LoadoutSlotChoice = typeof LoadoutSlotChoice.Type
+
+export const SaveBuild = Schema.Struct({
+  /** The job whose build plan to save. Saving it again renames the saved build. */
+  jobId: Schema.String,
+  name: Schema.String,
+  /** Also save it in game; this returns a plan to confirm that equips and snapshots it. */
+  inGame: Schema.optional(LoadoutSlotChoice),
+})
+export type SaveBuild = typeof SaveBuild.Type
+
+export class SaveBuildResult extends Schema.Class<SaveBuildResult>("SaveBuildResult")({
+  build: SavedBuild,
+  /** The proposed equip-and-snapshot job when saving in game, else null. */
+  confirm: Schema.NullOr(Job),
+}) {}
+
+export const EquipBuild = Schema.Struct({
+  characterId: Schema.String,
+  saveTo: Schema.optional(LoadoutSlotChoice),
+})
+export type EquipBuild = typeof EquipBuild.Type
+
+export class EquipBuildResult extends Schema.Class<EquipBuildResult>("EquipBuildResult")({
+  /** A proposed job; nothing moves until the player confirms it. */
+  job: Job,
+  /** Items swapped for another owned copy of the same item because the saved one is gone. */
+  substituted: Schema.Array(Schema.String),
+}) {}
+
+export const RenameBuild = Schema.Struct({ name: Schema.String })
+export type RenameBuild = typeof RenameBuild.Type
+
+export class LoadoutIdentity extends Schema.Class<LoadoutIdentity>("LoadoutIdentity")({
+  hash: Schema.Number,
+  name: Schema.String,
+  icon: Schema.NullOr(Schema.String),
+}) {}
+
+export class InGameSlot extends Schema.Class<InGameSlot>("InGameSlot")({
+  index: Schema.Number,
+  empty: Schema.Boolean,
+  name: Schema.NullOr(LoadoutIdentity),
+  color: Schema.NullOr(LoadoutIdentity),
+  icon: Schema.NullOr(LoadoutIdentity),
+  savedBuildId: Schema.NullOr(Schema.String),
+}) {}
+
+export class LoadoutSlots extends Schema.Class<LoadoutSlots>("LoadoutSlots")({
+  slots: Schema.Array(InGameSlot),
+  names: Schema.Array(LoadoutIdentity),
+  colors: Schema.Array(LoadoutIdentity),
+  icons: Schema.Array(LoadoutIdentity),
+}) {}
+
+export class BuildNotFound extends Schema.TaggedError<BuildNotFound>()("BuildNotFound", {
+  id: Schema.String,
+}) {}
+
+export class LoadoutSlotInvalid extends Schema.TaggedError<LoadoutSlotInvalid>()(
+  "LoadoutSlotInvalid",
+  { reason: Schema.String },
+) {}
+
 // ---- Recent acquisitions ----
 
 export class RecentItem extends Schema.Class<RecentItem>("RecentItem")({
@@ -456,6 +646,8 @@ export class ItemDetail extends Schema.Class<ItemDetail>("ItemDetail")({
   stats: Schema.Array(PlanStat),
   /** Every bonus of the armor set the piece belongs to, counting the set pieces its character wears; absent when it is in no set. */
   setBonuses: Schema.optional(Schema.Array(SetBonus)),
+  /** Exotic armor's intrinsic perk. */
+  exoticPerk: Schema.optional(ItemPerk),
 }) {}
 
 export class ItemNotFound extends Schema.TaggedError<ItemNotFound>()("ItemNotFound", {
@@ -534,6 +726,8 @@ export class GuardianCharacter extends Schema.Class<GuardianCharacter>("Guardian
   loadout: Schema.optional(SubclassLoadout),
   stats: CharacterStats,
   equipment: Schema.Array(ItemSummary),
+  /** Weapons and armor in the character's inventory, not equipped. Missing from snapshots cached before it was sent. */
+  carried: Schema.optional(Schema.Array(ItemSummary)),
   postmasterCount: Schema.Number,
 }) {}
 
@@ -553,6 +747,8 @@ export class GuardianSnapshot extends Schema.Class<GuardianSnapshot>("GuardianSn
   postmasterCapacity: Schema.Number,
   /** Bungie's icon for each damage type, keyed by element name. */
   elementIcons: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+  /** Bungie's icon for each armor stat, keyed by stat name ("Weapons", "Health"…). */
+  statIcons: Schema.optional(Schema.Record(Schema.String, Schema.String)),
 }) {}
 
 export class VaultSnapshot extends Schema.Class<VaultSnapshot>("VaultSnapshot")({

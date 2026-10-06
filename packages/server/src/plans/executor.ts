@@ -3,6 +3,7 @@ import {
   type ItemLocation,
   type Job,
   type JobNotFound,
+  LoadoutSaveTo,
   Plan,
   PlanNotApplicable,
   PlanRow,
@@ -13,11 +14,14 @@ import {
 } from "@ghost/contract"
 import { Context, Effect, Layer, Predicate } from "effect"
 import { BungieClient, type BungieError } from "../bungie/client.ts"
-import { type OwnedItem, pickCharacter } from "../bungie/inventory.ts"
+import { type Inventory, type OwnedItem, pickCharacter } from "../bungie/inventory.ts"
+import { Loadouts } from "../bungie/loadouts.ts"
 import { ProfileStore } from "../bungie/profile.ts"
 import { type ActionKind, ActionsRepo, type NewAction } from "../db/actions.ts"
+import { BuildsRepo } from "../db/builds.ts"
 import { ItemsRepo } from "../db/items.ts"
 import { JobsRepo } from "../db/jobs.ts"
+import { drift } from "./drift.ts"
 import { historyCalls } from "./history.ts"
 
 // The agent only proposes. Confirming a plan runs here: each selected row
@@ -36,6 +40,7 @@ export interface PlansService {
 export class Plans extends Context.Service<Plans, PlansService>()("Plans") {}
 
 const SPACING = "100 millis"
+const PROFILE_LAG = "1500 millis"
 
 interface Where {
   location: ItemLocation
@@ -54,8 +59,83 @@ export const PlansLive = Layer.effect(
     const jobs = yield* JobsRepo
     const items = yield* ItemsRepo
     const actions = yield* ActionsRepo
+    const builds = yield* BuildsRepo
+    const loadouts = yield* Loadouts
 
     const record = (action: NewAction) => actions.record(action).pipe(Effect.orDie)
+
+    const freshInventory = profile.invalidate.pipe(Effect.andThen(profile.inventory))
+
+    const settledDrift = (plan: Plan, characterId: string) =>
+      Effect.gen(function* () {
+        const first = drift(plan, yield* freshInventory, characterId)
+        if (first.length === 0) return first
+        yield* Effect.sleep(PROFILE_LAG)
+        return drift(plan, yield* freshInventory, characterId)
+      })
+
+    const saveLoadout = (jobId: string, saveTo: LoadoutSaveTo, applied: Plan, inv: Inventory) =>
+      Effect.gen(function* () {
+        const drifted = yield* settledDrift(applied, saveTo.characterId)
+        if (drifted.length > 0) {
+          return new LoadoutSaveTo({
+            ...saveTo,
+            outcome: "skipped",
+            error: `not saved in game: ${drifted.join("; ")}`,
+          })
+        }
+        const result = yield* Effect.result(
+          bungie.snapshotLoadout({
+            loadoutIndex: saveTo.index,
+            characterId: saveTo.characterId,
+            membershipType: inv.membershipType,
+            nameHash: saveTo.nameHash,
+            colorHash: saveTo.colorHash,
+            iconHash: saveTo.iconHash,
+          }),
+        )
+        yield* record({
+          jobId,
+          itemInstanceId: `${saveTo.characterId}/${saveTo.index}`,
+          itemHash: saveTo.nameHash,
+          name: saveTo.replaces,
+          kind: "snapshot_loadout",
+          characterId: saveTo.characterId,
+          fromLocation: null,
+          fromCharacterId: null,
+          previousItemId: null,
+          status: result._tag === "Success" ? "ok" : "failed",
+          error: result._tag === "Success" ? null : describe(result.failure),
+        })
+        if (result._tag === "Failure") {
+          return new LoadoutSaveTo({
+            ...saveTo,
+            outcome: "failed",
+            error: describe(result.failure),
+          })
+        }
+        yield* builds
+          .claimInGameSlot(saveTo.buildId, { characterId: saveTo.characterId, index: saveTo.index })
+          .pipe(
+            Effect.catchTag("BuildNotFound", () =>
+              Effect.logWarning(`build ${saveTo.buildId} was deleted before its slot was saved`),
+            ),
+            Effect.orDie,
+          )
+        yield* loadouts.invalidate
+        return new LoadoutSaveTo({ ...saveTo, outcome: "ok", error: null })
+      }).pipe(
+        Effect.catchTags({
+          BungieError: (error) =>
+            Effect.succeed(
+              new LoadoutSaveTo({ ...saveTo, outcome: "failed", error: describe(error) }),
+            ),
+          BungieNotLinked: (error) =>
+            Effect.succeed(
+              new LoadoutSaveTo({ ...saveTo, outcome: "failed", error: describe(error) }),
+            ),
+        }),
+      )
 
     const apply = (jobId: string, selected: ReadonlyArray<string>) =>
       Effect.gen(function* () {
@@ -435,17 +515,12 @@ export const PlansLive = Layer.effect(
           plan.loadout === undefined || changed === undefined
             ? plan.loadout
             : new SubclassLoadout({ ...plan.loadout, change: changed })
-        yield* jobs
-          .setPlan(
-            jobId,
-            new Plan({
-              ...plan,
-              rows,
-              loadout,
-              status: "applied",
-            }),
-          )
-          .pipe(Effect.orDie)
+        const applied = new Plan({ ...plan, rows, loadout, status: "applied" })
+        const saveTo =
+          plan.saveTo === undefined
+            ? undefined
+            : yield* saveLoadout(jobId, plan.saveTo, applied, inv)
+        yield* jobs.setPlan(jobId, new Plan({ ...applied, saveTo })).pipe(Effect.orDie)
         yield* items.tagJob([...moved], jobId).pipe(Effect.orDie)
         yield* profile.invalidate
         return yield* jobs.get(jobId).pipe(Effect.catchTag("SqlError", Effect.die))
@@ -455,7 +530,7 @@ export const PlansLive = Layer.effect(
       Effect.gen(function* () {
         const job = yield* jobs.get(jobId).pipe(Effect.catchTag("SqlError", Effect.die))
         const done = (yield* actions.forJobs([jobId]).pipe(Effect.orDie))
-          .filter((a) => a.status === "ok")
+          .filter((a) => a.status === "ok" && a.kind !== "snapshot_loadout")
           .reverse()
         if (done.length === 0) {
           return yield* new PlanNotApplicable({ reason: "nothing to undo" })
@@ -517,7 +592,13 @@ export const PlansLive = Layer.effect(
         }
 
         if (job.plan !== null && failures === 0) {
-          yield* jobs.setPlan(jobId, new Plan({ ...job.plan, status: "undone" })).pipe(Effect.orDie)
+          const saveTo =
+            job.plan.saveTo?.outcome === "ok"
+              ? new LoadoutSaveTo({ ...job.plan.saveTo, error: "The in-game slot was kept." })
+              : job.plan.saveTo
+          yield* jobs
+            .setPlan(jobId, new Plan({ ...job.plan, saveTo, status: "undone" }))
+            .pipe(Effect.orDie)
         }
         yield* profile.invalidate
         return yield* jobs.get(jobId).pipe(Effect.catchTag("SqlError", Effect.die))

@@ -78,7 +78,7 @@ export const pieceSetBonuses = (
   return everySetBonus(item.set, worn)
 }
 
-const title = (word: string) => word.charAt(0).toUpperCase() + word.slice(1)
+export const title = (word: string) => word.charAt(0).toUpperCase() + word.slice(1)
 
 export const describeAction = (
   item: Pick<OwnedItem, "name">,
@@ -136,6 +136,7 @@ export const ItemsLive = Layer.effect(
           perks: perksFrom(item.plugHashes, defs),
           stats: armorStats(item),
           setBonuses: pieceSetBonuses(item, inv.items),
+          exoticPerk: item.exoticPerk ?? undefined,
         })
       })
 
@@ -147,6 +148,7 @@ export const ItemsLive = Layer.effect(
         const words = describeAction(item, input.action, target)
         const job = yield* jobs
           .createManual({
+            kind: "item_action",
             prompt: words.prompt,
             characterId,
             plan: new Plan({

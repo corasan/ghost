@@ -1,7 +1,9 @@
+import { Image } from "expo-image"
 import { router, useNavigation } from "expo-router"
 import type { DrawerNavigationProp } from "expo-router/drawer"
-import type { ReactNode } from "react"
+import type { ReactNode, Ref } from "react"
 import {
+  type HostInstance,
   Pressable,
   type StyleProp,
   StyleSheet,
@@ -13,9 +15,12 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { Ghost, Gutter, Type } from "@/constants/theme"
+import { useGuardian } from "@/lib/api"
+import { sentence } from "@/lib/format"
 
-// The design's three voices: JetBrains Mono for labels and numbers that are
-// data, Barlow Condensed for headings and buttons, Barlow for sentences.
+// The design's three voices: JetBrains Mono for numbers and short section
+// labels, Barlow Condensed for headings and buttons, Barlow for sentences and
+// the metadata under a name.
 // Letter spacing is specified in em in the design, so it scales with size.
 
 type TextProps = {
@@ -26,11 +31,11 @@ type TextProps = {
   lines?: number
 }
 
-export function Mono({ children, size = 9, color = Ghost.dim, style, lines }: TextProps) {
+export function Mono({ children, size = 11, color = Ghost.dim, style, lines }: TextProps) {
   return (
     <Text
       numberOfLines={lines}
-      style={[{ fontFamily: Type.mono, fontSize: size, color, letterSpacing: size * 0.12 }, style]}
+      style={[{ fontFamily: Type.mono, fontSize: size, color, letterSpacing: size * 0.08 }, style]}
     >
       {children}
     </Text>
@@ -48,14 +53,71 @@ export function Cond({ children, size = 15, color = Ghost.ink, style, lines }: T
   )
 }
 
-export function Body({ children, size = 15, color = Ghost.ink, style, lines }: TextProps) {
+export function Body({
+  children,
+  size = 15,
+  color = Ghost.ink,
+  style,
+  lines,
+  ref,
+}: TextProps & { ref?: Ref<HostInstance> }) {
   return (
     <Text
+      ref={ref}
       numberOfLines={lines}
       style={[{ fontFamily: Type.body, fontSize: size, lineHeight: size * 1.4, color }, style]}
     >
       {children}
     </Text>
+  )
+}
+
+export function Meta({ children, size = 13, color = Ghost.muted, style, lines }: TextProps) {
+  return (
+    <Text
+      numberOfLines={lines}
+      style={[{ fontFamily: Type.body, fontSize: size, lineHeight: size * 1.35, color }, style]}
+    >
+      {children}
+    </Text>
+  )
+}
+
+/** Bungie's glyph for an armor stat, tinted; nothing until the server has sent the icons. */
+export function StatIcon({
+  label,
+  size = 14,
+  color = Ghost.dim,
+}: {
+  label: string
+  size?: number
+  color?: string
+}) {
+  const icon = useGuardian().data?.statIcons?.[sentence(label)]
+  return icon ? (
+    <Image source={icon} tintColor={color} style={{ width: size, height: size }} />
+  ) : null
+}
+
+/** An armor stat's name after its glyph. */
+export function StatLabel({
+  label,
+  size = 12,
+  color = Ghost.dim,
+  style,
+}: {
+  label: string
+  size?: number
+  color?: string
+  style?: ViewProps["style"]
+}) {
+  return (
+    <View style={[{ flexDirection: "row", alignItems: "center", gap: 3 }, style]}>
+      <StatIcon label={label} size={size + 2} color={color} />
+      <Meta size={size} color={color} lines={1} style={{ flexShrink: 1 }}>
+        {sentence(label)}
+      </Meta>
+    </View>
   )
 }
 
@@ -285,8 +347,9 @@ export function TierStat({
   const gained = Math.min(10, Math.floor((masterworked ?? value) / 10))
   return (
     <View style={{ flex: 1 }}>
-      <View style={{ flexDirection: "row", alignItems: "baseline", gap: 5 }}>
-        <Cond size={20} color={color} style={{ letterSpacing: 0, lineHeight: 20 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+        <StatIcon label={label} color={color} />
+        <Cond size={20} color={color} style={{ letterSpacing: 0, lineHeight: 22 }}>
           {value}
         </Cond>
         {masterworked !== undefined ? (
@@ -295,9 +358,9 @@ export function TierStat({
           </Cond>
         ) : null}
       </View>
-      <Mono size={8} style={{ marginTop: 3 }}>
-        {label}
-      </Mono>
+      <Meta size={12} style={{ marginTop: 2 }} lines={1}>
+        {sentence(label)}
+      </Meta>
       <View style={{ flexDirection: "row", gap: 2, marginTop: 6 }}>
         {Array.from({ length: 10 }, (_, i) => (
           <View
@@ -354,22 +417,25 @@ export function ArmorStatLine({ stats }: { stats: readonly ArmorStat[] }) {
       <View style={{ flexDirection: "row" }}>
         {stats.map((stat) => (
           <View key={stat.label} style={{ flex: 1 }}>
-            <Mono size={7} lines={1}>
-              {stat.label}
-            </Mono>
-            <Mono size={10} color={stat.value > 0 ? Ghost.ink : Ghost.dim} style={{ marginTop: 2 }}>
-              {stat.value}
-              {stat.masterworked !== undefined ? (
-                <Text style={{ color: Ghost.gold }}>›{stat.masterworked}</Text>
-              ) : null}
-            </Mono>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+              <StatIcon label={stat.label} size={12} />
+              <Mono size={14} color={stat.value > 0 ? Ghost.ink : Ghost.dim}>
+                {stat.value}
+                {stat.masterworked !== undefined ? (
+                  <Text style={{ color: Ghost.gold }}>›{stat.masterworked}</Text>
+                ) : null}
+              </Mono>
+            </View>
+            <Meta size={12} style={{ marginTop: 2 }} lines={1}>
+              {sentence(stat.label)}
+            </Meta>
           </View>
         ))}
       </View>
       {pending ? (
-        <Mono size={8} color={Ghost.gold}>
-          NOT MASTERWORKED · {now} NOW › {then} MASTERWORKED
-        </Mono>
+        <Meta color={Ghost.gold}>
+          Not masterworked · {now} now › {then} masterworked
+        </Meta>
       ) : null}
     </View>
   )
@@ -449,7 +515,7 @@ export function PageHeader({
         style={{ alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 10 }}
       >
         <Bars color={Ghost.accent} />
-        <Mono size={10} color={Ghost.accent}>
+        <Mono size={11} color={Ghost.accent}>
           GHOST
         </Mono>
       </Pressable>
@@ -458,18 +524,16 @@ export function PageHeader({
           <Cond size={44} style={styles.headline} lines={1}>
             {title}
           </Cond>
-          <Mono size={10} color={subtitleColor} style={{ marginTop: 8 }}>
+          <Meta color={subtitleColor} style={{ marginTop: 6 }}>
             {subtitle}
-          </Mono>
+          </Meta>
         </View>
         <View style={{ alignItems: "flex-end" }}>
           <Cond size={44} color={figureColor} style={styles.headline}>
             {figure}
             {figureSuffix ? <Text style={{ color: Ghost.dim }}>{figureSuffix}</Text> : null}
           </Cond>
-          <Mono size={10} style={{ marginTop: 8 }}>
-            {caption}
-          </Mono>
+          <Meta style={{ marginTop: 6 }}>{caption}</Meta>
         </View>
       </View>
       {children}

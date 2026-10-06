@@ -1,11 +1,11 @@
-import type { ItemDetail } from "@ghost/contract"
+import type { ItemDetail, ItemPerk } from "@ghost/contract"
 import { Image } from "expo-image"
 import { useLocalSearchParams } from "expo-router"
 import { ScrollView, View } from "react-native"
 
 import { PlugIcon } from "@/components/ghost/plug-icon"
 import { SetBonusText } from "@/components/ghost/set-bonus"
-import { ArmorStatLine, Body, Mono } from "@/components/ghost/ui"
+import { ArmorStatLine, Body, Meta, Mono } from "@/components/ghost/ui"
 import { ItemActions } from "@/components/item/actions"
 import { ItemHeader } from "@/components/item/header"
 import { Ghost, Type } from "@/constants/theme"
@@ -27,11 +27,11 @@ function ArmorSetSection({ set }: { set: ArmorSet }) {
     <View style={{ paddingHorizontal: 20, gap: 12 }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
         <Mono>ARMOR SET</Mono>
-        <Mono color={Ghost.muted}>
-          {set.worn} OF {set.of} WORN
-        </Mono>
+        <Meta>
+          {set.worn} of {set.of} worn
+        </Meta>
       </View>
-      <Body size={15} style={{ fontFamily: Type.bodyMedium }}>
+      <Body size={17} style={{ fontFamily: Type.bodyMedium }}>
         {set.name}
       </Body>
       {set.bonuses.map(({ bonus, on }) => (
@@ -44,9 +44,9 @@ function ArmorSetSection({ set }: { set: ArmorSet }) {
             <SetBonusText bonus={bonus} />
           </View>
           {on ? (
-            <Mono size={8} color={Ghost.good} style={{ letterSpacing: 1, marginTop: 4 }}>
-              ON
-            </Mono>
+            <Meta color={Ghost.good} style={{ marginTop: 2 }}>
+              Active
+            </Meta>
           ) : null}
         </View>
       ))}
@@ -55,6 +55,26 @@ function ArmorSetSection({ set }: { set: ArmorSet }) {
 }
 
 const PERK_ICON = 36
+
+function ExoticPerk({ perk }: { perk: ItemPerk }) {
+  return (
+    <View style={{ paddingHorizontal: 20, gap: 12 }}>
+      <Mono>EXOTIC PERK</Mono>
+      <View style={{ flexDirection: "row", gap: 12 }}>
+        <View style={{ width: 2, backgroundColor: Ghost.gold }} />
+        <PerkIcon icon={perk.icon} round={false} enhanced={false} />
+        <View style={{ flex: 1 }}>
+          <Body size={15} color={Ghost.gold} style={{ fontFamily: Type.bodyMedium }}>
+            {perk.name}
+          </Body>
+          <Body size={14} color={Ghost.muted} style={{ lineHeight: 20, marginTop: 2 }}>
+            {perk.description.trim()}
+          </Body>
+        </View>
+      </View>
+    </View>
+  )
+}
 
 function PerkIcon({
   icon,
@@ -101,7 +121,7 @@ function Perks({ perks }: { perks: ItemDetail["perks"] }) {
             >
               {perk.name}
             </Body>
-            <Body size={13} color={Ghost.muted} style={{ lineHeight: 18, marginTop: 2 }}>
+            <Body size={14} color={Ghost.muted} style={{ lineHeight: 20, marginTop: 2 }}>
               {perk.description.trim()}
             </Body>
           </View>
@@ -127,13 +147,14 @@ export default function ItemScreen() {
     )
   }
 
-  const { item, perks, stats, setBonuses } = detail.data
+  const { item, perks, stats, setBonuses, exoticPerk } = detail.data
   const set = armorSet(setBonuses)
   return (
     <ScrollView
       contentContainerStyle={{ paddingTop: 28, paddingBottom: bottomInset + 20, gap: 22 }}
     >
       <ItemHeader item={item} size={72} />
+      {exoticPerk ? <ExoticPerk perk={exoticPerk} /> : null}
       {stats.length > 0 ? <Stats stats={stats} /> : null}
       {set ? <ArmorSetSection set={set} /> : null}
       {perks.length > 0 ? <Perks perks={perks} /> : null}

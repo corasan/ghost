@@ -14,6 +14,7 @@ export type ActionKind =
   | "tag_junk"
   | "insert_mod"
   | "insert_subclass_plug"
+  | "snapshot_loadout"
   | "held"
 
 export interface ActionRecord {

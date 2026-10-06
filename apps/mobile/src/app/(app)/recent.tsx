@@ -5,12 +5,12 @@ import { useMemo, useState } from "react"
 import { Pressable, StyleSheet, View } from "react-native"
 
 import { ItemIcon } from "@/components/ghost/item-icon"
-import { Body, Chip, Mono, Nudge, PageHeader } from "@/components/ghost/ui"
+import { Body, Chip, Meta, Nudge, PageHeader } from "@/components/ghost/ui"
 import { Ghost, Gutter, Type } from "@/constants/theme"
 import { useJobs, useRecentItems, useSetDecision, useUndoPlan } from "@/lib/api"
 import { useCharacter } from "@/lib/character"
 import { usePullRefresh } from "@/lib/refresh"
-import { clock, groupRecent, locationLabel, sourceLabel, upper } from "@/lib/format"
+import { clock, groupRecent, locationLabel, sourceLabel } from "@/lib/format"
 import { useBottomInset } from "@/lib/insets"
 
 type Filter = "all" | "undecided" | "upgrades"
@@ -26,9 +26,9 @@ function Decide({ item }: { item: RecentItem }) {
   if (item.decision) {
     return (
       <Pressable hitSlop={12} accessibilityLabel="Undo decision" onPress={() => decide(null)}>
-        <Mono color={item.decision === "keep" ? Ghost.good : Ghost.danger}>
-          {item.decision === "keep" ? "KEPT" : "JUNK"}
-        </Mono>
+        <Meta color={item.decision === "keep" ? Ghost.good : Ghost.danger}>
+          {item.decision === "keep" ? "Kept" : "Junk"}
+        </Meta>
       </Pressable>
     )
   }
@@ -48,7 +48,7 @@ function Decide({ item }: { item: RecentItem }) {
 
 function ItemRow({ item }: { item: RecentItem }) {
   const meta = [
-    item.typeName ? upper(item.typeName) : null,
+    item.typeName,
     item.power !== null ? String(item.power) : null,
     locationLabel(item.location),
   ].filter(Boolean)
@@ -68,15 +68,15 @@ function ItemRow({ item }: { item: RecentItem }) {
           </Body>
           {item.upgrade ? (
             <View style={styles.flag}>
-              <Mono size={8} color={Ghost.good}>
-                UPGRADE
-              </Mono>
+              <Meta size={12} color={Ghost.good}>
+                Upgrade
+              </Meta>
             </View>
           ) : null}
         </View>
-        <Mono style={{ marginTop: 3, letterSpacing: 0.7 }} lines={1}>
+        <Meta style={{ marginTop: 2 }} lines={1}>
           {meta.join(" · ")}
-        </Mono>
+        </Meta>
       </View>
       <Decide item={item} />
     </View>
@@ -114,7 +114,7 @@ export default function RecentScreen() {
         {
           type: "group" as const,
           key: `g-${group.key}`,
-          label: `${clock(group.at)} · ${group.jobId ? "MOVED BY GHOST" : sourceLabel(group.source)} · ${group.items.length}`,
+          label: `${clock(group.at)} · ${group.jobId ? "Moved by Ghost" : sourceLabel(group.source)} · ${group.items.length}`,
           jobId: group.jobId,
         },
         ...group.items.map((item) => ({
@@ -132,9 +132,9 @@ export default function RecentScreen() {
     <View style={{ flex: 1, backgroundColor: Ghost.bg }}>
       <PageHeader
         title="RECENT"
-        subtitle="LAST 48 HOURS"
+        subtitle="Last 48 hours"
         figure={items.length}
-        caption={`${undecided.length} UNDECIDED`}
+        caption={`${undecided.length} undecided`}
       />
       <View style={{ flexDirection: "row", gap: 6, paddingHorizontal: Gutter, paddingTop: 18 }}>
         <Chip label="ALL" active={filter === "all"} onPress={() => setFilter("all")} />
@@ -172,14 +172,14 @@ export default function RecentScreen() {
         renderItem={({ item: row }) =>
           row.type === "group" ? (
             <View style={styles.group}>
-              <Mono>{row.label}</Mono>
+              <Meta>{row.label}</Meta>
               {row.jobId && undoable.has(row.jobId) ? (
                 <Pressable
                   hitSlop={10}
                   disabled={undo.isPending}
                   onPress={() => row.jobId && undo.mutate(row.jobId)}
                 >
-                  <Mono color={Ghost.accent}>{undo.isPending ? "UNDOING…" : "UNDO"}</Mono>
+                  <Meta color={Ghost.accent}>{undo.isPending ? "Undoing…" : "Undo"}</Meta>
                 </Pressable>
               ) : null}
             </View>

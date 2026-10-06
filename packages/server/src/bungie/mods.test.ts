@@ -24,6 +24,7 @@ const entry = (hash: number, name: string, patch: Partial<ArmorModEntry> = {}): 
   category: ARMS,
   artifact: false,
   charged: false,
+  keywords: [],
   description: "",
   ...patch,
 })
