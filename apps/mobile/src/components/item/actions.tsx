@@ -44,7 +44,7 @@ function Action({
       <Cond size={17} color={tone}>
         {label}
       </Cond>
-      {hint ? <Mono size={10}>{hint}</Mono> : null}
+      {hint ? <Mono size={11}>{hint}</Mono> : null}
     </Pressable>
   )
 }
@@ -75,7 +75,7 @@ export function ItemActions({
         <View key={character.characterId} style={styles.character}>
           <View style={{ flex: 1 }}>
             <Cond size={17}>{upper(character.classType)}</Cond>
-            <Mono size={10} style={{ marginTop: 3 }}>
+            <Mono size={11} style={{ marginTop: 3 }}>
               {isOn(item, character) ? (item.equipped ? "EQUIPPED" : "CARRYING") : character.light}
             </Mono>
           </View>

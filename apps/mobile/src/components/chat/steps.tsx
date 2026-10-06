@@ -13,7 +13,7 @@ function StepLines({ steps }: { steps: readonly JobStep[] }) {
   return (
     <View style={{ gap: 5 }}>
       {steps.map((step, i) => (
-        <Mono key={i} size={10} lines={1}>
+        <Mono key={i} size={11} lines={1}>
           {line(step)}
         </Mono>
       ))}
@@ -52,7 +52,7 @@ export function Working({ job }: { job: Job }) {
           <Body size={16} color={Ghost.muted} lines={1}>
             {now}…
           </Body>
-          <Mono size={10} style={{ marginTop: 4 }} lines={1}>
+          <Mono size={11} style={{ marginTop: 4 }} lines={1}>
             {current?.detail ?? " "}
           </Mono>
         </Pulse>

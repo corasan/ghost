@@ -37,7 +37,7 @@ export function RowRight({ row, applied }: { row: PlanRow; applied: boolean }) {
         <Cond size={20} color={color} style={{ letterSpacing: 0, lineHeight: 20 }}>
           {row.score}
         </Cond>
-        <Mono size={8}>ROLL</Mono>
+        <Mono size={11}>ROLL</Mono>
       </View>
     )
   }
@@ -253,11 +253,11 @@ function ItemPlan({ job, plan, onAsk }: { job: Job; plan: Plan; onAsk: (prompt: 
   return (
     <Cut cut={12} fill={Ghost.panel} border={Ghost.line} style={{ marginLeft: 14 }}>
       <View style={[styles.between, { padding: 14, paddingBottom: 10 }]}>
-        <Mono size={10} color={Ghost.accent}>
+        <Mono size={11} color={Ghost.accent}>
           {plan.title}
         </Mono>
         {right ? (
-          <Mono size={10} color={applied && failed > 0 ? Ghost.danger : Ghost.dim} lines={1}>
+          <Mono size={11} color={applied && failed > 0 ? Ghost.danger : Ghost.dim} lines={1}>
             {right}
           </Mono>
         ) : null}

@@ -57,7 +57,7 @@ export function SubclassBanner({
               {upper(loadout.subclass ?? "Subclass")}
             </Cond>
             {loadout.element !== "none" ? (
-              <Mono size={10} color={tone}>
+              <Mono size={11} color={tone}>
                 {upper(loadout.element)}
               </Mono>
             ) : null}
@@ -68,7 +68,7 @@ export function SubclassBanner({
             </Body>
           ) : null}
           {change?.replaces ? (
-            <Mono size={9} color={Ghost.accent} style={{ marginTop: 5, letterSpacing: 0.9 }}>
+            <Mono size={11} color={Ghost.accent} style={{ marginTop: 5, letterSpacing: 0.9 }}>
               SWAP · REPLACES {upper(change.replaces)}
             </Mono>
           ) : null}

@@ -26,11 +26,11 @@ type TextProps = {
   lines?: number
 }
 
-export function Mono({ children, size = 9, color = Ghost.dim, style, lines }: TextProps) {
+export function Mono({ children, size = 11, color = Ghost.dim, style, lines }: TextProps) {
   return (
     <Text
       numberOfLines={lines}
-      style={[{ fontFamily: Type.mono, fontSize: size, color, letterSpacing: size * 0.12 }, style]}
+      style={[{ fontFamily: Type.mono, fontSize: size, color, letterSpacing: size * 0.08 }, style]}
     >
       {children}
     </Text>
@@ -295,7 +295,7 @@ export function TierStat({
           </Cond>
         ) : null}
       </View>
-      <Mono size={8} style={{ marginTop: 3 }}>
+      <Mono size={11} style={{ marginTop: 3 }}>
         {label}
       </Mono>
       <View style={{ flexDirection: "row", gap: 2, marginTop: 6 }}>
@@ -354,10 +354,10 @@ export function ArmorStatLine({ stats }: { stats: readonly ArmorStat[] }) {
       <View style={{ flexDirection: "row" }}>
         {stats.map((stat) => (
           <View key={stat.label} style={{ flex: 1 }}>
-            <Mono size={7} lines={1}>
+            <Mono size={11} lines={1}>
               {stat.label}
             </Mono>
-            <Mono size={10} color={stat.value > 0 ? Ghost.ink : Ghost.dim} style={{ marginTop: 2 }}>
+            <Mono size={11} color={stat.value > 0 ? Ghost.ink : Ghost.dim} style={{ marginTop: 2 }}>
               {stat.value}
               {stat.masterworked !== undefined ? (
                 <Text style={{ color: Ghost.gold }}>›{stat.masterworked}</Text>
@@ -367,7 +367,7 @@ export function ArmorStatLine({ stats }: { stats: readonly ArmorStat[] }) {
         ))}
       </View>
       {pending ? (
-        <Mono size={8} color={Ghost.gold}>
+        <Mono size={11} color={Ghost.gold}>
           NOT MASTERWORKED · {now} NOW › {then} MASTERWORKED
         </Mono>
       ) : null}
@@ -449,7 +449,7 @@ export function PageHeader({
         style={{ alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 10 }}
       >
         <Bars color={Ghost.accent} />
-        <Mono size={10} color={Ghost.accent}>
+        <Mono size={11} color={Ghost.accent}>
           GHOST
         </Mono>
       </Pressable>
@@ -458,7 +458,7 @@ export function PageHeader({
           <Cond size={44} style={styles.headline} lines={1}>
             {title}
           </Cond>
-          <Mono size={10} color={subtitleColor} style={{ marginTop: 8 }}>
+          <Mono size={11} color={subtitleColor} style={{ marginTop: 8 }}>
             {subtitle}
           </Mono>
         </View>
@@ -467,7 +467,7 @@ export function PageHeader({
             {figure}
             {figureSuffix ? <Text style={{ color: Ghost.dim }}>{figureSuffix}</Text> : null}
           </Cond>
-          <Mono size={10} style={{ marginTop: 8 }}>
+          <Mono size={11} style={{ marginTop: 8 }}>
             {caption}
           </Mono>
         </View>

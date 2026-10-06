@@ -95,7 +95,7 @@ function Loadout({ loadout }: { loadout: SubclassLoadout }) {
               >
                 {ability.name}
               </Body>
-              <Mono size={10} color={ability.swap ? Ghost.accent : Ghost.dim}>
+              <Mono size={11} color={ability.swap ? Ghost.accent : Ghost.dim}>
                 {ability.swap
                   ? `SWAP · ${ABILITY_LABEL[ability.kind]}`
                   : ABILITY_LABEL[ability.kind]}
@@ -116,10 +116,10 @@ function Loadout({ loadout }: { loadout: SubclassLoadout }) {
                 {fragment.name}
               </Body>
               {fragment.mods.length === 0 ? (
-                <Mono size={10}>—</Mono>
+                <Mono size={11}>—</Mono>
               ) : (
                 fragment.mods.map((mod) => (
-                  <Mono key={mod.label} size={10} color={mod.delta > 0 ? Ghost.good : Ghost.danger}>
+                  <Mono key={mod.label} size={11} color={mod.delta > 0 ? Ghost.good : Ghost.danger}>
                     {signed(mod.delta)} {mod.label}
                   </Mono>
                 ))
@@ -189,9 +189,9 @@ function Mods({ row, copies }: { row: PlanRow; copies: ReadonlyMap<string, numbe
   return (
     <View>
       <View style={styles.modsHead}>
-        <Mono size={8}>MODS</Mono>
+        <Mono size={11}>MODS</Mono>
         {row.energy ? (
-          <Mono size={8}>
+          <Mono size={11}>
             ENERGY {row.energy.used}/{row.energy.capacity}
           </Mono>
         ) : null}
@@ -281,7 +281,7 @@ function Piece({
                   >
                     {stat.value}
                   </Mono>
-                  <Mono size={7} style={{ marginTop: 3 }} lines={1}>
+                  <Mono size={11} style={{ marginTop: 3 }} lines={1}>
                     {stat.label}
                   </Mono>
                 </View>
@@ -318,7 +318,7 @@ function BonusRow({ bonus, offBuild = false }: { bonus: SetBonus; offBuild?: boo
         <SetBonusText bonus={bonus} />
       </View>
       {offBuild ? (
-        <Mono size={8} color={Ghost.gold} style={{ letterSpacing: 1, marginTop: 4 }}>
+        <Mono size={11} color={Ghost.gold} style={{ letterSpacing: 1, marginTop: 4 }}>
           OFF-BUILD
         </Mono>
       ) : null}
@@ -348,7 +348,7 @@ function SynergyPartView({ part }: { part: SynergyPart }) {
           ))}
           {part.short.length > 0 ? (
             <View style={[styles.short, part.on.length > 0 && { marginTop: 4 }]}>
-              <Mono size={8} style={{ letterSpacing: 1 }}>
+              <Mono size={11} style={{ letterSpacing: 1 }}>
                 ONE PIECE AWAY
               </Mono>
               {part.short.map((bonus) => (
@@ -371,7 +371,7 @@ function Synergy({ parts }: { parts: readonly SynergyPart[] }) {
       <Mono style={styles.label}>SYNERGY</Mono>
       {parts.map((part) => (
         <View key={part.kind} style={styles.synergyPart}>
-          <Mono size={8} style={{ letterSpacing: 1 }}>
+          <Mono size={11} style={{ letterSpacing: 1 }}>
             {SYNERGY_LABEL[part.kind]}
           </Mono>
           <SynergyPartView part={part} />
@@ -442,7 +442,7 @@ export default function PlanDetailsScreen() {
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: footer.height + 28 }]}>
         <BuildHeader
           plan={plan}
-          eyebrowSize={10}
+          eyebrowSize={11}
           eyebrow={[loadout?.classType, loadout?.subclass, loadout?.element]
             .filter((part) => part && part !== "none")
             .join(" · ")

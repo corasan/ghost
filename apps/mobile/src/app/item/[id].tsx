@@ -44,7 +44,7 @@ function ArmorSetSection({ set }: { set: ArmorSet }) {
             <SetBonusText bonus={bonus} />
           </View>
           {on ? (
-            <Mono size={8} color={Ghost.good} style={{ letterSpacing: 1, marginTop: 4 }}>
+            <Mono size={11} color={Ghost.good} style={{ letterSpacing: 1, marginTop: 4 }}>
               ON
             </Mono>
           ) : null}

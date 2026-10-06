@@ -68,7 +68,7 @@ function ItemRow({ item }: { item: RecentItem }) {
           </Body>
           {item.upgrade ? (
             <View style={styles.flag}>
-              <Mono size={8} color={Ghost.good}>
+              <Mono size={11} color={Ghost.good}>
                 UPGRADE
               </Mono>
             </View>

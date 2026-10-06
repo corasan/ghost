@@ -47,7 +47,7 @@ const upper = (parts: ReadonlyArray<string | null | undefined>) =>
 export function BuildHeader({
   eyebrow,
   plan,
-  eyebrowSize = 9,
+  eyebrowSize = 11,
 }: {
   eyebrow: string
   plan: Plan
@@ -138,7 +138,7 @@ function Stats({ plan }: { plan: Plan }) {
               <Cond size={24} color={tone} style={{ letterSpacing: 0, lineHeight: 24 }}>
                 {stat.value}
               </Cond>
-              <Mono size={8} style={{ marginTop: 4, letterSpacing: 0.8 }} lines={1}>
+              <Mono size={11} style={{ marginTop: 4, letterSpacing: 0.8 }} lines={1}>
                 {stat.label}
               </Mono>
               <View style={{ flexDirection: "row", gap: 2, marginTop: 6 }}>
@@ -244,7 +244,7 @@ function Tile({
         </View>
       ) : null}
       <Mono
-        size={8}
+        size={11}
         color={result ? Ghost.danger : arriving ? Ghost.accent : Ghost.dim}
         style={{ letterSpacing: 0.8, marginTop: 6 }}
         lines={1}

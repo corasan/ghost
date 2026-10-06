@@ -129,7 +129,7 @@ export function GhostDrawer({ navigation }: DrawerContentComponentProps) {
               <Cond size={18}>{page.label}</Cond>
               {page.dot ? <Diamond size={6} /> : null}
             </View>
-            <Mono size={10} color={page.color} style={{ letterSpacing: 0.8 }}>
+            <Mono size={11} color={page.color} style={{ letterSpacing: 0.8 }}>
               {page.value}
             </Mono>
           </Pressable>

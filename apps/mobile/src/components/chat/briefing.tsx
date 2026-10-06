@@ -36,7 +36,7 @@ export function BriefingView({
 
   return (
     <View style={{ paddingTop: 8 }}>
-      <Mono size={10}>{[dayStamp(), ...who].join(" · ")}</Mono>
+      <Mono size={11}>{[dayStamp(), ...who].join(" · ")}</Mono>
       {greet ? (
         <Cond size={44} style={{ letterSpacing: 0.4, lineHeight: 42, marginTop: 10 }}>
           {"EYES UP,\nGUARDIAN."}

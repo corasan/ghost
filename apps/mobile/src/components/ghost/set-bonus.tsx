@@ -20,7 +20,7 @@ export function SetBonusText({ bonus, size = 13 }: { bonus: SetBonus; size?: num
       <Body size={size + 1} style={{ fontFamily: Type.bodyMedium, lineHeight: size + 5 }}>
         {bonus.name}
       </Body>
-      <Mono size={8} color={Ghost.accent} style={{ letterSpacing: 1, marginTop: 3 }}>
+      <Mono size={11} color={Ghost.accent} style={{ letterSpacing: 1, marginTop: 3 }}>
         {setBonusLine(bonus)}
       </Mono>
       {bonus.description ? (

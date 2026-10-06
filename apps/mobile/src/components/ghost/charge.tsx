@@ -11,7 +11,7 @@ import { age, upper } from "@/lib/format"
 
 export function ChargeTag() {
   return (
-    <Mono size={8} color={Ghost.charge} style={{ letterSpacing: 1 }}>
+    <Mono size={11} color={Ghost.charge} style={{ letterSpacing: 1 }}>
       CHARGE
     </Mono>
   )
@@ -38,11 +38,11 @@ export function ChargeNote({
       style={styles.note}
     >
       <View style={styles.noteHead}>
-        <Mono size={8} color={Ghost.charge} style={{ letterSpacing: 1.2 }}>
+        <Mono size={11} color={Ghost.charge} style={{ letterSpacing: 1.2 }}>
           WITH ARMOR CHARGE
         </Mono>
         {copies > 1 ? (
-          <Mono size={8} color={Ghost.charge} style={{ letterSpacing: 1.2 }}>
+          <Mono size={11} color={Ghost.charge} style={{ letterSpacing: 1.2 }}>
             ×{copies} SLOTTED
           </Mono>
         ) : null}
@@ -51,7 +51,7 @@ export function ChargeNote({
         {effect?.effect ?? "Ghost has not looked up the numbers for this mod yet."}
       </Body>
       {source ? (
-        <Mono size={8} style={{ letterSpacing: 0.8 }} lines={1}>
+        <Mono size={11} style={{ letterSpacing: 0.8 }} lines={1}>
           {[upper(source.label), source.asOf ? age(source.asOf) : null].filter(Boolean).join(" · ")}
         </Mono>
       ) : null}

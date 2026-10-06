@@ -160,10 +160,10 @@ export default function GuardianScreen() {
         ListHeaderComponent={
           <View style={{ paddingHorizontal: Gutter, paddingTop: 2, paddingBottom: 14 }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-              <Mono size={10} color={Ghost.accent} style={{ letterSpacing: 1.4 }}>
+              <Mono size={11} color={Ghost.accent} style={{ letterSpacing: 1.4 }}>
                 GUARDIAN
               </Mono>
-              <Mono size={10} style={{ letterSpacing: 1.4 }}>
+              <Mono size={11} style={{ letterSpacing: 1.4 }}>
                 {upper(character.classType)} · POWER {character.light}
               </Mono>
             </View>

@@ -37,7 +37,7 @@ function Ability({
       <Cut cut={6} fill={Ghost.swatch} border={edge} under={Ghost.panel} style={styles.ability}>
         {icon ? <Image source={icon} style={{ width: 32, height: 32 }} transition={120} /> : null}
       </Cut>
-      <Mono size={8}>{slot}</Mono>
+      <Mono size={11}>{slot}</Mono>
       <Cond
         size={13}
         color={Ghost.soft}
@@ -92,7 +92,7 @@ function Fragment({ fragment }: { fragment: LoadoutPlug }) {
         {fragment.mods.map((mod) => (
           <Mono
             key={mod.label}
-            size={10}
+            size={11}
             color={mod.delta > 0 ? Ghost.good : Ghost.danger}
             style={{ letterSpacing: 0.8 }}
           >
@@ -124,7 +124,7 @@ export default function SubclassScreen() {
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: footer.height + 24 }]}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <SubclassMark loadout={loadout} size={22} />
-          <Mono size={10} color={tone} style={{ letterSpacing: 1.4 }}>
+          <Mono size={11} color={tone} style={{ letterSpacing: 1.4 }}>
             {[loadout.element === "none" ? null : loadout.element, loadout.classType]
               .filter(Boolean)
               .map((part) => upper(String(part)))

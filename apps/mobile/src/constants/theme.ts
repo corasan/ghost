@@ -16,7 +16,7 @@ export const Ghost = {
   ink: "#ecebe6",
   soft: "#d6d9dd",
   muted: "#a7adb5",
-  dim: "#6b7280",
+  dim: "#8b929b",
   accent: "#5aa9e6",
   gold: "#e3b341",
   charge: "#e8a15a",

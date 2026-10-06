@@ -93,7 +93,7 @@ function VaultRow({
 function Tag({ label, color }: { label: string; color: string }) {
   return (
     <View style={{ borderWidth: 1, borderColor: color, paddingHorizontal: 5, paddingVertical: 1 }}>
-      <Mono size={8} color={color}>
+      <Mono size={11} color={color}>
         {label}
       </Mono>
     </View>
@@ -195,7 +195,7 @@ function Filters({ shown }: { shown: number }) {
           onPress={() => router.push("/vault-filter")}
           style={[styles.filter, active.length > 0 && { borderColor: Ghost.accent }]}
         >
-          <Mono size={8} color={active.length > 0 ? Ghost.accent : Ghost.dim}>
+          <Mono size={11} color={active.length > 0 ? Ghost.accent : Ghost.dim}>
             {active.length > 0 ? `FILTER · ${active.length}` : "FILTER"}
           </Mono>
           <Cond size={13}>{SORT_LABEL[filter.sort]}</Cond>
