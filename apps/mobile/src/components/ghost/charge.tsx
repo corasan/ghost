@@ -11,9 +11,7 @@ import { age } from "@/lib/format"
 
 export function ChargeTag() {
   return (
-    <Mono size={11} color={Ghost.charge} style={{ letterSpacing: 1 }}>
-      CHARGE
-    </Mono>
+    <Meta color={Ghost.charge}>Charge</Meta>
   )
 }
 

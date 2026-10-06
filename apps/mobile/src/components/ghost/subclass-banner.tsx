@@ -3,9 +3,9 @@ import type { ReactNode } from "react"
 import { Pressable, View } from "react-native"
 
 import { SubclassMark } from "@/components/ghost/subclass-mark"
-import { Body, Chevron, Cond, Cut, Mono } from "@/components/ghost/ui"
+import { Body, Chevron, Cond, Cut, Meta } from "@/components/ghost/ui"
 import { ELEMENT_TONE, Ghost } from "@/constants/theme"
-import { upper } from "@/lib/format"
+import { sentence, upper } from "@/lib/format"
 
 /** The subclass at a glance: its mark, name, element, aspects and fragment count, what a build switches it from, and whatever it opens. */
 export function SubclassBanner({
@@ -57,23 +57,21 @@ export function SubclassBanner({
               {upper(loadout.subclass ?? "Subclass")}
             </Cond>
             {loadout.element !== "none" ? (
-              <Mono size={11} color={tone}>
-                {upper(loadout.element)}
-              </Mono>
+              <Meta color={tone}>{sentence(loadout.element)}</Meta>
             ) : null}
           </View>
           {summary ? (
-            <Body size={12} color={Ghost.muted} style={{ lineHeight: 16, marginTop: 4 }} lines={1}>
+            <Meta style={{ marginTop: 3 }} lines={1}>
               {summary}
-            </Body>
+            </Meta>
           ) : null}
           {change?.replaces ? (
-            <Mono size={11} color={Ghost.accent} style={{ marginTop: 5, letterSpacing: 0.9 }}>
-              SWAP · REPLACES {upper(change.replaces)}
-            </Mono>
+            <Meta color={Ghost.accent} style={{ marginTop: 3 }}>
+              Swap · replaces {change.replaces}
+            </Meta>
           ) : null}
           {change?.error ? (
-            <Body size={12} color={Ghost.danger} style={{ lineHeight: 16, marginTop: 4 }}>
+            <Body size={13} color={Ghost.danger} style={{ lineHeight: 18, marginTop: 4 }}>
               {change.error}
             </Body>
           ) : null}

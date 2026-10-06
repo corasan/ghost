@@ -21,7 +21,8 @@ import { ItemIcon } from "@/components/ghost/item-icon"
 import { PlugIcon } from "@/components/ghost/plug-icon"
 import { SetBonusText } from "@/components/ghost/set-bonus"
 import { SubclassBanner } from "@/components/ghost/subclass-banner"
-import { Body, Button, Chevron, Mono } from "@/components/ghost/ui"
+import { Body, Button, Chevron, Meta, Mono } from "@/components/ghost/ui"
+import { sentence } from "@/lib/format"
 import { Ghost, Gutter, Type } from "@/constants/theme"
 import { errorMessage, useApplyPlan, useJob } from "@/lib/api"
 import { chargedMods } from "@/lib/charge"
@@ -55,21 +56,21 @@ function Described({ plug, kind }: { plug: LoadoutPlug; kind?: string }) {
           {plug.name}
         </Body>
         {line ? (
-          <Body size={11} color={Ghost.dim} style={{ lineHeight: 15, marginTop: 1 }} lines={2}>
+          <Meta style={{ marginTop: 1 }} lines={2}>
             {line}
-          </Body>
+          </Meta>
         ) : null}
       </View>
-      {plug.swap ? <Mono color={Ghost.accent}>SWAP</Mono> : null}
+      {plug.swap ? <Meta color={Ghost.accent}>Swap</Meta> : null}
     </View>
   )
 }
 
 const ABILITY_LABEL: Record<AbilityKind, string> = {
-  class: "CLASS",
-  jump: "JUMP",
-  melee: "MELEE",
-  grenade: "GRENADE",
+  class: "Class",
+  jump: "Jump",
+  melee: "Melee",
+  grenade: "Grenade",
 }
 
 function Loadout({ loadout }: { loadout: SubclassLoadout }) {
@@ -89,17 +90,17 @@ function Loadout({ loadout }: { loadout: SubclassLoadout }) {
             <View key={ability.kind} style={[styles.entry, styles.plug]}>
               <PlugIcon icon={ability.icon} size={22} />
               <Body
-                size={13}
+                size={14}
                 color={ability.swap ? Ghost.accent : Ghost.soft}
-                style={{ flex: 1, lineHeight: 17 }}
+                style={{ flex: 1, lineHeight: 19 }}
               >
                 {ability.name}
               </Body>
-              <Mono size={11} color={ability.swap ? Ghost.accent : Ghost.dim}>
+              <Meta color={ability.swap ? Ghost.accent : Ghost.dim}>
                 {ability.swap
-                  ? `SWAP · ${ABILITY_LABEL[ability.kind]}`
+                  ? `Swap · ${ABILITY_LABEL[ability.kind]}`
                   : ABILITY_LABEL[ability.kind]}
-              </Mono>
+              </Meta>
             </View>
           ))}
           {loadout.aspects.map((aspect) => (
@@ -109,9 +110,9 @@ function Loadout({ loadout }: { loadout: SubclassLoadout }) {
             <View key={fragment.name} style={[styles.entry, styles.plug]}>
               <PlugIcon icon={fragment.icon} size={22} />
               <Body
-                size={13}
+                size={14}
                 color={fragment.swap ? Ghost.accent : Ghost.soft}
-                style={{ flex: 1, lineHeight: 17 }}
+                style={{ flex: 1, lineHeight: 19 }}
               >
                 {fragment.name}
               </Body>
@@ -119,9 +120,9 @@ function Loadout({ loadout }: { loadout: SubclassLoadout }) {
                 <Mono size={11}>—</Mono>
               ) : (
                 fragment.mods.map((mod) => (
-                  <Mono key={mod.label} size={11} color={mod.delta > 0 ? Ghost.good : Ghost.danger}>
-                    {signed(mod.delta)} {mod.label}
-                  </Mono>
+                  <Meta key={mod.label} color={mod.delta > 0 ? Ghost.good : Ghost.danger}>
+                    {signed(mod.delta)} {sentence(mod.label)}
+                  </Meta>
                 ))
               )}
             </View>
@@ -145,22 +146,20 @@ function ModLine({ mod, copies }: { mod: ArmorMod; copies: number }) {
       {mod.icon ? <Image source={mod.icon} style={styles.modIcon} transition={120} /> : null}
       <View style={{ flex: 1, minWidth: 0 }}>
         <Body
-          size={13}
+          size={14}
           color={mod.swap ? Ghost.accent : Ghost.ink}
-          style={{ fontFamily: Type.bodyMedium, lineHeight: 16 }}
+          style={{ fontFamily: Type.bodyMedium, lineHeight: 18 }}
         >
           {mod.name}
         </Body>
         {effect ? (
-          <Body size={11} color={Ghost.dim} style={{ lineHeight: 14, marginTop: 1 }}>
-            {effect}
-          </Body>
+          <Meta style={{ marginTop: 1 }}>{effect}</Meta>
         ) : null}
       </View>
       <View style={{ alignItems: "flex-end", gap: 4 }}>
-        <Mono color={mod.swap ? Ghost.accent : Ghost.dim} style={{ letterSpacing: 0.7 }}>
-          {mod.swap ? `SWAP · ${mod.cost}` : mod.cost}
-        </Mono>
+        <Meta color={mod.swap ? Ghost.accent : Ghost.dim}>
+          {mod.swap ? `Swap · ${mod.cost}` : mod.cost}
+        </Meta>
         {mod.charged ? <ChargeTag /> : null}
       </View>
     </>
@@ -189,11 +188,11 @@ function Mods({ row, copies }: { row: PlanRow; copies: ReadonlyMap<string, numbe
   return (
     <View>
       <View style={styles.modsHead}>
-        <Mono size={11}>MODS</Mono>
+        <Mono>MODS</Mono>
         {row.energy ? (
-          <Mono size={11}>
-            ENERGY {row.energy.used}/{row.energy.capacity}
-          </Mono>
+          <Meta>
+            Energy {row.energy.used}/{row.energy.capacity}
+          </Meta>
         ) : null}
       </View>
       {mods.map((mod, i) => (
@@ -247,13 +246,13 @@ function Piece({
           <Body size={15} style={{ fontFamily: Type.bodyMedium, lineHeight: 18 }} lines={1}>
             {row.name}
           </Body>
-          <Mono style={{ marginTop: 3, letterSpacing: 0.7 }} lines={1}>
+          <Meta color={row.error ? Ghost.danger : Ghost.muted} style={{ marginTop: 2 }} lines={1}>
             {row.error ?? row.meta}
-          </Mono>
+          </Meta>
           {then > now ? (
-            <Mono color={Ghost.gold} style={{ marginTop: 3, letterSpacing: 0.7 }}>
-              {now} → {then} MASTERWORKED
-            </Mono>
+            <Meta color={Ghost.gold} style={{ marginTop: 1 }}>
+              {now} → {then} masterworked
+            </Meta>
           ) : null}
         </View>
         <View style={{ alignItems: "flex-end", gap: 6 }}>
@@ -269,7 +268,7 @@ function Piece({
               {stats.map((stat) => (
                 <View key={stat.label} style={{ flex: 1 }}>
                   <Mono
-                    size={12}
+                    size={14}
                     color={
                       stat.masterworked !== undefined
                         ? Ghost.gold
@@ -281,9 +280,9 @@ function Piece({
                   >
                     {stat.value}
                   </Mono>
-                  <Mono size={11} style={{ marginTop: 3 }} lines={1}>
-                    {stat.label}
-                  </Mono>
+                  <Meta size={12} style={{ marginTop: 2 }} lines={1}>
+                    {sentence(stat.label)}
+                  </Meta>
                 </View>
               ))}
             </View>
@@ -296,9 +295,9 @@ function Piece({
 }
 
 const SYNERGY_LABEL: Record<SynergyPart["kind"], string> = {
-  exotic: "EXOTIC",
-  setBonuses: "SET BONUS",
-  mods: "MODS",
+  exotic: "Exotic",
+  setBonuses: "Set bonuses",
+  mods: "Mods",
 }
 
 function Prose({ text }: { text: string | undefined }) {
@@ -318,9 +317,9 @@ function BonusRow({ bonus, offBuild = false }: { bonus: SetBonus; offBuild?: boo
         <SetBonusText bonus={bonus} />
       </View>
       {offBuild ? (
-        <Mono size={11} color={Ghost.gold} style={{ letterSpacing: 1, marginTop: 4 }}>
-          OFF-BUILD
-        </Mono>
+        <Meta color={Ghost.gold} style={{ marginTop: 2 }}>
+          Off-build
+        </Meta>
       ) : null}
     </View>
   )
@@ -348,9 +347,7 @@ function SynergyPartView({ part }: { part: SynergyPart }) {
           ))}
           {part.short.length > 0 ? (
             <View style={[styles.short, part.on.length > 0 && { marginTop: 4 }]}>
-              <Mono size={11} style={{ letterSpacing: 1 }}>
-                ONE PIECE AWAY
-              </Mono>
+              <Meta>One piece away</Meta>
               {part.short.map((bonus) => (
                 <BonusRow key={`${bonus.set}${bonus.name}`} bonus={bonus} />
               ))}
@@ -371,9 +368,9 @@ function Synergy({ parts }: { parts: readonly SynergyPart[] }) {
       <Mono style={styles.label}>SYNERGY</Mono>
       {parts.map((part) => (
         <View key={part.kind} style={styles.synergyPart}>
-          <Mono size={11} style={{ letterSpacing: 1 }}>
+          <Meta color={Ghost.soft} style={{ fontFamily: Type.bodySemi }}>
             {SYNERGY_LABEL[part.kind]}
-          </Mono>
+          </Meta>
           <SynergyPartView part={part} />
         </View>
       ))}
@@ -459,7 +456,7 @@ export default function PlanDetailsScreen() {
         <View style={styles.section}>
           <View style={[styles.label, { flexDirection: "row", justifyContent: "space-between" }]}>
             <Mono>PIECES</Mono>
-            {pending > 0 ? <Mono color={Ghost.gold}>{pending} NOT MASTERWORKED</Mono> : null}
+            {pending > 0 ? <Meta color={Ghost.gold}>{pending} not masterworked</Meta> : null}
           </View>
           {pieces.map((row) => (
             <Piece

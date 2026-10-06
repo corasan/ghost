@@ -1,9 +1,10 @@
 import type { PlanStat } from "@ghost/contract"
 import { StyleSheet, View } from "react-native"
 
-import { Cond, Diamond, Mono } from "@/components/ghost/ui"
+import { Body, Cond, Diamond, Meta, Mono } from "@/components/ghost/ui"
 import { Ghost } from "@/constants/theme"
 import { orderBuildStats } from "@/lib/build-order"
+import { sentence } from "@/lib/format"
 
 /**
  * The six stats as a table: with the build on, and with every piece
@@ -14,10 +15,8 @@ export function BuildStats({ stats }: { stats: readonly PlanStat[] }) {
     <View>
       <View style={[styles.line, { paddingBottom: 6 }]}>
         <Mono style={styles.name}>STATS</Mono>
-        <Mono color={Ghost.muted} style={styles.cell}>
-          BUILD
-        </Mono>
-        <Mono style={styles.cell}>MW</Mono>
+        <Meta style={styles.cell}>Build</Meta>
+        <Meta style={styles.cell}>Masterworked</Meta>
       </View>
       {orderBuildStats(stats).map((stat) => {
         const tone = stat.target ? Ghost.good : Ghost.ink
@@ -25,15 +24,15 @@ export function BuildStats({ stats }: { stats: readonly PlanStat[] }) {
           <View key={stat.label} style={[styles.line, styles.row]}>
             <View style={[styles.name, { flexDirection: "row", alignItems: "center", gap: 9 }]}>
               <Diamond size={6} color={stat.target ? Ghost.good : Ghost.ruleStrong} />
-              <Cond size={15} color={tone} style={{ letterSpacing: 1.2 }}>
-                {stat.label}
-              </Cond>
+              <Body size={15} color={tone}>
+                {sentence(stat.label)}
+              </Body>
             </View>
             <Cond size={18} color={tone} style={[styles.cell, { letterSpacing: 0 }]}>
               {stat.value}
             </Cond>
             <Mono
-              size={11}
+              size={14}
               color={stat.masterworked === undefined ? Ghost.dim : Ghost.gold}
               style={[styles.cell, { letterSpacing: 0 }]}
             >
@@ -50,5 +49,5 @@ const styles = StyleSheet.create({
   line: { flexDirection: "row", alignItems: "center", gap: 8 },
   row: { paddingVertical: 5, borderTopWidth: 1, borderTopColor: Ghost.rule },
   name: { flex: 1 },
-  cell: { width: 56, textAlign: "right" },
+  cell: { width: 92, textAlign: "right" },
 })
