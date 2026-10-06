@@ -357,6 +357,24 @@ describe("composeBuild", () => {
     expect(build.plan.purpose).toBe("Solar Titan grenade build")
   })
 
+  test("marks an unequipped weapon swapped in from the character's inventory, not one already worn", async () => {
+    const build = await Effect.runPromise(
+      compose(
+        recipe({
+          rows: [
+            { itemInstanceId: "chest-exotic", action: "equip" },
+            { itemInstanceId: "kinetic-1", action: "none" },
+            { itemInstanceId: "energy-2", action: "equip" },
+            { itemInstanceId: "power-1", action: "equip" },
+          ],
+        }),
+      ),
+    )
+    const origin = (id: string) => build.plan.rows.find((r) => r.itemInstanceId === id)?.origin
+    expect(origin("energy-2")).toBe("Inventory")
+    expect(origin("power-1")).toBeUndefined()
+  })
+
   test("fills a weapon row's type, its perks the wishlist roll lists and the wishlist score", async () => {
     const build = await Effect.runPromise(compose(recipe()))
     const row = build.plan.rows.find((r) => r.itemInstanceId === "kinetic-1")

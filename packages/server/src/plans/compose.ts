@@ -420,7 +420,9 @@ export const composeBuild = (
           ? title(item.location)
           : item.characterId !== characterId
             ? classOf.get(item.characterId ?? "")
-            : undefined
+            : r.action === "equip" && !item.equipped
+              ? "inventory"
+              : undefined
       const mods =
         item.armorStats === null
           ? undefined
