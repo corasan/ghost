@@ -12,6 +12,7 @@ import {
   SubclassSwap,
   PlanRow,
   PlanStat,
+  OFF_BUILD_FIT,
   SetBonus,
   Source,
   StatMod,
@@ -522,15 +523,15 @@ describe("build card", () => {
     test("an active bonus Jev judged a poor fit is off-build; one a piece away never is", () => {
       const fitted = (fit: number, worn: number) => new SetBonus({ ...bonus, fit, worn })
       const part = synergyParts(
-        plan({ rows: [], setBonuses: [fitted(0.3, 2), fitted(0.5, 2), fitted(0.2, 1)] }),
+        plan({ rows: [], setBonuses: [fitted(0.1, 2), fitted(OFF_BUILD_FIT, 2), fitted(0.1, 1)] }),
       )[0]
       expect(part).toEqual({
         kind: "setBonuses",
         on: [
-          { bonus: fitted(0.3, 2), offBuild: true },
-          { bonus: fitted(0.5, 2), offBuild: false },
+          { bonus: fitted(0.1, 2), offBuild: true },
+          { bonus: fitted(OFF_BUILD_FIT, 2), offBuild: false },
         ],
-        short: [fitted(0.2, 1)],
+        short: [fitted(0.1, 1)],
         text: undefined,
       })
     })

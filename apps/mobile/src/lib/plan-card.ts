@@ -1,11 +1,12 @@
-import type {
-  GuardianClass,
-  ItemSlot,
-  Plan,
-  SubclassLoadout,
-  PlanRow,
-  SetBonus,
-  StatMod,
+import {
+  type GuardianClass,
+  type ItemSlot,
+  OFF_BUILD_FIT,
+  type Plan,
+  type SubclassLoadout,
+  type PlanRow,
+  type SetBonus,
+  type StatMod,
 } from "@ghost/contract"
 
 /** "MOVE 8 TO VAULT" follows the ticks: the first number tracks the selection. */
@@ -201,8 +202,6 @@ export const armorSet = (bonuses: readonly SetBonus[] | undefined): ArmorSet | u
 
 /** An active bonus, flagged when Jev judged it a poor fit for the build. */
 export type ActiveBonus = { bonus: SetBonus; offBuild: boolean }
-
-const OFF_BUILD_FIT = 0.5
 
 export type SynergyPart =
   | { kind: "exotic"; row: PlanRow; text: string }
