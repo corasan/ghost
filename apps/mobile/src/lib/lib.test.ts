@@ -25,6 +25,7 @@ import { chargedMods } from "./charge"
 import { firstParagraph, firstSentence } from "./effect-text"
 import {
   appliedTotals,
+  armorSet,
   bySlot,
   fragmentTotals,
   headline,
@@ -578,6 +579,30 @@ describe("chargedMods", () => {
       ["Arc Weapon Surge", 2, "+10% Arc weapon damage"],
       ["Melee Font", 1, undefined],
     ])
+  })
+})
+
+describe("armor set", () => {
+  const piece = (name: string, required: number, worn: number) =>
+    new SetBonus({ name, description: "", icon: null, set: "Techsec", required, worn })
+
+  test("names the set, counts worn pieces against the most any bonus needs, and turns on what they reach", () => {
+    const four = piece("Overdrive", 4, 2)
+    const two = piece("Overclocked", 2, 2)
+    expect(armorSet([four, two])).toEqual({
+      name: "Techsec",
+      worn: 2,
+      of: 4,
+      bonuses: [
+        { bonus: two, on: true },
+        { bonus: four, on: false },
+      ],
+    })
+  })
+
+  test("a piece in no set has no armor set", () => {
+    expect(armorSet(undefined)).toBeUndefined()
+    expect(armorSet([])).toBeUndefined()
   })
 })
 

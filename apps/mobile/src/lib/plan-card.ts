@@ -178,6 +178,27 @@ export const splitSetBonuses = (bonuses: readonly SetBonus[]): SetBonusSplit => 
   short: bonuses.filter((bonus) => piecesAway(bonus) > 0),
 })
 
+/** The armor set a piece belongs to: how many of its pieces are worn, out of the most any bonus needs. */
+export type ArmorSet = {
+  name: string
+  worn: number
+  of: number
+  bonuses: readonly { bonus: SetBonus; on: boolean }[]
+}
+
+export const armorSet = (bonuses: readonly SetBonus[] | undefined): ArmorSet | undefined => {
+  const first = bonuses?.[0]
+  if (!bonuses || !first) return undefined
+  return {
+    name: first.set,
+    worn: Math.max(...bonuses.map((bonus) => bonus.worn)),
+    of: Math.max(...bonuses.map((bonus) => bonus.required)),
+    bonuses: [...bonuses]
+      .sort((a, b) => a.required - b.required)
+      .map((bonus) => ({ bonus, on: piecesAway(bonus) === 0 })),
+  }
+}
+
 /** An active bonus, flagged when Jev judged it a poor fit for the build. */
 export type ActiveBonus = { bonus: SetBonus; offBuild: boolean }
 

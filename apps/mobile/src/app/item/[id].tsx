@@ -3,18 +3,53 @@ import { Image } from "expo-image"
 import { useLocalSearchParams } from "expo-router"
 import { ScrollView, View } from "react-native"
 
+import { PlugIcon } from "@/components/ghost/plug-icon"
+import { SetBonusText } from "@/components/ghost/set-bonus"
 import { ArmorStatLine, Body, Mono } from "@/components/ghost/ui"
 import { ItemActions } from "@/components/item/actions"
 import { ItemHeader } from "@/components/item/header"
 import { Ghost, Type } from "@/constants/theme"
 import { errorMessage, useItemDetail } from "@/lib/api"
 import { useBottomInset } from "@/lib/insets"
+import { type ArmorSet, armorSet } from "@/lib/plan-card"
 
 function Stats({ stats }: { stats: ItemDetail["stats"] }) {
   return (
     <View style={{ paddingHorizontal: 20, gap: 10 }}>
       <Mono>STATS</Mono>
       <ArmorStatLine stats={stats} />
+    </View>
+  )
+}
+
+function ArmorSetSection({ set }: { set: ArmorSet }) {
+  return (
+    <View style={{ paddingHorizontal: 20, gap: 12 }}>
+      <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+        <Mono>ARMOR SET</Mono>
+        <Mono color={Ghost.muted}>
+          {set.worn} OF {set.of} WORN
+        </Mono>
+      </View>
+      <Body size={15} style={{ fontFamily: Type.bodyMedium }}>
+        {set.name}
+      </Body>
+      {set.bonuses.map(({ bonus, on }) => (
+        <View
+          key={bonus.name}
+          style={[{ flexDirection: "row", gap: 12 }, !on && { opacity: 0.45 }]}
+        >
+          <PlugIcon icon={bonus.icon} size={28} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <SetBonusText bonus={bonus} />
+          </View>
+          {on ? (
+            <Mono size={8} color={Ghost.good} style={{ letterSpacing: 1, marginTop: 4 }}>
+              ON
+            </Mono>
+          ) : null}
+        </View>
+      ))}
     </View>
   )
 }
@@ -92,13 +127,15 @@ export default function ItemScreen() {
     )
   }
 
-  const { item, perks, stats } = detail.data
+  const { item, perks, stats, setBonuses } = detail.data
+  const set = armorSet(setBonuses)
   return (
     <ScrollView
       contentContainerStyle={{ paddingTop: 28, paddingBottom: bottomInset + 20, gap: 22 }}
     >
       <ItemHeader item={item} size={72} />
       {stats.length > 0 ? <Stats stats={stats} /> : null}
+      {set ? <ArmorSetSection set={set} /> : null}
       {perks.length > 0 ? <Perks perks={perks} /> : null}
       <ItemActions item={item} />
     </ScrollView>
