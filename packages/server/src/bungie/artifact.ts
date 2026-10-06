@@ -1,4 +1,4 @@
-import type { BungieNotLinked } from "@ghost/contract"
+import { ArtifactPick, ArtifactPlan, type BungieNotLinked } from "@ghost/contract"
 import { Context, Effect, Layer, Schema } from "effect"
 import { BungieClient, type BungieError } from "./client.ts"
 import { Manifest } from "./manifest.ts"
@@ -131,6 +131,71 @@ export const parseArtifact = (
       }),
     })),
   }
+}
+
+type PlacedPerk = ArtifactPerk & { readonly column: number }
+
+const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
+
+/** Why each perk of a selection cannot be reached, opening columns left to right. */
+const unreachable = (selection: ReadonlyArray<PlacedPerk>, tiers: ReadonlyArray<ArtifactColumn>) =>
+  selection.flatMap((perk) => {
+    const opensAt = tiers[perk.column]?.unlocksAt ?? 0
+    const before = selection.filter((other) => other.column < perk.column).length
+    return before < opensAt
+      ? [
+          `"${perk.name}" sits in column ${perk.column + 1}, which opens after ${opensAt} points in earlier columns, and the picks put ${before} there`,
+        ]
+      : []
+  })
+
+const problems = (selection: ReadonlyArray<PlacedPerk>, artifact: CharacterArtifact) => [
+  ...unreachable(selection, artifact.tiers),
+  ...(selection.length > artifact.pointsAvailable
+    ? [
+        `the picks take ${selection.length} points and ${artifact.name} has ${artifact.pointsAvailable}`,
+      ]
+    : []),
+]
+
+/**
+ * The artifact perks a build asks for, read against the character's
+ * artifact. Picks join the active perks when they fit beside them; when they
+ * do not, the plan says the player must reset the artifact in game first.
+ */
+export const planArtifact = (
+  artifact: CharacterArtifact,
+  names: ReadonlyArray<string>,
+): ArtifactPlan | { readonly errors: ReadonlyArray<string> } => {
+  const perks = artifact.tiers.flatMap((tier) =>
+    tier.perks.map((perk): PlacedPerk => ({ ...perk, column: tier.column })),
+  )
+  const unknown = names.filter((name) => !perks.some((perk) => same(perk.name, name)))
+  if (unknown.length > 0) {
+    return { errors: unknown.map((name) => `"${name}" is not a perk on ${artifact.name}`) }
+  }
+  const picks = perks.filter((perk) => names.some((name) => same(perk.name, name)))
+  const kept = perks.filter((perk) => perk.active || picks.includes(perk))
+  const reset = problems(kept, artifact).length > 0
+  const errors = reset ? problems(picks, artifact) : []
+  if (errors.length > 0) return { errors }
+  return new ArtifactPlan({
+    artifactHash: artifact.artifactHash,
+    name: artifact.name,
+    picks: picks.map(
+      (perk) =>
+        new ArtifactPick({
+          hash: perk.hash,
+          name: perk.name,
+          description: perk.description,
+          icon: perk.icon,
+          column: perk.column,
+          state: perk.active ? "active" : "select_in_game",
+        }),
+    ),
+    pointsAvailable: artifact.pointsAvailable,
+    reset,
+  })
 }
 
 export interface ArtifactsService {

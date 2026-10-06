@@ -10,6 +10,7 @@ import { JevLive } from "./agent/jev.ts"
 import { JobRunnerLive } from "./agent/runner.ts"
 import { AgentConfigLive } from "./agent/settings.ts"
 import { ApiLive } from "./api/index.ts"
+import { ArtifactsLive } from "./bungie/artifact.ts"
 import { BungieClientLive } from "./bungie/client.ts"
 import { GuardianLive } from "./bungie/guardian.ts"
 import { ManifestLive } from "./bungie/manifest.ts"
@@ -52,7 +53,7 @@ const Clients = Layer.mergeAll(
 
 const Profile = Layer.mergeAll(ProfileStoreLive, CreatorNotesLive).pipe(Layer.provideMerge(Clients))
 
-const Services = Layer.mergeAll(GuardianLive, ActivityLive, PlansLive).pipe(
+const Services = Layer.mergeAll(GuardianLive, ActivityLive, PlansLive, ArtifactsLive).pipe(
   Layer.provideMerge(Profile),
 )
 

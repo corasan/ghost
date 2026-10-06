@@ -72,6 +72,12 @@ export const PlanInput = Schema.Struct({
         "What the build does, in plain words: subclass and element, activity, stat goals and playstyle, for example 'Void Sentinel Titan build, 100 Health and 100 Class, overshields and Devour'. Pass it for every build, so the set bonuses can be judged against it.",
     }),
   ),
+  artifact: Schema.optional(
+    Schema.Array(Schema.String).annotate({
+      description:
+        "The Seasonal Artifact perks the build runs, by the names get_artifact gives, including ones already selected. Leave it out only when the character has no artifact or no perks to spend.",
+    }),
+  ),
   shortfall: Schema.optional(Schema.String),
   subclass: Schema.optional(SubclassInput),
   sources: Schema.optional(Schema.Array(SourceInput)),

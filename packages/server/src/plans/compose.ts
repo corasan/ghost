@@ -1,4 +1,5 @@
 import {
+  type ArtifactPlan,
   type BungieNotLinked,
   ChargeEffect,
   type DamageType,
@@ -17,6 +18,7 @@ import {
   type WeaponSlot,
 } from "@ghost/contract"
 import { Effect, Schema } from "effect"
+import { Artifacts, planArtifact } from "../bungie/artifact.ts"
 import type { BungieError } from "../bungie/client.ts"
 import {
   type CharacterInfo,
@@ -95,6 +97,7 @@ export const synergyMissing = ({
   modded,
   weapons,
   element,
+  artifact,
   synergy,
 }: {
   readonly exotic: Pick<OwnedItem, "name" | "exoticPerk"> | undefined
@@ -103,6 +106,8 @@ export const synergyMissing = ({
   readonly weapons: ReadonlyArray<BuildWeapon>
   /** The build's subclass element, which the weapons are checked against. */
   readonly element: DamageType | undefined
+  /** What the build runs from the Seasonal Artifact, from effectiveArtifactPerks. */
+  readonly artifact: ReadonlyArray<string>
   readonly synergy: Schema.Struct.Type<typeof Synergy.fields> | undefined
 }): ReadonlyArray<string> => {
   const active = setBonuses.filter(isActive)
@@ -117,8 +122,17 @@ export const synergyMissing = ({
     weapons.length > 0 && !synergy?.weapons?.trim()
       ? `weapons, on how the three weapons feed the loop: ${weapons.map((weapon) => weaponLine(weapon, element)).join(", ")}`
       : null,
+    artifact.length > 0 && !synergy?.artifact?.trim()
+      ? `artifact, on how the artifact picks back the loop and the weapons: ${artifact.join(", ")}`
+      : null,
   ].filter((part) => part !== null)
 }
+
+/** The artifact perks a build picks plus the artifact-only armor mods it slots: everything it needs the artifact for. */
+export const effectiveArtifactPerks = (
+  artifact: ArtifactPlan | undefined,
+  artifactMods: ReadonlyArray<string>,
+) => [...(artifact?.picks ?? []).map((pick) => pick.name), ...artifactMods]
 
 const WEAPON_SLOTS: ReadonlyArray<WeaponSlot> = ["kinetic", "energy", "power"]
 
@@ -279,6 +293,10 @@ export interface ComposedBuild {
   readonly armor: ReadonlyArray<OwnedItem>
   /** The weapons a build lists, in row order; empty for other plans. */
   readonly weapons: ReadonlyArray<OwnedItem>
+  /** The artifact picks read against the character's artifact, or why they cannot be made; null when the recipe asks for none. */
+  readonly artifact: ArtifactPlan | { readonly errors: ReadonlyArray<string> } | null
+  /** Artifact-only armor mods the plan slots. */
+  readonly artifactMods: ReadonlyArray<string>
   readonly misses: ReadonlyArray<MissedTarget>
   readonly modSwaps: number
   /** What changes on the subclass; null when the recipe picks none. */
@@ -315,7 +333,11 @@ const judgeWeapons = (weapons: ReadonlyArray<OwnedItem>) =>
 export const composeBuild = (
   recipe: BuildRecipe,
   inv: Inventory,
-): Effect.Effect<ComposedBuild, BuildRefusal, Manifest | ProfileStore | ChargeEffects | Wishlist> =>
+): Effect.Effect<
+  ComposedBuild,
+  BuildRefusal,
+  Manifest | ProfileStore | ChargeEffects | Wishlist | Artifacts
+> =>
   Effect.gen(function* () {
     const manifest = yield* Manifest
     const chargeEffects = yield* ChargeEffects
@@ -492,6 +514,18 @@ export const composeBuild = (
               facts,
             })
           : undefined
+    const artifactPicks = recipe.kind === "build" ? (recipe.artifact ?? []) : []
+    const artifact =
+      artifactPicks.length === 0 || builtFor === undefined
+        ? null
+        : yield* (yield* Artifacts).forCharacter(builtFor.characterId).pipe(
+            Effect.map((found) =>
+              found === null
+                ? { errors: ["this character has no Seasonal Artifact, so leave artifact out"] }
+                : planArtifact(found, artifactPicks),
+            ),
+            Effect.mapError((error) => refuse(explain(error))),
+          )
     const modChange: Record<string, number> = {}
     for (const [stat, delta] of [
       ...Object.entries(swapStatChange([...swapsFor.values()].flat())),
@@ -556,11 +590,17 @@ export const composeBuild = (
       confirmLabel: recipe.confirmLabel,
       status: "proposed",
       purpose: recipe.kind === "build" ? recipe.purpose : undefined,
+      artifact: artifact === null || "errors" in artifact ? undefined : artifact,
     })
     return {
       plan,
       armor,
       weapons,
+      artifact,
+      artifactMods: [...swapsFor.values()]
+        .flat()
+        .filter((swap) => swap.entry.artifact)
+        .map((swap) => swap.entry.name),
       misses,
       modSwaps: [...swapsFor.values()].flat().length,
       subclassChanges: chosen === null ? null : chosen.summary,
@@ -593,6 +633,11 @@ export const buildRules = (recipe: BuildRecipe, build: ComposedBuild): BuildRefu
       )
     }
   }
+  if (build.artifact !== null && "errors" in build.artifact) {
+    return refuse(
+      `Error: ${build.artifact.errors.join(". ")}. Check get_artifact and call present_plan again.`,
+    )
+  }
   const unwritten = synergyMissing({
     exotic: build.armor.find((item) => item.tier === "exotic"),
     setBonuses: build.plan.setBonuses ?? [],
@@ -603,6 +648,7 @@ export const buildRules = (recipe: BuildRecipe, build: ComposedBuild): BuildRefu
     ),
     weapons: build.weapons,
     element: build.plan.loadout?.element,
+    artifact: effectiveArtifactPerks(build.plan.artifact, build.artifactMods),
     synergy: recipe.synergy,
   })
   if (unwritten.length > 0) {

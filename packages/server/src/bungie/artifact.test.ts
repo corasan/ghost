@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test"
 import { Schema } from "effect"
-import { ArtifactProfile, parseArtifact, type PerkFacts } from "./artifact.ts"
+import {
+  ArtifactProfile,
+  type CharacterArtifact,
+  parseArtifact,
+  type PerkFacts,
+  planArtifact,
+} from "./artifact.ts"
 
 const item = (itemHash: number, isActive: boolean) => ({ itemHash, isActive, isVisible: true })
 
@@ -122,5 +128,84 @@ describe("parseArtifact", () => {
   test("gives null for a character without an artifact", () => {
     expect(parseArtifact(profile, "2305843009877264518", definition, facts)).toBeNull()
     expect(parseArtifact(profile, "missing", definition, facts)).toBeNull()
+  })
+})
+
+const perk = (name: string, active = false) => ({
+  hash: name.charCodeAt(0),
+  name,
+  description: `${name} effect`,
+  icon: null,
+  active,
+})
+
+const artifact: CharacterArtifact = {
+  artifactHash: 1,
+  name: "Implement of Curiosity",
+  pointsAvailable: 4,
+  pointsUsed: 3,
+  tiers: [
+    {
+      column: 0,
+      unlocked: true,
+      unlocksAt: 0,
+      perks: [perk("A", true), perk("B", true), perk("C")],
+    },
+    { column: 1, unlocked: true, unlocksAt: 2, perks: [perk("D", true), perk("E")] },
+    { column: 2, unlocked: false, unlocksAt: 3, perks: [perk("F")] },
+  ],
+}
+
+const picked = (names: ReadonlyArray<string>) => {
+  const plan = planArtifact(artifact, names)
+  return "errors" in plan
+    ? plan
+    : { reset: plan.reset, picks: plan.picks.map((pick) => [pick.name, pick.column, pick.state]) }
+}
+
+describe("planArtifact", () => {
+  test("adds picks beside the active perks when the points allow, marking which to select in game", () => {
+    expect(picked(["b ", "E"])).toEqual({
+      reset: false,
+      picks: [
+        ["B", 0, "active"],
+        ["E", 1, "select_in_game"],
+      ],
+    })
+  })
+
+  test("asks for a reset when the picks only fit once the active perks come off", () => {
+    expect(picked(["A", "C", "E"])).toEqual({
+      reset: true,
+      picks: [
+        ["A", 0, "active"],
+        ["C", 0, "select_in_game"],
+        ["E", 1, "select_in_game"],
+      ],
+    })
+  })
+
+  test("refuses a pick whose column the picks leave closed", () => {
+    expect(picked(["C", "E"])).toEqual({
+      errors: [
+        '"E" sits in column 2, which opens after 2 points in earlier columns, and the picks put 1 there',
+      ],
+    })
+  })
+
+  test("counts the active perks toward opening a column when they stay", () => {
+    expect(picked(["F"])).toEqual({ reset: false, picks: [["F", 2, "select_in_game"]] })
+  })
+
+  test("refuses picks over the point budget", () => {
+    expect(picked(["A", "B", "C", "D", "E"])).toEqual({
+      errors: ["the picks take 5 points and Implement of Curiosity has 4"],
+    })
+  })
+
+  test("refuses a perk the artifact does not have", () => {
+    expect(picked(["A", "Grenade Kickstart"])).toEqual({
+      errors: ['"Grenade Kickstart" is not a perk on Implement of Curiosity'],
+    })
   })
 })

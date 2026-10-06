@@ -7,7 +7,8 @@ import { ProfileStore } from "../bungie/profile.ts"
 import { ChargeEffects } from "../db/charge.ts"
 import type { ManifestItem } from "../bungie/manifest.ts"
 import { Wishlist } from "../wishlist/wishlist.ts"
-import { buildRules, composeBuild, synergyMissing } from "./compose.ts"
+import { Artifacts, type CharacterArtifact } from "../bungie/artifact.ts"
+import { buildRules, composeBuild, effectiveArtifactPerks, synergyMissing } from "./compose.ts"
 import type { BuildRecipe } from "./recipe.ts"
 
 const owned = (id: string, slot: ItemSlot, fields: Partial<OwnedItem> = {}): OwnedItem => ({
@@ -69,6 +70,7 @@ describe("synergyMissing", () => {
     modded: true,
     weapons: [bow],
     element: "void" as const,
+    artifact: ["Unstoppable Bow"],
   }
   const bare = {
     exotic: undefined,
@@ -76,24 +78,34 @@ describe("synergyMissing", () => {
     modded: false,
     weapons: [],
     element: undefined,
+    artifact: [],
   }
 
   test("asks for every part the build has and lacks synergy for", () => {
     const parts = synergyMissing({ ...full, synergy: { exotic: " " } })
-    expect(parts).toHaveLength(4)
+    expect(parts).toHaveLength(5)
     expect(parts[0]).toContain("Starfire Protocol (Fusion Overdrive: an extra grenade charge.)")
     expect(parts[1]).toContain(
       "Force Converter (AION Renewal, 2 pieces, wearing 2): After a final blow",
     )
     expect(parts[2]).toStartWith("mods")
     expect(parts[3]).toStartWith("weapons")
+    expect(parts[4]).toBe(
+      "artifact, on how the artifact picks back the loop and the weapons: Unstoppable Bow",
+    )
   })
 
   test("accepts a build once each of its parts has synergy", () => {
     expect(
       synergyMissing({
         ...full,
-        synergy: { exotic: "Grenades.", setBonuses: "Speed.", mods: "Energy.", weapons: "Bow." },
+        synergy: {
+          exotic: "Grenades.",
+          setBonuses: "Speed.",
+          mods: "Energy.",
+          weapons: "Bow.",
+          artifact: "Stuns.",
+        },
       }),
     ).toEqual([])
   })
@@ -124,6 +136,17 @@ describe("synergyMissing", () => {
     })
     expect(part).toContain("Force Converter")
     expect(part).not.toContain("AION Four")
+  })
+
+  test("asks for artifact synergy when the build slots an artifact-only mod and picks no perks", () => {
+    const [part] = synergyMissing({
+      ...bare,
+      artifact: effectiveArtifactPerks(undefined, ["Font of Wisdom"]),
+      synergy: undefined,
+    })
+    expect(part).toBe(
+      "artifact, on how the artifact picks back the loop and the weapons: Font of Wisdom",
+    )
   })
 
   test("asks for no part the build lacks", () => {
@@ -239,6 +262,24 @@ const inventory: Inventory = {
   vaultCount: 1,
 }
 
+const seasonal: CharacterArtifact = {
+  artifactHash: 7,
+  name: "Implement of Curiosity",
+  pointsAvailable: 12,
+  pointsUsed: 1,
+  tiers: [
+    {
+      column: 0,
+      unlocked: true,
+      unlocksAt: 0,
+      perks: [
+        { hash: 1, name: "Anti-Barrier Hand Cannon", description: "", icon: null, active: true },
+        { hash: 2, name: "Unstoppable Bow", description: "", icon: null, active: false },
+      ],
+    },
+  ],
+}
+
 const ComposeTest = Layer.mergeAll(
   Layer.succeed(Manifest, {
     statFacts: Effect.succeed({}),
@@ -260,6 +301,9 @@ const ComposeTest = Layer.mergeAll(
   Layer.succeed(ChargeEffects, {
     forMods: () => Effect.succeed(new Map()),
     record: () => Effect.void,
+  }),
+  Layer.succeed(Artifacts, {
+    forCharacter: (characterId) => Effect.succeed(characterId === "titan-1" ? seasonal : null),
   }),
   Layer.succeed(Wishlist, {
     ensure: Effect.void,
@@ -332,6 +376,17 @@ describe("composeBuild", () => {
     expect(build.plan.rows.find((r) => r.itemInstanceId === "kinetic-1")?.score).toBe(90)
   })
 
+  test("reads the artifact picks against the character's artifact", async () => {
+    const build = await Effect.runPromise(
+      compose(recipe({ artifact: ["Anti-Barrier Hand Cannon", "Unstoppable Bow"] })),
+    )
+    expect(build.plan.artifact?.reset).toBe(false)
+    expect(build.plan.artifact?.picks.map((pick) => [pick.name, pick.state])).toEqual([
+      ["Anti-Barrier Hand Cannon", "active"],
+      ["Unstoppable Bow", "select_in_game"],
+    ])
+  })
+
   test("refuses ids the player does not own, word for word", async () => {
     expect(await verdict(recipe({ rows: [{ itemInstanceId: "gone", action: "equip" }] }))).toBe(
       "Error: unknown item ids gone. Use ids from search_items or get_characters.",
@@ -396,6 +451,18 @@ describe("buildRules", () => {
   test("refuses a build without synergy for its weapons", async () => {
     expect(await verdict(recipe({ synergy: { exotic: "Grenades." } }))).toStartWith(
       "Error: the build needs synergy, one or two sentences per part on how it feeds the rest of the build: weapons, on how the three weapons feed the loop: Weapon kinetic-1 (Hand Cannon, kinetic)",
+    )
+  })
+
+  test("refuses an artifact perk the character's artifact lacks", async () => {
+    expect(await verdict(recipe({ artifact: ["Grenade Kickstart"] }))).toBe(
+      'Error: "Grenade Kickstart" is not a perk on Implement of Curiosity. Check get_artifact and call present_plan again.',
+    )
+  })
+
+  test("refuses artifact picks without artifact synergy", async () => {
+    expect(await verdict(recipe({ artifact: ["Unstoppable Bow"] }))).toBe(
+      "Error: the build needs synergy, one or two sentences per part on how it feeds the rest of the build: artifact, on how the artifact picks back the loop and the weapons: Unstoppable Bow. Call present_plan again with synergy.",
     )
   })
 

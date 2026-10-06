@@ -12,6 +12,7 @@ import { Effect, Option, Schema } from "effect"
 import { Tool, Toolkit } from "effect/ai"
 import { CurrentJob } from "../agent/current-job.ts"
 import { Jev } from "../agent/jev.ts"
+import { type ArtifactPerk, Artifacts, type CharacterArtifact } from "../bungie/artifact.ts"
 import {
   type ArmorStats,
   type Inventory,
@@ -122,6 +123,21 @@ const PresentPlan = Tool.make("present_plan", {
   success: Json,
 })
 
+const GetArtifact = Tool.make("get_artifact", {
+  description:
+    "A character's Seasonal Artifact: the points it can spend, each column with the points spent in earlier columns it needs to open, and every perk with its effect text and whether it is selected now. Pick a build's artifact perks from it and pass their names in present_plan artifact. Ghost cannot select artifact perks; the player does that in game. With purpose, each perk gets a relevance from 0 to 1 and each column lists the most relevant first. If the result says ranking unavailable, nothing is ranked.",
+  parameters: Schema.Struct({
+    characterId: Schema.optional(Schema.String),
+    purpose: Schema.optional(
+      Schema.String.annotate({
+        description:
+          "What the build does, in plain words: subclass and element, weapons, activity and playstyle, for example 'Void Sentinel Titan build with a Combat Bow and Submachine Gun, overshields and Devour'. Pass it when choosing a build's artifact perks.",
+      }),
+    ),
+  }),
+  success: Json,
+})
+
 const CheckRolls = Tool.make("check_rolls", {
   description:
     "Judge owned weapon rolls against the DIM community wishlist (curated, fetched data). For each item: its perks, wishlist rolls it fully matches (with curator notes, PvE/PvP tags, section title, url and date), the closest partial matches, a trash flag and a suggested 0-100 score with its basis.",
@@ -201,6 +217,7 @@ export const GhostToolkit = Toolkit.make(
   GetCharacters,
   SearchItems,
   PresentPlan,
+  GetArtifact,
   CheckRolls,
   RollRecommendations,
   DescribePlugs,
@@ -663,6 +680,32 @@ export const findSubclassDetail = (
     )
   })
 
+/** What get_artifact shows the agent, with each perk's relevance when it was ranked. */
+export const artifactView = (
+  artifact: CharacterArtifact,
+  relevance?: ReadonlyMap<string, number>,
+) => {
+  const scored = (perk: ArtifactPerk) => relevance?.get(String(perk.hash))
+  return {
+    artifact: artifact.name,
+    pointsAvailable: artifact.pointsAvailable,
+    pointsUsed: artifact.pointsUsed,
+    columns: artifact.tiers.map((tier) => ({
+      column: tier.column + 1,
+      unlocked: tier.unlocked,
+      opensAfter: tier.unlocksAt,
+      perks: [...tier.perks]
+        .sort((a, b) => (scored(b) ?? 0) - (scored(a) ?? 0))
+        .map((perk) => ({
+          name: perk.name,
+          selected: perk.active,
+          effect: clip(perk.description, 300),
+          relevance: scored(perk),
+        })),
+    })),
+  }
+}
+
 export const GhostToolkitHandlers = GhostToolkit.toLayer(
   Effect.gen(function* () {
     const profile = yield* ProfileStore
@@ -673,6 +716,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
     const creators = yield* CreatorNotes
     const chargeEffects = yield* ChargeEffects
     const jev = yield* Jev
+    const artifacts = yield* Artifacts
 
     const withInventory = (f: (inv: Inventory) => Effect.Effect<string>) =>
       profile.inventory.pipe(
@@ -720,13 +764,14 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
       )
 
     const composing = <A, E>(
-      effect: Effect.Effect<A, E, Manifest | ProfileStore | ChargeEffects | Wishlist>,
+      effect: Effect.Effect<A, E, Manifest | ProfileStore | ChargeEffects | Wishlist | Artifacts>,
     ): Effect.Effect<A, E> =>
       effect.pipe(
         Effect.provideService(Manifest, manifest),
         Effect.provideService(ProfileStore, profile),
         Effect.provideService(ChargeEffects, chargeEffects),
         Effect.provideService(Wishlist, wishlist),
+        Effect.provideService(Artifacts, artifacts),
       )
 
     const present_plan = (input: PlanInput) =>
@@ -788,6 +833,41 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
           }).pipe(Effect.catchTag("BuildRefusal", (refusal) => Effect.succeed(refusal.message))),
         )
       })
+
+    const get_artifact = (input: (typeof GetArtifact)["parametersSchema"]["Type"]) =>
+      withInventory((inv) =>
+        Effect.gen(function* () {
+          const job = yield* current.get
+          const character = pickCharacter(
+            inv,
+            input.characterId ?? Option.getOrNull(job)?.characterId,
+          )
+          if (character === undefined) return "Error: no characters on this account."
+          const artifact = yield* artifacts.forCharacter(character.characterId)
+          if (artifact === null) {
+            return "This character has no Seasonal Artifact, so a build for it takes no artifact perks."
+          }
+          if (input.purpose === undefined) return JSON.stringify(artifactView(artifact))
+          return yield* jev
+            .rank(
+              input.purpose,
+              artifact.tiers.flatMap((tier) =>
+                tier.perks.map((perk) => ({
+                  id: String(perk.hash),
+                  text: `${perk.name}: ${perk.description}`,
+                })),
+              ),
+            )
+            .pipe(
+              Effect.map((relevance) => JSON.stringify(artifactView(artifact, relevance))),
+              Effect.catchTag("JevUnavailable", () =>
+                Effect.succeed(
+                  JSON.stringify({ ...artifactView(artifact), ranking: "unavailable" }),
+                ),
+              ),
+            )
+        }).pipe(Effect.catch((error) => Effect.succeed(explain(error)))),
+      )
 
     const check_rolls = ({
       itemInstanceIds,
@@ -1059,6 +1139,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
       get_characters,
       search_items,
       present_plan,
+      get_artifact,
       check_rolls,
       roll_recommendations,
       describe_plugs,
