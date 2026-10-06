@@ -7,7 +7,6 @@ import {
   type ItemDecision,
   ItemSummary,
   type Job,
-  LoadoutSlotChoice,
   RecentItem,
   type SaveBuild,
   type SavedBuild,
@@ -388,12 +387,7 @@ const patchBuilds = (
 export function useSaveBuild() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ inGame, ...input }: SaveBuild) =>
-      run((api) =>
-        api.builds.save({
-          payload: inGame ? { ...input, inGame: new LoadoutSlotChoice(inGame) } : input,
-        }),
-      ),
+    mutationFn: (payload: SaveBuild) => run((api) => api.builds.save({ payload })),
     onSuccess: (result) => {
       if (result.confirm) seedJob(queryClient, result.confirm)
       return Promise.all([
@@ -432,15 +426,8 @@ export function useDeleteBuild() {
 export function useEquipBuild() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, characterId, saveTo }: { id: string } & EquipBuild) =>
-      run((api) =>
-        api.builds.equip({
-          params: { id },
-          payload: saveTo
-            ? { characterId, saveTo: new LoadoutSlotChoice(saveTo) }
-            : { characterId },
-        }),
-      ),
+    mutationFn: ({ id, ...payload }: { id: string } & EquipBuild) =>
+      run((api) => api.builds.equip({ params: { id }, payload })),
     onSuccess: (result) => {
       seedJob(queryClient, result.job)
       return queryClient.invalidateQueries({ queryKey: [getServerUrl(), "jobs"] })

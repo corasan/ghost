@@ -518,13 +518,14 @@ export class SavedBuild extends Schema.Class<SavedBuild>("SavedBuild")({
 }) {}
 
 /** An in-game loadout slot and the name, color and icon to give it. */
-export class LoadoutSlotChoice extends Schema.Class<LoadoutSlotChoice>("LoadoutSlotChoice")({
+export const LoadoutSlotChoice = Schema.Struct({
   characterId: Schema.String,
   index: Schema.Number,
   nameHash: Schema.Number,
   colorHash: Schema.Number,
   iconHash: Schema.Number,
-}) {}
+})
+export type LoadoutSlotChoice = typeof LoadoutSlotChoice.Type
 
 export const SaveBuild = Schema.Struct({
   /** The job whose build plan to save. Saving it again renames the saved build. */

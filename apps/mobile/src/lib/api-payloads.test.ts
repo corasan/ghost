@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { GhostApi, LoadoutSlotChoice } from "@ghost/contract"
+import { GhostApi } from "@ghost/contract"
 import { Effect, Layer } from "effect"
 import { FetchHttpClient } from "effect/http"
 import { HttpApiClient } from "effect/http-api"
@@ -92,8 +92,8 @@ describe("client payloads are plain objects, the way the app sends them", () => 
 
   const slot = { characterId: "2305843009", index: 2, nameHash: 11, colorHash: 22, iconHash: 33 }
 
-  test("saving a build in game sends the slot, which the app builds as a LoadoutSlotChoice", async () => {
-    const payload = { jobId: "job-1", name: "Gyrfalcon void", inGame: new LoadoutSlotChoice(slot) }
+  test("saving a build in game sends the slot", async () => {
+    const payload = { jobId: "job-1", name: "Gyrfalcon void", inGame: slot }
     expect(await send((api) => api.builds.save({ payload }))).toEqual([
       {
         method: "POST",
@@ -104,7 +104,7 @@ describe("client payloads are plain objects, the way the app sends them", () => 
   })
 
   test("equipping a saved build into a slot sends the slot the same way", async () => {
-    const payload = { characterId: "2305843009", saveTo: new LoadoutSlotChoice(slot) }
+    const payload = { characterId: "2305843009", saveTo: slot }
     expect(await send((api) => api.builds.equip({ params: { id: "b-1" }, payload }))).toEqual([
       {
         method: "POST",
