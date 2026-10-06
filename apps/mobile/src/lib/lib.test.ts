@@ -12,8 +12,10 @@ import {
   SubclassSwap,
   PlanRow,
   PlanStat,
+  SetBonus,
   Source,
   StatMod,
+  Synergy,
 } from "@ghost/contract"
 
 import { webUrl } from "./links"
@@ -28,8 +30,10 @@ import {
   headline,
   litTicks,
   modPips,
+  setBonusLine,
   shortStat,
   slotLabel,
+  synergyParts,
   verdict,
 } from "./plan-card"
 import { defaultSelection } from "./selection"
@@ -445,6 +449,51 @@ describe("build card", () => {
     expect(verdict(plan({ rows: [worn, carried, vaulted] }))).toEqual({
       plain: "",
       change: "1 piece moves.",
+    })
+  })
+
+  describe("synergy", () => {
+    const bonus = new SetBonus({
+      name: "Overclocked",
+      description: "",
+      icon: null,
+      set: "Techsec",
+      required: 2,
+      worn: 2,
+    })
+    const exoticArms = row("Synthoceps", { tier: "exotic", slot: "arms" })
+    const exoticWeapon = row("Gjallarhorn", { tier: "exotic", slot: "power" })
+    const kinds = (built: Plan) => synergyParts(built).map((part) => part.kind)
+
+    test("parts read exotic, set bonuses, mods, whatever Ghost wrote", () => {
+      const parts = synergyParts(
+        plan({
+          rows: [row("helm", { slot: "helmet" }), exoticArms],
+          setBonuses: [bonus],
+          synergy: new Synergy({ mods: "m", setBonuses: "s", exotic: "e" }),
+        }),
+      )
+      expect(parts).toEqual([
+        { kind: "exotic", row: exoticArms, text: "e" },
+        { kind: "setBonuses", bonuses: [bonus], text: "s" },
+        { kind: "mods", text: "m" },
+      ])
+    })
+
+    test("an exotic weapon is not the build's exotic armor", () => {
+      const built = plan({ rows: [exoticWeapon], synergy: new Synergy({ exotic: "e" }) })
+      expect(kinds(built)).toEqual([])
+    })
+
+    test("active set bonuses show without Ghost's words, and nothing shows for an older plan", () => {
+      expect(synergyParts(plan({ rows: [exoticArms], setBonuses: [bonus] }))).toEqual([
+        { kind: "setBonuses", bonuses: [bonus], text: undefined },
+      ])
+      expect(kinds(plan({ rows: [exoticArms] }))).toEqual([])
+    })
+
+    test("the set line names the pieces needed and the set", () => {
+      expect(setBonusLine(bonus)).toBe("2-PIECE · TECHSEC")
     })
   })
 })

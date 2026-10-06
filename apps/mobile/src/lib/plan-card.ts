@@ -4,6 +4,7 @@ import type {
   Plan,
   SubclassLoadout,
   PlanRow,
+  SetBonus,
   StatMod,
 } from "@ghost/contract"
 
@@ -152,4 +153,36 @@ export const verdict = (plan: Plan) => {
   const plain =
     moving > 0 ? "" : acting.length > 0 ? `${acting.length} to equip.` : "Nothing moves."
   return { plain, change: changes.length > 0 ? `${changes.join(", ")}.` : "" }
+}
+
+/** "2-PIECE · TECHSEC" */
+export const setBonusLine = (bonus: SetBonus) =>
+  `${bonus.required}-PIECE · ${bonus.set}`.toUpperCase()
+
+export type SynergyPart =
+  | { kind: "exotic"; row: PlanRow; text: string }
+  | { kind: "setBonuses"; bonuses: readonly SetBonus[]; text: string | undefined }
+  | { kind: "mods"; text: string }
+
+const ARMOR_SLOTS: ReadonlySet<ItemSlot | undefined> = new Set<ItemSlot>([
+  "helmet",
+  "arms",
+  "chest",
+  "legs",
+  "class",
+])
+
+/**
+ * How the exotic armor, the set bonuses and the mods feed the build, in that
+ * order. A part needs Ghost's words, except active set bonuses, which show without them.
+ */
+export const synergyParts = (plan: Plan): SynergyPart[] => {
+  const { exotic, setBonuses: setText, mods } = plan.synergy ?? {}
+  const exoticRow = plan.rows.find((row) => row.tier === "exotic" && ARMOR_SLOTS.has(row.slot))
+  const bonuses = plan.setBonuses ?? []
+  const parts: SynergyPart[] = []
+  if (exoticRow && exotic) parts.push({ kind: "exotic", row: exoticRow, text: exotic })
+  if (bonuses.length > 0 || setText) parts.push({ kind: "setBonuses", bonuses, text: setText })
+  if (mods) parts.push({ kind: "mods", text: mods })
+  return parts
 }
