@@ -8,12 +8,12 @@ import { Situational } from "@/components/ghost/charge"
 import { SubclassBanner } from "@/components/ghost/subclass-banner"
 import { Unavailable } from "@/components/ghost/unavailable"
 import { ItemIcon } from "@/components/ghost/item-icon"
-import { Body, Cond, Mono, Nudge, TierStats } from "@/components/ghost/ui"
+import { Body, Cond, Meta, Mono, Nudge, TierStats } from "@/components/ghost/ui"
 import { Ghost, Gutter, Rarity, Type } from "@/constants/theme"
 import { useGuardian, useSituational } from "@/lib/api"
 import { chargedMods } from "@/lib/charge"
 import { useCharacter } from "@/lib/character"
-import { upper } from "@/lib/format"
+import { sentence } from "@/lib/format"
 import { usePullRefresh } from "@/lib/refresh"
 import { useBottomInset } from "@/lib/insets"
 
@@ -38,16 +38,12 @@ type Row =
 const inSlots = (equipment: readonly ItemSummary[], slots: readonly ItemSummary["slot"][]) =>
   slots.flatMap((slot) => equipment.filter((item) => item.slot === slot))
 
-const dotted = (parts: readonly (string | null)[]) =>
-  parts
-    .filter(Boolean)
-    .map((part) => upper(String(part)))
-    .join(" · ")
+const dotted = (parts: readonly (string | null)[]) => parts.filter(Boolean).join(" · ")
 
 const weaponMeta = (item: ItemSummary) =>
   dotted([
-    item.slot,
-    item.damageType === "none" || item.damageType === item.slot ? null : item.damageType,
+    sentence(item.slot),
+    item.damageType === "none" || item.damageType === item.slot ? null : sentence(item.damageType),
     item.typeName,
   ])
 
@@ -85,13 +81,9 @@ function ItemRow({ item, kind }: { item: ItemSummary; kind: "weapon" | "armor" }
         <Body size={16} style={{ fontFamily: Type.bodyMedium, lineHeight: 19 }} lines={1}>
           {item.name}
         </Body>
-        <Mono
-          color={exotic ? Rarity.exotic : Ghost.dim}
-          style={{ marginTop: weapon ? 3 : 2, letterSpacing: 0.7 }}
-          lines={1}
-        >
-          {weapon ? weaponMeta(item) : dotted([item.slot, exotic ? "exotic" : null])}
-        </Mono>
+        <Meta color={exotic ? Rarity.exotic : Ghost.muted} style={{ marginTop: 2 }} lines={1}>
+          {weapon ? weaponMeta(item) : dotted([sentence(item.slot), exotic ? "Exotic" : null])}
+        </Meta>
       </View>
       <Cond size={18} color={Ghost.gold} style={{ letterSpacing: 0 }}>
         {item.power ?? "—"}
@@ -163,9 +155,9 @@ export default function GuardianScreen() {
               <Mono size={11} color={Ghost.accent} style={{ letterSpacing: 1.4 }}>
                 GUARDIAN
               </Mono>
-              <Mono size={11} style={{ letterSpacing: 1.4 }}>
-                {upper(character.classType)} · POWER {character.light}
-              </Mono>
+              <Meta>
+                {sentence(character.classType)} · Power {character.light}
+              </Meta>
             </View>
             {character.loadout ? (
               <View style={{ paddingTop: 12 }}>

@@ -5,20 +5,20 @@ import { ScrollView, StyleSheet, View } from "react-native"
 
 import { PlugIcon } from "@/components/ghost/plug-icon"
 import { SubclassMark } from "@/components/ghost/subclass-mark"
-import { Body, Button, Cond, Cut, Mono } from "@/components/ghost/ui"
+import { Body, Button, Cond, Cut, Meta, Mono } from "@/components/ghost/ui"
 import { ELEMENT_TONE, Ghost, Gutter, Type } from "@/constants/theme"
 import { useCharacter } from "@/lib/character"
 import { firstParagraph } from "@/lib/effect-text"
 import { useFooterHeight } from "@/lib/footer"
-import { upper } from "@/lib/format"
+import { sentence, upper } from "@/lib/format"
 import { signed } from "@/lib/plan-card"
 import { useBottomInset } from "@/lib/insets"
 
 const ABILITY_LABEL: Record<AbilityKind, string> = {
-  class: "CLASS",
-  jump: "JUMP",
-  melee: "MELEE",
-  grenade: "GRENADE",
+  class: "Class",
+  jump: "Jump",
+  melee: "Melee",
+  grenade: "Grenade",
 }
 
 function Ability({
@@ -37,14 +37,10 @@ function Ability({
       <Cut cut={6} fill={Ghost.swatch} border={edge} under={Ghost.panel} style={styles.ability}>
         {icon ? <Image source={icon} style={{ width: 32, height: 32 }} transition={120} /> : null}
       </Cut>
-      <Mono size={11}>{slot}</Mono>
-      <Cond
-        size={13}
-        color={Ghost.soft}
-        style={{ letterSpacing: 0.5, lineHeight: 14, marginTop: -3 }}
-      >
-        {upper(name)}
-      </Cond>
+      <Meta size={12}>{slot}</Meta>
+      <Body size={13} color={Ghost.soft} style={{ lineHeight: 17, marginTop: -4 }}>
+        {name}
+      </Body>
     </View>
   )
 }
@@ -55,19 +51,19 @@ function Aspect({ aspect, tone }: { aspect: LoadoutPlug; tone: string }) {
     <View style={[styles.entry, { paddingVertical: 11 }]}>
       <PlugIcon icon={aspect.icon} size={40} />
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Cond size={19} style={{ letterSpacing: 0.8, lineHeight: 20 }}>
-          {upper(aspect.name)}
-        </Cond>
+        <Body size={16} style={{ fontFamily: Type.bodyMedium, lineHeight: 20 }}>
+          {aspect.name}
+        </Body>
         {effect ? (
-          <Body size={12.5} color={Ghost.muted} style={{ lineHeight: 17, marginTop: 4 }}>
+          <Body size={14} color={Ghost.muted} style={{ lineHeight: 20, marginTop: 3 }}>
             {effect}
           </Body>
         ) : null}
       </View>
       {aspect.fragmentSlots ? (
-        <Mono color={tone} style={{ letterSpacing: 0.9, marginTop: 5 }}>
-          +{aspect.fragmentSlots} {aspect.fragmentSlots === 1 ? "SLOT" : "SLOTS"}
-        </Mono>
+        <Meta color={tone} style={{ marginTop: 2 }}>
+          +{aspect.fragmentSlots} {aspect.fragmentSlots === 1 ? "slot" : "slots"}
+        </Meta>
       ) : null}
     </View>
   )
@@ -83,21 +79,16 @@ function Fragment({ fragment }: { fragment: LoadoutPlug }) {
           {fragment.name}
         </Body>
         {effect ? (
-          <Body size={12} color={Ghost.dim} style={{ lineHeight: 16, marginTop: 2 }}>
+          <Body size={14} color={Ghost.muted} style={{ lineHeight: 20, marginTop: 2 }}>
             {effect}
           </Body>
         ) : null}
       </View>
       <View style={{ alignItems: "flex-end", gap: 3, marginTop: 3 }}>
         {fragment.mods.map((mod) => (
-          <Mono
-            key={mod.label}
-            size={11}
-            color={mod.delta > 0 ? Ghost.good : Ghost.danger}
-            style={{ letterSpacing: 0.8 }}
-          >
-            {signed(mod.delta)} {mod.label}
-          </Mono>
+          <Meta key={mod.label} color={mod.delta > 0 ? Ghost.good : Ghost.danger}>
+            {signed(mod.delta)} {sentence(mod.label)}
+          </Meta>
         ))}
       </View>
     </View>
@@ -124,12 +115,12 @@ export default function SubclassScreen() {
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: footer.height + 24 }]}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <SubclassMark loadout={loadout} size={22} />
-          <Mono size={11} color={tone} style={{ letterSpacing: 1.4 }}>
+          <Meta color={tone}>
             {[loadout.element === "none" ? null : loadout.element, loadout.classType]
               .filter(Boolean)
-              .map((part) => upper(String(part)))
+              .map((part) => sentence(String(part)))
               .join(" · ")}
-          </Mono>
+          </Meta>
         </View>
         <Cond size={44} style={{ letterSpacing: 0.9, lineHeight: 44, marginTop: 8 }}>
           {upper(name)}
@@ -137,7 +128,7 @@ export default function SubclassScreen() {
 
         <View style={{ flexDirection: "row", gap: 8, marginTop: 20 }}>
           {loadout.super ? (
-            <Ability slot="SUPER" name={loadout.super.name} icon={loadout.super.icon} edge={tone} />
+            <Ability slot="Super" name={loadout.super.name} icon={loadout.super.icon} edge={tone} />
           ) : null}
           {(loadout.abilities ?? []).map((ability) => (
             <Ability

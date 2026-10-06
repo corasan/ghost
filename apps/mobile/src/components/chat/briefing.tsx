@@ -2,9 +2,9 @@ import type { Briefing, GuardianCharacter } from "@ghost/contract"
 import { router } from "expo-router"
 import { View } from "react-native"
 
-import { Button, Cond, Mono, Said } from "@/components/ghost/ui"
+import { Button, Cond, Meta, Said } from "@/components/ghost/ui"
 import { briefingSentence, dayStamp, followUps } from "@/lib/briefing"
-import { upper } from "@/lib/format"
+import { sentence } from "@/lib/format"
 
 /**
  * The message Ghost opens with: what changed since you last played, and the
@@ -25,9 +25,9 @@ export function BriefingView({
   onAsk: (prompt: string) => void
 }) {
   const who = character
-    ? [character.classType, character.subclass].filter(Boolean).map((s) => upper(String(s)))
+    ? [character.classType, character.subclass].filter(Boolean).map((s) => sentence(String(s)))
     : []
-  const sentence = briefing
+  const said = briefing
     ? briefingSentence(briefing)
     : failed
       ? "I can't reach your Guardian right now. Ask anyway, or pull down later to retry."
@@ -36,14 +36,14 @@ export function BriefingView({
 
   return (
     <View style={{ paddingTop: 8 }}>
-      <Mono size={11}>{[dayStamp(), ...who].join(" · ")}</Mono>
+      <Meta>{[dayStamp(), ...who].join(" · ")}</Meta>
       {greet ? (
         <Cond size={44} style={{ letterSpacing: 0.4, lineHeight: 42, marginTop: 10 }}>
           {"EYES UP,\nGUARDIAN."}
         </Cond>
       ) : null}
       <View style={{ marginTop: greet ? 28 : 10 }}>
-        <Said>{sentence}</Said>
+        <Said>{said}</Said>
       </View>
       {next.length > 0 ? (
         <View style={{ flexDirection: "row", gap: 8, marginTop: 14, marginLeft: 14 }}>

@@ -4,7 +4,7 @@ import type { DrawerContentComponentProps } from "expo-router/drawer"
 import { Pressable, StyleSheet, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
-import { Body, Button, Cond, Diamond, Mono } from "@/components/ghost/ui"
+import { Body, Button, Cond, Diamond, Meta, Mono } from "@/components/ghost/ui"
 import { Ghost } from "@/constants/theme"
 import { getLastLatency, useBriefing, useHealth, useSessions } from "@/lib/api"
 import { selectCharacter, useCharacter } from "@/lib/character"
@@ -40,8 +40,8 @@ export function GhostDrawer({ navigation }: DrawerContentComponentProps) {
 
   const vaultFull = briefing ? briefing.vaultCount / briefing.vaultCapacity >= 0.9 : false
   const pages = [
-    { label: "CHAT", value: "GHOST", href: "/" as const, color: Ghost.dim },
-    { label: "GUARDIAN", value: "EQUIPPED", href: "/guardian" as const, color: Ghost.dim },
+    { label: "CHAT", value: "Ghost", href: "/" as const, color: Ghost.dim },
+    { label: "GUARDIAN", value: "Equipped", href: "/guardian" as const, color: Ghost.dim },
     {
       label: "VAULT",
       value: briefing ? `${briefing.vaultCount} / ${briefing.vaultCapacity}` : "—",
@@ -50,14 +50,14 @@ export function GhostDrawer({ navigation }: DrawerContentComponentProps) {
     },
     {
       label: "RECENT",
-      value: briefing ? `${briefing.recentCount} NEW` : "—",
+      value: briefing ? `${briefing.recentCount} new` : "—",
       href: "/recent" as const,
       color: Ghost.dim,
       dot: (briefing?.undecidedCount ?? 0) > 0,
     },
     {
       label: "HISTORY",
-      value: briefing ? `${briefing.actionsToday} TODAY` : "—",
+      value: briefing ? `${briefing.actionsToday} today` : "—",
       href: "/history" as const,
       color: Ghost.dim,
     },
@@ -75,7 +75,7 @@ export function GhostDrawer({ navigation }: DrawerContentComponentProps) {
               {character ? upper(character.classType) : "GUARDIAN"}
             </Cond>
             {character?.subclass ? (
-              <Mono style={{ marginTop: 3 }}>{upper(character.subclass)}</Mono>
+              <Meta style={{ marginTop: 2 }}>{character.subclass}</Meta>
             ) : null}
           </View>
         </View>
@@ -129,9 +129,7 @@ export function GhostDrawer({ navigation }: DrawerContentComponentProps) {
               <Cond size={18}>{page.label}</Cond>
               {page.dot ? <Diamond size={6} /> : null}
             </View>
-            <Mono size={11} color={page.color} style={{ letterSpacing: 0.8 }}>
-              {page.value}
-            </Mono>
+            <Meta color={page.color}>{page.value}</Meta>
           </Pressable>
         )
       })}
@@ -181,9 +179,9 @@ export function GhostDrawer({ navigation }: DrawerContentComponentProps) {
               <Body size={14} color={active ? Ghost.ink : Ghost.soft} lines={1}>
                 {session.title}
               </Body>
-              <Mono style={{ marginTop: 4 }}>
-                {age(session.lastAt)} · {session.count} {session.count === 1 ? "ASK" : "ASKS"}
-              </Mono>
+              <Meta style={{ marginTop: 2 }}>
+                {age(session.lastAt)} · {session.count} {session.count === 1 ? "ask" : "asks"}
+              </Meta>
             </Pressable>
           )
         }}
@@ -194,14 +192,14 @@ export function GhostDrawer({ navigation }: DrawerContentComponentProps) {
           <View
             style={[styles.dot, { backgroundColor: health.data ? Ghost.good : Ghost.danger }]}
           />
-          <Mono color={health.data ? Ghost.good : Ghost.danger}>
+          <Meta color={health.data ? Ghost.good : Ghost.danger}>
             {health.data
-              ? `MCP · ${where(url)}${latency !== null ? ` · ${latency}MS` : ""}`
-              : "MCP · OFFLINE"}
-          </Mono>
+              ? `MCP · ${where(url)}${latency !== null ? ` · ${latency} ms` : ""}`
+              : "MCP · offline"}
+          </Meta>
         </View>
         <Pressable hitSlop={10} onPress={() => go("/settings")}>
-          <Mono color={Ghost.accent}>SETTINGS</Mono>
+          <Meta color={Ghost.accent}>Settings</Meta>
         </Pressable>
       </View>
     </View>
