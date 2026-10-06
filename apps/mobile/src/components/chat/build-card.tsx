@@ -11,6 +11,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native"
 
 import { ItemIcon } from "@/components/ghost/item-icon"
 import { PlugIcon } from "@/components/ghost/plug-icon"
+import { SetBonusIcons } from "@/components/ghost/set-bonus"
 import { SubclassMark } from "@/components/ghost/subclass-mark"
 import { Body, Button, Cond, Cut, Mono } from "@/components/ghost/ui"
 import { Ghost } from "@/constants/theme"
@@ -309,8 +310,9 @@ function Verdict({ plan }: { plan: Plan }) {
 }
 
 /**
- * A build in four bands: the subclass it sits on, the six stats it lands on,
- * the pieces as tiles, and one line saying what confirming will do.
+ * A build in bands: the subclass it sits on, the six stats it lands on, the
+ * pieces as tiles, the set bonuses they turn on, and one line saying what
+ * confirming will do.
  */
 export function BuildCard({ job, plan }: { job: Job; plan: Plan }) {
   const selection = usePlanSelection(job.id, plan)
@@ -328,6 +330,11 @@ export function BuildCard({ job, plan }: { job: Job; plan: Plan }) {
       {plan.loadout ? <Loadout loadout={plan.loadout} /> : null}
       <Stats plan={plan} />
       <Tiles plan={plan} applied={applied} />
+      {plan.setBonuses?.length ? (
+        <View style={styles.band}>
+          <SetBonusIcons bonuses={plan.setBonuses} />
+        </View>
+      ) : null}
 
       <View style={[styles.band, styles.verdict]}>
         <Body size={14} color={Ghost.soft} style={{ flex: 1, lineHeight: 19 }}>
