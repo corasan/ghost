@@ -60,41 +60,64 @@ describe("synergyMissing", () => {
     tier: "exotic",
     exoticPerk: "Fusion Overdrive: an extra grenade charge.",
   })
-  const full = { exotic, setBonuses: [forceConverter], modded: true }
+  const bow = { name: "Le Monarque", typeName: "Combat Bow", damageType: "void" as const }
+  const full = {
+    exotic,
+    setBonuses: [forceConverter],
+    modded: true,
+    weapons: [bow],
+    element: "void" as const,
+  }
+  const bare = {
+    exotic: undefined,
+    setBonuses: [],
+    modded: false,
+    weapons: [],
+    element: undefined,
+  }
 
   test("asks for every part the build has and lacks synergy for", () => {
     const parts = synergyMissing({ ...full, synergy: { exotic: " " } })
-    expect(parts).toHaveLength(3)
+    expect(parts).toHaveLength(4)
     expect(parts[0]).toContain("Starfire Protocol (Fusion Overdrive: an extra grenade charge.)")
     expect(parts[1]).toContain(
       "Force Converter (AION Renewal, 2 pieces, wearing 2): After a final blow",
     )
     expect(parts[2]).toStartWith("mods")
+    expect(parts[3]).toStartWith("weapons")
   })
 
   test("accepts a build once each of its parts has synergy", () => {
     expect(
       synergyMissing({
         ...full,
-        synergy: { exotic: "Grenades.", setBonuses: "Speed.", mods: "Energy." },
+        synergy: { exotic: "Grenades.", setBonuses: "Speed.", mods: "Energy.", weapons: "Bow." },
       }),
     ).toEqual([])
   })
 
+  test("names each weapon's type and element and flags one off the subclass element", () => {
+    const [part] = synergyMissing({
+      ...bare,
+      weapons: [
+        { name: "Ace of Spades", typeName: "Hand Cannon", damageType: "kinetic" },
+        { name: "Riskrunner", typeName: "Submachine Gun", damageType: "arc" },
+        { name: "Edge Transit", typeName: "Grenade Launcher", damageType: "void" },
+      ],
+      element: "void",
+      synergy: undefined,
+    })
+    expect(part).toBe(
+      "weapons, on how the three weapons feed the loop: Ace of Spades (Hand Cannon, kinetic), Riskrunner (Submachine Gun, arc, not void like the subclass), Edge Transit (Grenade Launcher, void)",
+    )
+  })
+
   test("asks for setBonuses synergy only about the bonuses the build turns on", () => {
     const aionFour = new SetBonus({ ...forceConverter, name: "AION Four", required: 4, worn: 3 })
-    expect(
-      synergyMissing({
-        exotic: undefined,
-        setBonuses: [aionFour],
-        modded: false,
-        synergy: undefined,
-      }),
-    ).toEqual([])
+    expect(synergyMissing({ ...bare, setBonuses: [aionFour], synergy: undefined })).toEqual([])
     const [part] = synergyMissing({
-      exotic: undefined,
+      ...bare,
       setBonuses: [forceConverter, aionFour],
-      modded: false,
       synergy: undefined,
     })
     expect(part).toContain("Force Converter")
@@ -102,9 +125,7 @@ describe("synergyMissing", () => {
   })
 
   test("asks for no part the build lacks", () => {
-    expect(
-      synergyMissing({ exotic: undefined, setBonuses: [], modded: false, synergy: undefined }),
-    ).toEqual([])
+    expect(synergyMissing({ ...bare, synergy: undefined })).toEqual([])
   })
 })
 
@@ -149,11 +170,31 @@ const starfire = owned("chest-exotic", "chest", {
   },
 })
 
+const weapon = (id: string, slot: ItemSlot, fields: Partial<OwnedItem> = {}) =>
+  owned(id, slot, {
+    name: `Weapon ${id}`,
+    typeName: "Auto Rifle",
+    damageType: slot === "kinetic" ? "kinetic" : "void",
+    classType: null,
+    armorStats: null,
+    statTotal: null,
+    location: "character",
+    characterId: "titan-1",
+    ...fields,
+  })
+
+const kinetic = weapon("kinetic-1", "kinetic", { equipped: true })
+const energy = weapon("energy-1", "energy", { equipped: true })
+const energySpare = weapon("energy-2", "energy")
+const power = weapon("power-1", "power", { equipped: true })
+const exoticEnergy = weapon("energy-x", "energy", { name: "Riskrunner", tier: "exotic" })
+const exoticPower = weapon("power-x", "power", { name: "Gjallarhorn", tier: "exotic" })
+
 const inventory: Inventory = {
   membershipType: 3,
   membershipId: "m",
   characters: [titan],
-  items: [wornChest, starfire],
+  items: [wornChest, starfire, kinetic, energy, energySpare, power, exoticEnergy, exoticPower],
   vaultCount: 1,
 }
 
@@ -181,14 +222,23 @@ const ComposeTest = Layer.mergeAll(
   }),
 )
 
+const weaponRows = (ids: ReadonlyArray<string>) =>
+  ids.map((itemInstanceId) => ({ itemInstanceId, action: "none" as const }))
+
 const recipe = (fields: Partial<BuildRecipe> = {}): BuildRecipe => ({
   kind: "build",
   title: "BUILD PLAN",
   subtitle: "Grenade loop",
   confirmLabel: "APPLY BUILD",
-  rows: [{ itemInstanceId: "chest-exotic", action: "equip" }],
+  rows: [
+    { itemInstanceId: "chest-exotic", action: "equip" },
+    ...weaponRows(["kinetic-1", "energy-1", "power-1"]),
+  ],
   purpose: "Solar Titan grenade build",
-  synergy: { exotic: "Fusion Overdrive refunds the grenades the loop spends." },
+  synergy: {
+    exotic: "Fusion Overdrive refunds the grenades the loop spends.",
+    weapons: "The auto rifles keep grenades coming.",
+  },
   characterId: "titan-1",
   ...fields,
 })
@@ -206,7 +256,7 @@ const verdict = (input: BuildRecipe) =>
 describe("composeBuild", () => {
   test("equips the piece on the recipe's character and counts it in the stats", async () => {
     const build = await Effect.runPromise(compose(recipe()))
-    const [row] = build.plan.rows
+    const row = build.plan.rows.find((r) => r.itemInstanceId === "chest-exotic")
     expect(row?.characterId).toBe("titan-1")
     expect(row?.meta).toBe("Chest Armor · equip on Titan")
     expect(row?.origin).toBe("Vault")
@@ -242,8 +292,49 @@ describe("buildRules", () => {
     )
   })
 
+  test("refuses a build that leaves a weapon slot empty", async () => {
+    const rows = [
+      { itemInstanceId: "chest-exotic", action: "equip" as const },
+      ...weaponRows(["kinetic-1", "energy-1"]),
+    ]
+    expect(await verdict(recipe({ rows }))).toBe(
+      "Error: a build lists exactly one weapon for each of kinetic, energy and power, with action none for one that stays equipped; this one has no power weapon. Call present_plan again with all three.",
+    )
+  })
+
+  test("refuses a build that lists two weapons for one slot", async () => {
+    const rows = [
+      { itemInstanceId: "chest-exotic", action: "equip" as const },
+      ...weaponRows(["kinetic-1", "energy-1", "energy-2", "power-1"]),
+    ]
+    expect(await verdict(recipe({ rows }))).toContain(
+      "this one has 2 energy weapons (Weapon energy-1, Weapon energy-2).",
+    )
+  })
+
+  test("refuses a build with two exotic weapons and accepts one", async () => {
+    const twoExotics = [
+      { itemInstanceId: "chest-exotic", action: "equip" as const },
+      ...weaponRows(["kinetic-1"]),
+      { itemInstanceId: "energy-x", action: "equip" as const },
+      { itemInstanceId: "power-x", action: "equip" as const },
+    ]
+    expect(await verdict(recipe({ rows: twoExotics }))).toStartWith(
+      "Error: a build can equip only one exotic weapon; this one has Riskrunner and Gjallarhorn.",
+    )
+    const oneExotic = twoExotics.filter((row) => row.itemInstanceId !== "power-x")
+    oneExotic.push({ itemInstanceId: "power-1", action: "none" })
+    expect(await verdict(recipe({ rows: oneExotic }))).toBe("ok")
+  })
+
+  test("refuses a build without synergy for its weapons", async () => {
+    expect(await verdict(recipe({ synergy: { exotic: "Grenades." } }))).toStartWith(
+      "Error: the build needs synergy, one or two sentences per part on how it feeds the rest of the build: weapons, on how the three weapons feed the loop: Weapon kinetic-1 (Auto Rifle, kinetic)",
+    )
+  })
+
   test("refuses a build whose exotic has no synergy", async () => {
-    expect(await verdict(recipe({ synergy: undefined }))).toStartWith(
+    expect(await verdict(recipe({ synergy: { weapons: "Rifles." } }))).toStartWith(
       "Error: the build needs synergy, one or two sentences per part on how it feeds the rest of the build: exotic, on what Starfire Protocol (Fusion Overdrive: an extra grenade charge.) does",
     )
   })

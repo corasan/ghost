@@ -1,6 +1,7 @@
 import {
   type BungieNotLinked,
   ChargeEffect,
+  type DamageType,
   Plan,
   type PlanAction,
   PlanFeatured,
@@ -13,10 +14,17 @@ import {
   SubclassChange,
   SubclassSwap,
   Synergy,
+  type WeaponSlot,
 } from "@ghost/contract"
 import { Effect, Schema } from "effect"
 import type { BungieError } from "../bungie/client.ts"
-import { type CharacterInfo, type Inventory, isArmor, type OwnedItem } from "../bungie/inventory.ts"
+import {
+  type CharacterInfo,
+  type Inventory,
+  isArmor,
+  isWeapon,
+  type OwnedItem,
+} from "../bungie/inventory.ts"
 import { describeLoadout, loadoutPlugHashes, loadoutStatChange } from "../bungie/loadout.ts"
 import { Manifest, type ManifestItem, type StatFacts } from "../bungie/manifest.ts"
 import {
@@ -64,16 +72,35 @@ export const setBonusLine = (bonus: SetBonus) =>
 export const toSource = (s: typeof SourceInput.Type) =>
   new Source({ label: s.label, url: s.url ?? null, asOf: s.asOf ?? null })
 
+const ELEMENTS: ReadonlySet<DamageType> = new Set(["arc", "solar", "void", "stasis", "strand"])
+
+type BuildWeapon = Pick<OwnedItem, "name" | "typeName" | "damageType">
+
+const weaponLine = (weapon: BuildWeapon, element: DamageType | undefined) =>
+  `${weapon.name} (${weapon.typeName}, ${weapon.damageType}${
+    element !== undefined &&
+    ELEMENTS.has(element) &&
+    ELEMENTS.has(weapon.damageType) &&
+    weapon.damageType !== element
+      ? `, not ${element} like the subclass`
+      : ""
+  })`
+
 /** The parts of a build whose synergy the agent has not written yet, each saying what to write. */
 export const synergyMissing = ({
   exotic,
   setBonuses,
   modded,
+  weapons,
+  element,
   synergy,
 }: {
   readonly exotic: Pick<OwnedItem, "name" | "exoticPerk"> | undefined
   readonly setBonuses: ReadonlyArray<SetBonus>
   readonly modded: boolean
+  readonly weapons: ReadonlyArray<BuildWeapon>
+  /** The build's subclass element, which the weapons are checked against. */
+  readonly element: DamageType | undefined
   readonly synergy: Schema.Struct.Type<typeof Synergy.fields> | undefined
 }): ReadonlyArray<string> => {
   const active = setBonuses.filter(isActive)
@@ -85,8 +112,23 @@ export const synergyMissing = ({
       ? `setBonuses, on how the active set bonuses fit: ${active.map(setBonusLine).join(" / ")}`
       : null,
     modded && !synergy?.mods?.trim() ? "mods, on how the armor mods back the loop" : null,
+    weapons.length > 0 && !synergy?.weapons?.trim()
+      ? `weapons, on how the three weapons feed the loop: ${weapons.map((weapon) => weaponLine(weapon, element)).join(", ")}`
+      : null,
   ].filter((part) => part !== null)
 }
+
+const WEAPON_SLOTS: ReadonlyArray<WeaponSlot> = ["kinetic", "energy", "power"]
+
+/** How a build's weapon rows break the one-weapon-per-slot rule; empty when they keep it. */
+const weaponSlotProblems = (weapons: ReadonlyArray<Pick<OwnedItem, "name" | "slot">>) =>
+  WEAPON_SLOTS.flatMap((slot) => {
+    const held = weapons.filter((weapon) => weapon.slot === slot)
+    if (held.length === 1) return []
+    return held.length === 0
+      ? [`no ${slot} weapon`]
+      : [`${held.length} ${slot} weapons (${held.map((weapon) => weapon.name).join(", ")})`]
+  })
 
 const describeMiss = (
   miss: MissedTarget,
@@ -233,6 +275,8 @@ export interface ComposedBuild {
   readonly plan: Plan
   /** The armor the character wears once the plan runs. */
   readonly armor: ReadonlyArray<OwnedItem>
+  /** The weapons a build lists, in row order; empty for other plans. */
+  readonly weapons: ReadonlyArray<OwnedItem>
   readonly misses: ReadonlyArray<MissedTarget>
   readonly modSwaps: number
   /** What changes on the subclass; null when the recipe picks none. */
@@ -483,6 +527,10 @@ export const composeBuild = (
     return {
       plan,
       armor,
+      weapons:
+        recipe.kind === "build"
+          ? pieces.filter(({ item }) => isWeapon(item.slot)).map(({ item }) => item)
+          : [],
       misses,
       modSwaps: [...swapsFor.values()].flat().length,
       subclassChanges: chosen === null ? null : chosen.summary,
@@ -501,6 +549,20 @@ export const buildRules = (recipe: BuildRecipe, build: ComposedBuild): BuildRefu
       "Error: a build needs purpose: what it does, in plain words, so Jev can judge its set bonuses. Call present_plan again with purpose.",
     )
   }
+  if (recipe.kind === "build") {
+    const slotProblems = weaponSlotProblems(build.weapons)
+    if (slotProblems.length > 0) {
+      return refuse(
+        `Error: a build lists exactly one weapon for each of kinetic, energy and power, with action none for one that stays equipped; this one has ${slotProblems.join(", ")}. Call present_plan again with all three.`,
+      )
+    }
+    const exotics = build.weapons.filter((weapon) => weapon.tier === "exotic")
+    if (exotics.length > 1) {
+      return refuse(
+        `Error: a build can equip only one exotic weapon; this one has ${exotics.map((weapon) => weapon.name).join(" and ")}. Keep the one the loop needs, swap the others for legendaries, and call present_plan again.`,
+      )
+    }
+  }
   const unwritten = synergyMissing({
     exotic: build.armor.find((item) => item.tier === "exotic"),
     setBonuses: build.plan.setBonuses ?? [],
@@ -509,6 +571,8 @@ export const buildRules = (recipe: BuildRecipe, build: ComposedBuild): BuildRefu
         build.armor.some((item) => item.itemInstanceId === row.itemInstanceId) &&
         (row.armorMods ?? []).length > 0,
     ),
+    weapons: build.weapons,
+    element: build.plan.loadout?.element,
     synergy: recipe.synergy,
   })
   if (unwritten.length > 0) {
