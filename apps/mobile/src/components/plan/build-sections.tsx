@@ -14,11 +14,12 @@ import { router } from "expo-router"
 import { type ReactNode, useState } from "react"
 import { Pressable, StyleSheet, View } from "react-native"
 
-import { BuildHeader, ModPips } from "@/components/chat/build-card"
+import { BuildHeader } from "@/components/chat/build-card"
 import { BuildStats } from "@/components/chat/build-stats"
 import { Perks, RowRight } from "@/components/chat/plan-block"
 import { ChargeNote, ChargeTag, Situational } from "@/components/ghost/charge"
 import { ItemIcon } from "@/components/ghost/item-icon"
+import { ModStrip } from "@/components/ghost/mod-strip"
 import { PlugIcon } from "@/components/ghost/plug-icon"
 import { SetBonusText } from "@/components/ghost/set-bonus"
 import { SubclassBanner } from "@/components/ghost/subclass-banner"
@@ -28,7 +29,6 @@ import { chargedMods } from "@/lib/charge"
 import { firstSentence } from "@/lib/effect-text"
 import { sentence } from "@/lib/format"
 import {
-  modPips,
   pendingMasterwork,
   type SaveToLine,
   saveToLine,
@@ -222,7 +222,6 @@ function Piece({
   const stats = row.stats ?? []
   const now = stats.reduce((sum, stat) => sum + stat.value, 0)
   const then = stats.reduce((sum, stat) => sum + (stat.masterworked ?? stat.value), 0)
-  const pips = modPips(row)
   return (
     <View style={styles.piece}>
       <Pressable
@@ -243,19 +242,25 @@ function Piece({
           <Body size={15} style={{ fontFamily: Type.bodyMedium, lineHeight: 18 }} lines={1}>
             {row.name}
           </Body>
-          <Meta color={row.error ? Ghost.danger : Ghost.muted} style={{ marginTop: 2 }} lines={1}>
-            {row.error ?? row.meta}
-          </Meta>
+          {row.error || row.armorMods === undefined ? (
+            <Meta color={row.error ? Ghost.danger : Ghost.muted} style={{ marginTop: 2 }} lines={1}>
+              {row.error ?? row.meta}
+            </Meta>
+          ) : (
+            <ModStrip
+              mods={[
+                ...row.armorMods,
+                ...Array.from({ length: row.freeModSlots ?? 0 }, () => null),
+              ]}
+            />
+          )}
           {then > now ? (
             <Meta color={Ghost.gold} style={{ marginTop: 1 }}>
               {now} → {then} masterworked
             </Meta>
           ) : null}
         </View>
-        <View style={{ alignItems: "flex-end", gap: 6 }}>
-          <RowRight row={row} applied={applied} />
-          {pips ? <ModPips pips={pips} /> : null}
-        </View>
+        <RowRight row={row} applied={applied} />
         <Chevron direction={open ? "up" : "down"} size={6} />
       </Pressable>
       {open ? (
