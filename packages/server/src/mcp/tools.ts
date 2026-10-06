@@ -161,7 +161,12 @@ const PresentPlan = Tool.make("present_plan", {
   parameters: Schema.Struct({
     kind: PlanKind,
     title: Schema.String,
-    subtitle: Schema.optional(Schema.String),
+    subtitle: Schema.optional(
+      Schema.String.annotate({
+        description:
+          "The plan's headline on the card: a short one-liner, at most about 30 characters, naming the build's idea (for example 'Sentinel melee loop'), not every aspect and piece.",
+      }),
+    ),
     note: Schema.optional(Schema.String),
     confirmLabel: Schema.String,
     stats: Schema.optional(

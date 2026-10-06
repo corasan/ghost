@@ -59,7 +59,7 @@ export function BuildHeader({
         <Mono size={eyebrowSize} style={{ letterSpacing: eyebrowSize * 0.14 }} lines={1}>
           {eyebrow}
         </Mono>
-        <Cond size={30} style={{ letterSpacing: 0.6, lineHeight: 30, marginTop: 7 }}>
+        <Cond size={30} style={{ letterSpacing: 0.6, lineHeight: 30, marginTop: 7 }} lines={2}>
           {headline(plan)}
         </Cond>
       </View>
