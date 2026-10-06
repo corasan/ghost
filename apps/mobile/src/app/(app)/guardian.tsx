@@ -37,8 +37,7 @@ type Kind = "weapon" | "armor"
 
 type Row =
   | { type: "label"; key: string; label: string }
-  | { type: Kind; key: string; item: ItemSummary; carried: number; open: boolean }
-  | { type: "carried"; key: string; item: ItemSummary; kind: Kind; last: boolean }
+  | { type: Kind; key: string; item: ItemSummary; others: ItemSummary[]; open: boolean }
 
 const bySlot = (items: readonly ItemSummary[], slot: ItemSummary["slot"]) =>
   items.filter((item) => item.slot === slot).sort((a, b) => (b.power ?? 0) - (a.power ?? 0))
@@ -51,21 +50,15 @@ const slotRows = (
   open: ReadonlySet<ItemSummary["slot"]>,
 ): Row[] =>
   slots.flatMap((slot) =>
-    bySlot(equipment, slot).flatMap((item): Row[] => {
+    bySlot(equipment, slot).map((item): Row => {
       const others = bySlot(carried, slot)
-      const expanded = open.has(slot) && others.length > 0
-      return [
-        { type: kind, key: `${kind}-${slot}`, item, carried: others.length, open: expanded },
-        ...(expanded
-          ? others.map((other, i) => ({
-              type: "carried" as const,
-              key: `carried-${other.itemInstanceId ?? `${slot}${i}`}`,
-              item: other,
-              kind,
-              last: i === others.length - 1,
-            }))
-          : []),
-      ]
+      return {
+        type: kind,
+        key: `${kind}-${slot}`,
+        item,
+        others,
+        open: open.has(slot) && others.length > 0,
+      }
     }),
   )
 
@@ -104,7 +97,6 @@ function ItemRow({
   carried = 0,
   open = false,
   nested = false,
-  last = false,
   onToggle,
 }: {
   item: ItemSummary
@@ -112,7 +104,6 @@ function ItemRow({
   carried?: number
   open?: boolean
   nested?: boolean
-  last?: boolean
   onToggle?: () => void
 }) {
   const exotic = item.tier === "exotic"
@@ -142,7 +133,6 @@ function ItemRow({
         nested && {
           marginLeft: 16,
           paddingLeft: 12,
-          marginBottom: last ? 8 : 0,
           borderLeftWidth: 1,
           borderLeftColor: Ghost.ruleStrong,
         },
@@ -311,19 +301,27 @@ export default function GuardianScreen() {
             >
               {row.label}
             </Mono>
-          ) : row.type === "carried" ? (
-            <View style={{ paddingHorizontal: Gutter }}>
-              <ItemRow item={row.item} kind={row.kind} nested last={row.last} />
-            </View>
           ) : (
             <View style={{ paddingHorizontal: Gutter }}>
               <ItemRow
                 item={row.item}
                 kind={row.type}
-                carried={row.carried}
+                carried={row.others.length}
                 open={row.open}
                 onToggle={() => toggle(row.item.slot)}
               />
+              {row.open ? (
+                <View style={{ paddingBottom: 8 }}>
+                  {row.others.map((other, i) => (
+                    <ItemRow
+                      key={other.itemInstanceId ?? `${row.item.slot}${i}`}
+                      item={other}
+                      kind={row.type}
+                      nested
+                    />
+                  ))}
+                </View>
+              ) : null}
             </View>
           )
         }
