@@ -124,7 +124,7 @@ const seen = new Map([
   ["v2", { decision: null, firstSeenAt: "2026-09-01T00:00:00.000Z", baseline: true }],
 ])
 
-const inv = buildInventory(profile, defs, seen)
+const inv = buildInventory(profile, defs, seen, new Map([[2, "Techsec"]]))
 
 const fixture = <A>(value: A | undefined): A => {
   if (value === undefined) throw new Error("the fixture has no such entry")
@@ -198,9 +198,10 @@ describe("buildInventory", () => {
     expect(weapon.plugHashes).toEqual([12, 10, 11])
   })
 
-  test("equipped armor: stat total, class lock, duplicates", () => {
+  test("equipped armor: stat total, class lock, duplicates, armor set", () => {
     const helm = byId("e1")
     expect(helm).toMatchObject({
+      set: "Techsec",
       location: "character",
       characterId: "c1",
       equipped: true,

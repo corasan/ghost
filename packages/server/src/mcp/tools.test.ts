@@ -49,6 +49,7 @@ const owned = (id: string, slot: ItemSlot, fields: Partial<OwnedItem> = {}): Own
   modSockets: [],
   energy: null,
   exoticPerk: null,
+  set: null,
   ...fields,
 })
 
@@ -98,6 +99,12 @@ describe("rankingText", () => {
         }),
       ),
     ).toContain("exotic perk: Phoenix Rising: Sunspots heal allies.")
+  })
+
+  test("names the armor set a piece belongs to", () => {
+    expect(rankingText(owned("s0", "arms", { set: "AION Renewal" }))).toContain(
+      "armor set: AION Renewal",
+    )
   })
 })
 

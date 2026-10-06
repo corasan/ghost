@@ -115,6 +115,8 @@ export type OwnedItem = Schema.Struct.Type<typeof ItemSummary.fields> & {
   readonly energy: { readonly used: number; readonly capacity: number } | null
   /** Exotic armor only: its intrinsic perk as "Name: effect". */
   readonly exoticPerk: string | null
+  /** Armor only: the name of the armor set it belongs to. */
+  readonly set: string | null
 }
 
 export interface ModSocket {
@@ -301,6 +303,7 @@ export const buildInventory = (
   profile: Profile,
   defs: ReadonlyMap<number, ManifestItem>,
   seen: ReadonlyMap<string, SeenInfo>,
+  sets: ReadonlyMap<number, string>,
 ): Inventory => {
   const instances = profile.itemComponents?.instances?.data ?? {}
   const itemStats = profile.itemComponents?.stats?.data ?? {}
@@ -469,6 +472,7 @@ export const buildInventory = (
           ? { used: instance.energy.energyUsed ?? 0, capacity: instance.energy.energyCapacity }
           : null,
       exoticPerk: intrinsic === undefined ? null : `${intrinsic.name}: ${intrinsic.description}`,
+      set: armor ? (sets.get(raw.itemHash) ?? null) : null,
     }
   })
 

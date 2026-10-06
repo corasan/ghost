@@ -51,7 +51,10 @@ const bungie = Layer.mock(BungieClient, {
   },
 })
 
-const manifest = Layer.mock(Manifest, { lookup: () => Effect.succeed(new Map()) })
+const manifest = Layer.mock(Manifest, {
+  lookup: () => Effect.succeed(new Map()),
+  armorSets: Effect.succeed([]),
+})
 const items = Layer.mock(ItemsRepo, {
   sync: () => Effect.void,
   decisions: Effect.succeed(new Map()),
