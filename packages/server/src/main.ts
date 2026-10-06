@@ -23,6 +23,7 @@ import { ItemsRepoLive } from "./db/items.ts"
 import { JobsRepoLive } from "./db/jobs.ts"
 import { SettingsLive } from "./db/settings.ts"
 import { ItemsLive } from "./items/items.ts"
+import { LoggerLive, requestLogger } from "./log.ts"
 import { McpLive } from "./mcp/server.ts"
 import { PlansLive } from "./plans/executor.ts"
 import { WishlistLive } from "./wishlist/wishlist.ts"
@@ -66,7 +67,7 @@ const ServerLive = Layer.unwrap(
   }),
 )
 
-const Main = HttpRouter.serve(Routes).pipe(
+const Main = HttpRouter.serve(Routes, { disableLogger: true, middleware: requestLogger }).pipe(
   Layer.provide(HttpServer.layerServices),
   Layer.merge(JobRunnerLive),
   Layer.merge(ProfileRefreshLive),
@@ -74,6 +75,7 @@ const Main = HttpRouter.serve(Routes).pipe(
   Layer.provide(Actions),
   Layer.provide(ServerLive),
   Layer.provide(AppConfigLive),
+  Layer.provide(LoggerLive),
 )
 
 BunRuntime.runMain(Layer.launch(Main))
