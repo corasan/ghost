@@ -14,7 +14,7 @@ import {
   useSaveBuild,
   useSavedBuilds,
 } from "@/lib/api"
-import { useCharacter } from "@/lib/character"
+import { useCharacter, useWearer } from "@/lib/character"
 import { sentence } from "@/lib/format"
 import { useBottomInset } from "@/lib/insets"
 import { type SlotChoice, slotChoice } from "@/lib/loadout-slots"
@@ -241,13 +241,9 @@ function SaveFromJob({ jobId }: { jobId: string }) {
 
 /** Puts a build already saved in Ghost into an in-game slot: equip it, then snapshot it. */
 function SaveSavedInGame({ build }: { build: SavedBuild }) {
-  const { character, characters } = useCharacter()
   const builds = useSavedBuilds().data ?? []
   const equip = useEquipBuild()
-  const wearer =
-    character?.classType === build.facets.classType
-      ? character
-      : characters.find((each) => each.classType === build.facets.classType)
+  const wearer = useWearer(build.facets.classType)
   const characterId = wearer?.characterId
   const holds = build.inGame?.characterId === characterId ? build.inGame?.index : undefined
   const slots = useSlots(characterId, holds)

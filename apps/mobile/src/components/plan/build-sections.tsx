@@ -11,7 +11,7 @@ import type {
 } from "@ghost/contract"
 import { Image } from "expo-image"
 import { router } from "expo-router"
-import { useState } from "react"
+import { type ReactNode, useState } from "react"
 import { Pressable, StyleSheet, View } from "react-native"
 
 import { BuildHeader, ModPips } from "@/components/chat/build-card"
@@ -491,7 +491,15 @@ const eyebrow = (loadout: SubclassLoadout | undefined) =>
  * by name, the artifact picks, and how it all plays together. The plan sheet
  * and a saved build show the same sections.
  */
-export function BuildSections({ plan, name }: { plan: Plan; name?: string | undefined }) {
+export function BuildSections({
+  plan,
+  name,
+  lead,
+}: {
+  plan: Plan
+  name?: string | undefined
+  lead?: ReactNode
+}) {
   const [openId, setOpenId] = useState<string>()
   const applied = plan.status !== "proposed"
   const pending = pendingMasterwork(plan)
@@ -503,6 +511,7 @@ export function BuildSections({ plan, name }: { plan: Plan; name?: string | unde
   return (
     <>
       <BuildHeader plan={plan} name={name} eyebrowSize={11} eyebrow={eyebrow(plan.loadout)} />
+      {lead}
       {plan.loadout ? (
         <View style={styles.section}>
           <Loadout loadout={plan.loadout} />
