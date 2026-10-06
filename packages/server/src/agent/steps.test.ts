@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test"
-import { describeStep } from "./steps.ts"
+import { decodeToolInput, describeStep } from "./steps.ts"
 
-const step = (tool: string, input: unknown) => {
-  const { label, detail } = describeStep(tool, input)
+type ToolCallInput = Readonly<Record<string, string | number | ReadonlyArray<string>>>
+
+const step = (tool: string, input: ToolCallInput | undefined) => {
+  const { label, detail } = describeStep(tool, decodeToolInput(input))
   return { label, detail }
 }
 

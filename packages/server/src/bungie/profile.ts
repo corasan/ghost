@@ -48,8 +48,8 @@ export const ProfileStoreLive = Layer.effect(
     const items = yield* ItemsRepo
     const membershipRef = yield* Ref.make<Membership | null>(null)
 
-    const decodeFailure = (error: unknown) =>
-      Effect.die(new Error(`unexpected Bungie response: ${String(error)}`))
+    const decodeFailure = (cause: unknown) =>
+      Effect.die(new Error(`unexpected Bungie response: ${String(cause)}`))
 
     // Memberships never change for an account, so one successful lookup is enough.
     const membership = Effect.gen(function* () {

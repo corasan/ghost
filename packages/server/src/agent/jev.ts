@@ -76,7 +76,7 @@ export const chunk = (
 
 const Answers = Schema.Record(Schema.String, Schema.Struct({ noul: Schema.Number }))
 
-const unavailable = (error: unknown) => new JevUnavailable({ message: String(error) })
+const unavailable = (cause: unknown) => new JevUnavailable({ message: String(cause) })
 
 export const JevLive = Layer.effect(
   Jev,

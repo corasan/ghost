@@ -1,7 +1,7 @@
 import { query } from "@anthropic-ai/claude-agent-sdk"
 import { Context, Effect, Layer, Schema } from "effect"
 import { AppConfig } from "../config.ts"
-import { extractJson } from "../creators/parse.ts"
+import { extractJsonText } from "../creators/parse.ts"
 import { AgentFailed } from "./claude.ts"
 
 export interface SituationalInput {
@@ -90,12 +90,12 @@ export const SituationalWriterLive = Layer.effect(
       }).pipe(
         Effect.flatMap((text) =>
           Effect.try({
-            try: () => extractJson(text),
+            try: () => extractJsonText(text),
             catch: (error) => new AgentFailed({ message: String(error) }),
           }),
         ),
         Effect.flatMap((json) =>
-          Schema.decodeUnknownEffect(SituationalOutput)(json).pipe(
+          Schema.decodeEffect(Schema.fromJsonString(SituationalOutput))(json).pipe(
             Effect.mapError((error) => new AgentFailed({ message: String(error) })),
           ),
         ),

@@ -64,7 +64,7 @@ export const WishlistLive = Layer.effect(
     // One object per block id, so callers can group rolls by block identity.
     const blocks = new Map<number, WishlistBlock>()
 
-    const fail = (error: unknown) => new WishlistError({ message: String(error) })
+    const fail = (cause: unknown) => new WishlistError({ message: String(cause) })
     const setting = (key: string) =>
       settings.get(key).pipe(Effect.orDie, Effect.map(Option.getOrNull))
 

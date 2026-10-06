@@ -4,7 +4,7 @@ import { Context, Effect, Layer, Schema } from "effect"
 import { AppConfig } from "../config.ts"
 import { MCP_PATH } from "../mcp/path.ts"
 import { AgentConfig } from "./settings.ts"
-import { describeStep } from "./steps.ts"
+import { decodeToolInput, describeStep } from "./steps.ts"
 
 export class AgentFailed extends Schema.TaggedError<AgentFailed>()("AgentFailed", {
   message: Schema.String,
@@ -126,7 +126,8 @@ export const ClaudeAgentLive = Layer.effect(
               conversation = message.session_id
               for (const block of message.message.content) {
                 if (block.type === "text") lastText = block.text
-                if (block.type === "tool_use") onStep(describeStep(block.name, block.input))
+                if (block.type === "tool_use")
+                  onStep(describeStep(block.name, decodeToolInput(block.input)))
               }
             }
             if (message.type === "result") {

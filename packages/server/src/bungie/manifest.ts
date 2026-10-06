@@ -1,6 +1,6 @@
 import type { DamageType, ItemSlot, ItemTier } from "@ghost/contract"
-import { Context, Effect, Layer, Option, Redacted, Semaphore } from "effect"
-import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http"
+import { Context, Effect, Layer, Option, Redacted, Schema, Semaphore } from "effect"
+import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http"
 import { SqlClient } from "effect/sql"
 import { AppConfig } from "../config.ts"
 import { Settings } from "../db/settings.ts"
@@ -34,12 +34,16 @@ export interface Capacities {
   readonly postmaster: number
 }
 
+const StoredCapacities = Schema.Struct({
+  vault: Schema.optionalKey(Schema.Number),
+  postmaster: Schema.optionalKey(Schema.Number),
+})
+
 /** Used only until Bungie's bucket definitions have been read once. */
 export const FALLBACK_CAPACITIES: Capacities = { vault: 700, postmaster: 21 }
 
-interface BucketDefinition {
-  readonly itemCount?: number
-}
+const BucketDefinition = Schema.Struct({ itemCount: Schema.optionalKey(Schema.Number) })
+type BucketDefinition = typeof BucketDefinition.Type
 
 export const capacitiesFrom = (
   buckets: Readonly<Record<string, BucketDefinition | undefined>>,
@@ -49,11 +53,21 @@ export const capacitiesFrom = (
 })
 
 /** Name and effect of an armor stat in the current patch, keyed by stat hash. */
-export type StatFacts = Readonly<Record<string, { readonly name: string; readonly effect: string }>>
+const StatFacts = Schema.Record(
+  Schema.String,
+  Schema.Struct({ name: Schema.String, effect: Schema.String }),
+)
+export type StatFacts = typeof StatFacts.Type
 
-interface StatDefinition {
-  readonly displayProperties?: { readonly name?: string; readonly description?: string }
-}
+const StatDefinition = Schema.Struct({
+  displayProperties: Schema.optionalKey(
+    Schema.Struct({
+      name: Schema.optionalKey(Schema.String),
+      description: Schema.optionalKey(Schema.String),
+    }),
+  ),
+})
+type StatDefinition = typeof StatDefinition.Type
 
 export const statFactsFrom = (
   definitions: Readonly<Record<string, StatDefinition | undefined>>,
@@ -69,51 +83,71 @@ export const statFactsFrom = (
   )
 
 /** What a plug adds to or takes from each armor stat, keyed by stat hash. */
-export type StatMods = Readonly<Record<string, number>>
+const StatMods = Schema.Record(Schema.String, Schema.Number)
+export type StatMods = typeof StatMods.Type
 
-export interface PlugDefinition {
-  readonly displayProperties?: { readonly description?: string }
-  readonly investmentStats?: ReadonlyArray<{
-    readonly statTypeHash?: number
-    readonly value?: number
-    readonly isConditionallyActive?: boolean
-  }>
-  readonly plug?: {
-    readonly plugCategoryIdentifier?: string
-    readonly energyCapacity?: { readonly capacityValue?: number }
-    readonly energyCost?: { readonly energyCost?: number }
-    readonly insertionRules?: ReadonlyArray<{ readonly failureMessage?: string }>
-  }
-  readonly perks?: ReadonlyArray<{ readonly perkHash?: number }>
-  readonly sockets?: {
-    readonly socketEntries?: ReadonlyArray<{ readonly reusablePlugSetHash?: number }>
-  }
-}
+const optionalNumber = Schema.optionalKey(Schema.Number)
+const optionalString = Schema.optionalKey(Schema.String)
+
+const PlugDefinition = Schema.Struct({
+  displayProperties: Schema.optionalKey(Schema.Struct({ description: optionalString })),
+  investmentStats: Schema.optionalKey(
+    Schema.Array(
+      Schema.Struct({
+        statTypeHash: optionalNumber,
+        value: optionalNumber,
+        isConditionallyActive: Schema.optionalKey(Schema.Boolean),
+      }),
+    ),
+  ),
+  plug: Schema.optionalKey(
+    Schema.Struct({
+      plugCategoryIdentifier: optionalString,
+      energyCapacity: Schema.optionalKey(Schema.Struct({ capacityValue: optionalNumber })),
+      energyCost: Schema.optionalKey(Schema.Struct({ energyCost: optionalNumber })),
+      insertionRules: Schema.optionalKey(
+        Schema.Array(Schema.Struct({ failureMessage: optionalString })),
+      ),
+    }),
+  ),
+  perks: Schema.optionalKey(Schema.Array(Schema.Struct({ perkHash: optionalNumber }))),
+  sockets: Schema.optionalKey(
+    Schema.Struct({
+      socketEntries: Schema.optionalKey(
+        Schema.Array(Schema.Struct({ reusablePlugSetHash: optionalNumber })),
+      ),
+    }),
+  ),
+})
+export type PlugDefinition = typeof PlugDefinition.Type
 
 /** What the lite definitions leave out about a subclass plug. */
-export interface PlugFacts {
-  readonly mods: StatMods
+const PlugFacts = Schema.Struct({
+  mods: StatMods,
   /** Changes Bungie marks conditional: of these, only the one to the wearer's class stat applies. */
-  readonly classMods: StatMods
+  classMods: StatMods,
   /** Fragment slots an aspect brings; zero for anything else. */
-  readonly fragmentSlots: number
+  fragmentSlots: Schema.Number,
   /** Armor energy an armor mod takes; zero for anything else. */
-  readonly energyCost: number
+  energyCost: Schema.Number,
   /** What kind of socket the plug fits; a mod goes where the socket's own plug has the same one. */
-  readonly category: string
+  category: Schema.String,
   /** Only usable while unlocked in the Seasonal Artifact. */
-  readonly artifact: boolean
+  artifact: Schema.Boolean,
   /** Its effect depends on the wearer holding Armor Charge. */
-  readonly charged: boolean
-  readonly description: string
-}
+  charged: Schema.Boolean,
+  description: Schema.String,
+})
+export type PlugFacts = typeof PlugFacts.Type
 
 /** An armor mod the player could slot, from the current patch. */
-export interface ArmorModEntry extends PlugFacts {
-  readonly hash: number
-  readonly name: string
-  readonly icon: string | null
-}
+const ArmorModEntry = Schema.Struct({
+  ...PlugFacts.fields,
+  hash: Schema.Number,
+  name: Schema.String,
+  icon: Schema.NullOr(Schema.String),
+})
+export type ArmorModEntry = typeof ArmorModEntry.Type
 
 export const statModsFrom = (definition: PlugDefinition, conditional: boolean): StatMods =>
   Object.fromEntries(
@@ -129,10 +163,11 @@ export const statModsFrom = (definition: PlugDefinition, conditional: boolean): 
 /** Bungie's own icon for each damage type, as an absolute URL. */
 export type ElementIcons = Partial<Record<DamageType, string>>
 
-interface DamageTypeDefinition {
-  readonly enumValue?: number
-  readonly displayProperties?: { readonly icon?: string }
-}
+const DamageTypeDefinition = Schema.Struct({
+  enumValue: optionalNumber,
+  displayProperties: Schema.optionalKey(Schema.Struct({ icon: optionalString })),
+})
+type DamageTypeDefinition = typeof DamageTypeDefinition.Type
 
 export const elementIconsFrom = (
   definitions: Readonly<Record<string, DamageTypeDefinition | undefined>>,
@@ -275,27 +310,39 @@ const rowToItem = (row: ManifestRow): ManifestItem => ({
   description: row.description ?? "",
 })
 
-interface LiteDefinition {
-  readonly displayProperties?: {
-    readonly name?: string
-    readonly icon?: string
-    readonly description?: string
-  }
-  readonly itemTypeDisplayName?: string
-  readonly itemType?: number
-  readonly defaultDamageType?: number
-  readonly classType?: number
-  readonly talentGrid?: { readonly hudDamageType?: number }
-  readonly inventory?: { readonly tierType?: number; readonly bucketTypeHash?: number }
-}
+const LiteDefinition = Schema.Struct({
+  displayProperties: Schema.optionalKey(
+    Schema.Struct({ name: optionalString, icon: optionalString, description: optionalString }),
+  ),
+  itemTypeDisplayName: optionalString,
+  itemType: optionalNumber,
+  defaultDamageType: optionalNumber,
+  classType: optionalNumber,
+  talentGrid: Schema.optionalKey(Schema.Struct({ hudDamageType: optionalNumber })),
+  inventory: Schema.optionalKey(
+    Schema.Struct({ tierType: optionalNumber, bucketTypeHash: optionalNumber }),
+  ),
+})
 
-interface ManifestIndex {
-  readonly version: string
-  readonly jsonWorldComponentContentPaths: Record<
-    string,
-    Record<string, string | undefined> | undefined
-  >
-}
+const ManifestIndex = Schema.Struct({
+  version: Schema.String,
+  jsonWorldComponentContentPaths: Schema.Record(
+    Schema.String,
+    Schema.Record(Schema.String, Schema.String),
+  ),
+})
+type ManifestIndex = typeof ManifestIndex.Type
+
+const LiteDefinitions = Schema.Record(Schema.String, LiteDefinition)
+const PlugEnvelope = Schema.Struct({ Response: Schema.optionalKey(PlugDefinition) })
+const IndexEnvelope = Schema.Struct({ Response: ManifestIndex })
+const StoredElementIcons = Schema.Record(Schema.String, Schema.String)
+
+const definitionsOf = <S extends Schema.Top>(definition: S) =>
+  Schema.Record(Schema.String, definition)
+
+const storedJson = <S extends Schema.Codec<unknown, unknown>>(schema: S) =>
+  Schema.decodeOption(Schema.fromJsonString(schema))
 
 const VERSION_KEY = "manifest.version"
 const CAPACITIES_KEY = "manifest.capacities"
@@ -339,17 +386,15 @@ export const ManifestLive = Layer.effect(
       ),
     )
 
-    const transport = (error: unknown) =>
-      new BungieError({ status: "Transport", message: String(error) })
+    const transport = (cause: unknown) =>
+      new BungieError({ status: "Transport", message: String(cause) })
 
-    const fetchJson = (url: string) =>
-      http.get(url).pipe(
-        Effect.flatMap((response) => response.json),
-        Effect.map((json): unknown => json),
-        Effect.mapError(transport),
-      )
+    const fetchJson = <S extends Schema.Constraint>(url: string, schema: S) =>
+      http
+        .get(url)
+        .pipe(Effect.flatMap(HttpClientResponse.schemaBodyJson(schema)), Effect.mapError(transport))
 
-    const replaceAll = (definitions: Record<string, LiteDefinition>) =>
+    const replaceAll = (definitions: typeof LiteDefinitions.Type) =>
       Effect.gen(function* () {
         const rows: Array<ManifestRow> = []
         // The lite definitions carry no `hash` field; the object key is the hash.
@@ -388,9 +433,10 @@ export const ManifestLive = Layer.effect(
     const plugs = new Map<number, PlugFacts>()
 
     const entity = (table: string, hash: number) =>
-      fetchJson(`https://www.bungie.net/Platform/Destiny2/Manifest/${table}/${hash}/`).pipe(
-        Effect.map((json) => (json as { Response?: PlugDefinition }).Response ?? {}),
-      )
+      fetchJson(
+        `https://www.bungie.net/Platform/Destiny2/Manifest/${table}/${hash}/`,
+        PlugEnvelope,
+      ).pipe(Effect.map((json) => json.Response ?? {}))
 
     const plugSets = new Map<number, ReadonlyArray<number | null>>()
 
@@ -463,10 +509,10 @@ export const ManifestLive = Layer.effect(
         if (Option.isSome(stored) && stored.value === remote.version) return
         const path = remote.jsonWorldComponentContentPaths.en?.DestinyInventoryBucketDefinition
         if (path === undefined) return
-        const buckets = (yield* fetchJson(`https://www.bungie.net${path}`)) as Record<
-          string,
-          BucketDefinition
-        >
+        const buckets = yield* fetchJson(
+          `https://www.bungie.net${path}`,
+          definitionsOf(BucketDefinition),
+        )
         capacities = capacitiesFrom(buckets)
         yield* settings.set(CAPACITIES_KEY, JSON.stringify(capacities)).pipe(Effect.orDie)
         yield* settings.set(CAPACITIES_VERSION_KEY, remote.version).pipe(Effect.orDie)
@@ -483,10 +529,10 @@ export const ManifestLive = Layer.effect(
         if (Option.isSome(stored) && stored.value === remote.version) return
         const path = remote.jsonWorldComponentContentPaths.en?.DestinyStatDefinition
         if (path === undefined) return
-        const definitions = (yield* fetchJson(`https://www.bungie.net${path}`)) as Record<
-          string,
-          StatDefinition
-        >
+        const definitions = yield* fetchJson(
+          `https://www.bungie.net${path}`,
+          definitionsOf(StatDefinition),
+        )
         statFacts = statFactsFrom(definitions, ARMOR_STAT_HASHES)
         yield* settings.set(STAT_FACTS_KEY, JSON.stringify(statFacts)).pipe(Effect.orDie)
         yield* settings.set(STAT_FACTS_VERSION_KEY, remote.version).pipe(Effect.orDie)
@@ -503,10 +549,7 @@ export const ManifestLive = Layer.effect(
         const path = remote.jsonWorldComponentContentPaths.en?.DestinyDamageTypeDefinition
         if (path === undefined) return
         elementIcons = elementIconsFrom(
-          (yield* fetchJson(`https://www.bungie.net${path}`)) as Record<
-            string,
-            DamageTypeDefinition
-          >,
+          yield* fetchJson(`https://www.bungie.net${path}`, definitionsOf(DamageTypeDefinition)),
         )
         yield* settings.set(ELEMENT_ICONS_KEY, JSON.stringify(elementIcons)).pipe(Effect.orDie)
         yield* settings.set(ELEMENT_ICONS_VERSION_KEY, remote.version).pipe(Effect.orDie)
@@ -518,9 +561,10 @@ export const ManifestLive = Layer.effect(
 
     const ensure = Effect.gen(function* () {
       if (Date.now() - checkedAt < CHECK_EVERY_MS) return
-      const index = (yield* fetchJson("https://www.bungie.net/Platform/Destiny2/Manifest/")) as {
-        Response: ManifestIndex
-      }
+      const index = yield* fetchJson(
+        "https://www.bungie.net/Platform/Destiny2/Manifest/",
+        IndexEnvelope,
+      )
       const remote = index.Response
       yield* refreshCapacities(remote)
       yield* refreshStatFacts(remote)
@@ -541,10 +585,7 @@ export const ManifestLive = Layer.effect(
         return yield* new BungieError({ status: "Manifest", message: "no item definitions" })
       }
       yield* Effect.logInfo(`manifest: downloading ${remote.version}`)
-      const definitions = (yield* fetchJson(`https://www.bungie.net${path}`)) as Record<
-        string,
-        LiteDefinition
-      >
+      const definitions = yield* fetchJson(`https://www.bungie.net${path}`, LiteDefinitions)
       const count = yield* replaceAll(definitions).pipe(Effect.orDie)
       yield* settings.set(VERSION_KEY, remote.version).pipe(Effect.orDie)
       cache.clear()
@@ -578,7 +619,7 @@ export const ManifestLive = Layer.effect(
           }
           for (const hash of batch) if (!cache.has(hash)) missing.add(hash)
         }
-        return result as ReadonlyMap<number, ManifestItem>
+        return result
       })
 
     const findByName = (names: ReadonlyArray<string>) =>
@@ -596,17 +637,21 @@ export const ManifestLive = Layer.effect(
     const readCapacities = Effect.gen(function* () {
       yield* Effect.ignore(ensure)
       if (capacities !== null) return capacities
-      const stored = Option.getOrNull(yield* settings.get(CAPACITIES_KEY).pipe(Effect.orDie))
-      if (stored === null) return FALLBACK_CAPACITIES
-      capacities = { ...FALLBACK_CAPACITIES, ...(JSON.parse(stored) as Partial<Capacities>) }
+      const stored = (yield* settings.get(CAPACITIES_KEY).pipe(Effect.orDie)).pipe(
+        Option.flatMap(storedJson(StoredCapacities)),
+      )
+      if (Option.isNone(stored)) return FALLBACK_CAPACITIES
+      capacities = { ...FALLBACK_CAPACITIES, ...stored.value }
       return capacities
     })
 
     const readStatFacts = Effect.gen(function* () {
       yield* Effect.ignore(ensure)
       if (statFacts !== null) return statFacts
-      const stored = Option.getOrNull(yield* settings.get(STAT_FACTS_KEY).pipe(Effect.orDie))
-      statFacts = stored === null ? {} : (JSON.parse(stored) as StatFacts)
+      statFacts = (yield* settings.get(STAT_FACTS_KEY).pipe(Effect.orDie)).pipe(
+        Option.flatMap(storedJson(StatFacts)),
+        Option.getOrElse(() => ({})),
+      )
       return statFacts
     })
 
@@ -619,9 +664,11 @@ export const ManifestLive = Layer.effect(
       const storedFor = Option.getOrNull(
         yield* settings.get(ARMOR_MODS_VERSION_KEY).pipe(Effect.orDie),
       )
-      const stored = Option.getOrNull(yield* settings.get(ARMOR_MODS_KEY).pipe(Effect.orDie))
-      if (stored !== null && storedFor === version) {
-        armorMods = JSON.parse(stored) as ReadonlyArray<ArmorModEntry>
+      const stored = (yield* settings.get(ARMOR_MODS_KEY).pipe(Effect.orDie)).pipe(
+        Option.flatMap(storedJson(Schema.Array(ArmorModEntry))),
+      )
+      if (Option.isSome(stored) && storedFor === version) {
+        armorMods = stored.value
         return armorMods
       }
       const rows = yield* sql<ManifestRow>`
@@ -654,8 +701,10 @@ export const ManifestLive = Layer.effect(
     const readElementIcons = Effect.gen(function* () {
       yield* Effect.ignore(ensure)
       if (elementIcons !== null) return elementIcons
-      const stored = Option.getOrNull(yield* settings.get(ELEMENT_ICONS_KEY).pipe(Effect.orDie))
-      elementIcons = stored === null ? {} : (JSON.parse(stored) as ElementIcons)
+      elementIcons = (yield* settings.get(ELEMENT_ICONS_KEY).pipe(Effect.orDie)).pipe(
+        Option.flatMap(storedJson(StoredElementIcons)),
+        Option.getOrElse(() => ({})),
+      )
       return elementIcons
     })
 

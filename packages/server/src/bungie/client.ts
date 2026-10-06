@@ -29,18 +29,26 @@ export class BungieError extends Schema.TaggedError<BungieError>()("BungieError"
   message: Schema.String,
 }) {}
 
-export interface BungieTokens {
-  readonly accessToken: string
-  readonly refreshToken: string
-  readonly expiresAt: string
-  readonly membershipId: string
-}
+const BungieTokens = Schema.Struct({
+  accessToken: Schema.String,
+  refreshToken: Schema.String,
+  expiresAt: Schema.String,
+  membershipId: Schema.String,
+})
 
-export interface TransferItemInput {
-  readonly itemReferenceHash: number
+export type BungieTokens = typeof BungieTokens.Type
+
+const decodeTokens = Schema.decodeEffect(Schema.fromJsonString(BungieTokens))
+
+/** Every item action names the item and the character it acts through. */
+export interface ItemAction {
   readonly itemId: string
   readonly characterId: string
   readonly membershipType: number
+}
+
+export interface TransferItemInput extends ItemAction {
+  readonly itemReferenceHash: number
   readonly stackSize?: number | undefined
   readonly transferToVault: boolean
 }
@@ -51,10 +59,6 @@ export interface BungieClientService {
   readonly exchangeCode: (code: string) => Effect.Effect<BungieTokens, BungieError>
   /** GET an authenticated Platform endpoint. Returns the raw `Response` field. */
   readonly get: (path: string) => Effect.Effect<unknown, BungieError | BungieNotLinked>
-  readonly post: (
-    path: string,
-    body: unknown,
-  ) => Effect.Effect<unknown, BungieError | BungieNotLinked>
   readonly transferItem: (
     input: TransferItemInput,
   ) => Effect.Effect<unknown, BungieError | BungieNotLinked>
@@ -62,19 +66,11 @@ export interface BungieClientService {
     input: Omit<TransferItemInput, "transferToVault">,
   ) => Effect.Effect<unknown, BungieError | BungieNotLinked>
   /** The item must already be on that character. */
-  readonly equipItem: (input: {
-    readonly itemId: string
-    readonly characterId: string
-    readonly membershipType: number
-  }) => Effect.Effect<unknown, BungieError | BungieNotLinked>
+  readonly equipItem: (input: ItemAction) => Effect.Effect<unknown, BungieError | BungieNotLinked>
   /** Puts a free plug such as an armor mod into a socket. The item must be on that character. */
-  readonly insertPlug: (input: {
-    readonly itemId: string
-    readonly characterId: string
-    readonly membershipType: number
-    readonly socketIndex: number
-    readonly plugHash: number
-  }) => Effect.Effect<unknown, BungieError | BungieNotLinked>
+  readonly insertPlug: (
+    input: ItemAction & { readonly socketIndex: number; readonly plugHash: number },
+  ) => Effect.Effect<unknown, BungieError | BungieNotLinked>
 }
 
 export class BungieClient extends Context.Service<BungieClient, BungieClientService>()(
@@ -94,8 +90,8 @@ export const BungieClientLive = Layer.effect(
       ),
     )
 
-    const toBungieError = (error: unknown) =>
-      new BungieError({ status: "Transport", message: String(error) })
+    const toBungieError = (cause: unknown) =>
+      new BungieError({ status: "Transport", message: String(cause) })
 
     const unwrap = (response: HttpClientResponse.HttpClientResponse) =>
       HttpClientResponse.schemaBodyJson(Envelope)(response).pipe(
@@ -107,9 +103,15 @@ export const BungieClientLive = Layer.effect(
         ),
       )
 
-    const loadTokens = settings
-      .get(TOKENS_KEY)
-      .pipe(Effect.orDie, Effect.map(Option.map((raw) => JSON.parse(raw) as BungieTokens)))
+    const loadTokens = settings.get(TOKENS_KEY).pipe(
+      Effect.flatMap(
+        Option.match({
+          onNone: () => Effect.succeedNone,
+          onSome: (raw) => Effect.asSome(decodeTokens(raw)),
+        }),
+      ),
+      Effect.orDie,
+    )
 
     const saveTokens = (tokens: BungieTokens) =>
       settings.set(TOKENS_KEY, JSON.stringify(tokens)).pipe(Effect.orDie)
@@ -165,7 +167,7 @@ export const BungieClientLive = Layer.effect(
 
     const get = (path: string) => authed(HttpClientRequest.get(`${PLATFORM}${path}`))
 
-    const post = (path: string, body: unknown) =>
+    const post = <Body extends ItemAction>(path: string, body: Body) =>
       HttpClientRequest.bodyJson(HttpClientRequest.post(`${PLATFORM}${path}`), body).pipe(
         Effect.mapError(toBungieError),
         Effect.flatMap(authed),
@@ -178,7 +180,6 @@ export const BungieClientLive = Layer.effect(
       ),
       exchangeCode: (code) => tokenRequest({ grant_type: "authorization_code", code }),
       get,
-      post,
       transferItem: (input) =>
         post("/Destiny2/Actions/Items/TransferItem/", { stackSize: 1, ...input }),
       pullFromPostmaster: (input) =>

@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 import {
   checkNotes,
   extractChannelId,
-  extractJson,
+  extractJsonText,
   parseChannelList,
   parseFeed,
   parseJson3,
@@ -102,8 +102,8 @@ describe("captions", () => {
 
 describe("summary checks", () => {
   test("pulls JSON out of a fenced reply", () => {
-    expect(extractJson('Here:\n```json\n{"notes":[]}\n```')).toEqual({ notes: [] })
-    expect(() => extractJson("no json")).toThrow()
+    expect(extractJsonText('Here:\n```json\n{"notes":[]}\n```')).toBe('{"notes":[]}')
+    expect(() => extractJsonText("no json")).toThrow()
   })
 
   test("keeps manifest names, flags unknown ones and drops notes with none known", () => {

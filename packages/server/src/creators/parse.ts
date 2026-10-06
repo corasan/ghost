@@ -188,14 +188,14 @@ export const SummaryOutput = Schema.Struct({
 })
 export type SummaryOutput = typeof SummaryOutput.Type
 
-/** The JSON object in a model reply, with or without a code fence around it. */
-export const extractJson = (text: string): unknown => {
+/** The JSON object's text in a model reply, with or without a code fence around it. */
+export const extractJsonText = (text: string) => {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/)
   const body = fenced?.[1] ?? text
   const start = body.indexOf("{")
   const end = body.lastIndexOf("}")
   if (start < 0 || end <= start) throw new Error("no JSON object in summary")
-  return JSON.parse(body.slice(start, end + 1))
+  return body.slice(start, end + 1)
 }
 
 export interface CheckedNote {

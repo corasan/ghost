@@ -282,8 +282,6 @@ export const GhostToolkit = Toolkit.make(
   CiteSources,
 )
 
-const json = (value: unknown) => JSON.stringify(value)
-
 const clip = (text: string | null, max: number) =>
   text === null || text.length <= max ? text : `${text.slice(0, max)}…`
 
@@ -882,7 +880,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
     const get_characters = () =>
       withInventory((inv) =>
         Effect.map(manifest.capacities, (capacities) =>
-          json({
+          JSON.stringify({
             characters: inv.characters.map((c) => ({
               id: c.characterId,
               class: c.classType,
@@ -908,7 +906,10 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
 
     const search_items = (filters: SearchFilters) =>
       withInventory((inv) =>
-        findItems(inv, filters).pipe(Effect.map(json), Effect.provideService(Jev, jev)),
+        findItems(inv, filters).pipe(
+          Effect.map((found) => JSON.stringify(found)),
+          Effect.provideService(Jev, jev),
+        ),
       )
 
     const present_plan = (input: (typeof PresentPlan)["parametersSchema"]["Type"]) =>
@@ -1205,7 +1206,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
               scoreBasis: basis,
             }
           })
-          return json({
+          return JSON.stringify({
             wishlist: { url: WISHLIST_URL, asOf: yield* wishlist.asOf },
             unknownIds: unknown.length > 0 ? unknown : undefined,
             items,
@@ -1222,7 +1223,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
         const hashes = new Set<number>([itemHash])
         for (const r of rolls) for (const h of r.perkHashes) hashes.add(h)
         const nameOf = yield* nameLookup(hashes)
-        return json({
+        return JSON.stringify({
           item: nameOf(itemHash) ?? `#${itemHash}`,
           wishlist: { url: WISHLIST_URL, asOf: yield* wishlist.asOf },
           recommendations: recommendations(rolls, nameOf).map((r) => ({
@@ -1260,7 +1261,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
                 .flatMap((socket) => (socket.mod?.charged ? [socket.mod.name] : [])),
             )
             .pipe(Effect.orDie)
-          return json({
+          return JSON.stringify({
             unknownIds: itemInstanceIds.filter(
               (id) => !picked.some((i) => i.itemInstanceId === id),
             ),
@@ -1293,7 +1294,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
         const effects = yield* chargeEffects
           .forMods(charged.map(({ entry }) => entry.name))
           .pipe(Effect.orDie)
-        return json({
+        return JSON.stringify({
           total: found.total,
           ranking: found.ranking,
           mods: found.mods.map(({ entry, relevance }) => ({
@@ -1327,7 +1328,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
             return def === undefined || /^empty /i.test(def.name) ? null : def.name
           }
           if (input.subclass === undefined) {
-            return json({
+            return JSON.stringify({
               characterId: character.characterId,
               class: character.classType,
               subclasses: choices.map((choice) => ({
@@ -1347,7 +1348,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
           }
           const choice = findSubclass(choices, input.subclass)
           if (choice === undefined) return unknownSubclass(choices, input.subclass)
-          return json(
+          return JSON.stringify(
             yield* findSubclassDetail(choice, character.classType, input.purpose).pipe(
               Effect.provideService(Jev, jev),
             ),
@@ -1373,7 +1374,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
         })
         const found = new Set(plugs.map((p) => p.name.toLowerCase()))
         const missing = (input.names ?? []).filter((n) => !found.has(n.toLowerCase()))
-        return json({
+        return JSON.stringify({
           source: "Bungie manifest (current patch)",
           plugs,
           notFound: missing.length > 0 ? missing : undefined,
@@ -1390,7 +1391,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
           Math.min(Math.max(input.limit ?? 12, 1), 30),
         )
         const now = Date.now()
-        return json({
+        return JSON.stringify({
           maxAgeDays: NOTE_MAX_AGE_DAYS,
           captionsAvailable: found.captionsAvailable,
           channels: found.channels,
