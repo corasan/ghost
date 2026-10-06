@@ -273,6 +273,26 @@ export class SubclassLoadout extends Schema.Class<SubclassLoadout>("SubclassLoad
   change: Schema.optional(SubclassChange),
 }) {}
 
+/** One armor set bonus the build's pieces turn on, from the current patch's manifest. */
+export class SetBonus extends Schema.Class<SetBonus>("SetBonus")({
+  name: Schema.String,
+  description: Schema.String,
+  icon: Schema.NullOr(Schema.String),
+  /** The armor set it belongs to, for example "Techsec". */
+  set: Schema.String,
+  /** Pieces of the set the bonus needs. */
+  required: Schema.Number,
+  /** Pieces of the set the build wears. */
+  worn: Schema.Number,
+}) {}
+
+/** How each part of a build feeds the rest, in Ghost's words; a part the build lacks is left out. */
+export class Synergy extends Schema.Class<Synergy>("Synergy")({
+  exotic: Schema.optional(Schema.String),
+  setBonuses: Schema.optional(Schema.String),
+  mods: Schema.optional(Schema.String),
+}) {}
+
 export const PlanKind = Schema.Literals(["build", "weapon", "postmaster", "cleanup", "transfer"])
 export type PlanKind = typeof PlanKind.Type
 
@@ -294,6 +314,9 @@ export class Plan extends Schema.Class<Plan>("Plan")({
   note: Schema.NullOr(Schema.String),
   /** How the build's conditional bonuses, such as armor charge, play out together, in Ghost's words. */
   situational: Schema.optional(Schema.String),
+  /** Armor set bonuses the build's pieces turn on, fewest pieces needed first. */
+  setBonuses: Schema.optional(Schema.Array(SetBonus)),
+  synergy: Schema.optional(Synergy),
   /** Label of the confirm button, for example "APPLY BUILD". */
   confirmLabel: Schema.String,
   status: PlanStatus,
