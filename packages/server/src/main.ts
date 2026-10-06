@@ -12,11 +12,13 @@ import { AgentConfigLive } from "./agent/settings.ts"
 import { ApiLive } from "./api/index.ts"
 import { BungieClientLive } from "./bungie/client.ts"
 import { GuardianLive } from "./bungie/guardian.ts"
+import { LoadoutsLive } from "./bungie/loadouts.ts"
 import { ManifestLive } from "./bungie/manifest.ts"
 import { ProfileRefreshLive, ProfileStoreLive } from "./bungie/profile.ts"
 import { AppConfig, AppConfigLive } from "./config.ts"
 import { CreatorNotesLive, CreatorRefreshLive } from "./creators/creators.ts"
 import { ActionsRepoLive } from "./db/actions.ts"
+import { BuildsRepoLive } from "./db/builds.ts"
 import { ChargeEffectsLive } from "./db/charge.ts"
 import { DatabaseLive } from "./db/client.ts"
 import { ItemsRepoLive } from "./db/items.ts"
@@ -35,6 +37,7 @@ const Repositories = Layer.mergeAll(
   JobsRepoLive,
   ItemsRepoLive,
   ActionsRepoLive,
+  BuildsRepoLive,
   SettingsLive,
   ChargeEffectsLive,
 ).pipe(Layer.provideMerge(DatabaseLive))
@@ -52,8 +55,10 @@ const Clients = Layer.mergeAll(
 
 const Profile = Layer.mergeAll(ProfileStoreLive, CreatorNotesLive).pipe(Layer.provideMerge(Clients))
 
+const Reads = LoadoutsLive.pipe(Layer.provideMerge(Profile))
+
 const Services = Layer.mergeAll(GuardianLive, ActivityLive, PlansLive).pipe(
-  Layer.provideMerge(Profile),
+  Layer.provideMerge(Reads),
 )
 
 const Actions = ItemsLive.pipe(Layer.provideMerge(Services))
