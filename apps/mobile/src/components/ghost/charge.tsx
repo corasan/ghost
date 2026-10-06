@@ -10,9 +10,7 @@ import { firstSentence } from "@/lib/effect-text"
 import { age } from "@/lib/format"
 
 export function ChargeTag() {
-  return (
-    <Meta color={Ghost.charge}>Charge</Meta>
-  )
+  return <Meta color={Ghost.charge}>Charge</Meta>
 }
 
 /** What a mod adds while charged: Ghost's researched numbers, how many copies stack, and where the numbers come from. */
@@ -68,9 +66,7 @@ function ChargedRow({ entry, under }: { entry: ChargedMod; under: string }) {
           <Body size={14} style={{ fontFamily: Type.bodyMedium, lineHeight: 18 }} lines={1}>
             {copies > 1 ? `${mod.name} ×${copies}` : mod.name}
           </Body>
-          <Meta lines={1}>
-            {mod.chargeEffect?.effect ?? firstSentence(mod.description)}
-          </Meta>
+          <Meta lines={1}>{mod.chargeEffect?.effect ?? firstSentence(mod.description)}</Meta>
         </View>
         <Chevron direction={open ? "up" : "down"} size={6} color={Ghost.charge} />
       </Pressable>

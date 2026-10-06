@@ -152,9 +152,7 @@ function ModLine({ mod, copies }: { mod: ArmorMod; copies: number }) {
         >
           {mod.name}
         </Body>
-        {effect ? (
-          <Meta style={{ marginTop: 1 }}>{effect}</Meta>
-        ) : null}
+        {effect ? <Meta style={{ marginTop: 1 }}>{effect}</Meta> : null}
       </View>
       <View style={{ alignItems: "flex-end", gap: 4 }}>
         <Meta color={mod.swap ? Ghost.accent : Ghost.dim}>

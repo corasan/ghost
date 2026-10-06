@@ -480,9 +480,7 @@ export function PageHeader({
             {figure}
             {figureSuffix ? <Text style={{ color: Ghost.dim }}>{figureSuffix}</Text> : null}
           </Cond>
-          <Meta style={{ marginTop: 6 }}>
-            {caption}
-          </Meta>
+          <Meta style={{ marginTop: 6 }}>{caption}</Meta>
         </View>
       </View>
       {children}
