@@ -1,6 +1,7 @@
 import {
   type GuardianClass,
   type ItemSlot,
+  type LoadoutSaveTo,
   OFF_BUILD_FIT,
   type Plan,
   type SubclassLoadout,
@@ -111,6 +112,51 @@ export const bySlot = (rows: readonly PlanRow[]): PlanRow[] =>
     ? [...rows].sort((a, b) => slotRank(a) - slotRank(b))
     : [...rows]
 
+const WEAPON_SLOTS: ReadonlySet<ItemSlot | undefined> = new Set<ItemSlot>([
+  "kinetic",
+  "energy",
+  "power",
+])
+
+export const isWeaponRow = (row: PlanRow) => WEAPON_SLOTS.has(row.slot)
+
+/** The armor head to toe apart from the weapons in slot order; rows without a slot count as armor. */
+export const splitRows = (rows: readonly PlanRow[]) => {
+  const sorted = bySlot(rows)
+  return {
+    pieces: sorted.filter((row) => !isWeaponRow(row)),
+    weapons: sorted.filter(isWeaponRow),
+  }
+}
+
+export type SaveToLine = { text: string; tone: "plan" | "ok" | "held" | "failed" }
+
+/** What saving to an in-game loadout slot will do, or what it did; the game counts slots from one. */
+export const saveToLine = (saveTo: LoadoutSaveTo): SaveToLine => {
+  const slot = `slot ${saveTo.index + 1}`
+  switch (saveTo.outcome) {
+    case null:
+      return {
+        tone: "plan",
+        text: saveTo.replaces
+          ? `Saves to ${slot} in game, replacing ${saveTo.replaces}.`
+          : `Saves to ${slot} in game.`,
+      }
+    case "ok":
+      return { tone: "ok", text: `Saved to ${slot} in game.` }
+    case "skipped":
+      return {
+        tone: "held",
+        text: `Not saved to ${slot}: ${saveTo.error ?? "the build did not end up equipped as planned"}.`,
+      }
+    case "failed":
+      return {
+        tone: "failed",
+        text: `Saving to ${slot} failed: ${saveTo.error ?? "Bungie refused it"}.`,
+      }
+  }
+}
+
 export const pendingMasterwork = (plan: Plan) =>
   plan.rows.filter((row) => row.stats?.some((stat) => stat.masterworked !== undefined)).length
 
@@ -209,6 +255,8 @@ export type SynergyPart =
       text: string | undefined
     }
   | { kind: "mods"; text: string }
+  | { kind: "weapons"; exotic: PlanRow | undefined; text: string }
+  | { kind: "artifact"; text: string }
 
 const ARMOR_SLOTS: ReadonlySet<ItemSlot | undefined> = new Set<ItemSlot>([
   "helmet",
@@ -219,15 +267,20 @@ const ARMOR_SLOTS: ReadonlySet<ItemSlot | undefined> = new Set<ItemSlot>([
 ])
 
 /**
- * How the exotic armor, the set bonuses and the mods feed the build, in that
- * order. A part needs Ghost's words, except set bonuses, which show without them.
+ * How the exotic armor, the weapons, the set bonuses, the mods and the
+ * artifact feed the build, in that order. A part needs Ghost's words, except
+ * set bonuses, which show without them.
  */
 export const synergyParts = (plan: Plan): SynergyPart[] => {
-  const { exotic, setBonuses: setText, mods } = plan.synergy ?? {}
+  const { exotic, setBonuses: setText, mods, weapons, artifact } = plan.synergy ?? {}
   const exoticRow = plan.rows.find((row) => row.tier === "exotic" && ARMOR_SLOTS.has(row.slot))
   const bonuses = plan.setBonuses ?? []
   const parts: SynergyPart[] = []
   if (exoticRow && exotic) parts.push({ kind: "exotic", row: exoticRow, text: exotic })
+  if (weapons) {
+    const exoticWeapon = plan.rows.find((row) => row.tier === "exotic" && isWeaponRow(row))
+    parts.push({ kind: "weapons", exotic: exoticWeapon, text: weapons })
+  }
   if (bonuses.length > 0 || setText) {
     const { on, short } = splitSetBonuses(bonuses)
     parts.push({
@@ -238,5 +291,6 @@ export const synergyParts = (plan: Plan): SynergyPart[] => {
     })
   }
   if (mods) parts.push({ kind: "mods", text: mods })
+  if (artifact) parts.push({ kind: "artifact", text: artifact })
   return parts
 }

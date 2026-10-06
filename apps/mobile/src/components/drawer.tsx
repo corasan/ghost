@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { Body, Button, Cond, Diamond, Meta, Mono } from "@/components/ghost/ui"
 import { Ghost } from "@/constants/theme"
-import { getLastLatency, useBriefing, useHealth, useSessions } from "@/lib/api"
+import { getLastLatency, useBriefing, useHealth, useSavedBuilds, useSessions } from "@/lib/api"
 import { selectCharacter, useCharacter } from "@/lib/character"
 import { age, upper } from "@/lib/format"
 import { useServerUrl } from "@/lib/server-url"
@@ -31,6 +31,7 @@ export function GhostDrawer({ navigation }: DrawerContentComponentProps) {
   const { character, characters } = useCharacter()
   const briefing = useBriefing(character?.characterId).data
   const sessions = useSessions()
+  const savedBuilds = useSavedBuilds().data
   const sessionId = useSessionId()
 
   const go = (href: Href) => {
@@ -42,6 +43,12 @@ export function GhostDrawer({ navigation }: DrawerContentComponentProps) {
   const pages = [
     { label: "CHAT", value: "Ghost", href: "/" as const, color: Ghost.dim },
     { label: "GUARDIAN", value: "Equipped", href: "/guardian" as const, color: Ghost.dim },
+    {
+      label: "BUILDS",
+      value: savedBuilds ? `${savedBuilds.length} saved` : "—",
+      href: "/builds" as const,
+      color: Ghost.dim,
+    },
     {
       label: "VAULT",
       value: briefing ? `${briefing.vaultCount} / ${briefing.vaultCapacity}` : "—",

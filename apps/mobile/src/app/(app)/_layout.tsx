@@ -5,7 +5,7 @@ import { GhostDrawer } from "@/components/drawer"
 import { Ghost } from "@/constants/theme"
 
 /**
- * Chat is home. Guardian, Vault, Recent and History sit beside it in a
+ * Chat is home. Guardian, Builds, Vault, Recent and History sit beside it in a
  * drawer that opens from the header or a swipe from the left edge.
  */
 export default function AppLayout() {
@@ -24,6 +24,7 @@ export default function AppLayout() {
       >
         <Drawer.Screen name="index" />
         <Drawer.Screen name="guardian" />
+        <Drawer.Screen name="builds" />
         <Drawer.Screen name="vault" />
         <Drawer.Screen name="recent" />
         <Drawer.Screen name="history" />

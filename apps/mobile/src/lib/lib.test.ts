@@ -3,9 +3,17 @@ import { describe, expect, test } from "bun:test"
 import {
   ArmorMod,
   Briefing,
+  BuildFacets,
+  BuildReadiness,
+  InGameSlot,
+  InGameSlotRef,
+  LoadoutIdentity,
+  LoadoutSlots,
+  SavedBuild,
   ChargeEffect,
   ItemSummary,
   LoadoutPlug,
+  LoadoutSaveTo,
   Plan,
   SubclassChange,
   SubclassLoadout,
@@ -21,6 +29,8 @@ import {
 
 import { webUrl } from "./links"
 import { briefingSentence, followUps, sinceLabel } from "./briefing"
+import * as builds from "./build-filter"
+import { slotChoice } from "./loadout-slots"
 import { orderBuildStats } from "./build-order"
 import { chargedMods } from "./charge"
 import { firstParagraph, firstSentence } from "./effect-text"
@@ -32,8 +42,10 @@ import {
   headline,
   statTicks,
   modPips,
+  saveToLine,
   setBonusLine,
   slotLabel,
+  splitRows,
   synergyParts,
   verdict,
 } from "./plan-card"
@@ -505,6 +517,31 @@ describe("build card", () => {
       expect(kinds(built)).toEqual([])
     })
 
+    test("weapons follow the exotic armor and carry the exotic weapon; the artifact comes last", () => {
+      const parts = synergyParts(
+        plan({
+          rows: [exoticArms, row("Fatebringer", { slot: "kinetic" }), exoticWeapon],
+          setBonuses: [bonus],
+          synergy: new Synergy({ exotic: "e", weapons: "w", mods: "m", artifact: "a" }),
+        }),
+      )
+      expect(parts.map((part) => part.kind)).toEqual([
+        "exotic",
+        "weapons",
+        "setBonuses",
+        "mods",
+        "artifact",
+      ])
+      expect(parts[1]).toEqual({ kind: "weapons", exotic: exoticWeapon, text: "w" })
+    })
+
+    test("weapons and artifact show only when Ghost wrote about them", () => {
+      expect(kinds(plan({ rows: [exoticWeapon] }))).toEqual([])
+      expect(synergyParts(plan({ rows: [], synergy: new Synergy({ weapons: "w" }) }))).toEqual([
+        { kind: "weapons", exotic: undefined, text: "w" },
+      ])
+    })
+
     test("active set bonuses show without Ghost's words, and nothing shows for an older plan", () => {
       expect(synergyParts(plan({ rows: [exoticArms], setBonuses: [bonus] }))).toEqual([
         { kind: "setBonuses", on: [{ bonus, offBuild: false }], short: [], text: undefined },
@@ -549,6 +586,42 @@ describe("build card", () => {
       expect(setBonusLine(bonus)).toBe("2-piece · Techsec")
       expect(setBonusLine(lastDiscipline)).toBe("4-piece · Last Discipline · 1 piece away")
     })
+  })
+
+  test("weapons sit apart from the armor, kinetic to power", () => {
+    const rows = [
+      row("rocket", { slot: "power" }),
+      row("chest", { slot: "chest" }),
+      row("bow", { slot: "kinetic" }),
+      row("helm", { slot: "helmet" }),
+      row("smg", { slot: "energy" }),
+    ]
+    const { pieces, weapons } = splitRows(rows)
+    expect(pieces.map((each) => each.name)).toEqual(["helm", "chest"])
+    expect(weapons.map((each) => each.name)).toEqual(["bow", "smg", "rocket"])
+  })
+
+  test("an in-game save names the slot as the game counts it and what it overwrites", () => {
+    const saveTo = (patch: Partial<LoadoutSaveTo>) =>
+      new LoadoutSaveTo({
+        buildId: "b",
+        characterId: "c1",
+        index: 2,
+        nameHash: 1,
+        colorHash: 2,
+        iconHash: 3,
+        replaces: null,
+        outcome: null,
+        error: null,
+        ...patch,
+      })
+    expect(saveToLine(saveTo({ replaces: "Raid" }))).toEqual({
+      tone: "plan",
+      text: "Saves to slot 3 in game, replacing Raid.",
+    })
+    expect(
+      saveToLine(saveTo({ outcome: "skipped", error: "Gjallarhorn is not equipped" })),
+    ).toEqual({ tone: "held", text: "Not saved to slot 3: Gjallarhorn is not equipped." })
   })
 })
 
@@ -650,5 +723,197 @@ describe("tooltip placement", () => {
 
   test("stays below when neither side has room", () => {
     expect(place({ x: 188, y: 60 }, 760)).toMatchObject({ side: "below", top: 92 })
+  })
+})
+
+describe("in-game slot choice", () => {
+  const identity = (hash: number, name: string) => new LoadoutIdentity({ hash, name, icon: null })
+  const raid = identity(1, "Raid")
+  const slots = new LoadoutSlots({
+    slots: [
+      new InGameSlot({
+        index: 0,
+        empty: false,
+        name: raid,
+        color: identity(20, "Red"),
+        icon: identity(30, "Skull"),
+        savedBuildId: null,
+      }),
+      new InGameSlot({
+        index: 1,
+        empty: true,
+        name: null,
+        color: null,
+        icon: null,
+        savedBuildId: null,
+      }),
+    ],
+    names: [identity(2, "PvP"), raid],
+    colors: [identity(21, "Blue"), identity(20, "Red")],
+    icons: [identity(31, "Sword"), identity(30, "Skull")],
+  })
+
+  test("starts on the first empty slot with the first name, color and icon", () => {
+    expect(slotChoice(slots, {}, undefined)).toEqual({
+      index: 1,
+      nameHash: 2,
+      colorHash: 21,
+      iconHash: 31,
+    })
+  })
+
+  test("a build already in a slot starts there, and a filled slot keeps its look", () => {
+    expect(slotChoice(slots, {}, 0)).toEqual({ index: 0, nameHash: 1, colorHash: 20, iconHash: 30 })
+  })
+
+  test("what the player picked wins", () => {
+    expect(slotChoice(slots, { index: 0, colorHash: 21 }, undefined)).toEqual({
+      index: 0,
+      nameHash: 1,
+      colorHash: 21,
+      iconHash: 30,
+    })
+  })
+
+  test("nothing to choose when the game lists no names", () => {
+    expect(slotChoice(new LoadoutSlots({ ...slots, names: [] }), {}, undefined)).toBeUndefined()
+  })
+})
+
+describe("build filter", () => {
+  const ready = new BuildReadiness({ missing: [], pastArtifact: false, inGame: null })
+  const saved = (
+    id: string,
+    facets: Partial<BuildFacets>,
+    patch: Partial<SavedBuild> = {},
+  ): SavedBuild =>
+    new SavedBuild({
+      id,
+      name: id,
+      plan: new Plan({
+        kind: "build",
+        title: "Build plan",
+        subtitle: null,
+        stats: [],
+        featured: null,
+        rows: [],
+        note: null,
+        confirmLabel: "EQUIP BUILD",
+        status: "proposed",
+      }),
+      facets: new BuildFacets({
+        classType: "hunter",
+        element: "void",
+        subclass: "Nightstalker",
+        exoticArmor: null,
+        exoticWeapon: null,
+        weaponTypes: [],
+        ...facets,
+      }),
+      readiness: ready,
+      inGame: null,
+      jobId: null,
+      createdAt: "2026-10-01T10:00:00Z",
+      updatedAt: "2026-10-01T10:00:00Z",
+      ...patch,
+    })
+  const slot = new InGameSlotRef({ characterId: "c1", index: 2, savedAt: "2026-10-02T10:00:00Z" })
+  const gyrfalcon = saved(
+    "Gyrfalcon",
+    {
+      exoticArmor: "Gyrfalcon's Hauberk",
+      weaponTypes: ["Combat Bow", "Submachine Gun", "Rocket Launcher"],
+    },
+    { inGame: slot, createdAt: "2026-10-03T10:00:00Z" },
+  )
+  const hammer = saved(
+    "Hammer",
+    {
+      classType: "titan",
+      element: "solar",
+      subclass: "Sunbreaker",
+      exoticWeapon: "Gjallarhorn",
+      weaponTypes: ["Rocket Launcher", "Rocket Launcher"],
+    },
+    {
+      readiness: new BuildReadiness({ missing: ["Gjallarhorn"], pastArtifact: true, inGame: null }),
+      createdAt: "2026-10-02T10:00:00Z",
+    },
+  )
+  const unknown = saved("Unknown", { classType: "warlock", element: "arc" }, { readiness: null })
+  const all = [hammer, unknown, gyrfalcon]
+  const ids = (filter: Partial<builds.BuildFilter>) =>
+    builds.filterBuilds(all, { ...builds.emptyBuildFilter, ...filter }).map((each) => each.id)
+
+  test("newest first by default, and every search word must match somewhere", () => {
+    expect(ids({})).toEqual(["Gyrfalcon", "Hammer", "Unknown"])
+    expect(ids({ query: "rocket gjallarhorn" })).toEqual(["Hammer"])
+    expect(ids({ query: "bow hauberk" })).toEqual(["Gyrfalcon"])
+  })
+
+  test("an exotic chip matches exotic armor and exotic weapons alike, and facets combine", () => {
+    expect(ids({ exotics: new Set(["Gjallarhorn"]) })).toEqual(["Hammer"])
+    expect(ids({ exotics: new Set(["Gjallarhorn", "Gyrfalcon's Hauberk"]) })).toEqual([
+      "Gyrfalcon",
+      "Hammer",
+    ])
+    expect(
+      ids({ weaponTypes: new Set(["Rocket Launcher"]), classes: new Set(["titan"] as const) }),
+    ).toEqual(["Hammer"])
+  })
+
+  test("in game and Ghost only split the list by whether a slot holds the build", () => {
+    expect(ids({ where: "in_game" })).toEqual(["Gyrfalcon"])
+    expect(ids({ where: "ghost_only" })).toEqual(["Hammer", "Unknown"])
+  })
+
+  test("a build Ghost could not check against Bungie is never called ready", () => {
+    expect(ids({ state: "ready" })).toEqual(["Gyrfalcon"])
+    expect(ids({ state: "missing_items" })).toEqual(["Hammer"])
+    expect(ids({ state: "past_artifact" })).toEqual(["Hammer"])
+  })
+
+  test("sorting by class groups the classes before the names", () => {
+    const zed = saved("A titan", { classType: "titan" })
+    const sorted = builds.filterBuilds([...all, zed], { ...builds.emptyBuildFilter, sort: "class" })
+    expect(sorted.map((each) => each.id)).toEqual(["Gyrfalcon", "A titan", "Hammer", "Unknown"])
+  })
+
+  test("chips list where, state and every chosen value; removing one keeps the rest", () => {
+    const narrowed = {
+      ...builds.emptyBuildFilter,
+      where: "in_game" as const,
+      state: "ready" as const,
+      exotics: new Set(["Ex Diris: Reprise", "Gjallarhorn"]),
+    }
+    expect(builds.activeFilters(narrowed).map((each) => each.label)).toEqual([
+      "IN GAME",
+      "READY",
+      "EX DIRIS: REPRISE",
+      "GJALLARHORN",
+    ])
+    const next = builds.removeFilter(narrowed, "exotics:Ex Diris: Reprise")
+    expect([...next.exotics]).toEqual(["Gjallarhorn"])
+    expect(builds.removeFilter(next, "where").where).toBe("all")
+    expect(builds.activeFilters(builds.emptyBuildFilter)).toEqual([])
+  })
+
+  test("facet chips come from the saved builds, counting each build once", () => {
+    const options = builds.facetOptions(all)
+    expect(options.classes).toEqual([
+      { value: "hunter", count: 1 },
+      { value: "titan", count: 1 },
+      { value: "warlock", count: 1 },
+    ])
+    expect(options.elements.map((each) => each.value)).toEqual(["arc", "solar", "void"])
+    expect(options.weaponTypes).toEqual([
+      { value: "Rocket Launcher", count: 2 },
+      { value: "Combat Bow", count: 1 },
+      { value: "Submachine Gun", count: 1 },
+    ])
+    expect(options.exotics.map((each) => each.value)).toEqual([
+      "Gjallarhorn",
+      "Gyrfalcon's Hauberk",
+    ])
   })
 })

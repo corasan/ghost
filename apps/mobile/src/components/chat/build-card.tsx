@@ -1,4 +1,5 @@
 import type {
+  ArtifactPlan,
   GuardianClass,
   Job,
   LoadoutPlug,
@@ -14,13 +15,12 @@ import { PlugIcon } from "@/components/ghost/plug-icon"
 import { SetBonusIcons } from "@/components/ghost/set-bonus"
 import { SubclassMark } from "@/components/ghost/subclass-mark"
 import { Body, Button, Cond, Cut, Meta, Mono, StatIcon } from "@/components/ghost/ui"
-import { Ghost } from "@/constants/theme"
+import { Ghost, Type } from "@/constants/theme"
 import { errorMessage, useApplyPlan, useUndoPlan } from "@/lib/api"
 import { orderBuildStats } from "@/lib/build-order"
 import { sentence } from "@/lib/format"
 import {
   appliedTotals,
-  bySlot,
   failures,
   hasStatMods,
   headline,
@@ -30,6 +30,7 @@ import {
   shortPlugName,
   signed,
   slotLabel,
+  splitRows,
   statTicks,
   verdict,
 } from "@/lib/plan-card"
@@ -47,10 +48,12 @@ export function BuildHeader({
   eyebrow,
   plan,
   eyebrowSize = 11,
+  name,
 }: {
   eyebrow: string
   plan: Plan
   eyebrowSize?: number
+  name?: string | undefined
 }) {
   return (
     <View style={styles.header}>
@@ -59,7 +62,7 @@ export function BuildHeader({
           {eyebrow}
         </Mono>
         <Cond size={30} style={{ letterSpacing: 0.6, lineHeight: 30, marginTop: 7 }} lines={2}>
-          {headline(plan)}
+          {name?.toUpperCase() ?? headline(plan)}
         </Cond>
       </View>
       {plan.loadout ? <SubclassMark loadout={plan.loadout} size={36} /> : null}
@@ -274,8 +277,95 @@ function Tile({
   )
 }
 
-function Tiles({ plan, applied }: { plan: Plan; applied: boolean }) {
-  const rows = bySlot(plan.rows)
+function WeaponLine({ row, applied }: { row: PlanRow; applied: boolean }) {
+  const arriving = !applied && row.origin !== undefined && row.action !== "none"
+  const result = applied && row.outcome ? outcomeLabel[row.outcome] : null
+  const perks = row.perks ?? []
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={row.name}
+      accessibilityHint="Opens item details"
+      onPress={() => router.push({ pathname: "/item/[id]", params: { id: row.itemInstanceId } })}
+      style={({ pressed }) => [styles.weapon, pressed && { opacity: 0.6 }]}
+    >
+      <View style={arriving ? { boxShadow: `0 0 0 1px ${Ghost.accent}` } : undefined}>
+        <ItemIcon
+          icon={row.icon}
+          size={40}
+          element={row.damageType}
+          gearTier={row.gearTier}
+          masterwork={row.masterwork}
+        />
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Body size={14} style={{ fontFamily: Type.bodyMedium, lineHeight: 18 }} lines={1}>
+          {row.name}
+        </Body>
+        <Meta size={12} color={Ghost.dim} lines={2}>
+          {result ? <Text style={{ color: Ghost.danger }}>{result} · </Text> : null}
+          {arriving && row.origin ? (
+            <Text style={{ color: Ghost.accent }}>{sentence(row.origin)} · </Text>
+          ) : null}
+          {row.typeName ?? row.meta}
+          {perks.map((perk) => (
+            <Text key={perk.name} style={perk.good ? { color: Ghost.good } : undefined}>
+              {" · "}
+              {perk.name}
+            </Text>
+          ))}
+        </Meta>
+      </View>
+    </Pressable>
+  )
+}
+
+function Weapons({ rows, applied }: { rows: readonly PlanRow[]; applied: boolean }) {
+  return (
+    <View style={[styles.band, { gap: 10 }]}>
+      {rows.map((row) => (
+        <WeaponLine key={row.itemInstanceId} row={row} applied={applied} />
+      ))}
+    </View>
+  )
+}
+
+function Artifact({ artifact }: { artifact: ArtifactPlan }) {
+  const toSelect = artifact.picks.filter((pick) => pick.state === "select_in_game").length
+  const notes = [
+    toSelect > 0 ? `${toSelect} to select in game` : null,
+    artifact.reset ? "reset the artifact first" : null,
+  ].filter((note) => note !== null)
+  return (
+    <View style={styles.band}>
+      <View style={styles.loadoutLine}>
+        <Meta style={styles.loadoutLabel}>Artifact</Meta>
+        <Plugs
+          plugs={artifact.picks.map((pick) => ({
+            name: pick.name,
+            icon: pick.icon,
+            swap: pick.state === "select_in_game",
+          }))}
+        />
+      </View>
+      {notes.length > 0 ? (
+        <Meta size={12} color={artifact.reset ? Ghost.gold : Ghost.accent} style={{ marginTop: 8 }}>
+          {sentence(notes.join(", "))}.
+        </Meta>
+      ) : null}
+    </View>
+  )
+}
+
+function Tiles({
+  rows,
+  classType,
+  applied,
+}: {
+  rows: readonly PlanRow[]
+  classType: GuardianClass | undefined
+  applied: boolean
+}) {
   const lines = Array.from({ length: Math.ceil(rows.length / TILES_PER_ROW) }, (_, i) =>
     rows.slice(i * TILES_PER_ROW, (i + 1) * TILES_PER_ROW),
   )
@@ -284,12 +374,7 @@ function Tiles({ plan, applied }: { plan: Plan; applied: boolean }) {
       {lines.map((line, i) => (
         <View key={i} style={{ flexDirection: "row", gap: 8 }}>
           {line.map((row) => (
-            <Tile
-              key={row.itemInstanceId}
-              row={row}
-              applied={applied}
-              classType={plan.loadout?.classType}
-            />
+            <Tile key={row.itemInstanceId} row={row} applied={applied} classType={classType} />
           ))}
           {Array.from({ length: TILES_PER_ROW - line.length }, (_, pad) => (
             <View key={pad} style={{ flex: 1 }} />
@@ -330,7 +415,8 @@ function Verdict({ plan }: { plan: Plan }) {
 
 /**
  * A build in bands: the subclass it sits on, the six stats it lands on, the
- * pieces as tiles, the set bonuses they turn on, and one line saying what
+ * pieces as tiles, the weapons with their perks, the artifact picks, the set
+ * bonuses the pieces turn on, and one line saying what
  * confirming will do.
  */
 export function BuildCard({ job, plan }: { job: Job; plan: Plan }) {
@@ -339,6 +425,7 @@ export function BuildCard({ job, plan }: { job: Job; plan: Plan }) {
   const undo = useUndoPlan()
   const selected = [...selection.selected]
   const applied = plan.status !== "proposed"
+  const { pieces, weapons } = splitRows(plan.rows)
 
   return (
     <Cut cut={10} fill={Ghost.panel} border={Ghost.line} style={styles.card}>
@@ -348,7 +435,11 @@ export function BuildCard({ job, plan }: { job: Job; plan: Plan }) {
       />
       {plan.loadout ? <Loadout loadout={plan.loadout} /> : null}
       <Stats plan={plan} />
-      <Tiles plan={plan} applied={applied} />
+      {pieces.length > 0 ? (
+        <Tiles rows={pieces} classType={plan.loadout?.classType} applied={applied} />
+      ) : null}
+      {weapons.length > 0 ? <Weapons rows={weapons} applied={applied} /> : null}
+      {plan.artifact ? <Artifact artifact={plan.artifact} /> : null}
       {plan.setBonuses?.length ? (
         <View style={styles.band}>
           <SetBonusIcons bonuses={plan.setBonuses} />
@@ -421,6 +512,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: Ghost.rule,
   },
+  weapon: { flexDirection: "row", alignItems: "center", gap: 10 },
   verdict: { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 12 },
   action: { flexDirection: "row", marginTop: 12 },
 })

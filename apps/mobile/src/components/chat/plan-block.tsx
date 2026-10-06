@@ -1,4 +1,4 @@
-import type { Job, Plan, PlanRow } from "@ghost/contract"
+import type { Job, Plan, PlanPerk, PlanRow } from "@ghost/contract"
 import { router } from "expo-router"
 import { useState } from "react"
 import { Alert, Pressable, StyleSheet, View } from "react-native"
@@ -127,6 +127,23 @@ export function PlanRowView({
   )
 }
 
+export function Perks({ perks }: { perks: readonly PlanPerk[] }) {
+  return (
+    <View style={styles.perks}>
+      {perks.map((perk) => (
+        <View
+          key={perk.name}
+          style={[styles.perk, { borderColor: perk.good ? Ghost.good : Ghost.ruleStrong }]}
+        >
+          <Body size={12} color={perk.good ? Ghost.good : Ghost.muted}>
+            {perk.name}
+          </Body>
+        </View>
+      ))}
+    </View>
+  )
+}
+
 function Featured({ plan, row }: { plan: Plan; row: PlanRow }) {
   const featured = plan.featured
   if (featured === null) return null
@@ -163,18 +180,7 @@ function Featured({ plan, row }: { plan: Plan; row: PlanRow }) {
           <Meta color={tone} style={{ marginTop: 4 }} lines={1}>
             {row.meta}
           </Meta>
-          <View style={styles.perks}>
-            {featured.perks.map((perk) => (
-              <View
-                key={perk.name}
-                style={[styles.perk, { borderColor: perk.good ? Ghost.good : Ghost.ruleStrong }]}
-              >
-                <Body size={12} color={perk.good ? Ghost.good : Ghost.muted}>
-                  {perk.name}
-                </Body>
-              </View>
-            ))}
-          </View>
+          <Perks perks={featured.perks} />
         </View>
       </Pressable>
       {featured.stats.length > 0 ? (
