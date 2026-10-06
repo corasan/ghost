@@ -82,6 +82,7 @@ import { CreatorNotes } from "../creators/creators.ts"
 import { NOTE_MAX_AGE_DAYS } from "../creators/parse.ts"
 import { ChargeEffects } from "../db/charge.ts"
 import { JobsRepo } from "../db/jobs.ts"
+import { title } from "../items/items.ts"
 import { checkRoll, perkMatcher, type RollMatch, recommendations } from "../wishlist/parse.ts"
 import { Wishlist, WISHLIST_URL } from "../wishlist/wishlist.ts"
 
@@ -804,11 +805,11 @@ export const findSubclassDetail = (
   })
 
 const DEFAULT_META: Record<PlanAction, (item: OwnedItem, className: string) => string> = {
-  to_vault: (i) => `${i.typeName} → VAULT`,
+  to_vault: (i) => `${i.typeName} → vault`,
   to_character: (i, c) => `${i.typeName} → ${c}`,
-  pull_postmaster: (i, c) => `${i.typeName} · POSTMASTER → ${c}`,
-  equip: (i, c) => `${i.typeName} · EQUIP ON ${c}`,
-  tag_junk: (i) => `${i.typeName} · JUNK`,
+  pull_postmaster: (i, c) => `${i.typeName} · postmaster → ${c}`,
+  equip: (i, c) => `${i.typeName} · equip on ${c}`,
+  tag_junk: (i) => `${i.typeName} · junk`,
   none: (i) => i.typeName,
 }
 
@@ -1097,14 +1098,14 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
                   : r.action === "to_character" || r.action === "equip"
                     ? (r.characterId ?? fallback)
                     : (r.characterId ?? null)
-              const className = (classOf.get(characterId ?? "") ?? "character").toUpperCase()
+              const className = title(classOf.get(characterId ?? "") ?? "character")
               const arrives = r.action === "equip" || r.action === "to_character"
-              const origin = !arrives
+              const from = !arrives
                 ? undefined
                 : item.location !== "character"
-                  ? item.location.toUpperCase()
+                  ? title(item.location)
                   : item.characterId !== characterId
-                    ? classOf.get(item.characterId ?? "")?.toUpperCase()
+                    ? classOf.get(item.characterId ?? "")
                     : undefined
               const mods =
                 item.armorStats === null
@@ -1120,7 +1121,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
                 name: item.name,
                 icon: item.icon,
                 tier: item.tier,
-                meta: r.meta ?? DEFAULT_META[r.action](item, className).toUpperCase(),
+                meta: r.meta ?? DEFAULT_META[r.action](item, className),
                 power: item.power,
                 score: r.score ?? null,
                 action: r.action,
@@ -1142,7 +1143,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
                   item.energy === null || mods === undefined
                     ? undefined
                     : { used: mods.energyUsed, capacity: item.energy.capacity },
-                origin,
+                origin: from === undefined ? undefined : title(from),
               })
             })
             const effects = yield* chargeEffects

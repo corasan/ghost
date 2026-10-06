@@ -78,7 +78,7 @@ export const pieceSetBonuses = (
   return everySetBonus(item.set, worn)
 }
 
-const title = (word: string) => word.charAt(0).toUpperCase() + word.slice(1)
+export const title = (word: string) => word.charAt(0).toUpperCase() + word.slice(1)
 
 export const describeAction = (
   item: Pick<OwnedItem, "name">,
