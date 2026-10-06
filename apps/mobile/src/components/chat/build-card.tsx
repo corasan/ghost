@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native"
 import { ItemIcon } from "@/components/ghost/item-icon"
 import { SetBonusIcons } from "@/components/ghost/set-bonus"
 import { SubclassMark } from "@/components/ghost/subclass-mark"
+import { offersSave, SaveButton } from "@/components/plan/save-button"
 import { Body, Button, Cond, Cut, Meta, Mono, StatIcon } from "@/components/ghost/ui"
 import { Ghost } from "@/constants/theme"
 import { errorMessage, useApplyPlan, useUndoPlan } from "@/lib/api"
@@ -269,6 +270,8 @@ export function BuildCard({ job, plan }: { job: Job; plan: Plan }) {
   const undo = useUndoPlan()
   const selected = [...selection.selected]
   const applied = plan.status !== "proposed"
+  const confirmable = plan.status === "proposed" && selection.actionableCount > 0
+  const saveable = offersSave(job, plan)
   const { pieces, weapons } = splitRows(plan.rows)
 
   return (
@@ -314,24 +317,25 @@ export function BuildCard({ job, plan }: { job: Job; plan: Plan }) {
         </Body>
       ) : null}
 
-      {plan.status === "proposed" && selection.actionableCount > 0 ? (
+      {saveable || confirmable || plan.status === "applied" ? (
         <View style={styles.action}>
-          <Button
-            label={apply.isPending ? "WORKING…" : plan.confirmLabel.toUpperCase()}
-            tone="solid"
-            under={Ghost.panel}
-            disabled={selected.length === 0 || apply.isPending}
-            onPress={() => apply.mutate({ jobId: job.id, selected })}
-          />
-        </View>
-      ) : plan.status === "applied" ? (
-        <View style={styles.action}>
-          <Button
-            label={undo.isPending ? "UNDOING…" : "UNDO"}
-            under={Ghost.panel}
-            disabled={undo.isPending}
-            onPress={() => undo.mutate(job.id)}
-          />
+          {saveable ? <SaveButton job={job} /> : null}
+          {confirmable ? (
+            <Button
+              label={apply.isPending ? "WORKING…" : plan.confirmLabel.toUpperCase()}
+              tone="solid"
+              under={Ghost.panel}
+              disabled={selected.length === 0 || apply.isPending}
+              onPress={() => apply.mutate({ jobId: job.id, selected })}
+            />
+          ) : plan.status === "applied" ? (
+            <Button
+              label={undo.isPending ? "UNDOING…" : "UNDO"}
+              under={Ghost.panel}
+              disabled={undo.isPending}
+              onPress={() => undo.mutate(job.id)}
+            />
+          ) : null}
         </View>
       ) : null}
     </Cut>
@@ -354,5 +358,5 @@ const styles = StyleSheet.create({
     borderTopColor: Ghost.rule,
   },
   verdict: { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 12 },
-  action: { flexDirection: "row", marginTop: 12 },
+  action: { flexDirection: "row", gap: 8, marginTop: 12 },
 })

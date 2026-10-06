@@ -3,35 +3,13 @@ import { router, useLocalSearchParams } from "expo-router"
 import { ScrollView, StyleSheet, View } from "react-native"
 
 import { BuildSections } from "@/components/plan/build-sections"
+import { offersSave, SaveButton } from "@/components/plan/save-button"
 import { Body, Button } from "@/components/ghost/ui"
 import { Ghost, Gutter } from "@/constants/theme"
-import { errorMessage, useApplyPlan, useJob, useSavedBuilds } from "@/lib/api"
+import { errorMessage, useApplyPlan, useJob } from "@/lib/api"
 import { useFooterHeight } from "@/lib/footer"
 import { useBottomInset } from "@/lib/insets"
 import { usePlanSelection } from "@/lib/selection"
-
-const offersSave = (job: Job, plan: Plan) =>
-  plan.saveable === true && job.kind !== "saved_build" && plan.saveTo === undefined
-
-function Save({ job }: { job: Job }) {
-  const saved = useSavedBuilds().data?.find((build) => build.jobId === job.id)
-  return saved ? (
-    <Button
-      label="SAVED ›"
-      tone="accent"
-      flex={0.6}
-      under={Ghost.panel}
-      onPress={() => router.push({ pathname: "/build/[id]", params: { id: saved.id } })}
-    />
-  ) : (
-    <Button
-      label="SAVE"
-      flex={0.6}
-      under={Ghost.panel}
-      onPress={() => router.push({ pathname: "/save-build", params: { jobId: job.id } })}
-    />
-  )
-}
 
 function Footer({ job, plan, inset }: { job: Job; plan: Plan; inset: number }) {
   const selection = usePlanSelection(job.id, plan)
@@ -48,7 +26,7 @@ function Footer({ job, plan, inset }: { job: Job; plan: Plan; inset: number }) {
         </Body>
       ) : null}
       <View style={{ flexDirection: "row", gap: 8 }}>
-        {saveable ? <Save job={job} /> : null}
+        {saveable ? <SaveButton job={job} /> : null}
         {confirmable ? (
           <Button
             label={apply.isPending ? "WORKING…" : plan.confirmLabel.toUpperCase()}
