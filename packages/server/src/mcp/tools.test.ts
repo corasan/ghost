@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { type ItemSlot, SetBonus } from "@ghost/contract"
+import { type ItemSlot, OFF_BUILD_FIT, SetBonus } from "@ghost/contract"
 import { Effect, Layer } from "effect"
 import { Jev, JevUnavailable } from "../agent/jev.ts"
 import type { Inventory, OwnedItem, SubclassPart } from "../bungie/inventory.ts"
@@ -395,11 +395,12 @@ describe("judgeSetBonuses", () => {
 })
 
 describe("offBuildBonuses", () => {
-  test("names only active bonuses Jev judged below half a fit", () => {
+  test("names only active bonuses Jev judged below the off-build fit", () => {
     expect(
       offBuildBonuses([
-        bonus("Poor", 2, 2, 0.3),
-        bonus("Even", 2, 2, 0.5),
+        bonus("Poor", 2, 2, 0.1),
+        bonus("Even", 2, 2, OFF_BUILD_FIT),
+        bonus("Plausible", 2, 2, 0.3),
         bonus("Unjudged", 2, 2),
         bonus("Away", 4, 3, 0.1),
       ]).map((b) => b.name),

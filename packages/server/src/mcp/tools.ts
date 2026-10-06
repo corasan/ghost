@@ -12,6 +12,7 @@ import {
   PlanKind,
   PlanPerk,
   PlanRow,
+  OFF_BUILD_FIT,
   PlanStat,
   SetBonus,
   Source,
@@ -520,7 +521,9 @@ export const judgeSetBonuses = (
 
 /** Active set bonuses Jev judged a poor fit for the build. */
 export const offBuildBonuses = (setBonuses: ReadonlyArray<SetBonus>) =>
-  setBonuses.filter((bonus) => isActive(bonus) && bonus.fit !== undefined && bonus.fit < 0.5)
+  setBonuses.filter(
+    (bonus) => isActive(bonus) && bonus.fit !== undefined && bonus.fit < OFF_BUILD_FIT,
+  )
 
 /** The parts of a build whose synergy the agent has not written yet, each saying what to write. */
 export const synergyMissing = ({
@@ -1227,6 +1230,9 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
               ),
               synergy: input.synergy,
             })
+            if (input.kind === "build" && !input.purpose?.trim()) {
+              return "Error: a build needs purpose: what it does, in plain words, so Jev can judge its set bonuses. Call present_plan again with purpose."
+            }
             if (unwritten.length > 0) {
               return `Error: the build needs synergy, one or two sentences per part on how it feeds the rest of the build: ${unwritten.join("; ")}. Call present_plan again with synergy.`
             }

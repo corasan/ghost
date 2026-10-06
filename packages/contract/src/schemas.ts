@@ -292,6 +292,9 @@ export class SetBonus extends Schema.Class<SetBonus>("SetBonus")({
   fit: Schema.optional(Schema.Number),
 }) {}
 
+/** Below this fit, Jev judges an active set bonus off-build: on real data clear misfits score under 0.2 and plausible fits 0.2 to 0.5. */
+export const OFF_BUILD_FIT = 0.2
+
 /** How each part of a build feeds the rest, in Ghost's words; a part the build lacks is left out. */
 export class Synergy extends Schema.Class<Synergy>("Synergy")({
   exotic: Schema.optional(Schema.String),
