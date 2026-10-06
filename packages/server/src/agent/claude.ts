@@ -81,6 +81,7 @@ const KIND_PROMPTS: Record<JobKind, string> = {
   postmaster_to_vault:
     "Goal: propose moving every postmaster item to the vault (plan kind postmaster, action to_vault).",
   item_action: "",
+  saved_build: "",
 }
 
 // The Agent SDK runs Claude Code headless and authenticates with the Claude

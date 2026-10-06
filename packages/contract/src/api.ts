@@ -4,6 +4,7 @@ import {
   AgentSettings,
   ApplyPlan,
   Briefing,
+  BuildNotFound,
   BungieAuthFailed,
   BungieAuthResult,
   BungieAuthStart,
@@ -11,6 +12,8 @@ import {
   BungieNotLinked,
   ChatSession,
   CreateJob,
+  EquipBuild,
+  EquipBuildResult,
   GuardianSituational,
   GuardianSnapshot,
   Health,
@@ -20,8 +23,14 @@ import {
   ItemNotFound,
   Job,
   JobNotFound,
+  LoadoutSlotInvalid,
+  LoadoutSlots,
   PlanNotApplicable,
   RecentItem,
+  RenameBuild,
+  SaveBuild,
+  SaveBuildResult,
+  SavedBuild,
   SetAgentSettings,
   SetDecision,
   VaultSnapshot,
@@ -138,6 +147,51 @@ export const guardianGroup = HttpApiGroup.make("guardian")
     }),
   )
 
+const buildErrors = [
+  BuildNotFound.pipe(HttpApiSchema.status(404)),
+  LoadoutSlotInvalid.pipe(HttpApiSchema.status(400)),
+  ...planErrors,
+] as const
+
+export const buildsGroup = HttpApiGroup.make("builds")
+  .add(HttpApiEndpoint.get("list", "/builds", { success: Schema.Array(SavedBuild) }))
+  .add(
+    HttpApiEndpoint.post("save", "/builds", {
+      payload: SaveBuild,
+      success: SaveBuildResult,
+      error: buildErrors,
+    }),
+  )
+  .add(
+    HttpApiEndpoint.patch("rename", "/builds/:id", {
+      params: { id: Schema.String },
+      payload: RenameBuild,
+      success: SavedBuild,
+      error: BuildNotFound.pipe(HttpApiSchema.status(404)),
+    }),
+  )
+  .add(
+    HttpApiEndpoint.delete("remove", "/builds/:id", {
+      params: { id: Schema.String },
+      error: BuildNotFound.pipe(HttpApiSchema.status(404)),
+    }),
+  )
+  .add(
+    HttpApiEndpoint.post("equip", "/builds/:id/equip", {
+      params: { id: Schema.String },
+      payload: EquipBuild,
+      success: EquipBuildResult,
+      error: buildErrors,
+    }),
+  )
+  .add(
+    HttpApiEndpoint.get("slots", "/loadouts", {
+      query: { characterId: Schema.String },
+      success: LoadoutSlots,
+      error: bungieErrors,
+    }),
+  )
+
 export const agentGroup = HttpApiGroup.make("agent")
   .add(HttpApiEndpoint.get("settings", "/agent", { success: AgentSettings }))
   .add(
@@ -163,6 +217,7 @@ export const GhostApi = HttpApi.make("ghost")
   .add(inventoryGroup)
   .add(itemsGroup)
   .add(guardianGroup)
+  .add(buildsGroup)
   .add(agentGroup)
   .add(authGroup)
 export type GhostApi = typeof GhostApi

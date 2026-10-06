@@ -114,6 +114,19 @@ const GuardianLive = HttpApiBuilder.group(GhostApi, "guardian", (handlers) =>
     ),
 )
 
+const notImplemented = (route: string) =>
+  Effect.die(new Error(`builds.${route} is not implemented`))
+
+const BuildsLive = HttpApiBuilder.group(GhostApi, "builds", (handlers) =>
+  handlers
+    .handle("list", () => notImplemented("list"))
+    .handle("save", () => notImplemented("save"))
+    .handle("rename", () => notImplemented("rename"))
+    .handle("remove", () => notImplemented("remove"))
+    .handle("equip", () => notImplemented("equip"))
+    .handle("slots", () => notImplemented("slots")),
+)
+
 const AgentLive = HttpApiBuilder.group(GhostApi, "agent", (handlers) =>
   handlers
     .handle("settings", () => Effect.flatMap(AgentConfig, (agent) => agent.current))
@@ -156,6 +169,7 @@ export const ApiLive = HttpApiBuilder.layer(GhostApi, { openapiPath: "/openapi.j
     InventoryLive,
     ItemsApiLive,
     GuardianLive,
+    BuildsLive,
     AgentLive,
     AuthLive,
   ]),
