@@ -1,6 +1,7 @@
 import type { CharacterStats, ItemSummary } from "@ghost/contract"
 import { LegendList } from "@legendapp/list/react-native"
 import { router } from "expo-router"
+import { useState } from "react"
 import { Pressable, View } from "react-native"
 
 import { ChatHeader } from "@/components/chat/header"
@@ -8,7 +9,8 @@ import { Situational } from "@/components/ghost/charge"
 import { SubclassBanner } from "@/components/ghost/subclass-banner"
 import { Unavailable } from "@/components/ghost/unavailable"
 import { ItemIcon } from "@/components/ghost/item-icon"
-import { Body, Cond, Meta, Mono, Nudge, TierStats } from "@/components/ghost/ui"
+import { ModStrip } from "@/components/ghost/mod-strip"
+import { Body, Chevron, Cond, Meta, Mono, Nudge, TierStats } from "@/components/ghost/ui"
 import { Ghost, Gutter, Rarity, Type } from "@/constants/theme"
 import { useGuardian, useSituational } from "@/lib/api"
 import { chargedMods } from "@/lib/charge"
@@ -31,12 +33,41 @@ const STAT_LABELS: readonly (readonly [keyof CharacterStats, string])[] = [
 
 const STRONG_STAT = 100
 
+type Kind = "weapon" | "armor"
+
 type Row =
   | { type: "label"; key: string; label: string }
-  | { type: "weapon" | "armor"; key: string; item: ItemSummary }
+  | { type: Kind; key: string; item: ItemSummary; carried: number; open: boolean }
+  | { type: "carried"; key: string; item: ItemSummary; kind: Kind; last: boolean }
 
-const inSlots = (equipment: readonly ItemSummary[], slots: readonly ItemSummary["slot"][]) =>
-  slots.flatMap((slot) => equipment.filter((item) => item.slot === slot))
+const bySlot = (items: readonly ItemSummary[], slot: ItemSummary["slot"]) =>
+  items.filter((item) => item.slot === slot).sort((a, b) => (b.power ?? 0) - (a.power ?? 0))
+
+const slotRows = (
+  kind: Kind,
+  slots: readonly ItemSummary["slot"][],
+  equipment: readonly ItemSummary[],
+  carried: readonly ItemSummary[],
+  open: ReadonlySet<ItemSummary["slot"]>,
+): Row[] =>
+  slots.flatMap((slot) =>
+    bySlot(equipment, slot).flatMap((item): Row[] => {
+      const others = bySlot(carried, slot)
+      const expanded = open.has(slot) && others.length > 0
+      return [
+        { type: kind, key: `${kind}-${slot}`, item, carried: others.length, open: expanded },
+        ...(expanded
+          ? others.map((other, i) => ({
+              type: "carried" as const,
+              key: `carried-${other.itemInstanceId ?? `${slot}${i}`}`,
+              item: other,
+              kind,
+              last: i === others.length - 1,
+            }))
+          : []),
+      ]
+    }),
+  )
 
 const dotted = (parts: readonly (string | null)[]) => parts.filter(Boolean).join(" · ")
 
@@ -47,47 +78,113 @@ const weaponMeta = (item: ItemSummary) =>
     item.typeName,
   ])
 
-function ItemRow({ item, kind }: { item: ItemSummary; kind: "weapon" | "armor" }) {
+function CarriedCount({ count, open }: { count: number; open: boolean }) {
+  if (count === 0) return <View style={{ width: 24 }} />
+  return (
+    <View style={{ width: 24, alignItems: "flex-end", gap: 5 }}>
+      <Mono size={11} color={open ? Ghost.ink : Ghost.dim} style={{ letterSpacing: 0 }}>
+        +{count}
+      </Mono>
+      <Chevron direction={open ? "up" : "down"} size={6} />
+    </View>
+  )
+}
+
+const openItem = (id: string | null) => {
+  if (id) router.push({ pathname: "/item/[id]", params: { id } })
+}
+
+const openActions = (id: string | null) => {
+  if (id) router.push({ pathname: "/item-actions/[id]", params: { id } })
+}
+
+function ItemRow({
+  item,
+  kind,
+  carried = 0,
+  open = false,
+  nested = false,
+  last = false,
+  onToggle,
+}: {
+  item: ItemSummary
+  kind: Kind
+  carried?: number
+  open?: boolean
+  nested?: boolean
+  last?: boolean
+  onToggle?: () => void
+}) {
   const exotic = item.tier === "exotic"
   const weapon = kind === "weapon"
   const id = item.itemInstanceId
+  const expands = onToggle !== undefined && carried > 0
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityHint="Opens the item"
-      disabled={id === null}
-      onPress={() => id && router.push({ pathname: "/item/[id]", params: { id } })}
-      onLongPress={() => id && router.push({ pathname: "/item-actions/[id]", params: { id } })}
+      accessibilityState={expands ? { expanded: open } : undefined}
+      accessibilityHint={
+        expands ? `Shows the ${carried} other ${sentence(item.slot)} carried` : "Opens the item"
+      }
+      accessibilityActions={expands ? [{ name: "open", label: "Open item" }] : undefined}
+      onAccessibilityAction={() => openItem(id)}
+      onPress={expands ? onToggle : () => openItem(id)}
+      onLongPress={() => openActions(id)}
       style={({ pressed }) => [
         {
           flexDirection: "row",
           alignItems: "center",
           gap: 12,
-          paddingVertical: weapon ? 8 : 6,
-          borderTopWidth: 1,
+          paddingVertical: nested ? 4 : weapon ? 8 : 6,
+          borderTopWidth: nested ? 0 : 1,
           borderTopColor: Ghost.rule,
+        },
+        nested && {
+          marginLeft: 16,
+          paddingLeft: 12,
+          marginBottom: last ? 8 : 0,
+          borderLeftWidth: 1,
+          borderLeftColor: Ghost.ruleStrong,
         },
         pressed && { opacity: 0.6 },
       ]}
     >
-      <ItemIcon
-        icon={item.icon}
-        size={48}
-        element={item.damageType}
-        gearTier={item.gearTier}
-        masterwork={item.masterwork}
-      />
+      <Pressable
+        accessible={false}
+        disabled={id === null}
+        onPress={() => openItem(id)}
+        onLongPress={() => openActions(id)}
+        style={({ pressed }) => pressed && { opacity: 0.6 }}
+      >
+        <ItemIcon
+          icon={item.icon}
+          size={nested ? 40 : 48}
+          element={item.damageType}
+          gearTier={item.gearTier}
+          masterwork={item.masterwork}
+        />
+      </Pressable>
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Body size={16} style={{ fontFamily: Type.bodyMedium, lineHeight: 19 }} lines={1}>
+        <Body
+          size={nested ? 15 : 16}
+          color={nested ? Ghost.soft : Ghost.ink}
+          style={{ fontFamily: Type.bodyMedium, lineHeight: 19 }}
+          lines={1}
+        >
           {item.name}
         </Body>
-        <Meta color={exotic ? Rarity.exotic : Ghost.muted} style={{ marginTop: 2 }} lines={1}>
-          {weapon ? weaponMeta(item) : dotted([sentence(item.slot), exotic ? "Exotic" : null])}
-        </Meta>
+        {!weapon && item.mods ? (
+          <ModStrip mods={item.mods} />
+        ) : (
+          <Meta color={exotic ? Rarity.exotic : Ghost.muted} style={{ marginTop: 2 }} lines={1}>
+            {weapon ? weaponMeta(item) : dotted([sentence(item.slot), exotic ? "Exotic" : null])}
+          </Meta>
+        )}
       </View>
-      <Cond size={18} color={Ghost.gold} style={{ letterSpacing: 0 }}>
+      <Cond size={nested ? 16 : 18} color={Ghost.gold} style={{ letterSpacing: 0 }}>
         {item.power ?? "—"}
       </Cond>
+      <CarriedCount count={nested ? 0 : carried} open={open} />
     </Pressable>
   )
 }
@@ -99,6 +196,13 @@ export default function GuardianScreen() {
   const { character } = useCharacter()
   const situational = useSituational(character?.characterId)
   const pull = usePullRefresh(guardian.refetch, situational.refetch)
+  const [open, setOpen] = useState<ReadonlySet<ItemSummary["slot"]>>(new Set())
+  const toggle = (slot: ItemSummary["slot"]) =>
+    setOpen((was) => {
+      const next = new Set(was)
+      if (!next.delete(slot)) next.add(slot)
+      return next
+    })
 
   if (!character) {
     return (
@@ -121,19 +225,12 @@ export default function GuardianScreen() {
     )
   }
 
+  const carried = character.carried ?? []
   const rows: Row[] = [
     { type: "label", key: "weapons", label: "WEAPONS" },
-    ...inSlots(character.equipment, WEAPON_SLOTS).map((item) => ({
-      type: "weapon" as const,
-      key: `w-${item.slot}`,
-      item,
-    })),
+    ...slotRows("weapon", WEAPON_SLOTS, character.equipment, carried, open),
     { type: "label", key: "armor", label: "ARMOR" },
-    ...inSlots(character.equipment, ARMOR_SLOTS).map((item) => ({
-      type: "armor" as const,
-      key: `a-${item.slot}`,
-      item,
-    })),
+    ...slotRows("armor", ARMOR_SLOTS, character.equipment, carried, open),
   ]
   const postmaster = character.postmasterCount
   const capacity = guardian.data?.postmasterCapacity ?? 21
@@ -214,9 +311,19 @@ export default function GuardianScreen() {
             >
               {row.label}
             </Mono>
+          ) : row.type === "carried" ? (
+            <View style={{ paddingHorizontal: Gutter }}>
+              <ItemRow item={row.item} kind={row.kind} nested last={row.last} />
+            </View>
           ) : (
             <View style={{ paddingHorizontal: Gutter }}>
-              <ItemRow item={row.item} kind={row.type} />
+              <ItemRow
+                item={row.item}
+                kind={row.type}
+                carried={row.carried}
+                open={row.open}
+                onToggle={() => toggle(row.item.slot)}
+              />
             </View>
           )
         }

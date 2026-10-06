@@ -6,6 +6,7 @@ import {
   GuardianSituational,
   GuardianSnapshot,
   ItemSummary,
+  SlottedMod,
   Source,
   VaultSnapshot,
 } from "@ghost/contract"
@@ -14,7 +15,7 @@ import { SituationalWriter } from "../agent/situational.ts"
 import { ChargeEffects } from "../db/charge.ts"
 import { Settings } from "../db/settings.ts"
 import type { BungieError } from "./client.ts"
-import { isArmor } from "./inventory.ts"
+import { isArmor, type OwnedItem } from "./inventory.ts"
 import { describeLoadout, loadoutPlugHashes } from "./loadout.ts"
 import { Manifest, type ManifestItem } from "./manifest.ts"
 import { describeArmorMods, socketsNow, withChargeEffects } from "./mods.ts"
@@ -48,15 +49,34 @@ export const GuardianLive = Layer.effect(
       const capacities = yield* manifest.capacities
       const facts = yield* manifest.statFacts
       const plugs = yield* manifest.plugFacts(inv.characters.flatMap(loadoutPlugHashes))
+      const onCharacters = inv.items.filter((i) => i.location === "character" && i.slot !== "other")
+      const modDefs = yield* manifest
+        .lookup(onCharacters.flatMap((i) => i.modSockets.map((socket) => socket.plugHash)))
+        .pipe(Effect.orElseSucceed((): ReadonlyMap<number, ManifestItem> => new Map()))
+      const summary = (item: OwnedItem) =>
+        new ItemSummary({
+          ...item,
+          mods: isArmor(item.slot)
+            ? item.modSockets.map((socket) => {
+                const def = modDefs.get(socket.plugHash)
+                return socket.empty || def === undefined
+                  ? null
+                  : new SlottedMod({ name: def.name, icon: def.icon })
+              })
+            : undefined,
+        })
       return new GuardianSnapshot({
         characters: inv.characters.map(
           (c) =>
             new GuardianCharacter({
               ...c,
               loadout: describeLoadout({ character: c, plugs, facts }),
-              equipment: inv.items
-                .filter((i) => i.equipped && i.characterId === c.characterId && i.slot !== "other")
-                .map((i) => new ItemSummary(i)),
+              equipment: onCharacters
+                .filter((i) => i.equipped && i.characterId === c.characterId)
+                .map(summary),
+              carried: onCharacters
+                .filter((i) => !i.equipped && i.characterId === c.characterId)
+                .map(summary),
             }),
         ),
         vaultCount: inv.vaultCount,

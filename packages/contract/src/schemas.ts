@@ -50,6 +50,12 @@ export type ItemDecision = typeof ItemDecision.Type
  * field here, so the vault screen can slice 600 items locally without
  * asking the server again.
  */
+/** A mod slotted in a piece of armor, as the inventory shows it. */
+export class SlottedMod extends Schema.Class<SlottedMod>("SlottedMod")({
+  name: Schema.String,
+  icon: Schema.NullOr(Schema.String),
+}) {}
+
 export class ItemSummary extends Schema.Class<ItemSummary>("ItemSummary")({
   itemInstanceId: Schema.NullOr(Schema.String),
   itemHash: Schema.Number,
@@ -79,6 +85,8 @@ export class ItemSummary extends Schema.Class<ItemSummary>("ItemSummary")({
   /** How many other copies of the same item the player owns. */
   duplicates: Schema.Number,
   decision: Schema.NullOr(ItemDecision),
+  /** Armor only, in socket order; null for an empty socket. Sent only with the guardian snapshot. */
+  mods: Schema.optional(Schema.Array(Schema.NullOr(SlottedMod))),
   /** When Ghost first saw this instance; null for items from the first sync. */
   acquiredAt: Schema.NullOr(Schema.String),
 }) {}
@@ -718,6 +726,8 @@ export class GuardianCharacter extends Schema.Class<GuardianCharacter>("Guardian
   loadout: Schema.optional(SubclassLoadout),
   stats: CharacterStats,
   equipment: Schema.Array(ItemSummary),
+  /** Weapons and armor in the character's inventory, not equipped. Missing from snapshots cached before it was sent. */
+  carried: Schema.optional(Schema.Array(ItemSummary)),
   postmasterCount: Schema.Number,
 }) {}
 
