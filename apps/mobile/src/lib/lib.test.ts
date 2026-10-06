@@ -5,7 +5,10 @@ import {
   Briefing,
   BuildFacets,
   BuildReadiness,
+  InGameSlot,
   InGameSlotRef,
+  LoadoutIdentity,
+  LoadoutSlots,
   SavedBuild,
   ChargeEffect,
   ItemSummary,
@@ -27,6 +30,7 @@ import {
 import { webUrl } from "./links"
 import { briefingSentence, followUps, sinceLabel } from "./briefing"
 import * as builds from "./build-filter"
+import { slotChoice } from "./loadout-slots"
 import { orderBuildStats } from "./build-order"
 import { chargedMods } from "./charge"
 import { firstParagraph, firstSentence } from "./effect-text"
@@ -719,6 +723,60 @@ describe("tooltip placement", () => {
 
   test("stays below when neither side has room", () => {
     expect(place({ x: 188, y: 60 }, 760)).toMatchObject({ side: "below", top: 92 })
+  })
+})
+
+describe("in-game slot choice", () => {
+  const identity = (hash: number, name: string) => new LoadoutIdentity({ hash, name, icon: null })
+  const raid = identity(1, "Raid")
+  const slots = new LoadoutSlots({
+    slots: [
+      new InGameSlot({
+        index: 0,
+        empty: false,
+        name: raid,
+        color: identity(20, "Red"),
+        icon: identity(30, "Skull"),
+        savedBuildId: null,
+      }),
+      new InGameSlot({
+        index: 1,
+        empty: true,
+        name: null,
+        color: null,
+        icon: null,
+        savedBuildId: null,
+      }),
+    ],
+    names: [identity(2, "PvP"), raid],
+    colors: [identity(21, "Blue"), identity(20, "Red")],
+    icons: [identity(31, "Sword"), identity(30, "Skull")],
+  })
+
+  test("starts on the first empty slot with the first name, color and icon", () => {
+    expect(slotChoice(slots, {}, undefined)).toEqual({
+      index: 1,
+      nameHash: 2,
+      colorHash: 21,
+      iconHash: 31,
+    })
+  })
+
+  test("a build already in a slot starts there, and a filled slot keeps its look", () => {
+    expect(slotChoice(slots, {}, 0)).toEqual({ index: 0, nameHash: 1, colorHash: 20, iconHash: 30 })
+  })
+
+  test("what the player picked wins", () => {
+    expect(slotChoice(slots, { index: 0, colorHash: 21 }, undefined)).toEqual({
+      index: 0,
+      nameHash: 1,
+      colorHash: 21,
+      iconHash: 30,
+    })
+  })
+
+  test("nothing to choose when the game lists no names", () => {
+    expect(slotChoice(new LoadoutSlots({ ...slots, names: [] }), {}, undefined)).toBeUndefined()
   })
 })
 
