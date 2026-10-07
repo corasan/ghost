@@ -91,7 +91,7 @@ const place = (inv: Inventory, ids: ReadonlyArray<string>, onCharacter: boolean)
 })
 
 const runMoves = (s: CleanupSession) =>
-  nextMoves(s).reduce((acc, move) => settle(begin(acc, move), move, null, NOW), s)
+  nextMoves(s).reduce((acc, move) => settle(begin(acc, move), move, "landed", NOW), s)
 
 const batchIds = (s: CleanupSession, batch: number) =>
   s.junk.filter((e) => e.batch === batch).map((e) => e.itemInstanceId)
@@ -216,17 +216,17 @@ describe("delivering", () => {
     const [deliver] = nextMoves(fresh)
     if (deliver === undefined) throw new Error("expected a delivery")
     const inFlight = begin(fresh, deliver)
-    const kept = Result.getOrThrow(keep(inFlight, deliver.itemInstanceId))
-    const landed = settle(kept, deliver, null, NOW)
+    const kept = Result.getOrThrow(keep(inFlight, [deliver.itemInstanceId]))
+    const landed = settle(kept, deliver, "landed", NOW)
     expect(landed.junk[0]?.state).toBe("keeping")
     const stow = nextMoves(landed).find((m) => m.itemInstanceId === deliver.itemInstanceId)
     expect(stow?.kind).toBe("stow")
     if (stow === undefined) throw new Error("expected a stow move")
-    expect(settle(landed, stow, null, NOW).junk[0]?.state).toBe("kept")
+    expect(settle(landed, stow, "landed", NOW).junk[0]?.state).toBe("kept")
   })
 
   test("keep refuses an item outside the current batch", () => {
-    expect(Result.isFailure(keep(delivered, "kinetic-10"))).toBe(true)
+    expect(Result.isFailure(keep(delivered, ["kinetic-10"]))).toBe(true)
   })
 
   test("skip returns what is left of the batch to the vault and moves on", () => {
@@ -242,14 +242,42 @@ describe("delivering", () => {
     expect(skipped.batch).toBe(1)
   })
 
+  test("keep takes several items at once and refuses the lot if any is outside the batch", () => {
+    const both = Result.getOrThrow(keep(delivered, ["kinetic-0", "kinetic-1"]))
+    expect(both.junk.slice(0, 3).map((e) => e.state)).toEqual(["keeping", "keeping", "in_hand"])
+    expect(Result.isFailure(keep(delivered, ["kinetic-0", "kinetic-10"]))).toBe(true)
+  })
+
+  test("finishing the last batch counts items the stale profile still showed as deleted", () => {
+    const last = runMoves(reconcile(delivered, remove(inv, batchIds(delivered, 0)), NOW))
+    const skipping = Result.getOrThrow(skip(last))
+    const [gone, back] = nextMoves(skipping)
+    if (gone === undefined || back === undefined) throw new Error("expected two stows")
+    const settled = settle(settle(skipping, gone, "gone", LATER), back, "landed", LATER)
+    expect(settled.junk.filter((e) => e.batch === 1).map((e) => e.state)).toEqual([
+      "deleted",
+      "skipped",
+    ])
+    expect(settled.error).toBeNull()
+    expect(settled.stage).toBe("finished")
+  })
+
+  test("a failed item the profile no longer has counts as deleted", () => {
+    const fresh = session(inv)
+    const [first] = nextMoves(fresh)
+    if (first === undefined) throw new Error("expected a delivery")
+    const failed = settle(begin(fresh, first), first, { failed: "DestinyNoRoomInDestination" }, NOW)
+    expect(reconcile(failed, remove(inv, ["kinetic-0"]), NOW).junk[0]?.state).toBe("deleted")
+  })
+
   test("a failed transfer marks only that item failed and records why", () => {
     const fresh = session(inv)
     const [first, second] = nextMoves(fresh)
     if (first === undefined || second === undefined) throw new Error("expected deliveries")
-    const failed = settle(begin(fresh, first), first, "DestinyNoRoomInDestination", NOW)
+    const failed = settle(begin(fresh, first), first, { failed: "DestinyNoRoomInDestination" }, NOW)
     expect(failed.junk[0]?.state).toBe("failed")
     expect(failed.error).toBe("DestinyNoRoomInDestination")
-    const next = settle(begin(failed, second), second, null, NOW)
+    const next = settle(begin(failed, second), second, "landed", NOW)
     expect(next.junk[1]?.state).toBe("in_hand")
     expect(next.error).toBeNull()
   })
@@ -258,7 +286,7 @@ describe("delivering", () => {
     const fresh = session(inv)
     const paused = Result.getOrThrow(command(fresh, "pause", NOW))
     expect(nextMoves(paused)).toEqual([])
-    const kept = Result.getOrThrow(keep(paused, "kinetic-0"))
+    const kept = Result.getOrThrow(keep(paused, ["kinetic-0"]))
     expect(nextMoves(kept).map((m) => m.kind)).toEqual(["stow"])
     expect(Result.isFailure(command(fresh, "resume", NOW))).toBe(true)
     expect(Result.getOrThrow(command(paused, "resume", NOW)).stage).toBe("delivering")

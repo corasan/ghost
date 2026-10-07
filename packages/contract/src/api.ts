@@ -37,6 +37,7 @@ import {
   SavedBuild,
   SetAgentSettings,
   SetDecision,
+  KeepFromCleanup,
   StartCleanup,
   VaultSnapshot,
 } from "./schemas"
@@ -244,8 +245,9 @@ export const cleanupGroup = HttpApiGroup.make("cleanup")
   .add(HttpApiEndpoint.post("return", "/cleanup/:id/return", cleanupCommand))
   .add(HttpApiEndpoint.post("close", "/cleanup/:id/close", cleanupCommand))
   .add(
-    HttpApiEndpoint.post("keep", "/cleanup/:id/keep/:itemId", {
-      params: { id: Schema.String, itemId: Schema.String },
+    HttpApiEndpoint.post("keep", "/cleanup/:id/keep", {
+      params: { id: Schema.String },
+      payload: KeepFromCleanup,
       success: CleanupSession,
       error: cleanupErrors,
     }),

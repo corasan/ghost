@@ -82,6 +82,7 @@ class Account {
   transfers: Array<TransferItemInput> = []
   refuse = new Map<string, string>()
   outageAfter = Number.POSITIVE_INFINITY
+  stale: Inventory | null = null
 
   constructor(items: ReadonlyArray<OwnedItem>) {
     this.items = [...items]
@@ -167,7 +168,7 @@ const harness = (account: Account, dataDir = mkdtempSync(join(tmpdir(), "ghost-c
       snapshotLoadout: () => unused,
     }),
     Layer.succeed(ProfileStore, {
-      inventory: Effect.sync(() => account.inventory),
+      inventory: Effect.sync(() => account.stale ?? account.inventory),
       plugSets: Effect.succeed({}),
       invalidate: Effect.void,
     }),
@@ -274,7 +275,7 @@ describe("cleanup watcher", () => {
         yield* items.sync(account.items)
         const session = yield* cleanup.start(HUNTER)
         yield* cleanup.tick
-        const kept = yield* cleanup.keep(session.id, "k1")
+        const kept = yield* cleanup.keep(session.id, ["k1"])
         expect(kept.junk.find((e) => e.itemInstanceId === "k1")?.state).toBe("keeping")
         yield* cleanup.tick
         const after = yield* cleanup.current
@@ -307,6 +308,27 @@ describe("cleanup watcher", () => {
     expect(skipped?.batch).toBe(1)
     expect(account.carried(HUNTER).map((i) => i.itemInstanceId)).toEqual(["k9"])
     expect(account.where("k1")).toMatchObject({ location: "vault", decision: "junk" })
+  })
+
+  test("finishing after deleting in game, before the profile catches up, counts the deletions", async () => {
+    const account = new Account(kinetic(3))
+    const { run } = harness(account)
+    const finished = await run(
+      Effect.gen(function* () {
+        const cleanup = yield* Cleanup
+        const session = yield* cleanup.start(HUNTER)
+        yield* cleanup.tick
+        const stale = account.inventory
+        account.delete(["k0", "k1"])
+        account.stale = stale
+        yield* cleanup.skip(session.id)
+        yield* cleanup.tick
+        return yield* cleanup.current
+      }),
+    )
+    expect(finished?.stage).toBe("finished")
+    expect(finished?.junk.map((e) => e.state)).toEqual(["deleted", "deleted", "skipped"])
+    expect(finished?.error).toBeNull()
   })
 
   test("a refused transfer fails that item only", async () => {

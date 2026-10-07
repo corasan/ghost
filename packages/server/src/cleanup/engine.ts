@@ -183,7 +183,7 @@ export const reconcile = (s: CleanupSession, inv: Inventory, now: string): Clean
 
   const junk = s.junk.map((e) => {
     const id = e.itemInstanceId
-    if (UNRESOLVED_JUNK.has(e.state) && !owned.has(id))
+    if ((UNRESOLVED_JUNK.has(e.state) || e.state === "failed") && !owned.has(id))
       return new JunkEntry({ ...e, state: "deleted" })
     if (e.state === "keeping" && inVault(id)) return new JunkEntry({ ...e, state: "kept" })
     if (e.state === "skipping" && inVault(id)) return new JunkEntry({ ...e, state: "skipped" })
@@ -271,6 +271,9 @@ export const begin = (s: CleanupSession, move: Move): CleanupSession =>
     (state) => (move.kind === "deliver" && state === "waiting" ? "moving" : state),
   )
 
+/** `gone` means the item no longer exists, which for handed-over junk means the player deleted it. */
+export type Outcome = "landed" | "gone" | { readonly failed: string }
+
 /**
  * Records how a transfer went. An entry that changed while the transfer ran
  * (kept while it was being delivered) keeps its new state.
@@ -278,21 +281,22 @@ export const begin = (s: CleanupSession, move: Move): CleanupSession =>
 export const settle = (
   s: CleanupSession,
   move: Move,
-  error: string | null,
+  outcome: Outcome,
   now: string,
 ): CleanupSession => {
   const land =
     <S extends string>(landing: ReadonlyMap<S, S> | undefined, failed: S) =>
     (state: S): S => {
       const to = landing?.get(state)
-      return to === undefined ? state : error === null ? to : failed
+      return to === undefined ? state : outcome === "landed" ? to : failed
     }
   const next = onEntry(
     s,
     move,
     land(STASH_LANDING[move.kind], "failed"),
-    land(JUNK_LANDING[move.kind], "failed"),
+    outcome === "gone" ? () => "deleted" : land(JUNK_LANDING[move.kind], "failed"),
   )
+  const error = typeof outcome === "object" ? outcome.failed : null
   return advance(new CleanupSession({ ...next, error }), now)
 }
 
@@ -326,21 +330,21 @@ const HANDED = new Set<JunkState>(["waiting", "moving", "in_hand"])
 
 export const keep = (
   s: CleanupSession,
-  itemInstanceId: string,
+  itemInstanceIds: ReadonlyArray<string>,
 ): Result.Result<CleanupSession, string> => {
-  const entry = s.junk.find((e) => e.itemInstanceId === itemInstanceId)
-  if (
-    !handingOver(s) ||
-    entry === undefined ||
-    entry.batch !== s.batch ||
-    !HANDED.has(entry.state)
-  ) {
-    return Result.fail("That item is not in the batch Ghost handed over.")
+  const picked = new Set(itemInstanceIds)
+  const handed = s.junk.filter(
+    (e) => picked.has(e.itemInstanceId) && e.batch === s.batch && HANDED.has(e.state),
+  )
+  if (!handingOver(s) || picked.size === 0 || handed.length !== picked.size) {
+    return Result.fail("Those items are not in the batch Ghost handed over.")
   }
   return Result.succeed(
     new CleanupSession({
       ...s,
-      junk: s.junk.map((e) => (e === entry ? new JunkEntry({ ...e, state: "keeping" }) : e)),
+      junk: s.junk.map((e) =>
+        picked.has(e.itemInstanceId) ? new JunkEntry({ ...e, state: "keeping" }) : e,
+      ),
     }),
   )
 }

@@ -171,8 +171,8 @@ const CleanupApiLive = HttpApiBuilder.group(GhostApi, "cleanup", (handlers) =>
     )
     .handle("close", ({ params }) => Effect.flatMap(Cleanup, (c) => c.command(params.id, "close")))
     .handle("skip", ({ params }) => Effect.flatMap(Cleanup, (c) => c.skip(params.id)))
-    .handle("keep", ({ params }) =>
-      Effect.flatMap(Cleanup, (c) => c.keep(params.id, params.itemId)),
+    .handle("keep", ({ params, payload }) =>
+      Effect.flatMap(Cleanup, (c) => c.keep(params.id, payload.itemIds)),
     ),
 )
 

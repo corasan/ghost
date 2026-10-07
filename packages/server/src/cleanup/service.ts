@@ -30,6 +30,7 @@ import {
   keep,
   type Move,
   nextMoves,
+  type Outcome,
   plan,
   reconcile,
   settle,
@@ -56,7 +57,7 @@ export interface CleanupService {
   readonly skip: (id: string) => Effect.Effect<CleanupSession, CommandErrors>
   readonly keep: (
     id: string,
-    itemInstanceId: string,
+    itemInstanceIds: ReadonlyArray<string>,
   ) => Effect.Effect<CleanupSession, CommandErrors>
   readonly tick: Effect.Effect<void, BungieErrors>
 }
@@ -67,13 +68,15 @@ class MoveFailed extends Schema.TaggedError<MoveFailed>()("MoveFailed", {
   message: Schema.String,
 }) {}
 
+class ItemGone extends Schema.TaggedError<ItemGone>()("ItemGone", {}) {}
+
 interface Where {
   readonly location: ItemLocation
   readonly characterId: string | null
   readonly equipped: boolean
 }
 
-const INTERVAL = "5 seconds"
+const INTERVAL = "3 seconds"
 
 const POLLING = new Set<CleanupSession["stage"]>(["stashing", "delivering", "returning"])
 
@@ -153,9 +156,13 @@ export const cleanupLayer = (spacing: Duration.Input) =>
 
       const skipRest = (id: string) => update(id, skip).pipe(Effect.tap(() => profile.invalidate))
 
-      const keepItem = (id: string, itemInstanceId: string) =>
-        update(id, (session) => keep(session, itemInstanceId)).pipe(
-          Effect.tap(() => items.setDecision(itemInstanceId, "keep").pipe(Effect.orDie)),
+      const keepItems = (id: string, itemInstanceIds: ReadonlyArray<string>) =>
+        update(id, (session) => keep(session, itemInstanceIds)).pipe(
+          Effect.tap(() =>
+            Effect.forEach(itemInstanceIds, (itemId) => items.setDecision(itemId, "keep"), {
+              discard: true,
+            }).pipe(Effect.orDie),
+          ),
           Effect.tap(() => profile.invalidate),
         )
 
@@ -188,7 +195,7 @@ export const cleanupLayer = (spacing: Duration.Input) =>
                 ),
               )
           const at = located.get(id)
-          if (at === undefined) return yield* new MoveFailed({ message: "It is no longer owned." })
+          if (at === undefined) return yield* new ItemGone()
           if (
             at.location === "postmaster" ||
             (at.location === "character" && at.characterId === null)
@@ -202,7 +209,15 @@ export const cleanupLayer = (spacing: Duration.Input) =>
             return
           }
           if (at.equipped) return yield* new MoveFailed({ message: "It is equipped." })
-          yield* transfer(at.characterId ?? session.characterId, true)
+          yield* transfer(at.characterId ?? session.characterId, true).pipe(
+            Effect.catchIf(
+              (error) =>
+                move.kind === "stow" &&
+                error._tag === "BungieError" &&
+                error.status === "DestinyItemNotFound",
+              () => new ItemGone(),
+            ),
+          )
           if (target === "character") yield* transfer(session.characterId, false)
         })
 
@@ -246,17 +261,20 @@ export const cleanupLayer = (spacing: Duration.Input) =>
           const outcome = yield* Effect.result(
             execute(move, claimedSession, inv.membershipType, located),
           )
-          if (
-            outcome._tag === "Failure" &&
-            outcome.failure._tag !== "MoveFailed" &&
-            isOutage(outcome.failure)
-          ) {
-            const reason = describe(outcome.failure)
-            yield* record(session.id, (s) => new CleanupSession({ ...s, error: reason }))
-            break
+          if (Result.isFailure(outcome)) {
+            const failure = outcome.failure
+            if (failure._tag !== "MoveFailed" && failure._tag !== "ItemGone" && isOutage(failure)) {
+              const reason = describe(failure)
+              yield* record(session.id, (s) => new CleanupSession({ ...s, error: reason }))
+              break
+            }
           }
-          const error = outcome._tag === "Failure" ? describe(outcome.failure) : null
-          yield* record(session.id, (s, at) => settle(s, move, error, at))
+          const settled: Outcome = Result.isSuccess(outcome)
+            ? "landed"
+            : outcome.failure._tag === "ItemGone"
+              ? "gone"
+              : { failed: describe(outcome.failure) }
+          yield* record(session.id, (s, at) => settle(s, move, settled, at))
           yield* Effect.sleep(spacing)
         }
         if (attempted.size > 0) yield* profile.invalidate
@@ -268,7 +286,7 @@ export const cleanupLayer = (spacing: Duration.Input) =>
         start: begun,
         command: runCommand,
         skip: skipRest,
-        keep: keepItem,
+        keep: keepItems,
         tick,
       }
     }),

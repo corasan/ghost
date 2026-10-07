@@ -910,6 +910,9 @@ export class CleanupPreview extends Schema.Class<CleanupPreview>("CleanupPreview
 export const StartCleanup = Schema.Struct({ characterId: Schema.String })
 export type StartCleanup = typeof StartCleanup.Type
 
+export const KeepFromCleanup = Schema.Struct({ itemIds: Schema.NonEmptyArray(Schema.String) })
+export type KeepFromCleanup = typeof KeepFromCleanup.Type
+
 export class CleanupNotFound extends Schema.TaggedError<CleanupNotFound>()("CleanupNotFound", {
   id: Schema.String,
 }) {}
