@@ -52,6 +52,7 @@ const owned = (id: string, slot: ItemSlot, fields: Partial<OwnedItem> = {}): Own
   intrinsics: [],
   set: null,
   crafted: false,
+  tuning: null,
   ...fields,
 })
 
@@ -176,6 +177,7 @@ const harness = (account: Account, dataDir = mkdtempSync(join(tmpdir(), "ghost-c
       subclassPlugSets: () => Effect.succeed([]),
       armorMods: Effect.succeed([]),
       armorSets: Effect.succeed([]),
+      tuningMods: Effect.succeed(new Map()),
       elementIcons: Effect.succeed({}),
       capacities: Effect.succeed({ vault: 600, postmaster: 21 }),
       ensure: Effect.void,

@@ -83,13 +83,14 @@ export const ProfileStoreLive = Layer.effect(
       )
       const defs = yield* manifest.lookup(profileHashes(profile))
       const sets = setsByItem(yield* manifest.armorSets)
+      const tuning = yield* manifest.tuningMods
       // Sync needs the item list and the summaries need what sync wrote
       // (first-seen times), so the pure build runs twice; it is cheap.
-      const draft = buildInventory(profile, defs, new Map(), sets)
+      const draft = buildInventory(profile, defs, new Map(), sets, tuning)
       yield* items.sync(draft.items).pipe(Effect.orDie)
       const seen = yield* items.decisions.pipe(Effect.orDie)
       const inventory = {
-        ...buildInventory(profile, defs, seen, sets),
+        ...buildInventory(profile, defs, seen, sets, tuning),
         membershipType: m.membershipType,
         membershipId: m.membershipId,
       }

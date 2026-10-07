@@ -126,7 +126,7 @@ const seen = new Map([
 
 const techsec = { name: "Techsec", items: [2], perks: [] }
 
-const inv = buildInventory(profile, defs, seen, new Map([[2, techsec]]))
+const inv = buildInventory(profile, defs, seen, new Map([[2, techsec]]), new Map())
 
 const fixture = <A>(value: A | undefined): A => {
   if (value === undefined) throw new Error("the fixture has no such entry")
@@ -307,6 +307,7 @@ describe("buildInventory, rolled perks", () => {
     new Map([...defs, ...rolled]),
     new Map(),
     new Map(),
+    new Map(),
   )
   const item = (id: string) => inv.items.find((i) => i.itemInstanceId === id)
 
@@ -325,5 +326,71 @@ describe("buildInventory, rolled perks", () => {
       true,
       false,
     ])
+  })
+})
+
+describe("buildInventory, tuning", () => {
+  const BALANCED = 60
+  const tuningMods = new Map<number, string | null>([
+    [BALANCED, null],
+    [61, STAT.recovery],
+    [62, STAT.recovery],
+    [63, STAT.mobility],
+  ])
+  const armor = (id: string) => ({
+    itemHash: 2,
+    itemInstanceId: id,
+    quantity: 1,
+    bucketHash: BUCKETS.vault,
+  })
+  const tuningOf = (mods: ReadonlyMap<number, string | null>) =>
+    Object.fromEntries(
+      buildInventory(
+        {
+          profileInventory: {
+            data: { items: [armor("legendary"), armor("exotic"), armor("lower"), armor("bare")] },
+          },
+          itemComponents: {
+            reusablePlugs: {
+              data: {
+                legendary: {
+                  plugs: {
+                    "6": [{ plugItemHash: 40 }],
+                    "11": [{ plugItemHash: BALANCED }, { plugItemHash: 61 }, { plugItemHash: 62 }],
+                  },
+                },
+                exotic: {
+                  plugs: {
+                    "11": [{ plugItemHash: BALANCED }, { plugItemHash: 61 }, { plugItemHash: 63 }],
+                  },
+                },
+                lower: { plugs: { "11": [{ plugItemHash: BALANCED }] } },
+              },
+            },
+          },
+        },
+        defs,
+        new Map(),
+        new Map(),
+        mods,
+      ).items.map((item) => [item.itemInstanceId, item.tuning]),
+    )
+
+  test("names the stat a piece's tuning mods raise, from its reusable plugs", () => {
+    expect(tuningOf(tuningMods)).toEqual({
+      legendary: "recovery",
+      exotic: "any",
+      lower: "balanced",
+      bare: null,
+    })
+  })
+
+  test("leaves tuning unread when the tuning mods are not known", () => {
+    expect(tuningOf(new Map())).toEqual({
+      legendary: null,
+      exotic: null,
+      lower: null,
+      bare: null,
+    })
   })
 })

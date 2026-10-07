@@ -34,6 +34,7 @@ const weapon = (id: string, name: string, fields: Partial<OwnedItem> = {}): Owne
   intrinsics: [],
   set: null,
   crafted: false,
+  tuning: null,
   ...fields,
 })
 

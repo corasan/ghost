@@ -48,6 +48,7 @@ const owned = (id: string, slot: ItemSlot, fields: Partial<OwnedItem> = {}): Own
   intrinsics: [],
   set: null,
   crafted: false,
+  tuning: null,
   ...fields,
 })
 
@@ -299,6 +300,7 @@ const ComposeTest = Layer.mergeAll(
     subclassPlugSets: () => Effect.succeed([]),
     armorMods: Effect.succeed([]),
     armorSets: Effect.succeed([]),
+    tuningMods: Effect.succeed(new Map()),
     elementIcons: Effect.succeed({}),
     capacities: Effect.succeed({ vault: 700, postmaster: 21 }),
     ensure: Effect.void,
