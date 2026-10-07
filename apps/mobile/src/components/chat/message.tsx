@@ -7,6 +7,7 @@ import { Body, Meta, Mono, Said } from "@/components/ghost/ui"
 import { Ghost } from "@/constants/theme"
 import { age, clock } from "@/lib/format"
 import { webUrl } from "@/lib/links"
+import { CleanupOffer } from "./cleanup-offer"
 import { SaidMarkdown } from "./markdown"
 import { PlanBlock } from "./plan-block"
 import { StepsSummary, Working } from "./steps"
@@ -61,6 +62,9 @@ function Message({ job, onAsk }: { job: Job; onAsk: (prompt: string) => void }) 
         <SaidMarkdown>{job.result}</SaidMarkdown>
       ) : null}
       {job.plan ? <PlanBlock job={job} plan={job.plan} onAsk={onAsk} /> : null}
+      {job.offer === "cleanup_mode" && !working ? (
+        <CleanupOffer characterId={job.characterId} />
+      ) : null}
       {working ? null : <StepsSummary steps={job.steps} />}
       {job.sources.length > 0 ? <Sources sources={job.sources} /> : null}
     </View>
@@ -77,5 +81,6 @@ export const MessageView = memo(
     a.job.status === b.job.status &&
     a.job.steps.length === b.job.steps.length &&
     a.job.plan?.status === b.job.plan?.status &&
+    a.job.offer === b.job.offer &&
     a.onAsk === b.onAsk,
 )

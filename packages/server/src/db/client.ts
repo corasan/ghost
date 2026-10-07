@@ -204,6 +204,37 @@ const migrations = {
       ON saved_builds (in_game_character_id, in_game_index)
     `
   }),
+  // A cleanup session is one JSON document; stage is its own column so the
+  // active session is found without decoding every past one.
+  "0009_cleanup_sessions": Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    yield* sql`
+      CREATE TABLE IF NOT EXISTS cleanup_sessions (
+        id TEXT PRIMARY KEY,
+        stage TEXT NOT NULL,
+        state TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    `
+  }),
+  "0010_job_offer": Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    yield* sql`ALTER TABLE jobs ADD COLUMN offer TEXT`
+  }),
+  // Jev's answer to one question, keyed by a hash of the model, subject,
+  // request and item text, so judging the same vault twice gives the same
+  // verdicts and asks Jev nothing the second time.
+  "0011_jev_answers": Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    yield* sql`
+      CREATE TABLE IF NOT EXISTS jev_answers (
+        key TEXT PRIMARY KEY,
+        answer REAL NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    `
+  }),
 }
 
 const SqliteLive = Layer.unwrap(

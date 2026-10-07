@@ -211,6 +211,22 @@ export const statModsFrom = (definition: PlugDefinition, conditional: boolean): 
     ),
   )
 
+export const TUNING_SOCKET = "core.gear_systems.armor_tiering.plugs.tuning.mods"
+
+/** The stat hash each armor tuning mod raises, keyed by the mod's hash; null for Balanced Tuning, which raises none. */
+export type TuningMods = ReadonlyMap<number, string | null>
+
+const StoredTuningMods = Schema.Array(Schema.Tuple([Schema.Number, Schema.NullOr(Schema.String)]))
+
+export const tuningModsFrom = (facts: ReadonlyMap<number, PlugFacts>): TuningMods =>
+  new Map(
+    [...facts].flatMap(([hash, plug]) =>
+      plug.category === TUNING_SOCKET
+        ? [[hash, Object.entries(plug.mods).find(([, value]) => value > 0)?.[0] ?? null] as const]
+        : [],
+    ),
+  )
+
 /** A bonus an armor set grants once enough of its pieces are worn. */
 const ArmorSetPerk = Schema.Struct({
   name: Schema.String,
@@ -299,6 +315,8 @@ export interface ManifestService {
   readonly armorMods: Effect.Effect<ReadonlyArray<ArmorModEntry>>
   /** Armor sets with their bonuses resolved. Slow the first time after a patch, then stored. Never fails. */
   readonly armorSets: Effect.Effect<ReadonlyArray<ArmorSet>>
+  /** Armor tuning mods by hash. Slow the first time after a patch, then stored. Empty when Bungie cannot be asked. Never fails. */
+  readonly tuningMods: Effect.Effect<TuningMods>
   /** Empty until first read. Never fails. */
   readonly elementIcons: Effect.Effect<ElementIcons>
   /** How many slots the vault and postmaster hold in the current patch. Never fails. */
@@ -461,6 +479,8 @@ const ARMOR_MODS_KEY = "manifest.armorMods.v3"
 const ARMOR_MODS_VERSION_KEY = "manifest.armorMods.version"
 const ARMOR_SETS_KEY = "manifest.armorSets"
 const ARMOR_SETS_VERSION_KEY = "manifest.armorSets.version"
+const TUNING_MODS_KEY = "manifest.tuningMods"
+const TUNING_MODS_VERSION_KEY = "manifest.tuningMods.version"
 export const BUILD_SOCKET = /^enhancements\.v2_/
 
 const ARMOR_CHARGE = /armor charge/i
@@ -542,6 +562,7 @@ export const ManifestLive = Layer.effect(
     const lock = yield* Semaphore.make(1)
     const lockMods = yield* Semaphore.make(1)
     const lockSets = yield* Semaphore.make(1)
+    const lockTuning = yield* Semaphore.make(1)
 
     const plugs = new Map<number, PlugFacts>()
 
@@ -727,6 +748,7 @@ export const ManifestLive = Layer.effect(
       plugSets.clear()
       armorMods = null
       armorSets = null
+      tuningMods = null
       checkedAt = Date.now()
       yield* Effect.logInfo(`manifest: stored ${count} items`)
     }).pipe(lock.withPermits(1))
@@ -892,6 +914,36 @@ export const ManifestLive = Layer.effect(
       lockSets.withPermits(1),
     )
 
+    let tuningMods: TuningMods | null = null
+
+    const readTuningMods = Effect.gen(function* () {
+      yield* Effect.ignore(ensure)
+      if (tuningMods !== null) return tuningMods
+      const version = Option.getOrNull(yield* settings.get(VERSION_KEY).pipe(Effect.orDie))
+      const storedFor = Option.getOrNull(
+        yield* settings.get(TUNING_MODS_VERSION_KEY).pipe(Effect.orDie),
+      )
+      const stored = (yield* settings.get(TUNING_MODS_KEY).pipe(Effect.orDie)).pipe(
+        Option.flatMap(storedJson(StoredTuningMods)),
+      )
+      if (Option.isSome(stored) && storedFor === version) {
+        tuningMods = new Map(stored.value)
+        return tuningMods
+      }
+      const rows = yield* sql<ManifestRow>`
+        SELECT * FROM manifest_items WHERE type_name = 'General Armor Mod'
+      `.pipe(Effect.orDie)
+      const facts = yield* plugFacts(rows.map((row) => row.hash))
+      // A partial list could leave a legendary's tuned stat out and read it as
+      // balanced, so tuning stays unread until every mod is known.
+      if (facts.size < rows.length) return new Map()
+      const found = tuningModsFrom(facts)
+      tuningMods = found
+      yield* settings.set(TUNING_MODS_KEY, JSON.stringify([...found])).pipe(Effect.orDie)
+      if (version !== null) yield* settings.set(TUNING_MODS_VERSION_KEY, version).pipe(Effect.orDie)
+      return found
+    }).pipe(lockTuning.withPermits(1))
+
     const readKeywords = Effect.gen(function* () {
       yield* Effect.ignore(ensure)
       if (keywords !== null) return keywords
@@ -915,6 +967,7 @@ export const ManifestLive = Layer.effect(
     return {
       armorMods: readArmorMods,
       armorSets: readArmorSets,
+      tuningMods: readTuningMods,
       elementIcons: readElementIcons,
       capacities: readCapacities,
       statFacts: readStatFacts,

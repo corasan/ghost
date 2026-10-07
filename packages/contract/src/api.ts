@@ -11,6 +11,10 @@ import {
   BungieFailed,
   BungieNotLinked,
   ChatSession,
+  CleanupNotFound,
+  CleanupPreview,
+  CleanupRefused,
+  CleanupSession,
   CreateJob,
   EquipBuild,
   EquipBuildResult,
@@ -33,6 +37,7 @@ import {
   SavedBuild,
   SetAgentSettings,
   SetDecision,
+  StartCleanup,
   VaultSnapshot,
 } from "./schemas"
 
@@ -201,6 +206,51 @@ export const agentGroup = HttpApiGroup.make("agent")
     }),
   )
 
+const cleanupErrors = [
+  CleanupNotFound.pipe(HttpApiSchema.status(404)),
+  CleanupRefused.pipe(HttpApiSchema.status(409)),
+] as const
+
+const cleanupCommand = {
+  params: { id: Schema.String },
+  success: CleanupSession,
+  error: cleanupErrors,
+}
+
+export const cleanupGroup = HttpApiGroup.make("cleanup")
+  .add(
+    HttpApiEndpoint.get("preview", "/cleanup/preview", {
+      query: { characterId: Schema.String },
+      success: CleanupPreview,
+      error: [CleanupRefused.pipe(HttpApiSchema.status(409)), ...bungieErrors],
+    }),
+  )
+  .add(
+    HttpApiEndpoint.get("current", "/cleanup/current", {
+      success: Schema.NullOr(CleanupSession),
+    }),
+  )
+  .add(
+    HttpApiEndpoint.post("start", "/cleanup/start", {
+      payload: StartCleanup,
+      success: CleanupSession,
+      error: [CleanupRefused.pipe(HttpApiSchema.status(409)), ...bungieErrors],
+    }),
+  )
+  .add(HttpApiEndpoint.post("pause", "/cleanup/:id/pause", cleanupCommand))
+  .add(HttpApiEndpoint.post("resume", "/cleanup/:id/resume", cleanupCommand))
+  .add(HttpApiEndpoint.post("stop", "/cleanup/:id/stop", cleanupCommand))
+  .add(HttpApiEndpoint.post("skip", "/cleanup/:id/skip", cleanupCommand))
+  .add(HttpApiEndpoint.post("return", "/cleanup/:id/return", cleanupCommand))
+  .add(HttpApiEndpoint.post("close", "/cleanup/:id/close", cleanupCommand))
+  .add(
+    HttpApiEndpoint.post("keep", "/cleanup/:id/keep/:itemId", {
+      params: { id: Schema.String, itemId: Schema.String },
+      success: CleanupSession,
+      error: cleanupErrors,
+    }),
+  )
+
 export const authGroup = HttpApiGroup.make("auth")
   .add(HttpApiEndpoint.get("start", "/auth/bungie/start", { success: BungieAuthStart }))
   .add(
@@ -219,5 +269,6 @@ export const GhostApi = HttpApi.make("ghost")
   .add(guardianGroup)
   .add(buildsGroup)
   .add(agentGroup)
+  .add(cleanupGroup)
   .add(authGroup)
 export type GhostApi = typeof GhostApi

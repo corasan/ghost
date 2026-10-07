@@ -16,6 +16,7 @@ import {
   damageForType,
   type ManifestItem,
   slotForBucket,
+  type TuningMods,
 } from "./manifest.ts"
 
 // Turns one GetProfile response into the flat list of owned items and the
@@ -28,7 +29,7 @@ const RawItem = Schema.Struct({
   itemInstanceId: Schema.optional(Schema.String),
   quantity: Schema.Number,
   bucketHash: Schema.Number,
-  /** ItemState bitmask: 1 locked, 4 masterwork. */
+  /** ItemState bitmask: 1 locked, 4 masterwork, 8 crafted. */
   state: Schema.optional(Schema.Number),
 })
 export type RawItem = typeof RawItem.Type
@@ -59,6 +60,10 @@ const ItemSockets = Schema.Struct({
   ),
 })
 
+const ReusablePlugs = Schema.Struct({
+  plugs: Schema.Record(Schema.String, Schema.Array(Schema.Struct({ plugItemHash: Schema.Number }))),
+})
+
 const Character = Schema.Struct({
   characterId: Schema.String,
   classType: Schema.Number,
@@ -77,8 +82,9 @@ const byInstance = <S extends Schema.Top>(value: S) =>
 // Components: 100 profile, 102 vault, 200 characters, 201 character
 // inventories (incl. postmaster), 205 equipment, 300 instances (power,
 // element), 304 item stats (armor totals), 305 sockets (weapon perks) and
-// the profile and character plug sets.
-export const PROFILE_COMPONENTS = [100, 102, 200, 201, 205, 300, 304, 305]
+// the profile and character plug sets, 310 reusable plugs (the tuning mods a
+// piece of armor accepts, which name its tuned stat).
+export const PROFILE_COMPONENTS = [100, 102, 200, 201, 205, 300, 304, 305, 310]
 
 export const Profile = Schema.Struct({
   profile: component(
@@ -95,6 +101,7 @@ export const Profile = Schema.Struct({
       instances: byInstance(Instance),
       stats: byInstance(ItemStats),
       sockets: byInstance(ItemSockets),
+      reusablePlugs: byInstance(ReusablePlugs),
     }),
   ),
 })
@@ -111,6 +118,13 @@ export const STAT = {
 
 export type ArmorStats = typeof CharacterStats.Type
 
+/**
+ * Which stat a piece's tuning mods raise. Tier 5 legendary armor rolls one
+ * stat at random; tier 5 exotics take any stat; lower tiers only take
+ * Balanced Tuning.
+ */
+export type Tuning = keyof ArmorStats | "any" | "balanced"
+
 /** Everything the contract's ItemSummary has, plus the six armor stats. */
 export type OwnedItem = Schema.Struct.Type<typeof ItemSummary.fields> & {
   readonly itemInstanceId: string
@@ -122,8 +136,13 @@ export type OwnedItem = Schema.Struct.Type<typeof ItemSummary.fields> & {
   readonly energy: { readonly used: number; readonly capacity: number } | null
   /** Exotic armor only: its intrinsic perk. */
   readonly exoticPerk: ItemPerk | null
+  /** Exotic armor only: every intrinsic perk, which on an exotic class item includes its two rolled perks. */
+  readonly intrinsics: ReadonlyArray<string>
   /** Armor only: the armor set it belongs to. */
   readonly set: ArmorSet | null
+  readonly crafted: boolean
+  /** Armor only: null when the piece has no tuning socket, or its tuning mods could not be read. */
+  readonly tuning: Tuning | null
 }
 
 export interface ModSocket {
@@ -241,6 +260,33 @@ export interface SeenInfo {
   readonly baseline: boolean
 }
 
+const STAT_KEYS = new Map<string, keyof ArmorStats>([
+  [STAT.mobility, "mobility"],
+  [STAT.resilience, "resilience"],
+  [STAT.recovery, "recovery"],
+  [STAT.discipline, "discipline"],
+  [STAT.intellect, "intellect"],
+  [STAT.strength, "strength"],
+])
+
+/** The tuning a piece accepts, read from the reusable plugs of its tuning socket. */
+export const tuningOf = (
+  sockets: ReadonlyArray<ReadonlyArray<number>>,
+  mods: TuningMods,
+): Tuning | null => {
+  const offered = sockets.find((plugs) => plugs.some((hash) => mods.has(hash)))
+  if (offered === undefined) return null
+  const raised = new Set(
+    offered.flatMap((hash) => {
+      const key = STAT_KEYS.get(mods.get(hash) ?? "")
+      return key === undefined ? [] : [key]
+    }),
+  )
+  const [only] = raised
+  if (raised.size > 1) return "any"
+  return only ?? "balanced"
+}
+
 export const classFor = (classType: number): GuardianClass =>
   classType === 0 ? "titan" : classType === 1 ? "hunter" : "warlock"
 
@@ -311,7 +357,9 @@ export const buildInventory = (
   defs: ReadonlyMap<number, ManifestItem>,
   seen: ReadonlyMap<string, SeenInfo>,
   sets: ReadonlyMap<number, ArmorSet>,
+  tuningMods: TuningMods,
 ): Inventory => {
+  const reusable = profile.itemComponents?.reusablePlugs?.data ?? {}
   const instances = profile.itemComponents?.instances?.data ?? {}
   const itemStats = profile.itemComponents?.stats?.data ?? {}
   const sockets = profile.itemComponents?.sockets?.data ?? {}
@@ -423,14 +471,14 @@ export const buildInventory = (
           return [{ index, plugHash: plug.hash, empty: EMPTY_SOCKET.test(plug.name) }]
         })
       : []
-    const intrinsic =
+    const intrinsics =
       armor && def?.tier === "exotic"
-        ? (sockets[id]?.sockets ?? [])
-            .map((socket) =>
-              socket.plugHash === undefined ? undefined : defs.get(socket.plugHash),
-            )
-            .find((plug) => plug?.typeName === "Intrinsic" && plug.description !== "")
-        : undefined
+        ? (sockets[id]?.sockets ?? []).flatMap((socket) => {
+            const plug = socket.plugHash === undefined ? undefined : defs.get(socket.plugHash)
+            return plug?.typeName === "Intrinsic" && plug.description !== "" ? [plug] : []
+          })
+        : []
+    const intrinsic = intrinsics[0]
     const perks = plugHashes.flatMap((hash) => {
       const plug = defs.get(hash)
       return plug !== undefined && plug.typeName.includes("Trait") ? [plug.name] : []
@@ -487,7 +535,17 @@ export const buildInventory = (
               icon: intrinsic.icon,
               trait: false,
             }),
+      intrinsics: intrinsics.map((plug) => plug.name),
       set: armor ? (sets.get(raw.itemHash) ?? null) : null,
+      crafted: (state & 8) !== 0,
+      tuning: armor
+        ? tuningOf(
+            Object.values(reusable[id]?.plugs ?? {}).map((plugs) =>
+              plugs.map((plug) => plug.plugItemHash),
+            ),
+            tuningMods,
+          )
+        : null,
     }
   })
 

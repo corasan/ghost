@@ -12,7 +12,7 @@ export class JevUnavailable extends Schema.TaggedError<JevUnavailable>()("JevUna
 }) {}
 
 /** What a candidate is, which sets the question Jev answers about it. */
-export type Subject = "item" | "set bonus"
+export type Subject = "item" | "set bonus" | "outclassed"
 
 export interface JevService {
   /** Each candidate's relevance to the intent, in [0, 1]: Jev's probability that it fits. */
@@ -29,13 +29,13 @@ const CHARS_PER_TOKEN = 4
 export const REQUEST_TOKENS = 32_000
 const CONCURRENCY = 4
 
-interface Question {
+export interface Question {
   readonly question: string
   readonly true: string
   readonly false: string
 }
 
-const QUESTIONS: Record<Subject, Question> = {
+export const QUESTIONS: Record<Subject, Question> = {
   item: {
     question: "Does the Destiny 2 item in `item` fit what the player asks for in `request`?",
     true: "Nothing about the item conflicts with `request`, and its class, element, stats or perks serve the goal `request` states.",
@@ -48,6 +48,13 @@ const QUESTIONS: Record<Subject, Question> = {
     true: "The bonus's effect triggers from or feeds the subclass, element, abilities, weapons or activity `request` describes.",
     false:
       "The bonus's effect needs a different element, ability, weapon type or activity than `request` describes, or does nothing for its goal.",
+  },
+  outclassed: {
+    question:
+      "Does the player's copy in `request` make the Destiny 2 item in `item` redundant, so that deleting `item` loses nothing a player would use?",
+    true: "`request` is the same weapon or armor piece and is at least as good for every activity `item` suits: its perks, stats, gear tier and element serve the same uses as well or better, and nothing `item` has that `request` lacks is a perk or roll players seek out.",
+    false:
+      "`item` has a perk, perk combination, stat spread, element or gear tier that `request` lacks and that players seek out for some activity, PvE or PvP, so the two copies serve different uses.",
   },
 }
 

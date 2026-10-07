@@ -126,7 +126,7 @@ const seen = new Map([
 
 const techsec = { name: "Techsec", items: [2], perks: [] }
 
-const inv = buildInventory(profile, defs, seen, new Map([[2, techsec]]))
+const inv = buildInventory(profile, defs, seen, new Map([[2, techsec]]), new Map())
 
 const fixture = <A>(value: A | undefined): A => {
   if (value === undefined) throw new Error("the fixture has no such entry")
@@ -264,5 +264,133 @@ describe("isUpgrade", () => {
 
   test("the equipped item itself is not an upgrade", () => {
     expect(isUpgrade(byId("e1"), titan, inv.items)).toBe(false)
+  })
+})
+
+describe("buildInventory, rolled perks", () => {
+  const rolled = new Map<number, ManifestItem>([
+    [
+      5,
+      def(5, {
+        name: "Solipsism",
+        typeName: "Warlock Bond",
+        tier: "exotic",
+        bucketHash: BUCKETS.class,
+        classType: 2,
+      }),
+    ],
+    [50, def(50, { name: "Solipsism", typeName: "Intrinsic", description: "Two spirits." })],
+    [51, def(51, { name: "Spirit of the Star-Eater", typeName: "Intrinsic", description: "A." })],
+    [52, def(52, { name: "Spirit of Synthoceps", typeName: "Intrinsic", description: "B." })],
+    [53, def(53, { name: "Upgrade Armor", typeName: "Intrinsic", description: "" })],
+  ])
+  const inv = buildInventory(
+    {
+      profileInventory: {
+        data: {
+          items: [
+            { itemHash: 5, itemInstanceId: "x1", quantity: 1, bucketHash: BUCKETS.vault },
+            { itemHash: 1, itemInstanceId: "w1", quantity: 1, bucketHash: BUCKETS.vault, state: 9 },
+          ],
+        },
+      },
+      itemComponents: {
+        sockets: {
+          data: {
+            x1: {
+              sockets: [{ plugHash: 50 }, { plugHash: 51 }, { plugHash: 52 }, { plugHash: 53 }],
+            },
+          },
+        },
+      },
+    },
+    new Map([...defs, ...rolled]),
+    new Map(),
+    new Map(),
+    new Map(),
+  )
+  const item = (id: string) => inv.items.find((i) => i.itemInstanceId === id)
+
+  test("keeps every perk an exotic class item rolled, not only its first", () => {
+    expect(item("x1")?.intrinsics).toEqual([
+      "Solipsism",
+      "Spirit of the Star-Eater",
+      "Spirit of Synthoceps",
+    ])
+    expect(item("x1")?.exoticPerk?.name).toBe("Solipsism")
+  })
+
+  test("reads the crafted bit apart from the lock", () => {
+    expect([item("w1")?.crafted, item("w1")?.locked, item("x1")?.crafted]).toEqual([
+      true,
+      true,
+      false,
+    ])
+  })
+})
+
+describe("buildInventory, tuning", () => {
+  const BALANCED = 60
+  const tuningMods = new Map<number, string | null>([
+    [BALANCED, null],
+    [61, STAT.recovery],
+    [62, STAT.recovery],
+    [63, STAT.mobility],
+  ])
+  const armor = (id: string) => ({
+    itemHash: 2,
+    itemInstanceId: id,
+    quantity: 1,
+    bucketHash: BUCKETS.vault,
+  })
+  const tuningOf = (mods: ReadonlyMap<number, string | null>) =>
+    Object.fromEntries(
+      buildInventory(
+        {
+          profileInventory: {
+            data: { items: [armor("legendary"), armor("exotic"), armor("lower"), armor("bare")] },
+          },
+          itemComponents: {
+            reusablePlugs: {
+              data: {
+                legendary: {
+                  plugs: {
+                    "6": [{ plugItemHash: 40 }],
+                    "11": [{ plugItemHash: BALANCED }, { plugItemHash: 61 }, { plugItemHash: 62 }],
+                  },
+                },
+                exotic: {
+                  plugs: {
+                    "11": [{ plugItemHash: BALANCED }, { plugItemHash: 61 }, { plugItemHash: 63 }],
+                  },
+                },
+                lower: { plugs: { "11": [{ plugItemHash: BALANCED }] } },
+              },
+            },
+          },
+        },
+        defs,
+        new Map(),
+        new Map(),
+        mods,
+      ).items.map((item) => [item.itemInstanceId, item.tuning]),
+    )
+
+  test("names the stat a piece's tuning mods raise, from its reusable plugs", () => {
+    expect(tuningOf(tuningMods)).toEqual({
+      legendary: "recovery",
+      exotic: "any",
+      lower: "balanced",
+      bare: null,
+    })
+  })
+
+  test("leaves tuning unread when the tuning mods are not known", () => {
+    expect(tuningOf(new Map())).toEqual({
+      legendary: null,
+      exotic: null,
+      lower: null,
+      bare: null,
+    })
   })
 })

@@ -132,6 +132,9 @@ describe("pieceSetBonuses", () => {
     modSockets: [],
     energy: null,
     exoticPerk: null,
+    intrinsics: [],
+    crafted: false,
+    tuning: null,
     set: techsec,
     ...fields,
   })

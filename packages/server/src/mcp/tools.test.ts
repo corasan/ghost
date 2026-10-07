@@ -51,7 +51,10 @@ const owned = (id: string, slot: ItemSlot, fields: Partial<OwnedItem> = {}): Own
   modSockets: [],
   energy: null,
   exoticPerk: null,
+  intrinsics: [],
   set: null,
+  crafted: false,
+  tuning: null,
   ...fields,
 })
 

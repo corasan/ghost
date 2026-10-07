@@ -48,3 +48,14 @@ test("a job keeps the recipe of its build and has none until one is set", async 
   expect(Option.isNone(before)).toBe(true)
   expect(Option.getOrNull(after)).toEqual(recipe)
 })
+
+test("a job carries no offer until Ghost makes one, then reads it back", async () => {
+  const [before, after] = await Effect.gen(function* () {
+    const jobs = yield* JobsRepo
+    const job = yield* jobs.create({ kind: "chat", prompt: "Clean up my vault" })
+    yield* jobs.setOffer(job.id, "cleanup_mode")
+    return [job.offer, (yield* jobs.get(job.id)).offer] as const
+  }).pipe(Effect.provide(JobsTest), Effect.runPromise)
+  expect(before).toBeNull()
+  expect(after).toBe("cleanup_mode")
+})

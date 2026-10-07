@@ -89,6 +89,8 @@ const STEPS = new Map<string, StepCopy>(
       label: "Citing sources",
       detail: (input) => count(input.sources?.length, "source"),
     },
+    find_junk: { label: "Judging your vault for junk" },
+    offer_cleanup_mode: { label: "Checking what is tagged junk" },
     present_plan: {
       label: "Writing the plan",
       detail: (input) => count(input.rows?.length, "item"),

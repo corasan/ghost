@@ -11,6 +11,8 @@ import { JobRunnerLive } from "./agent/runner.ts"
 import { AgentConfigLive } from "./agent/settings.ts"
 import { ApiLive } from "./api/index.ts"
 import { ArtifactsLive } from "./bungie/artifact.ts"
+import { CleanupRepoLive } from "./cleanup/repo.ts"
+import { CleanupLive, CleanupWatcherLive } from "./cleanup/service.ts"
 import { BuildsLive } from "./builds/builds.ts"
 import { BungieClientLive } from "./bungie/client.ts"
 import { GuardianLive } from "./bungie/guardian.ts"
@@ -25,6 +27,8 @@ import { ChargeEffectsLive } from "./db/charge.ts"
 import { DatabaseLive } from "./db/client.ts"
 import { ItemsRepoLive } from "./db/items.ts"
 import { JobsRepoLive } from "./db/jobs.ts"
+import { JevAnswersLive } from "./junk/cache.ts"
+import { JunkJudgeLive } from "./junk/service.ts"
 import { SettingsLive } from "./db/settings.ts"
 import { ItemsLive } from "./items/items.ts"
 import { LoggerLive, requestLogger } from "./log.ts"
@@ -42,6 +46,8 @@ const Repositories = Layer.mergeAll(
   BuildsRepoLive,
   SettingsLive,
   ChargeEffectsLive,
+  CleanupRepoLive,
+  JevAnswersLive,
 ).pipe(Layer.provideMerge(DatabaseLive))
 
 const Clients = Layer.mergeAll(
@@ -59,9 +65,14 @@ const Profile = Layer.mergeAll(ProfileStoreLive, CreatorNotesLive).pipe(Layer.pr
 
 const Reads = LoadoutsLive.pipe(Layer.provideMerge(Profile))
 
-const Services = Layer.mergeAll(GuardianLive, ActivityLive, PlansLive, ArtifactsLive).pipe(
-  Layer.provideMerge(Reads),
-)
+const Services = Layer.mergeAll(
+  GuardianLive,
+  ActivityLive,
+  PlansLive,
+  ArtifactsLive,
+  CleanupLive,
+  JunkJudgeLive,
+).pipe(Layer.provideMerge(Reads))
 
 const Actions = Layer.mergeAll(ItemsLive, BuildsLive).pipe(Layer.provideMerge(Services))
 
@@ -77,6 +88,7 @@ const ServerLive = Layer.unwrap(
 const Main = HttpRouter.serve(Routes, { disableLogger: true, middleware: requestLogger }).pipe(
   Layer.provide(HttpServer.layerServices),
   Layer.merge(JobRunnerLive),
+  Layer.merge(CleanupWatcherLive),
   Layer.merge(ProfileRefreshLive),
   Layer.merge(CreatorRefreshLive),
   Layer.provide(Actions),
