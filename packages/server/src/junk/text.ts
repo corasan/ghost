@@ -1,4 +1,4 @@
-import type { OwnedItem } from "../bungie/inventory.ts"
+import type { OwnedItem, Tuning } from "../bungie/inventory.ts"
 import type { ManifestItem } from "../bungie/manifest.ts"
 import { ARMOR_STATS } from "../bungie/masterwork.ts"
 
@@ -7,6 +7,14 @@ const COSMETIC =
 const EMPTY = /^empty /i
 
 const title = (label: string) => `${label.charAt(0)}${label.slice(1).toLowerCase()}`
+
+const tuningLine = (tuning: Tuning | null) => {
+  if (tuning === null) return null
+  if (tuning === "any") return "tunable to any stat"
+  if (tuning === "balanced") return "balanced tuning only"
+  const label = ARMOR_STATS.find(([key]) => key === tuning)?.[1] ?? tuning
+  return `tuned stat ${title(label)}`
+}
 
 /** A weapon's roll as "Type: Name" lines, sorted, so socket order never changes the text. */
 export const rollLines = (
@@ -36,6 +44,7 @@ export const itemText = (item: OwnedItem, plugs: ReadonlyMap<number, ManifestIte
     stats === null
       ? null
       : `stats: ${ARMOR_STATS.map(([key, label]) => `${title(label)} ${stats[key]}`).join(", ")} (total ${item.statTotal})`,
+    tuningLine(item.tuning),
     roll.length > 0 ? `perks: ${roll.join(", ")}` : null,
     item.intrinsics.length === 0 ? null : `exotic perks: ${item.intrinsics.toSorted().join(", ")}`,
     item.set === null ? null : `armor set ${item.set.name}`,
