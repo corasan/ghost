@@ -24,6 +24,7 @@ export default function AppLayout() {
         <Drawer.Screen name="vault" />
         <Drawer.Screen name="recent" />
         <Drawer.Screen name="history" />
+        <Drawer.Screen name="cleanup" />
       </Drawer>
     </GestureHandlerRootView>
   )

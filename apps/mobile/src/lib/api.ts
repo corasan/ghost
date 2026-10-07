@@ -1,5 +1,7 @@
 import {
   type AgentEffort,
+  type CleanupSession,
+  type CleanupStage,
   type CreateJob,
   type EquipBuild,
   GhostApi,
@@ -59,6 +61,9 @@ export const queryKeys = {
   builds: (url: string) => [url, "builds"] as const,
   loadoutSlots: (url: string, characterId: string | undefined) =>
     [url, "loadoutSlots", characterId] as const,
+  cleanup: (url: string) => [url, "cleanup"] as const,
+  cleanupPreview: (url: string, characterId: string | undefined) =>
+    [url, "cleanupPreview", characterId] as const,
 }
 
 /** Queries worth keeping on disk so the app opens on real data, not spinners. */
@@ -224,10 +229,10 @@ export function useHistory() {
 }
 
 /** After items move, everything that shows items or counts is out of date. */
-const invalidateInventory = (queryClient: QueryClient) =>
+export const invalidateInventory = (queryClient: QueryClient) =>
   Promise.all(
-    ["jobs", "recent", "guardian", "vault", "briefing", "history", "builds"].map((key) =>
-      queryClient.invalidateQueries({ queryKey: [getServerUrl(), key] }),
+    ["jobs", "recent", "guardian", "vault", "briefing", "history", "builds", "cleanupPreview"].map(
+      (key) => queryClient.invalidateQueries({ queryKey: [getServerUrl(), key] }),
     ),
   )
 
@@ -442,6 +447,83 @@ export function useLoadoutSlots(characterId: string | undefined) {
     enabled: characterId !== undefined,
     staleTime: 30_000,
     retry: false,
+  })
+}
+
+const WATCHED = new Set<CleanupStage>(["stashing", "delivering", "returning"])
+
+/** The cleanup session in progress; polled while Ghost is moving items or watching for deletes. */
+export function useCleanup() {
+  const url = useServerUrl()
+  return useQuery({
+    queryKey: queryKeys.cleanup(url),
+    queryFn: () => run((api) => api.cleanup.current()),
+    refetchInterval: (query) =>
+      query.state.data && WATCHED.has(query.state.data.stage) ? 2_000 : false,
+    staleTime: 2_000,
+  })
+}
+
+export function useCleanupPreview(characterId: string | undefined) {
+  const url = useServerUrl()
+  return useQuery({
+    queryKey: queryKeys.cleanupPreview(url, characterId),
+    queryFn: () => run((api) => api.cleanup.preview({ query: { characterId: characterId ?? "" } })),
+    enabled: characterId !== undefined,
+    staleTime: 10_000,
+    retry: false,
+  })
+}
+
+export type CleanupAction = "pause" | "resume" | "stop" | "skip" | "return" | "close"
+
+const cleanupAction = (api: Api, id: string, action: CleanupAction) => {
+  const request = { params: { id } }
+  switch (action) {
+    case "pause":
+      return api.cleanup.pause(request)
+    case "resume":
+      return api.cleanup.resume(request)
+    case "stop":
+      return api.cleanup.stop(request)
+    case "skip":
+      return api.cleanup.skip(request)
+    case "return":
+      return api.cleanup.return(request)
+    case "close":
+      return api.cleanup.close(request)
+  }
+}
+
+const settleCleanup = (queryClient: QueryClient, session: CleanupSession) => {
+  queryClient.setQueryData(queryKeys.cleanup(getServerUrl()), session)
+  return invalidateInventory(queryClient)
+}
+
+export function useStartCleanup() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (characterId: string) =>
+      run((api) => api.cleanup.start({ payload: { characterId } })),
+    onSuccess: (session) => settleCleanup(queryClient, session),
+  })
+}
+
+export function useCleanupAction() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { id: string; action: CleanupAction }) =>
+      run((api) => cleanupAction(api, input.id, input.action)),
+    onSuccess: (session) => settleCleanup(queryClient, session),
+  })
+}
+
+export function useKeepFromCleanup() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { id: string; itemId: string }) =>
+      run((api) => api.cleanup.keep({ params: input })),
+    onSuccess: (session) => settleCleanup(queryClient, session),
   })
 }
 
