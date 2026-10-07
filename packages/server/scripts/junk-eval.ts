@@ -1,6 +1,7 @@
 import { Effect, Layer } from "effect"
 import { JevLive } from "../src/agent/jev.ts"
 import { BungieClient, BungieClientLive } from "../src/bungie/client.ts"
+import type { OwnedItem } from "../src/bungie/inventory.ts"
 import { LoadoutsLive } from "../src/bungie/loadouts.ts"
 import { ManifestLive } from "../src/bungie/manifest.ts"
 import { ProfileStoreLive } from "../src/bungie/profile.ts"
@@ -51,6 +52,9 @@ const SAMPLE = 25
 const line = (name: string, power: number | null, text: string) =>
   `  ${name}${power === null ? "" : ` ${power}`} · ${text}`
 
+const kind = (item: OwnedItem) =>
+  item.tuning === null ? item.typeName : `${item.typeName} · tuning ${item.tuning}`
+
 const program = Effect.gen(function* () {
   const { dataDir } = yield* AppConfig
   const judgment = yield* (yield* JunkJudge).judgeVault
@@ -83,12 +87,12 @@ const program = Effect.gen(function* () {
     `JUNK (${counts.junk})`,
     ...rows
       .filter((row) => row.verdict === "junk")
-      .map((row) => line(row.item.name, row.item.power, `${row.item.typeName} · ${row.reason}`)),
+      .map((row) => line(row.item.name, row.item.power, `${kind(row.item)} · ${row.reason}`)),
     "",
     `REVIEW (${counts.review})`,
     ...rows
       .filter((row) => row.verdict === "review")
-      .map((row) => line(row.item.name, row.item.power, `${row.item.typeName} · ${row.reason}`)),
+      .map((row) => line(row.item.name, row.item.power, `${kind(row.item)} · ${row.reason}`)),
     "",
     `PROTECTED SAMPLE (${protectedSample.length} by item id)`,
     ...protectedSample.map(([id, verdict]) => {
