@@ -15,6 +15,7 @@ const PROTECTED: Record<Protection, string> = {
   only_copy: "it is the only copy",
   best_copy: "it is the best copy",
   recent: "it was picked up in the last two days",
+  unread_tuning: "its tuned stat could not be read",
 }
 
 const signalText = (signal: Signal, item: OwnedItem, items: Judgment["items"]) => {

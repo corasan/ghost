@@ -15,6 +15,7 @@ export type Protection =
   | "only_copy"
   | "best_copy"
   | "recent"
+  | "unread_tuning"
 
 export type Signal =
   | { readonly kind: "duplicate"; readonly better: string; readonly outclassed: number | null }
@@ -73,11 +74,17 @@ const HARD: ReadonlyArray<readonly [Protection, (item: OwnedItem, ctx: JudgeCont
     ["wishlist_roll", (item, ctx) => ctx.rolls.get(item.itemInstanceId)?.wishlist === true],
   ]
 
-const SOFT_WHY: Record<"only_copy" | "best_copy" | "recent", string> = {
+const SOFT_WHY: Record<"only_copy" | "best_copy" | "recent" | "unread_tuning", string> = {
   only_copy: "your only copy",
   best_copy: "your best copy",
   recent: "picked up in the last two days",
+  unread_tuning: "its tuned stat could not be read",
 }
+
+// Tier 5 armor rolls a tuned stat its visible stats do not show, so a copy
+// whose tuning is unknown may be the only one tuned the way the player wants.
+const unreadTuning = (item: OwnedItem) =>
+  isArmor(item.slot) && item.gearTier === 5 && item.tuning === null
 
 const statProfile = (item: OwnedItem) => {
   const stats = item.armorStats
@@ -91,12 +98,13 @@ const statProfile = (item: OwnedItem) => {
 
 // Armor copies serve the same role when one could stand in for the other:
 // same class and slot, same set (or the same item), the same archetype and
-// tertiary, read from the three highest stats, and the same rolled exotic
-// perks, which is what sets one exotic class item apart from another.
+// tertiary, read from the three highest stats, the same tuned stat, and the
+// same rolled exotic perks, which is what sets one exotic class item apart
+// from another.
 const groupKey = (item: OwnedItem) =>
   isWeapon(item.slot)
     ? `weapon|${item.itemHash}`
-    : `armor|${item.classType}|${item.slot}|${item.set?.name ?? item.itemHash}|${statProfile(item)}|${item.intrinsics.toSorted().join("/")}`
+    : `armor|${item.classType}|${item.slot}|${item.set?.name ?? item.itemHash}|${statProfile(item)}|${item.tuning}|${item.intrinsics.toSorted().join("/")}`
 
 const rank = (item: OwnedItem, ctx: JudgeContext) =>
   isWeapon(item.slot)
@@ -162,6 +170,7 @@ export const judge = (
           ctx.now - Date.parse(item.acquiredAt) < THRESHOLDS.recentMs
             ? (["recent"] as const)
             : []),
+          ...(unreadTuning(item) ? (["unread_tuning"] as const) : []),
         ]
         const hard = HARD.flatMap(([protection, applies]) =>
           applies(item, ctx) ? [protection] : [],
