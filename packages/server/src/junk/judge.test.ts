@@ -203,6 +203,38 @@ describe("judge", () => {
     expect(verdictOf(verdicts, "high")).toEqual({ verdict: "keep", protections: ["best_copy"] })
   })
 
+  test("calls a lower-tier copy junk outright when a higher tier exists, even with the better roll", () => {
+    const { jev, calls } = outclassedBy({})
+    const rolls = new Map([
+      ["t4", { wishlist: false, trash: false, score: 80 }],
+      ["t5", { wishlist: false, trash: false, score: 30 }],
+    ])
+    const verdicts = run(
+      [owned("t4", "kinetic", { gearTier: 4 }), owned("t5", "kinetic", { gearTier: 5 })],
+      context({ rolls, purposes: [{ name: "Solo", purpose: "anything" }] }),
+      jev,
+    )
+    expect(verdictOf(verdicts, "t4")).toEqual({
+      verdict: "junk",
+      signals: [{ kind: "duplicate", better: "t5", outclassed: null }],
+    })
+    expect(verdictOf(verdicts, "t5")).toEqual({ verdict: "keep", protections: ["best_copy"] })
+    expect(calls).toEqual([])
+  })
+
+  test("still keeps a lower-tier copy that is protected", () => {
+    const { jev } = outclassedBy({})
+    const verdicts = run(
+      [
+        owned("t4", "kinetic", { gearTier: 4, locked: true }),
+        owned("t5", "kinetic", { gearTier: 5 }),
+      ],
+      context(),
+      jev,
+    )
+    expect(verdictOf(verdicts, "t4")).toEqual({ verdict: "keep", protections: ["locked"] })
+  })
+
   test("only reviews a copy Jev rates just under the outclassed threshold", () => {
     const { jev } = outclassedBy({ worse: THRESHOLDS.outclassed - 0.01 })
     expect(verdictOf(run(pair(), context(), jev), "worse").verdict).toBe("review")
@@ -293,6 +325,20 @@ describe("judge", () => {
     expect(verdictOf(verdicts, "hunter").verdict).toBe("keep")
     expect(verdictOf(verdicts, "arms").verdict).toBe("keep")
     expect(calls.map((c) => c.ids)).toEqual([["low"]])
+  })
+
+  test("calls tier 4 armor junk when a tier 5 copy fills the same role, whatever its tuning", () => {
+    const { jev } = outclassedBy({})
+    const verdicts = run(
+      [helmet("t4", 64, { gearTier: 4 }), helmet("t5", 66, { gearTier: 5, tuning: "recovery" })],
+      context(),
+      jev,
+    )
+    expect(verdictOf(verdicts, "t4")).toEqual({
+      verdict: "junk",
+      signals: [{ kind: "duplicate", better: "t5", outclassed: null }],
+    })
+    expect(verdictOf(verdicts, "t5")).toEqual({ verdict: "keep", protections: ["only_copy"] })
   })
 
   test("never weighs tier 5 armor tuned to different stats against each other", () => {

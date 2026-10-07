@@ -135,3 +135,20 @@ describe("reviewItems", () => {
     expect(reviewItems(judgment, (id) => id === "trash")).toEqual([])
   })
 })
+
+test("names the tiers when a higher-tier copy is the better one", () => {
+  const items = new Map(
+    [
+      weapon("t4", "Fatebringer", { gearTier: 4 }),
+      weapon("t5", "Fatebringer", { gearTier: 5 }),
+    ].map((item) => [item.itemInstanceId, item]),
+  )
+  const [row] = flagged({
+    items,
+    verdicts: new Map<string, Verdict>([
+      ["t4", { verdict: "junk", signals: [{ kind: "duplicate", better: "t5", outclassed: null }] }],
+      ["t5", { verdict: "keep", protections: ["best_copy"] }],
+    ]),
+  })
+  expect(row?.reason).toBe("Duplicate of Fatebringer 1990 · tier 4 vs 5")
+})

@@ -101,15 +101,22 @@ const statProfile = (item: OwnedItem) => {
 // tertiary, read from the three highest stats, the same tuned stat, and the
 // same rolled exotic perks, which is what sets one exotic class item apart
 // from another.
-const groupKey = (item: OwnedItem) =>
+const roleKey = (item: OwnedItem) =>
   isWeapon(item.slot)
     ? `weapon|${item.itemHash}`
-    : `armor|${item.classType}|${item.slot}|${item.set?.name ?? item.itemHash}|${statProfile(item)}|${item.tuning}|${item.intrinsics.toSorted().join("/")}`
+    : `armor|${item.classType}|${item.slot}|${item.set?.name ?? item.itemHash}|${statProfile(item)}|${item.intrinsics.toSorted().join("/")}`
 
+const groupKey = (item: OwnedItem) =>
+  isWeapon(item.slot) ? roleKey(item) : `${roleKey(item)}|${item.tuning}`
+
+const tierOf = (item: OwnedItem) => item.gearTier ?? 0
+
+// A higher gear tier wins outright, so a copy is only ever weighed against
+// the best of its own tier or above.
 const rank = (item: OwnedItem, ctx: JudgeContext) =>
   isWeapon(item.slot)
-    ? [ctx.rolls.get(item.itemInstanceId)?.score ?? -1, item.gearTier ?? 0, item.power ?? 0]
-    : [item.statTotal ?? 0, item.gearTier ?? 0, item.power ?? 0]
+    ? [tierOf(item), ctx.rolls.get(item.itemInstanceId)?.score ?? -1, item.power ?? 0]
+    : [tierOf(item), item.statTotal ?? 0, item.power ?? 0]
 
 const betterFirst = (ctx: JudgeContext) => (a: OwnedItem, b: OwnedItem) => {
   const [ra, rb] = [rank(a, ctx), rank(b, ctx)]
@@ -125,6 +132,8 @@ interface Candidate {
   readonly signals: ReadonlyArray<Signal>
   readonly soft: ReadonlyArray<keyof typeof SOFT_WHY>
   readonly better: OwnedItem | null
+  /** A copy of a higher gear tier fills the same role, which settles it without Jev. */
+  readonly outtiered: boolean
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100
@@ -155,6 +164,11 @@ export const judge = (
   Effect.gen(function* () {
     const gear = inv.items.filter((item) => isWeapon(item.slot) || isArmor(item.slot))
     const groups = groupBy(gear, groupKey)
+    const roles = groupBy(gear, roleKey)
+    const higherTier = (item: OwnedItem) =>
+      (roles.get(roleKey(item)) ?? [])
+        .filter((copy) => tierOf(copy) > tierOf(item))
+        .toSorted(betterFirst(ctx))[0] ?? null
     const verdicts = new Map<string, Verdict>()
     const candidates: Array<Candidate> = []
 
@@ -162,10 +176,12 @@ export const judge = (
       const [best, ...rest] = copies.toSorted(betterFirst(ctx))
       if (best === undefined) continue
       for (const item of [best, ...rest]) {
-        const better = item === best ? null : best
+        const above = higherTier(item)
+        const outtiered = above !== null
+        const better = above ?? (item === best ? null : best)
         const soft = [
-          ...(copies.length === 1 ? (["only_copy"] as const) : []),
-          ...(item === best && copies.length > 1 ? (["best_copy"] as const) : []),
+          ...(copies.length === 1 && !outtiered ? (["only_copy"] as const) : []),
+          ...(item === best && copies.length > 1 && !outtiered ? (["best_copy"] as const) : []),
           ...(item.acquiredAt !== null &&
           ctx.now - Date.parse(item.acquiredAt) < THRESHOLDS.recentMs
             ? (["recent"] as const)
@@ -187,7 +203,7 @@ export const judge = (
         if (hard.length > 0 || signals.length === 0) {
           verdicts.set(item.itemInstanceId, { verdict: "keep", protections: [...hard, ...soft] })
         } else {
-          candidates.push({ item, signals, soft, better })
+          candidates.push({ item, signals, soft, better, outtiered })
         }
       }
     }
@@ -195,7 +211,7 @@ export const judge = (
     const asked = yield* Effect.gen(function* () {
       const outclassed = new Map<string, number>()
       const duplicates = candidates.flatMap((c) =>
-        c.better === null ? [] : [{ ...c, better: c.better }],
+        c.better === null || c.outtiered ? [] : [{ ...c, better: c.better }],
       )
       for (const group of groupBy(duplicates, (c) => c.better.itemInstanceId).values()) {
         const better = group[0]?.better
@@ -209,10 +225,12 @@ export const judge = (
       }
       const fits = new Map<string, ReadonlyArray<string>>()
       for (const { name, purpose } of ctx.purposes) {
-        if (candidates.length === 0) break
+        if (candidates.every((c) => c.outtiered)) break
         const answers = yield* jev.rank(
           purpose,
-          candidates.map((c) => ({ id: c.item.itemInstanceId, text: ctx.describe(c.item) })),
+          candidates
+            .filter((c) => !c.outtiered)
+            .map((c) => ({ id: c.item.itemInstanceId, text: ctx.describe(c.item) })),
           "item",
         )
         for (const [id, relevance] of answers) {
@@ -235,7 +253,7 @@ export const judge = (
       ),
     )
 
-    for (const { item, signals: raw, soft } of candidates) {
+    for (const { item, signals: raw, soft, outtiered } of candidates) {
       const id = item.itemInstanceId
       const answer = asked.outclassed.get(id)
       const signals = raw.map((signal) =>
@@ -245,9 +263,13 @@ export const judge = (
       )
       const reasons = [
         ...soft.map((protection) => SOFT_WHY[protection]),
-        ...(asked.available ? [] : ["Jev was unavailable, so nothing is called junk"]),
-        ...(asked.fits.get(id) ?? []),
-        ...duplicateDoubt(signals, asked.available),
+        ...(outtiered
+          ? []
+          : [
+              ...(asked.available ? [] : ["Jev was unavailable, so nothing is called junk"]),
+              ...(asked.fits.get(id) ?? []),
+              ...duplicateDoubt(signals, asked.available),
+            ]),
       ]
       verdicts.set(
         id,

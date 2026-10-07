@@ -25,9 +25,13 @@ const signalText = (signal: Signal, item: OwnedItem, items: Judgment["items"]) =
     item.statTotal !== null && better?.statTotal !== null && better !== undefined
       ? ` · total ${item.statTotal} vs ${better.statTotal}`
       : ""
+  const tiers =
+    better?.gearTier != null && (item.gearTier ?? 0) < better.gearTier
+      ? ` · tier ${item.gearTier ?? "—"} vs ${better.gearTier}`
+      : ""
   const outclassed =
     signal.outclassed === null ? "" : ` · outclassed ${signal.outclassed.toFixed(2)}`
-  return `Duplicate of ${better?.name ?? "a better copy"}${better?.power ? ` ${better.power}` : ""}${stats}${outclassed}`
+  return `Duplicate of ${better?.name ?? "a better copy"}${better?.power ? ` ${better.power}` : ""}${tiers}${stats}${outclassed}`
 }
 
 export const reason = (item: OwnedItem, verdict: Verdict, items: Judgment["items"]) => {
