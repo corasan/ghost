@@ -2,7 +2,8 @@ import type { OwnedItem } from "../bungie/inventory.ts"
 import type { ManifestItem } from "../bungie/manifest.ts"
 import { ARMOR_STATS } from "../bungie/masterwork.ts"
 
-const COSMETIC = /ornament|shader|tracker|memento|emote|transmat|deprecated|catalyst|\bmod$/i
+const COSMETIC =
+  /ornament|shader|tracker|memento|emote|transmat|deprecated|catalyst|restore defaults|combat flair|\bmod$/i
 const EMPTY = /^empty /i
 
 const title = (label: string) => `${label.charAt(0)}${label.slice(1).toLowerCase()}`
