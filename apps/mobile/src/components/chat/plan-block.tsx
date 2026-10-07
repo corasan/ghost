@@ -1,12 +1,12 @@
 import type { Job, Plan, PlanPerk, PlanRow } from "@ghost/contract"
 import { router } from "expo-router"
-import { useState } from "react"
 import { Alert, Pressable, StyleSheet, View } from "react-native"
 
 import { ItemIcon } from "@/components/ghost/item-icon"
 import {
   Body,
   Button,
+  Chevron,
   Cond,
   Cut,
   Meta,
@@ -69,6 +69,7 @@ export function PlanRowView({
   applied,
   under = Ghost.panel,
   inset = 14,
+  metaLines = 1,
 }: {
   row: PlanRow
   ticked: boolean
@@ -76,6 +77,8 @@ export function PlanRowView({
   applied: boolean
   under?: string
   inset?: number
+  /** 0 shows the whole line. */
+  metaLines?: number
 }) {
   const actionable = row.action !== "none"
   const tickable = actionable && !applied && onToggle !== undefined
@@ -116,7 +119,11 @@ export function PlanRowView({
             <Body size={15} style={{ fontFamily: Type.bodyMedium, lineHeight: 18 }} lines={1}>
               {row.name}
             </Body>
-            <Meta color={row.error ? Ghost.danger : Ghost.muted} style={{ marginTop: 2 }} lines={1}>
+            <Meta
+              color={row.error ? Ghost.danger : Ghost.muted}
+              style={{ marginTop: 2 }}
+              lines={metaLines}
+            >
               {row.error ?? row.meta}
             </Meta>
           </View>
@@ -224,24 +231,41 @@ export function PlanBlock({
   )
 }
 
-function ItemPlan({ job, plan, onAsk }: { job: Job; plan: Plan; onAsk: (prompt: string) => void }) {
+export const openPlan = (id: string) => router.push({ pathname: "/plan/[id]", params: { id } })
+
+/** Applies the ticked rows, asking first when the batch is big. */
+export function useConfirmPlan(job: Job, plan: Plan, onDone?: () => void) {
   const selection = usePlanSelection(job.id, plan)
   const apply = useApplyPlan()
+  const selected = [...selection.selected]
+  const ticked = selected.length
+  const run = () => apply.mutate({ jobId: job.id, selected }, { onSuccess: onDone })
+  // Junk tags and equips are easy to reverse, but a big batch deserves a
+  // second look before Ghost starts moving things.
+  const confirm = () =>
+    ticked >= 15
+      ? Alert.alert(liveLabel(plan.confirmLabel, ticked), `Ghost will act on ${ticked} items.`, [
+          { text: "Cancel", style: "cancel" },
+          { text: "Go", onPress: run },
+        ])
+      : run()
+  return { selection, apply, ticked, confirm }
+}
+
+function ItemPlan({ job, plan, onAsk }: { job: Job; plan: Plan; onAsk: (prompt: string) => void }) {
+  const { selection, apply, ticked, confirm } = useConfirmPlan(job, plan)
   const undo = useUndoPlan()
-  const [expanded, setExpanded] = useState(false)
 
   const applied = plan.status !== "proposed"
   const featuredRow = plan.featured
     ? plan.rows.find((row) => row.itemInstanceId === plan.featured?.itemInstanceId)
     : undefined
   const rows = plan.rows.filter((row) => row !== featuredRow)
-  const collapsed = !expanded && rows.length > COLLAPSE_OVER
+  const collapsed = rows.length > COLLAPSE_OVER
   const shown = collapsed ? rows.slice(0, COLLAPSED_ROWS) : rows
   const hidden = rows.slice(COLLAPSED_ROWS)
   const hiddenTicked = hidden.filter((row) => selection.selected.has(row.itemInstanceId)).length
 
-  const selected = [...selection.selected]
-  const ticked = selected.length
   const held = selection.actionableCount - ticked
   const failed = plan.rows.filter((row) => row.outcome === "failed").length
 
@@ -252,19 +276,6 @@ function ItemPlan({ job, plan, onAsk }: { job: Job; plan: Plan; onAsk: (prompt: 
         ? `Applied · ${failed} failed`
         : "Applied"
     : (plan.subtitle ?? (selection.actionableCount > 0 ? `${ticked} moving · ${held} held` : null))
-
-  const confirm = () => {
-    // Junk tags and equips are easy to reverse, but a big batch deserves a
-    // second look before Ghost starts moving things.
-    if (ticked >= 15) {
-      Alert.alert(liveLabel(plan.confirmLabel, ticked), `Ghost will act on ${ticked} items.`, [
-        { text: "Cancel", style: "cancel" },
-        { text: "Go", onPress: () => apply.mutate({ jobId: job.id, selected }) },
-      ])
-    } else {
-      apply.mutate({ jobId: job.id, selected })
-    }
-  }
 
   return (
     <Cut cut={12} fill={Ghost.panel} border={Ghost.line} style={{ marginLeft: 14 }}>
@@ -297,15 +308,21 @@ function ItemPlan({ job, plan, onAsk }: { job: Job; plan: Plan; onAsk: (prompt: 
         />
       ))}
       {collapsed ? (
-        <Pressable onPress={() => setExpanded(true)} style={styles.more}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityHint="Opens every row in a sheet"
+          onPress={() => openPlan(job.id)}
+          style={({ pressed }) => [styles.more, styles.between, pressed && { opacity: 0.6 }]}
+        >
           <Meta>
             {hidden.length} more ·{" "}
             {applied
-              ? "tap to show"
+              ? "tap to review"
               : hiddenTicked === hidden.length
                 ? "all moving"
                 : `${hiddenTicked} moving`}
           </Meta>
+          <Chevron />
         </Pressable>
       ) : null}
 
