@@ -43,7 +43,8 @@ import { NOTE_MAX_AGE_DAYS } from "../creators/parse.ts"
 import { plan } from "../cleanup/engine.ts"
 import { ChargeEffects } from "../db/charge.ts"
 import { JobsRepo } from "../db/jobs.ts"
-import { cleanupRows, flagged } from "../junk/proposal.ts"
+import { PerkRatings } from "../db/perk-ratings.ts"
+import { cleanupRows, flagged, unrated } from "../junk/proposal.ts"
 import { JunkJudge } from "../junk/service.ts"
 import {
   BuildRefusal,
@@ -61,6 +62,7 @@ import {
 import { type BuildRecipe, PlanInput, SourceInput } from "../plans/recipe.ts"
 import {
   checkRoll,
+  perkKey,
   perkMatcher,
   type RollMatch,
   recommendations,
@@ -129,10 +131,31 @@ const PresentPlan = Tool.make("present_plan", {
 
 const FindJunk = Tool.make("find_junk", {
   description:
-    "Ghost's judgment of which weapons and armor are junk, made on the server from the wishlist and the player's saved builds and loadouts, so it is the same every time. Only the best copy of each weapon, and of each armor role, is kept, and a higher gear tier always counts as the better copy. Returns junk rows (safe to tag) and review rows (flagged, but something argues for keeping them), each with its reason. Locked, masterworked, equipped, crafted, wishlist rolls and gear in a build or loadout are never returned. For a cleanup plan, pass these rows to present_plan kind cleanup with action tag_junk; you may leave rows out, never add any.",
+    "Ghost's judgment of which weapons and armor are junk, made on the server from perk ratings, the wishlist and the player's saved builds and loadouts, so it is the same every time. Weapons keep one copy per distinct good roll, judged by the perks each copy can slot; armor keeps the best copy of each role; a higher gear tier always wins. Returns junk rows (safe to tag) and review rows (flagged, but something argues for keeping them), each with its reason, plus needsRatings: weapons with several copies whose perks only the community count rates. Locked, masterworked, equipped, crafted and gear in a build or loadout are never returned. For a cleanup plan, pass these rows to present_plan kind cleanup with action tag_junk; you may leave rows out, never add any.",
   parameters: Schema.Struct({
     slot: Schema.optional(ItemSlot),
     classType: Schema.optional(GuardianClass),
+  }),
+  success: Json,
+})
+
+const PerkRatingsTool = Tool.make("perk_ratings", {
+  description:
+    "The stored list of which perks are good, ok or junk on each weapon, rated by the player or by you earlier, with the source each rating came from. Read it before looking a weapon up on the web: a weapon already here needs no lookup. Pass weapon for one weapon, or nothing for the whole list.",
+  parameters: Schema.Struct({ weapon: Schema.optional(Schema.String) }),
+  success: Json,
+})
+
+const RatePerks = Tool.make("rate_perks", {
+  description:
+    "Store how good a weapon's trait perks are, so junk judging uses it from now on and nobody has to look it up again. Rate the perks a current god roll guide picks in each trait column (PvE and PvP) good, the ones it calls also good ok, and any it warns against junk; perks you leave out count as ok at best. Pass the page you read in url (light.gg's god roll section is a good source). The player's own ratings always win over yours.",
+  parameters: Schema.Struct({
+    weapon: Schema.String,
+    perks: Schema.NonEmptyArray(
+      Schema.Struct({ perk: Schema.String, rating: Schema.Literals(["good", "ok", "junk"]) }),
+    ),
+    url: Schema.String,
+    note: Schema.optional(Schema.String),
   }),
   success: Json,
 })
@@ -247,6 +270,8 @@ export const GhostToolkit = Toolkit.make(
   SearchCreatorNotes,
   CiteSources,
   FindJunk,
+  PerkRatingsTool,
+  RatePerks,
   OfferCleanupMode,
 )
 
@@ -740,6 +765,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
     const jev = yield* Jev
     const artifacts = yield* Artifacts
     const junk = yield* JunkJudge
+    const ratings = yield* PerkRatings
 
     const withInventory = (f: (inv: Inventory) => Effect.Effect<string>) =>
       profile.inventory.pipe(
@@ -820,6 +846,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
             junk: of("junk").length,
             review: of("review").length,
             rows,
+            needsRatings: unrated(judgment),
           })
         }),
         Effect.catch((error) => Effect.succeed(explain(error))),
@@ -1230,8 +1257,48 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
         )
       })
 
+    const perk_ratings = ({ weapon }: { readonly weapon?: string | undefined }) =>
+      ratings.rows(weapon).pipe(
+        Effect.map((rows) => JSON.stringify({ ratings: rows })),
+        Effect.orDie,
+      )
+
+    const rate_perks = (input: (typeof RatePerks)["parametersSchema"]["Type"]) =>
+      Effect.gen(function* () {
+        const inv = yield* profile.inventory
+        const copies = inv.items.filter(
+          (item) => item.name.toLowerCase() === input.weapon.trim().toLowerCase(),
+        )
+        const slottable = new Set(
+          copies.flatMap((item) => item.traits.flat()).map((name) => perkKey(name)),
+        )
+        yield* Effect.forEach(
+          input.perks,
+          ({ perk, rating }) =>
+            ratings.set({
+              weapon: input.weapon,
+              perk,
+              rating,
+              source: "claude",
+              note: input.note ?? null,
+              url: input.url,
+            }),
+          { discard: true },
+        ).pipe(Effect.orDie)
+        const unknown = input.perks
+          .map((rated) => rated.perk)
+          .filter((perk) => !slottable.has(perkKey(perk)))
+        return JSON.stringify({
+          stored: input.perks.length,
+          ownedCopies: copies.length,
+          notOnOwnedCopies: copies.length > 0 ? unknown : [],
+        })
+      }).pipe(Effect.catch((error) => Effect.succeed(explain(error))))
+
     return {
       find_junk,
+      perk_ratings,
+      rate_perks,
       offer_cleanup_mode,
       get_characters,
       search_items,

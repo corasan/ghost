@@ -145,3 +145,46 @@ export const reviewItems = (
         ]
       : [],
   )
+
+export interface Unrated {
+  readonly name: string
+  readonly copies: number
+  /** Every perk the player's copies can slot, per trait column. */
+  readonly columns: ReadonlyArray<ReadonlyArray<string>>
+}
+
+const CURATED = new Set(["player", "claude", "wishlist"])
+
+/**
+ * Weapons with more than one copy that nothing but the community count rates,
+ * most copies first: what is worth looking up and rating.
+ */
+export const unrated = (judgment: Judgment): ReadonlyArray<Unrated> => {
+  const byName = new Map<string, Array<OwnedItem>>()
+  for (const [id, columns] of judgment.columns) {
+    const item = judgment.items.get(id)
+    if (item === undefined || columns.length === 0) continue
+    byName.set(item.name, [...(byName.get(item.name) ?? []), item])
+  }
+  return [...byName]
+    .filter(
+      ([, copies]) =>
+        copies.length > 1 &&
+        !copies.some((copy) =>
+          (judgment.columns.get(copy.itemInstanceId) ?? []).some((column) =>
+            column.some((perk) => perk.source !== null && CURATED.has(perk.source)),
+          ),
+        ),
+    )
+    .map(([name, copies]) => {
+      const width = Math.max(...copies.map((copy) => copy.traits.length))
+      return {
+        name,
+        copies: copies.length,
+        columns: Array.from({ length: width }, (_, index) => [
+          ...new Set(copies.flatMap((copy) => copy.traits[index] ?? [])),
+        ]),
+      }
+    })
+    .toSorted((a, b) => b.copies - a.copies || a.name.localeCompare(b.name))
+}
