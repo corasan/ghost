@@ -40,6 +40,7 @@ import { isActive, setBonusesFor } from "../bungie/sets.ts"
 import type { SubclassSocket } from "../bungie/subclass.ts"
 import { CreatorNotes } from "../creators/creators.ts"
 import { NOTE_MAX_AGE_DAYS } from "../creators/parse.ts"
+import { plan } from "../cleanup/engine.ts"
 import { ChargeEffects } from "../db/charge.ts"
 import { JobsRepo } from "../db/jobs.ts"
 import {
@@ -120,6 +121,12 @@ const PresentPlan = Tool.make("present_plan", {
   description:
     "Show the player a plan to confirm. Nothing moves until they tap the confirm button; the server then runs the selected rows. Call it once per request, after deciding. Row actions: to_vault, to_character, pull_postmaster, equip, tag_junk, or none (shown for comparison only). For a build, list the armor piece for every slot and one weapon for each of kinetic, energy and power, including pieces that stay equipped (action none), with at most one exotic weapon. The server fills in each weapon's type, its perks and, when you pass no score, its wishlist score. The app works out the build's six stat totals itself from the pieces you equip, before and after, and what masterworking would add, so do not do that arithmetic or repeat those numbers in your reply. For a build, also pick the subclass in subclass: its name (from list_subclasses) and the super, class ability, jump, melee, grenade, aspects and fragments you want, by the names list_subclasses gives. Anything you leave out stays as that subclass has it. Name the fragments the build needs; they go into empty slots first, then replace from the last slot back, and slots you leave spare keep their fragment. The aspects' fragment slots cap the fragments. The server checks the picks and tells you what to fix; on confirm it equips the subclass and slots the plugs, and the build's stats count the chosen fragments. Leave subclass out only when the equipped subclass and its plugs already fit. For a build, also recommend armor mods in mods: one entry per mod to put in, naming the piece (it must be a row) and the mod exactly as list_armor_mods gives it, with replaces when the piece has no free socket of that kind. Only list mods that change; what is already slotted stays. The server checks sockets and energy and tells you what to fix. Every armor charge mod the build will run (charged true in get_armor_mods or list_armor_mods, already slotted or swapped in) needs its numbers: if it has no chargeEffect yet, look up what it adds while charged and how extra copies stack, and pass it in chargeEffects with the source, for example '+10% Arc weapon damage; 17% with two copies, 22% with three'. For a build, also write situational: one to three sentences on what the build's conditional bonuses (armor charge mods, and fragments or aspects that only work under a condition) add together once they are up, how the player keeps them up, and what they lose when they drop. For a build, also write synergy, one or two sentences per part on how it feeds the rest of the build: exotic, what the exotic armor's perk does for this subclass and its loop; setBonuses, how the set bonuses the armor turns on (get_armor_mods lists them) fit the loop, plus any bonus one piece away worth chasing; mods, how the armor mods back the loop; weapons, how the three weapons, the exotic weapon included, feed the loop (every build needs it); artifact, how the artifact perks and any artifact-only mod back the loop and the weapons. Leave out a part the build lacks; the server refuses a build that has a part without its synergy. For a build, also pass artifact: the names of the Seasonal Artifact perks it runs, from get_artifact. The server checks them against the character's columns and points and marks which the player must select in game, or that the artifact needs a reset; say so in note, because only the player can select them. For a build, also pass purpose; the server judges the set bonuses against it and tells you when one the armor turns on fits the build poorly. Prefer armor whose set bonuses fit the build. For a build, pass stats only for the stat goals the player names: one entry each, label Health, Melee, Grenade, Super, Class or Weapons (Resilience is Health, Recovery is Class), target true, and value the number they asked for. The server refuses a build whose totals, after armor, mods and fragments, fall short of a goal; if the owned gear truly cannot reach it, pass shortfall with one sentence on why.",
   parameters: PlanInput,
+  success: Json,
+})
+
+const OfferCleanupMode = Tool.make("offer_cleanup_mode", {
+  description:
+    "Offer cleanup mode under your answer, as a card the player can start it from: Ghost stashes what the character carries, then hands every item tagged junk over in batches for the player to delete in game. Call it when the player asks to clean up or clear out the vault. It returns how many items are tagged junk and how many batches that takes; when nothing is tagged junk it offers nothing.",
   success: Json,
 })
 
@@ -226,6 +233,7 @@ export const GhostToolkit = Toolkit.make(
   ListSubclasses,
   SearchCreatorNotes,
   CiteSources,
+  OfferCleanupMode,
 )
 
 const clip = (text: string | null, max: number) =>
@@ -1135,7 +1143,36 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
         return `Recorded ${sources.length} source(s).`
       })
 
+    const offer_cleanup_mode = () =>
+      Effect.gen(function* () {
+        const job = yield* current.get
+        if (Option.isNone(job)) return "Error: no Ghost request is running."
+        const { id, characterId } = job.value
+        return yield* withInventory((inv) =>
+          Effect.gen(function* () {
+            const character = pickCharacter(inv, characterId)
+            if (character === undefined) return "Error: this account has no characters."
+            const capacities = yield* manifest.capacities
+            const { preview } = plan(inv, character.characterId, capacities.vault)
+            if (preview.junk === 0) {
+              return "Nothing is tagged junk, so there is nothing to offer. Find candidates and propose tagging them with present_plan kind cleanup."
+            }
+            yield* jobs.setOffer(id, "cleanup_mode").pipe(Effect.orDie)
+            return JSON.stringify({
+              offered: true,
+              junk: preview.junk,
+              batches: preview.batches,
+              stashFirst: preview.stash,
+              vault: preview.vault,
+              fits: preview.fits,
+              equippedJunkSkipped: preview.equippedJunk,
+            })
+          }),
+        )
+      })
+
     return {
+      offer_cleanup_mode,
       get_characters,
       search_items,
       present_plan,

@@ -218,6 +218,10 @@ const migrations = {
       )
     `
   }),
+  "0010_job_offer": Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    yield* sql`ALTER TABLE jobs ADD COLUMN offer TEXT`
+  }),
 }
 
 const SqliteLive = Layer.unwrap(

@@ -432,6 +432,10 @@ export class JobStep extends Schema.Class<JobStep>("JobStep")({
   detail: Schema.NullOr(Schema.String),
 }) {}
 
+/** Something Ghost offered under its answer, drawn as a card the player can act on. */
+export const JobOffer = Schema.Literals(["cleanup_mode"])
+export type JobOffer = typeof JobOffer.Type
+
 export class Job extends Schema.Class<Job>("Job")({
   id: Schema.String,
   /** The conversation this request belongs to; null for item actions. */
@@ -445,6 +449,7 @@ export class Job extends Schema.Class<Job>("Job")({
   plan: Schema.NullOr(Plan),
   sources: Schema.Array(Source),
   characterId: Schema.NullOr(Schema.String),
+  offer: Schema.NullOr(JobOffer),
   createdAt: Schema.String,
   updatedAt: Schema.String,
 }) {}

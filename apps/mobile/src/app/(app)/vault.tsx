@@ -10,7 +10,15 @@ import { Unavailable } from "@/components/ghost/unavailable"
 import { ItemIcon } from "@/components/ghost/item-icon"
 import { Body, Button, Chip, Cond, Cut, Meta, PageHeader, Said, Tick } from "@/components/ghost/ui"
 import { Ghost, Gutter, Type } from "@/constants/theme"
-import { useApplyPlan, useCreateJob, useJobs, useSetDecision, useVault } from "@/lib/api"
+import {
+  useApplyPlan,
+  useCleanupPreview,
+  useCreateJob,
+  useJobs,
+  useSetDecision,
+  useVault,
+} from "@/lib/api"
+import { vaultSaid } from "@/lib/cleanup"
 import { useCharacter } from "@/lib/character"
 import { sentence } from "@/lib/format"
 import { usePullRefresh } from "@/lib/refresh"
@@ -173,6 +181,30 @@ function Cleanup({ job, plan }: { job: Job; plan: Plan }) {
   )
 }
 
+function CleanupCard({ name }: { name: string }) {
+  return (
+    <Cut border={Ghost.ruleStrong} style={{ marginHorizontal: Gutter, marginTop: 16, padding: 14 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Cond size={18} style={{ lineHeight: 22 }}>
+            CLEAN UP MODE
+          </Cond>
+          <Meta style={{ marginTop: 3 }}>
+            Ghost sends your junk to {name} in batches. You delete it in game.
+          </Meta>
+        </View>
+        <Button
+          label="CLEAN UP"
+          tone="solid"
+          flex={0}
+          compact
+          onPress={() => router.navigate("/cleanup")}
+        />
+      </View>
+    </Cut>
+  )
+}
+
 function Filters({ shown }: { shown: number }) {
   const filter = useVaultFilter()
   const active = activeFilters(filter)
@@ -237,6 +269,8 @@ export default function VaultScreen() {
   const pull = usePullRefresh(vault.refetch)
 
   const items = vault.data?.items ?? []
+  const preview = useCleanupPreview(character?.characterId)
+  const vaultJunk = items.filter((item) => item.decision === "junk").length
   const shown = useMemo(() => filterVault(items, filter), [items, filter])
 
   const latestCleanup = jobs.data?.find(
@@ -256,14 +290,6 @@ export default function VaultScreen() {
   const fill = capacity > 0 ? count / capacity : 0
   const pickedItems = items.filter((item) => item.itemInstanceId && picked.has(item.itemInstanceId))
   const selecting = pickedItems.length > 0
-
-  const startCleanup = () =>
-    createJob.mutate({
-      kind: "vault_cleanup",
-      prompt: "Clean up my vault: flag duplicates with a better copy and low rolls.",
-      characterId: character?.characterId ?? null,
-      sessionId,
-    })
 
   return (
     <View style={{ flex: 1, backgroundColor: Ghost.bg }}>
@@ -301,23 +327,14 @@ export default function VaultScreen() {
         <Cleanup job={cleanup} plan={cleanupPlan} />
       ) : (
         <>
-          <Pressable
-            disabled={reviewing || createJob.isPending}
-            onPress={startCleanup}
-            style={{ marginHorizontal: Gutter, marginTop: 18 }}
-          >
+          <View style={{ marginHorizontal: Gutter, marginTop: 16 }}>
             <Said size={14}>
               {reviewing
                 ? "Reviewing your vault for duplicates and weak rolls against current community picks…"
-                : "Let Ghost flag duplicates with a better copy and rolls the community rates poorly."}
-              {reviewing ? null : (
-                <Body size={14} color={Ghost.accent}>
-                  {" "}
-                  START CLEANUP ›
-                </Body>
-              )}
+                : vaultSaid(count, capacity, preview.data?.junk ?? vaultJunk)}
             </Said>
-          </Pressable>
+          </View>
+          <CleanupCard name={character ? sentence(character.classType) : "your Guardian"} />
           <Filters shown={shown.length} />
           <LegendList
             style={{ flex: 1 }}
