@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto"
 import { Context, DateTime, Effect, Layer } from "effect"
 import { SqlClient } from "effect/sql"
-import type { Candidate, JevService, Subject } from "../agent/jev.ts"
+import { type Candidate, type JevService, QUESTIONS, type Subject } from "../agent/jev.ts"
 
 export interface JevAnswersService {
   readonly get: (keys: ReadonlyArray<string>) => Effect.Effect<ReadonlyMap<string, number>>
@@ -45,9 +45,10 @@ export const JevAnswersLive = Layer.effect(
   }),
 )
 
+// The question's wording is part of the key, so rewording it asks Jev afresh.
 export const answerKey = (model: string, subject: Subject, request: string, item: string) =>
   createHash("sha256")
-    .update(JSON.stringify([model, subject, request, item]))
+    .update(JSON.stringify([model, QUESTIONS[subject], request, item]))
     .digest("hex")
 
 /** Jev that answers each question it has seen before from the cache and only asks the rest. */
