@@ -296,7 +296,7 @@ export const settle = (
     land(STASH_LANDING[move.kind], "failed"),
     outcome === "gone" ? () => "deleted" : land(JUNK_LANDING[move.kind], "failed"),
   )
-  const error = typeof outcome === "object" ? outcome.failed : null
+  const error = outcome === "landed" || outcome === "gone" ? null : outcome.failed
   return advance(new CleanupSession({ ...next, error }), now)
 }
 
