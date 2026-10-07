@@ -4,6 +4,7 @@ import {
   Job,
   JobNotFound,
   type JobKind,
+  type JobOffer,
   JobStep,
   type JobStatus,
   Plan,
@@ -25,6 +26,7 @@ interface JobRow {
   readonly sources: string
   readonly steps: string
   readonly character_id: string | null
+  readonly offer: string | null
   readonly created_at: string
   readonly updated_at: string
 }
@@ -64,6 +66,7 @@ const rowToJob = (row: JobRow) =>
     sources: row.sources,
     steps: row.steps,
     characterId: row.character_id,
+    offer: row.offer,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }).pipe(
@@ -101,6 +104,7 @@ export interface JobsRepoService {
     patch?: { readonly result?: string; readonly error?: string },
   ) => Effect.Effect<void, SqlError.SqlError>
   readonly setPlan: (id: string, plan: Plan) => Effect.Effect<void, SqlError.SqlError>
+  readonly setOffer: (id: string, offer: JobOffer) => Effect.Effect<void, SqlError.SqlError>
   readonly setRecipe: (id: string, recipe: BuildRecipe) => Effect.Effect<void, SqlError.SqlError>
   readonly recipe: (id: string) => Effect.Effect<Option.Option<BuildRecipe>, SqlError.SqlError>
   /** Merged into what the job already cites; the same url (or label) is kept once. */
@@ -218,6 +222,12 @@ export const JobsRepoLive = Layer.effect(
         yield* sql`UPDATE jobs SET plan = ${json}, updated_at = ${now} WHERE id = ${id}`
       })
 
+    const setOffer = (id: string, offer: JobOffer) =>
+      Effect.gen(function* () {
+        const now = DateTime.formatIso(yield* DateTime.now)
+        yield* sql`UPDATE jobs SET offer = ${offer}, updated_at = ${now} WHERE id = ${id}`
+      })
+
     const setRecipe = (id: string, recipe: BuildRecipe) =>
       Effect.gen(function* () {
         const json = yield* encodeRecipe(recipe).pipe(Effect.orDie)
@@ -276,6 +286,7 @@ export const JobsRepoLive = Layer.effect(
       addStep,
       setStatus,
       setPlan,
+      setOffer,
       setRecipe,
       recipe,
       addSources,
