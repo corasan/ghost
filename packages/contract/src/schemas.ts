@@ -800,3 +800,115 @@ export class HistoryGroup extends Schema.Class<HistoryGroup>("HistoryGroup")({
   undoable: Schema.Boolean,
   undone: Schema.Boolean,
 }) {}
+
+// ---- Cleanup mode: Ghost hands junk over in batches, the player deletes in game ----
+
+export const GearSlot = Schema.Literals([
+  "kinetic",
+  "energy",
+  "power",
+  "helmet",
+  "arms",
+  "chest",
+  "legs",
+  "class",
+])
+export type GearSlot = typeof GearSlot.Type
+
+/**
+ * stopped and closed end a session; finished waits for the player to return
+ * their gear or leave it in the vault.
+ */
+export const CleanupStage = Schema.Literals([
+  "stashing",
+  "delivering",
+  "paused",
+  "finished",
+  "returning",
+  "closed",
+  "stopped",
+])
+export type CleanupStage = typeof CleanupStage.Type
+
+export const StashState = Schema.Literals(["queued", "moving", "in_vault", "returned", "failed"])
+export type StashState = typeof StashState.Type
+
+/** keeping and skipping are on their way back to the vault; kept and skipped are there. */
+export const JunkState = Schema.Literals([
+  "waiting",
+  "moving",
+  "in_hand",
+  "keeping",
+  "kept",
+  "skipping",
+  "skipped",
+  "deleted",
+  "failed",
+])
+export type JunkState = typeof JunkState.Type
+
+const cleanupItemFields = {
+  itemInstanceId: Schema.String,
+  itemHash: Schema.Number,
+  name: Schema.String,
+  icon: Schema.NullOr(Schema.String),
+  slot: GearSlot,
+  damageType: DamageType,
+  gearTier: Schema.NullOr(Schema.Number),
+  masterwork: Schema.Boolean,
+  /** One line under the name, for example "Shotgun · Duplicate". */
+  meta: Schema.String,
+}
+
+export class StashEntry extends Schema.Class<StashEntry>("StashEntry")({
+  ...cleanupItemFields,
+  junk: Schema.Boolean,
+  state: StashState,
+}) {}
+
+export class JunkEntry extends Schema.Class<JunkEntry>("JunkEntry")({
+  ...cleanupItemFields,
+  batch: Schema.Number,
+  state: JunkState,
+}) {}
+
+export class CleanupSession extends Schema.Class<CleanupSession>("CleanupSession")({
+  id: Schema.String,
+  characterId: Schema.String,
+  stage: CleanupStage,
+  startedAt: Schema.String,
+  finishedAt: Schema.NullOr(Schema.String),
+  /** The batch on the character now, from 0. */
+  batch: Schema.Number,
+  batches: Schema.Number,
+  stash: Schema.Array(StashEntry),
+  junk: Schema.Array(JunkEntry),
+  /** Junk that is equipped, which Ghost cannot move; skipped and named. */
+  equippedJunk: Schema.Array(Schema.String),
+  vault: Schema.Struct({ before: Schema.Number, capacity: Schema.Number }),
+  /** Why the last move failed, until one succeeds. */
+  error: Schema.NullOr(Schema.String),
+}) {}
+
+export class CleanupPreview extends Schema.Class<CleanupPreview>("CleanupPreview")({
+  characterId: Schema.String,
+  junk: Schema.Number,
+  batches: Schema.Number,
+  stash: Schema.Number,
+  /** Carried items that are not junk, which can go back at the end. */
+  returnable: Schema.Number,
+  equippedJunk: Schema.Array(Schema.String),
+  vault: Schema.Struct({ count: Schema.Number, capacity: Schema.Number, after: Schema.Number }),
+  fits: Schema.Boolean,
+}) {}
+
+export const StartCleanup = Schema.Struct({ characterId: Schema.String })
+export type StartCleanup = typeof StartCleanup.Type
+
+export class CleanupNotFound extends Schema.TaggedError<CleanupNotFound>()("CleanupNotFound", {
+  id: Schema.String,
+}) {}
+
+export class CleanupRefused extends Schema.TaggedError<CleanupRefused>()("CleanupRefused", {
+  reason: Schema.String,
+}) {}
