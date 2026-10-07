@@ -31,6 +31,7 @@ const weapon = (id: string, name: string, fields: Partial<OwnedItem> = {}): Owne
   modSockets: [],
   energy: null,
   exoticPerk: null,
+  intrinsics: [],
   set: null,
   crafted: false,
   ...fields,

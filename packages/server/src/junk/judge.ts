@@ -95,12 +95,13 @@ const statProfile = (item: OwnedItem) => {
 }
 
 // Armor copies serve the same role when one could stand in for the other:
-// same class and slot, same set (or the same item), and the same archetype
-// and tertiary, read from the three highest stats.
+// same class and slot, same set (or the same item), the same archetype and
+// tertiary, read from the three highest stats, and the same rolled exotic
+// perks, which is what sets one exotic class item apart from another.
 const groupKey = (item: OwnedItem) =>
   isWeapon(item.slot)
     ? `weapon|${item.itemHash}`
-    : `armor|${item.classType}|${item.slot}|${item.set?.name ?? item.itemHash}|${statProfile(item)}`
+    : `armor|${item.classType}|${item.slot}|${item.set?.name ?? item.itemHash}|${statProfile(item)}|${item.intrinsics.toSorted().join("/")}`
 
 const rank = (item: OwnedItem, ctx: JudgeContext) =>
   isWeapon(item.slot)

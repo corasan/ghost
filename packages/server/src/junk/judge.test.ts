@@ -34,6 +34,7 @@ const owned = (id: string, slot: ItemSlot, fields: Partial<OwnedItem> = {}): Own
   modSockets: [],
   energy: null,
   exoticPerk: null,
+  intrinsics: [],
   set: null,
   crafted: false,
   ...fields,
@@ -291,6 +292,25 @@ describe("judge", () => {
     expect(verdictOf(verdicts, "hunter").verdict).toBe("keep")
     expect(verdictOf(verdicts, "arms").verdict).toBe("keep")
     expect(calls.map((c) => c.ids)).toEqual([["low"]])
+  })
+
+  test("never weighs exotic class items with different rolled perks against each other", () => {
+    const { jev, calls } = outclassedBy({ b: 0.99 })
+    const spirits = (a: string, b: string) => ({
+      tier: "exotic" as const,
+      slot: "class" as const,
+      intrinsics: ["Stoicism", a, b],
+    })
+    const verdicts = run(
+      [
+        helmet("a", 75, spirits("Spirit of the Assassin", "Spirit of Inmost Light")),
+        helmet("b", 75, spirits("Spirit of the Horn", "Spirit of Contact")),
+      ],
+      context(),
+      jev,
+    )
+    expect(verdictOf(verdicts, "b")).toEqual({ verdict: "keep", protections: ["only_copy"] })
+    expect(calls).toEqual([])
   })
 
   test("keeps the best copy of each exotic armor piece", () => {

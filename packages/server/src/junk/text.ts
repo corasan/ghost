@@ -37,7 +37,7 @@ export const itemText = (item: OwnedItem, plugs: ReadonlyMap<number, ManifestIte
       ? null
       : `stats: ${ARMOR_STATS.map(([key, label]) => `${title(label)} ${stats[key]}`).join(", ")} (total ${item.statTotal})`,
     roll.length > 0 ? `perks: ${roll.join(", ")}` : null,
-    item.exoticPerk === null ? null : `exotic perk: ${item.exoticPerk.name}`,
+    item.intrinsics.length === 0 ? null : `exotic perks: ${item.intrinsics.toSorted().join(", ")}`,
     item.set === null ? null : `armor set ${item.set.name}`,
   ]
     .filter((part) => part !== null)

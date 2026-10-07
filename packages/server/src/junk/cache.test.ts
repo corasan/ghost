@@ -53,6 +53,7 @@ const weapon = (id: string, power: number): OwnedItem => ({
   modSockets: [],
   energy: null,
   exoticPerk: null,
+  intrinsics: [],
   set: null,
   crafted: false,
 })
