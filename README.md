@@ -83,6 +83,19 @@ model memory, and every answer lists its sources with their age.
   with a conditional request and keeps each roll's curator section, URL and date,
   so a citation points at the original source. `check_rolls` matches your actual
   perks (enhanced perks count as their base perk) and derives the roll score.
+- **Junk**: the server judges it, not the agent. `find_junk` never flags gear
+  that is locked, masterworked, equipped, crafted, marked keep, in a saved build
+  or in-game loadout, or a wishlist roll. Copies of the same weapon (or armor of
+  the same class, slot, set and top three stats) are ranked by wishlist score,
+  gear tier and power (armor by stat total), and Jev is asked whether the best
+  copy makes each other copy redundant. Only a copy Jev rates at 0.85 or more,
+  that no saved build's purpose wants (Jev relevance 0.35 or more), and that is
+  not the only copy, the best copy or picked up in the last two days is junk and
+  ticked; the rest are listed unticked for review. With Jev down nothing is junk.
+  Jev's answers are cached in `jev_answers` by model, question, request and item
+  text, so the same vault gets the same verdicts. `bun scripts/junk-eval.ts`
+  prints the verdicts for the account in `GHOST_DATA_DIR` without writing to
+  Bungie.
 - **Perk, mod, fragment and aspect effects**: `describe_plugs` reads descriptions
   from the current patch's Bungie manifest.
 - **Meta**: the agent may use web search and fetch, preferring sources from the
