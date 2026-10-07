@@ -29,7 +29,6 @@ const signalText = (signal: Signal, item: OwnedItem, items: Judgment["items"]) =
   return `Duplicate of ${better?.name ?? "a better copy"}${better?.power ? ` ${better.power}` : ""}${stats}${outclassed}`
 }
 
-/** The one line under a flagged item's name: why Ghost flagged it, and for review, why it is not ticked. */
 export const reason = (item: OwnedItem, verdict: Verdict, items: Judgment["items"]) => {
   if (verdict.verdict === "keep") {
     return verdict.protections.length === 0
@@ -46,7 +45,6 @@ export interface Flagged {
   readonly reason: string
 }
 
-/** Every junk and review item, junk first, in a stable order. */
 export const flagged = (judgment: Judgment): ReadonlyArray<Flagged> =>
   [...judgment.verdicts]
     .flatMap(([id, verdict]) => {

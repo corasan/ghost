@@ -25,9 +25,7 @@ export type Verdict =
   | { readonly verdict: "review"; readonly signals: ReadonlyArray<Signal>; readonly why: string }
   | { readonly verdict: "keep"; readonly protections: ReadonlyArray<Protection> }
 
-/** What the wishlist says about one weapon roll. */
 export interface RollStanding {
-  /** Fully matches a roll the wishlist recommends. */
   readonly wishlist: boolean
   readonly trash: boolean
   readonly score: number | null
@@ -39,11 +37,8 @@ export interface Purpose {
 }
 
 export interface JudgeContext {
-  /** Item ids in a saved Ghost build. */
   readonly builds: ReadonlySet<string>
-  /** Item ids in an in-game loadout. */
   readonly loadouts: ReadonlySet<string>
-  /** What the player's saved builds are for. */
   readonly purposes: ReadonlyArray<Purpose>
   readonly rolls: ReadonlyMap<string, RollStanding>
   /** The item as Jev reads it; must be the same text for the same item every run. */
