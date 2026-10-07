@@ -520,8 +520,10 @@ export function useCleanupAction() {
 export function useKeepFromCleanup() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (input: { id: string; itemId: string }) =>
-      run((api) => api.cleanup.keep({ params: input })),
+    mutationFn: (input: { id: string; itemIds: readonly [string, ...string[]] }) =>
+      run((api) =>
+        api.cleanup.keep({ params: { id: input.id }, payload: { itemIds: input.itemIds } }),
+      ),
     onSuccess: (session) => settleCleanup(queryClient, session),
   })
 }

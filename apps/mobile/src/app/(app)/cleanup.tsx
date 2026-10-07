@@ -6,7 +6,17 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
 import { ChatHeader } from "@/components/chat/header"
 import { ItemIcon } from "@/components/ghost/item-icon"
 import { Unavailable } from "@/components/ghost/unavailable"
-import { Body, Button, Chevron, Cond, Diamond, Meta, Mono, Said } from "@/components/ghost/ui"
+import {
+  Body,
+  Button,
+  Check,
+  Chevron,
+  Cond,
+  Diamond,
+  Meta,
+  Mono,
+  Said,
+} from "@/components/ghost/ui"
 import { Ghost, Gutter, Type } from "@/constants/theme"
 import {
   type CleanupAction,
@@ -28,6 +38,7 @@ import {
   returnable,
   say,
   segments,
+  type Resolution,
   type SegmentTone,
   skipLabel,
   STASH_LABEL,
@@ -53,6 +64,13 @@ const SEGMENT_TONE: Record<SegmentTone, string> = {
   current: Ghost.accent,
   ahead: Ghost.rule,
 }
+
+const RESOLUTION_TONE: Record<Exclude<Resolution, "deleted" | "kept">, string> = {
+  skipped: Ghost.dim,
+  failed: Ghost.danger,
+}
+
+const openItem = (id: string) => router.push({ pathname: "/item/[id]", params: { id } })
 
 const STASH_TONE: Record<StashState, string> = {
   queued: Ghost.dim,
@@ -424,6 +442,44 @@ function StashingView({ session, name }: { session: CleanupSession; name: string
   )
 }
 
+function Resolved({ entry, resolution }: { entry: JunkEntry; resolution: Resolution }) {
+  if (resolution === "deleted") {
+    return (
+      <View
+        accessibilityLabel={`${entry.name} deleted`}
+        style={[styles.tile, styles.center, styles.cleared]}
+      >
+        <Check size={14} />
+      </View>
+    )
+  }
+  if (resolution === "kept") {
+    return (
+      <View accessibilityLabel={`${entry.name} kept`} style={styles.tile}>
+        <View style={{ opacity: 0.35 }}>
+          <ItemIcon
+            icon={entry.icon}
+            size={TILE}
+            element={entry.damageType}
+            gearTier={entry.gearTier}
+            masterwork={entry.masterwork}
+          />
+        </View>
+        <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.center]}>
+          <Mono size={9} color={Ghost.accent}>
+            KEPT
+          </Mono>
+        </View>
+      </View>
+    )
+  }
+  return (
+    <View style={[styles.dashed, styles.tile, styles.center]}>
+      <Diamond size={6} color={RESOLUTION_TONE[resolution]} />
+    </View>
+  )
+}
+
 function TileView({
   tile,
   selected,
@@ -434,13 +490,7 @@ function TileView({
   onPress: (entry: JunkEntry) => void
 }) {
   if (tile.kind === "empty") return <View style={[styles.dashed, styles.tile]} />
-  if (tile.kind === "done") {
-    return (
-      <View style={[styles.dashed, styles.tile, styles.center]}>
-        <Diamond size={6} color={tile.deleted ? Ghost.good : Ghost.dim} />
-      </View>
-    )
-  }
+  if (tile.kind === "done") return <Resolved entry={tile.entry} resolution={tile.resolution} />
   const { entry } = tile
   return (
     <Pressable
@@ -465,22 +515,69 @@ function TileView({
 function BatchView({ session, name }: { session: CleanupSession; name: string }) {
   const act = useCleanupAction()
   const keep = useKeepFromCleanup()
-  const [picked, setPicked] = useState<string | null>(null)
+  const [selecting, setSelecting] = useState(false)
+  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set())
   const rows = batchRows(session)
   const selected = rows
     .flatMap((row) => row.tiles)
     .flatMap((tile) =>
-      tile.kind === "item" && tile.entry.itemInstanceId === picked ? [tile.entry] : [],
-    )[0]
+      tile.kind === "item" && picked.has(tile.entry.itemInstanceId) ? [tile.entry] : [],
+    )
   const paused = session.stage === "paused"
   const { deleted } = tally(session)
   const busy = act.isPending || keep.isPending
   const failure = act.isError ? act.error : keep.isError ? keep.error : null
 
+  const toggleSelecting = () => {
+    setSelecting((on) => !on)
+    setPicked(new Set())
+  }
+
+  const toggle = (entry: JunkEntry) =>
+    setPicked((current) => {
+      const next = new Set(current)
+      if (!next.delete(entry.itemInstanceId)) next.add(entry.itemInstanceId)
+      return next
+    })
+
+  const keepSelected = () => {
+    const [first, ...rest] = selected.map((entry) => entry.itemInstanceId)
+    if (first === undefined) return
+    keep.mutate(
+      { id: session.id, itemIds: [first, ...rest] },
+      {
+        onSuccess: () => {
+          setPicked(new Set())
+          setSelecting(false)
+        },
+      },
+    )
+  }
+
   return (
     <>
       <View style={[styles.page, { paddingBottom: 0 }]}>
-        <Crumb label="CLEANUP › STEP 2 OF 2" />
+        <View style={[styles.between, { alignItems: "center" }]}>
+          <Mono size={11} color={Ghost.accent}>
+            CLEANUP › STEP 2 OF 2
+          </Mono>
+          <Pressable
+            accessibilityRole="switch"
+            accessibilityLabel="Select items"
+            accessibilityState={{ checked: selecting }}
+            onPress={toggleSelecting}
+            hitSlop={8}
+            style={({ pressed }) => [
+              styles.toggle,
+              selecting && styles.toggleOn,
+              pressed && { opacity: 0.6 },
+            ]}
+          >
+            <Cond size={13} color={selecting ? Ghost.bg : Ghost.accent}>
+              {selecting ? "CANCEL" : "SELECT"}
+            </Cond>
+          </Pressable>
+        </View>
         <Headline
           title={`BATCH ${session.batch + 1}`}
           subtitle={`of ${session.batches} · ${inHand(session)} in hand`}
@@ -527,55 +624,45 @@ function BatchView({ session, name }: { session: CleanupSession; name: string })
                 <TileView
                   key={tile.kind === "empty" ? `empty-${i}` : tile.entry.itemInstanceId}
                   tile={tile}
-                  selected={tile.kind === "item" && tile.entry.itemInstanceId === picked}
-                  onPress={(entry) =>
-                    setPicked((current) =>
-                      current === entry.itemInstanceId ? null : entry.itemInstanceId,
-                    )
-                  }
+                  selected={tile.kind === "item" && picked.has(tile.entry.itemInstanceId)}
+                  onPress={(entry) => (selecting ? toggle(entry) : openItem(entry.itemInstanceId))}
                 />
               ))}
             </View>
           </View>
         ))}
       </ScrollView>
-      <View style={styles.picked}>
-        {selected ? (
-          <>
-            <ItemIcon
-              icon={selected.icon}
-              size={40}
-              element={selected.damageType}
-              gearTier={selected.gearTier}
-              masterwork={selected.masterwork}
-            />
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Body size={15} lines={1} style={{ fontFamily: Type.bodyMedium }}>
-                {selected.name}
-              </Body>
-              <Meta lines={1}>{selected.meta}</Meta>
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Keep ${selected.name}`}
-              disabled={busy}
-              onPress={() =>
-                keep.mutate(
-                  { id: session.id, itemId: selected.itemInstanceId },
-                  { onSuccess: () => setPicked(null) },
-                )
-              }
-              style={({ pressed }) => [styles.keep, (pressed || busy) && { opacity: 0.6 }]}
-            >
-              <Cond size={13} color={Ghost.accent}>
-                KEEP
-              </Cond>
-            </Pressable>
-          </>
-        ) : (
-          <Meta color={Ghost.dim}>Tap an item to see what it is, or to keep it.</Meta>
-        )}
-      </View>
+      {selecting ? (
+        <View style={styles.picked}>
+          <Meta color={selected.length > 0 ? Ghost.ink : Ghost.dim} style={{ flex: 1 }}>
+            {selected.length > 0
+              ? `${plural(selected.length, "item")} selected`
+              : "Tap items to keep them."}
+          </Meta>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Keep ${plural(selected.length, "item")}`}
+            disabled={busy || selected.length === 0}
+            onPress={keepSelected}
+            style={({ pressed }) => [
+              styles.keep,
+              (pressed || busy || selected.length === 0) && { opacity: 0.4 },
+            ]}
+          >
+            <Cond size={13} color={Ghost.accent}>
+              {keep.isPending
+                ? "KEEPING…"
+                : selected.length > 0
+                  ? `KEEP ${selected.length}`
+                  : "KEEP"}
+            </Cond>
+          </Pressable>
+        </View>
+      ) : (
+        <View style={styles.picked}>
+          <Meta color={Ghost.dim}>Tap an item to see its details.</Meta>
+        </View>
+      )}
       <Footer note={failure ? errorMessage(failure) : session.error}>
         <Button
           label={paused ? "RESUME" : "PAUSE"}
@@ -847,6 +934,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
   },
+  cleared: { borderWidth: 1, borderColor: Ghost.good, opacity: 0.8 },
+  toggle: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: Ghost.accent,
+  },
+  toggleOn: { backgroundColor: Ghost.accent },
   keep: {
     paddingVertical: 7,
     paddingHorizontal: 12,

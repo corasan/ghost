@@ -144,6 +144,22 @@ export function Diamond({
   )
 }
 
+export function Check({ size, color = Ghost.good }: { size: number; color?: string }) {
+  return (
+    <View
+      style={{
+        width: size / 2,
+        height: size,
+        marginTop: -size / 4,
+        borderBottomWidth: 2,
+        borderRightWidth: 2,
+        borderColor: color,
+        transform: [{ rotate: "45deg" }],
+      }}
+    />
+  )
+}
+
 /** The "›" and "⌄" marks in the design are rotated half-borders, not glyphs. */
 export function Chevron({
   direction = "right",

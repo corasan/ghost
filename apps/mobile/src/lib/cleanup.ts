@@ -16,9 +16,11 @@ const SLOTS: ReadonlyArray<readonly [GearSlot, string]> = [
 
 const HANDED = new Set<JunkState>(["waiting", "moving", "in_hand"])
 
+export type Resolution = "deleted" | "kept" | "skipped" | "failed"
+
 export type Tile =
   | { readonly kind: "item"; readonly entry: JunkEntry; readonly arrived: boolean }
-  | { readonly kind: "done"; readonly entry: JunkEntry; readonly deleted: boolean }
+  | { readonly kind: "done"; readonly entry: JunkEntry; readonly resolution: Resolution }
   | { readonly kind: "empty" }
 
 export interface SlotRow {
@@ -30,10 +32,21 @@ export interface SlotRow {
 
 const inBatch = (s: CleanupSession, batch: number) => s.junk.filter((e) => e.batch === batch)
 
-const tileOf = (entry: JunkEntry): Tile =>
-  HANDED.has(entry.state)
+const RESOLUTION: Partial<Record<JunkState, Resolution>> = {
+  deleted: "deleted",
+  keeping: "kept",
+  kept: "kept",
+  skipping: "skipped",
+  skipped: "skipped",
+  failed: "failed",
+}
+
+const tileOf = (entry: JunkEntry): Tile => {
+  const resolution = RESOLUTION[entry.state]
+  return resolution === undefined
     ? { kind: "item", entry, arrived: entry.state === "in_hand" }
-    : { kind: "done", entry, deleted: entry.state === "deleted" }
+    : { kind: "done", entry, resolution }
+}
 
 export const batchRows = (s: CleanupSession): ReadonlyArray<SlotRow> =>
   SLOTS.flatMap(([slot, label]) => {

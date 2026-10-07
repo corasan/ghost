@@ -52,12 +52,9 @@ describe("cleanup batch view", () => {
       ["KINETIC", 1],
       ["HELMET", 1],
     ])
-    expect(rows[0]?.tiles.map((t) => (t.kind === "done" ? `done:${t.deleted}` : t.kind))).toEqual([
-      "item",
-      "done:true",
-      "done:false",
-      ...Array(6).fill("empty"),
-    ])
+    expect(
+      rows[0]?.tiles.map((t) => (t.kind === "done" ? `done:${t.resolution}` : t.kind)),
+    ).toEqual(["item", "done:deleted", "done:kept", ...Array(6).fill("empty")])
   })
 
   test("copy and the skip button follow how much is left and which batch it is", () => {
