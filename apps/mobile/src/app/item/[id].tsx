@@ -8,6 +8,7 @@ import { SetBonusText } from "@/components/ghost/set-bonus"
 import { ArmorStatLine, Body, Meta, Mono } from "@/components/ghost/ui"
 import { ItemActions } from "@/components/item/actions"
 import { ItemHeader } from "@/components/item/header"
+import { PerkRatings } from "@/components/item/perk-ratings"
 import { Ghost, Type } from "@/constants/theme"
 import { errorMessage, useItemDetail } from "@/lib/api"
 import { useBottomInset } from "@/lib/insets"
@@ -55,6 +56,8 @@ function ArmorSetSection({ set }: { set: ArmorSet }) {
 }
 
 const PERK_ICON = 36
+
+const WEAPON_SLOTS = new Set(["kinetic", "energy", "power"])
 
 function ExoticPerk({ perk }: { perk: ItemPerk }) {
   return (
@@ -158,6 +161,9 @@ export default function ItemScreen() {
       {stats.length > 0 ? <Stats stats={stats} /> : null}
       {set ? <ArmorSetSection set={set} /> : null}
       {perks.length > 0 ? <Perks perks={perks} /> : null}
+      {item.itemInstanceId !== null && WEAPON_SLOTS.has(item.slot) ? (
+        <PerkRatings itemId={item.itemInstanceId} />
+      ) : null}
       <ItemActions item={item} />
     </ScrollView>
   )

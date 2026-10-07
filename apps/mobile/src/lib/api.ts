@@ -13,7 +13,9 @@ import {
   type ReviewItem,
   type SaveBuild,
   type SavedBuild,
+  type SetPerkRating,
   VaultSnapshot,
+  type WeaponPerks,
 } from "@ghost/contract"
 import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Effect } from "effect"
@@ -49,6 +51,7 @@ export const queryKeys = {
   jobs: (url: string, sessionId?: string | null) => [url, "jobs", sessionId ?? "all"] as const,
   sessions: (url: string) => [url, "sessions"] as const,
   item: (url: string, id: string) => [url, "item", id] as const,
+  weaponPerks: (url: string, id: string) => [url, "weaponPerks", id] as const,
   agent: (url: string) => [url, "agent"] as const,
   recent: (url: string, characterId: string | undefined) => [url, "recent", characterId] as const,
   guardian: (url: string) => [url, "guardian"] as const,
@@ -157,6 +160,37 @@ export function useItemDetail(id: string) {
     queryFn: () => run((api) => api.items.detail({ params: { id } })),
     staleTime: 30_000,
     retry: false,
+  })
+}
+
+export function useWeaponPerks(id: string, enabled: boolean) {
+  const url = useServerUrl()
+  return useQuery({
+    queryKey: queryKeys.weaponPerks(url, id),
+    queryFn: () => run((api) => api.items.perks({ params: { id } })),
+    enabled,
+    staleTime: 60_000,
+    retry: false,
+  })
+}
+
+export function useRatePerk(id: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: SetPerkRating) =>
+      run((api) => api.items.ratePerk({ params: { id }, payload: input })),
+    onSuccess: (perks) => {
+      const url = getServerUrl()
+      queryClient.setQueriesData(
+        { queryKey: [url, "weaponPerks"] },
+        (current: WeaponPerks | undefined) => (current?.weapon === perks.weapon ? perks : current),
+      )
+      return Promise.all(
+        ["weaponPerks", "junkReview", "cleanupPreview"].map((key) =>
+          queryClient.invalidateQueries({ queryKey: [url, key] }),
+        ),
+      )
+    },
   })
 }
 
