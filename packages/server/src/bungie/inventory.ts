@@ -28,7 +28,7 @@ const RawItem = Schema.Struct({
   itemInstanceId: Schema.optional(Schema.String),
   quantity: Schema.Number,
   bucketHash: Schema.Number,
-  /** ItemState bitmask: 1 locked, 4 masterwork. */
+  /** ItemState bitmask: 1 locked, 4 masterwork, 8 crafted. */
   state: Schema.optional(Schema.Number),
 })
 export type RawItem = typeof RawItem.Type
@@ -124,6 +124,7 @@ export type OwnedItem = Schema.Struct.Type<typeof ItemSummary.fields> & {
   readonly exoticPerk: ItemPerk | null
   /** Armor only: the armor set it belongs to. */
   readonly set: ArmorSet | null
+  readonly crafted: boolean
 }
 
 export interface ModSocket {
@@ -488,6 +489,7 @@ export const buildInventory = (
               trait: false,
             }),
       set: armor ? (sets.get(raw.itemHash) ?? null) : null,
+      crafted: (state & 8) !== 0,
     }
   })
 
