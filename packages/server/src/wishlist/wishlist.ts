@@ -36,6 +36,11 @@ export interface WishlistService {
   readonly rollsFor: (
     itemHashes: Iterable<number>,
   ) => Effect.Effect<ReadonlyMap<number, ReadonlyArray<StoredRoll>>, WishlistError>
+  /** Every weapon and perk pair the wishlist recommends, outside trash and wildcard rolls. */
+  readonly recommended: Effect.Effect<
+    ReadonlyArray<{ readonly itemHash: number; readonly perkHash: number }>,
+    WishlistError
+  >
   /** When the current file content first appeared; null before the first download. */
   readonly asOf: Effect.Effect<string | null>
   /** Citation for the wishlist itself. */
@@ -66,6 +71,7 @@ export const WishlistLive = Layer.effect(
     const lock = yield* Semaphore.make(1)
     // One object per block id, so callers can group rolls by block identity.
     const blocks = new Map<number, WishlistBlock>()
+    let pairs: ReadonlyArray<{ readonly itemHash: number; readonly perkHash: number }> | null = null
 
     const fail = (cause: unknown) => new WishlistError({ message: String(cause) })
     const setting = (key: string) =>
@@ -99,6 +105,7 @@ export const WishlistLive = Layer.effect(
           yield* sql`INSERT INTO wishlist_rolls ${sql.insert(rollRows.slice(i, i + BATCH))}`
         }
         blocks.clear()
+        pairs = null
         return parsed.rolls.length
       }).pipe(sql.withTransaction, Effect.orDie)
 
@@ -192,11 +199,24 @@ export const WishlistLive = Layer.effect(
         return result
       })
 
+    const recommended = Effect.gen(function* () {
+      yield* ensure
+      if (pairs !== null) return pairs
+      const rows = yield* sql<{ item_hash: number; perk_hash: number }>`
+        SELECT DISTINCT r.item_hash, j.value AS perk_hash
+        FROM wishlist_rolls r, json_each(r.perk_hashes) j
+        WHERE r.trash = 0 AND r.item_hash != ${WILDCARD_ITEM}
+      `.pipe(Effect.orDie)
+      pairs = rows.map((row) => ({ itemHash: row.item_hash, perkHash: row.perk_hash }))
+      return pairs
+    })
+
     const asOf = setting(KEYS.changedAt)
 
     return {
       ensure,
       rollsFor,
+      recommended,
       asOf,
       source: Effect.map(
         asOf,

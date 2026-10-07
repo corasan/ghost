@@ -323,6 +323,7 @@ const ComposeTest = Layer.mergeAll(
   Layer.succeed(Wishlist, {
     ensure: Effect.void,
     rollsFor: () => Effect.succeed(new Map([[500, [outlawKillClip]]])),
+    recommended: Effect.succeed([]),
     asOf: Effect.succeed(null),
     source: Effect.die("unused"),
   }),

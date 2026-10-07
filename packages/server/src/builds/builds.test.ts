@@ -333,6 +333,7 @@ const ServiceTest = BuildsLive.pipe(
       Layer.succeed(Wishlist, {
         ensure: Effect.void,
         rollsFor: () => Effect.succeed(new Map()),
+        recommended: Effect.succeed([]),
         asOf: Effect.succeed(null),
         source: Effect.die("unused"),
       }),

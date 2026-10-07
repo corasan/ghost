@@ -235,6 +235,24 @@ const migrations = {
       )
     `
   }),
+  // How good each trait perk is on one weapon, as the player or Claude rated
+  // it. Junk judging stopped asking Jev, so its answers go.
+  "0012_perk_ratings": Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    yield* sql`
+      CREATE TABLE IF NOT EXISTS perk_ratings (
+        item_hash INTEGER NOT NULL,
+        perk TEXT NOT NULL,
+        source TEXT NOT NULL,
+        rating TEXT NOT NULL,
+        note TEXT,
+        url TEXT,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (item_hash, perk, source)
+      )
+    `
+    yield* sql`DROP TABLE IF EXISTS jev_answers`
+  }),
 }
 
 const SqliteLive = Layer.unwrap(
