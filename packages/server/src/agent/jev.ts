@@ -12,7 +12,7 @@ export class JevUnavailable extends Schema.TaggedError<JevUnavailable>()("JevUna
 }) {}
 
 /** What a candidate is, which sets the question Jev answers about it. */
-export type Subject = "item" | "set bonus"
+export type Subject = "item" | "set bonus" | "outclassed"
 
 export interface JevService {
   /** Each candidate's relevance to the intent, in [0, 1]: Jev's probability that it fits. */
@@ -48,6 +48,13 @@ const QUESTIONS: Record<Subject, Question> = {
     true: "The bonus's effect triggers from or feeds the subclass, element, abilities, weapons or activity `request` describes.",
     false:
       "The bonus's effect needs a different element, ability, weapon type or activity than `request` describes, or does nothing for its goal.",
+  },
+  outclassed: {
+    question:
+      "Is the Destiny 2 item in `item` outclassed by the player's other copy described in `request`, so that keeping `item` adds nothing?",
+    true: "The copy in `request` does everything `item` does at least as well in every activity: the same or better perks in each column, stats, element and masterwork.",
+    false:
+      "`item` has a perk, perk combination, stat spread, element or masterwork the copy in `request` lacks that is useful in some activity, PvE or PvP.",
   },
 }
 
