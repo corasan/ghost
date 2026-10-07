@@ -27,7 +27,6 @@ import { ChargeEffectsLive } from "./db/charge.ts"
 import { DatabaseLive } from "./db/client.ts"
 import { ItemsRepoLive } from "./db/items.ts"
 import { JobsRepoLive } from "./db/jobs.ts"
-import { JevAnswersLive } from "./junk/cache.ts"
 import { JunkJudgeLive } from "./junk/service.ts"
 import { SettingsLive } from "./db/settings.ts"
 import { ItemsLive } from "./items/items.ts"
@@ -47,7 +46,6 @@ const Repositories = Layer.mergeAll(
   SettingsLive,
   ChargeEffectsLive,
   CleanupRepoLive,
-  JevAnswersLive,
 ).pipe(Layer.provideMerge(DatabaseLive))
 
 const Clients = Layer.mergeAll(

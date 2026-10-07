@@ -1,9 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import type { ItemSlot } from "@ghost/contract"
-import { Effect } from "effect"
-import { type Candidate, JevUnavailable, type JevService, type Subject } from "../agent/jev.ts"
 import type { Inventory, OwnedItem } from "../bungie/inventory.ts"
-import { type JudgeContext, judge, THRESHOLDS, type Verdict } from "./judge.ts"
+import { type JudgeContext, judge, type Verdict } from "./judge.ts"
 
 const NOW = Date.parse("2026-10-06T12:00:00Z")
 
@@ -70,40 +68,13 @@ const inventory = (items: ReadonlyArray<OwnedItem>): Inventory => ({
 const context = (fields: Partial<JudgeContext> = {}): JudgeContext => ({
   builds: new Set(),
   loadouts: new Set(),
-  purposes: [],
   rolls: new Map(),
-  describe: (item) => `${item.name} ${item.power}`,
   now: NOW,
   ...fields,
 })
 
-interface Call {
-  readonly intent: string
-  readonly ids: ReadonlyArray<string>
-  readonly subject: Subject
-}
-
-const stubJev = (answer: (subject: Subject, id: string) => number) => {
-  const calls: Array<Call> = []
-  const jev: JevService = {
-    rank: (intent: string, candidates: ReadonlyArray<Candidate>, subject: Subject = "item") =>
-      Effect.sync(() => {
-        calls.push({ intent, ids: candidates.map((c) => c.id), subject })
-        return new Map(candidates.map((c) => [c.id, answer(subject, c.id)]))
-      }),
-  }
-  return { jev, calls }
-}
-
-const outclassedBy = (scores: Readonly<Record<string, number>>) =>
-  stubJev((subject, id) => (subject === "outclassed" ? (scores[id] ?? 0) : 0))
-
-const unavailable: JevService = {
-  rank: () => Effect.fail(new JevUnavailable({ message: "down" })),
-}
-
-const run = (items: ReadonlyArray<OwnedItem>, ctx: JudgeContext, jev: JevService) =>
-  Effect.runSync(judge(inventory(items), ctx, jev))
+const run = (items: ReadonlyArray<OwnedItem>, ctx: JudgeContext = context()) =>
+  judge(inventory(items), ctx)
 
 const verdictOf = (verdicts: ReadonlyMap<string, Verdict>, id: string) => {
   const verdict = verdicts.get(id)
@@ -116,21 +87,21 @@ const pair = (fields: Partial<OwnedItem> = {}) => [
   owned("worse", "kinetic", { power: 540, ...fields }),
 ]
 
-describe("judge", () => {
-  test("calls a copy junk when a better copy outclasses it", () => {
-    const { jev } = outclassedBy({ worse: 0.93 })
-    const verdicts = run(pair(), context(), jev)
-    expect(verdictOf(verdicts, "worse")).toEqual({
-      verdict: "junk",
-      signals: [{ kind: "duplicate", better: "best", outclassed: 0.93 }],
-    })
-    expect(verdictOf(verdicts, "best")).toEqual({ verdict: "keep", protections: ["best_copy"] })
-  })
+const duplicateOf = (better: string): Verdict => ({
+  verdict: "junk",
+  signals: [{ kind: "duplicate", better }],
+})
 
-  test("asks Jev whether the better copy outclasses the others, once per group", () => {
-    const { jev, calls } = outclassedBy({ worse: 0.93 })
-    run(pair(), context(), jev)
-    expect(calls).toEqual([{ intent: "Item best 560", ids: ["worse"], subject: "outclassed" }])
+describe("judge", () => {
+  test("keeps only the best of many copies and calls every other copy junk", () => {
+    const hungers = Array.from({ length: 19 }, (_, i) =>
+      owned(`gh${i}`, "kinetic", { name: "Gnawing Hunger", power: 501 + i }),
+    )
+    const verdicts = run(hungers)
+    expect(verdictOf(verdicts, "gh18")).toEqual({ verdict: "keep", protections: ["best_copy"] })
+    expect(hungers.slice(0, 18).map((item) => verdictOf(verdicts, item.itemInstanceId))).toEqual(
+      Array(18).fill(duplicateOf("gh18")),
+    )
   })
 
   test.each([
@@ -139,20 +110,17 @@ describe("judge", () => {
     ["equipped", { equipped: true, location: "character", characterId: "c1" }],
     ["crafted", { crafted: true }],
     ["marked_keep", { decision: "keep" }],
-  ] as const)("never proposes a %s copy, however outclassed", (protection, fields) => {
-    const { jev } = outclassedBy({ worse: 0.99 })
-    expect(verdictOf(run(pair(fields), context(), jev), "worse")).toEqual({
+  ] as const)("never proposes a %s copy", (protection, fields) => {
+    expect(verdictOf(run(pair(fields)), "worse")).toEqual({
       verdict: "keep",
       protections: [protection],
     })
   })
 
   test("never proposes a copy in a saved build or an in-game loadout", () => {
-    const { jev } = outclassedBy({ worse: 0.99 })
     const verdicts = run(
       pair(),
       context({ builds: new Set(["worse"]), loadouts: new Set(["worse"]) }),
-      jev,
     )
     expect(verdictOf(verdicts, "worse")).toEqual({
       verdict: "keep",
@@ -161,19 +129,17 @@ describe("judge", () => {
   })
 
   test("never proposes a roll the wishlist recommends", () => {
-    const { jev } = outclassedBy({ worse: 0.99 })
     const rolls = new Map([
       ["best", { wishlist: true, trash: false, score: 95 }],
       ["worse", { wishlist: true, trash: false, score: 85 }],
     ])
-    expect(verdictOf(run(pair(), context({ rolls }), jev), "worse")).toEqual({
+    expect(verdictOf(run(pair(), context({ rolls })), "worse")).toEqual({
       verdict: "keep",
       protections: ["wishlist_roll"],
     })
   })
 
   test("keeps the copy with the better wishlist score even when it has less power", () => {
-    const { jev } = outclassedBy({ strong: 0.99 })
     const rolls = new Map([
       ["roll", { wishlist: false, trash: false, score: 70 }],
       ["strong", { wishlist: false, trash: false, score: 40 }],
@@ -181,226 +147,110 @@ describe("judge", () => {
     const verdicts = run(
       [owned("strong", "kinetic", { power: 560 }), owned("roll", "kinetic", { power: 500 })],
       context({ rolls }),
-      jev,
     )
     expect(verdictOf(verdicts, "roll")).toEqual({ verdict: "keep", protections: ["best_copy"] })
-    expect(verdictOf(verdicts, "strong")).toEqual({
-      verdict: "junk",
-      signals: [{ kind: "duplicate", better: "roll", outclassed: 0.99 }],
-    })
+    expect(verdictOf(verdicts, "strong")).toEqual(duplicateOf("roll"))
   })
 
-  test("keeps the higher gear tier when the wishlist rates both rolls the same", () => {
-    const { jev } = outclassedBy({ low: 0.99 })
-    const verdicts = run(
-      [
-        owned("low", "kinetic", { power: 560, gearTier: 2 }),
-        owned("high", "kinetic", { power: 500, gearTier: 5 }),
-      ],
-      context(),
-      jev,
-    )
-    expect(verdictOf(verdicts, "high")).toEqual({ verdict: "keep", protections: ["best_copy"] })
-  })
-
-  test("calls a lower-tier copy junk outright when a higher tier exists, even with the better roll", () => {
-    const { jev, calls } = outclassedBy({})
+  test("keeps a higher-tier copy over a lower one with the better roll", () => {
     const rolls = new Map([
       ["t4", { wishlist: false, trash: false, score: 80 }],
       ["t5", { wishlist: false, trash: false, score: 30 }],
     ])
     const verdicts = run(
       [owned("t4", "kinetic", { gearTier: 4 }), owned("t5", "kinetic", { gearTier: 5 })],
-      context({ rolls, purposes: [{ name: "Solo", purpose: "anything" }] }),
-      jev,
+      context({ rolls }),
     )
-    expect(verdictOf(verdicts, "t4")).toEqual({
-      verdict: "junk",
-      signals: [{ kind: "duplicate", better: "t5", outclassed: null }],
-    })
+    expect(verdictOf(verdicts, "t4")).toEqual(duplicateOf("t5"))
     expect(verdictOf(verdicts, "t5")).toEqual({ verdict: "keep", protections: ["best_copy"] })
-    expect(calls).toEqual([])
-  })
-
-  test("still keeps a lower-tier copy that is protected", () => {
-    const { jev } = outclassedBy({})
-    const verdicts = run(
-      [
-        owned("t4", "kinetic", { gearTier: 4, locked: true }),
-        owned("t5", "kinetic", { gearTier: 5 }),
-      ],
-      context(),
-      jev,
-    )
-    expect(verdictOf(verdicts, "t4")).toEqual({ verdict: "keep", protections: ["locked"] })
-  })
-
-  test("only reviews a copy Jev rates just under the outclassed threshold", () => {
-    const { jev } = outclassedBy({ worse: THRESHOLDS.outclassed - 0.01 })
-    expect(verdictOf(run(pair(), context(), jev), "worse").verdict).toBe("review")
-  })
-
-  test("calls nothing junk while Jev is unavailable, and says so", () => {
-    const verdict = verdictOf(run(pair(), context(), unavailable), "worse")
-    expect(verdict.verdict).toBe("review")
-    expect(verdict).toMatchObject({ why: expect.stringContaining("Jev was unavailable") })
-  })
-
-  test("calls nothing junk that Jev left unanswered", () => {
-    const silent: JevService = { rank: () => Effect.succeed(new Map()) }
-    expect(verdictOf(run(pair(), context(), silent), "worse").verdict).toBe("review")
-  })
-
-  test("reviews an outclassed copy that fits a saved build, naming the build", () => {
-    const { jev } = stubJev((subject) => (subject === "outclassed" ? 0.95 : 0.8))
-    const verdict = verdictOf(
-      run(
-        pair(),
-        context({ purposes: [{ name: "Doom Fang shield loop", purpose: "Void Titan" }] }),
-        jev,
-      ),
-      "worse",
-    )
-    expect(verdict.verdict).toBe("review")
-    expect(verdict).toMatchObject({ why: expect.stringContaining("Doom Fang shield loop") })
-  })
-
-  test("lets a build that does not want the copy leave it junk", () => {
-    const { jev } = stubJev((subject) =>
-      subject === "outclassed" ? 0.95 : THRESHOLDS.purpose - 0.01,
-    )
-    const verdict = verdictOf(
-      run(pair(), context({ purposes: [{ name: "Shield loop", purpose: "Void Titan" }] }), jev),
-      "worse",
-    )
-    expect(verdict.verdict).toBe("junk")
   })
 
   test("reviews, never junks, a trash roll with no better copy", () => {
-    const { jev } = outclassedBy({})
     const rolls = new Map([["only", { wishlist: false, trash: true, score: 10 }]])
-    const verdict = verdictOf(run([owned("only", "energy")], context({ rolls }), jev), "only")
-    expect(verdict).toMatchObject({
+    expect(verdictOf(run([owned("only", "energy")], context({ rolls })), "only")).toEqual({
       verdict: "review",
       signals: [{ kind: "trash_roll", score: 10 }],
+      why: "your only copy · no better copy",
     })
   })
 
   test("leaves a lone weapon with nothing wrong out of the proposal", () => {
-    const { jev } = outclassedBy({})
-    expect(verdictOf(run([owned("only", "energy")], context(), jev), "only")).toEqual({
+    expect(verdictOf(run([owned("only", "energy")]), "only")).toEqual({
       verdict: "keep",
       protections: ["only_copy"],
     })
   })
 
   test("reviews, never junks, a copy picked up in the last two days", () => {
-    const { jev } = outclassedBy({ worse: 0.99 })
-    const verdict = verdictOf(
-      run(pair({ acquiredAt: "2026-10-05T20:00:00Z" }), context(), jev),
-      "worse",
-    )
-    expect(verdict).toMatchObject({
+    expect(verdictOf(run(pair({ acquiredAt: "2026-10-05T20:00:00Z" })), "worse")).toEqual({
       verdict: "review",
-      why: expect.stringContaining("last two days"),
+      signals: [{ kind: "duplicate", better: "best" }],
+      why: "picked up in the last two days",
     })
   })
 
   test("groups armor by role, so a weaker copy is judged against the best of its own role", () => {
-    const { jev, calls } = outclassedBy({ low: 0.9 })
-    const verdicts = run(
-      [
-        helmet("high", 68),
-        helmet("low", 61),
-        helmet("hunter", 50, { classType: "hunter" }),
-        helmet("arms", 50, { slot: "arms" }),
-      ],
-      context(),
-      jev,
-    )
-    expect(verdictOf(verdicts, "low")).toEqual({
-      verdict: "junk",
-      signals: [{ kind: "duplicate", better: "high", outclassed: 0.9 }],
-    })
+    const verdicts = run([
+      helmet("high", 68),
+      helmet("low", 61),
+      helmet("hunter", 50, { classType: "hunter" }),
+      helmet("arms", 50, { slot: "arms" }),
+    ])
+    expect(verdictOf(verdicts, "low")).toEqual(duplicateOf("high"))
     expect(verdictOf(verdicts, "hunter").verdict).toBe("keep")
     expect(verdictOf(verdicts, "arms").verdict).toBe("keep")
-    expect(calls.map((c) => c.ids)).toEqual([["low"]])
   })
 
   test("calls tier 4 armor junk when a tier 5 copy fills the same role, whatever its tuning", () => {
-    const { jev } = outclassedBy({})
-    const verdicts = run(
-      [helmet("t4", 64, { gearTier: 4 }), helmet("t5", 66, { gearTier: 5, tuning: "recovery" })],
-      context(),
-      jev,
-    )
-    expect(verdictOf(verdicts, "t4")).toEqual({
-      verdict: "junk",
-      signals: [{ kind: "duplicate", better: "t5", outclassed: null }],
-    })
+    const verdicts = run([
+      helmet("t4", 64, { gearTier: 4 }),
+      helmet("t5", 66, { gearTier: 5, tuning: "recovery" }),
+    ])
+    expect(verdictOf(verdicts, "t4")).toEqual(duplicateOf("t5"))
     expect(verdictOf(verdicts, "t5")).toEqual({ verdict: "keep", protections: ["only_copy"] })
   })
 
   test("never weighs tier 5 armor tuned to different stats against each other", () => {
-    const { jev, calls } = outclassedBy({ low: 0.99 })
-    const verdicts = run(
-      [
-        helmet("high", 68, { gearTier: 5, tuning: "recovery" }),
-        helmet("low", 61, { gearTier: 5, tuning: "mobility" }),
-      ],
-      context(),
-      jev,
-    )
+    const verdicts = run([
+      helmet("high", 68, { gearTier: 5, tuning: "recovery" }),
+      helmet("low", 61, { gearTier: 5, tuning: "mobility" }),
+    ])
     expect(verdictOf(verdicts, "low")).toEqual({ verdict: "keep", protections: ["only_copy"] })
-    expect(calls).toEqual([])
   })
 
   test("only reviews a tier 5 armor copy whose tuned stat could not be read", () => {
-    const { jev } = outclassedBy({ low: 0.99 })
     const judged = (tuning: OwnedItem["tuning"]) =>
       verdictOf(
-        run(
-          [helmet("high", 68, { gearTier: 5, tuning }), helmet("low", 61, { gearTier: 5, tuning })],
-          context(),
-          jev,
-        ),
+        run([
+          helmet("high", 68, { gearTier: 5, tuning }),
+          helmet("low", 61, { gearTier: 5, tuning }),
+        ]),
         "low",
       )
     expect(judged(null)).toEqual({
       verdict: "review",
-      signals: [{ kind: "duplicate", better: "high", outclassed: 0.99 }],
+      signals: [{ kind: "duplicate", better: "high" }],
       why: "its tuned stat could not be read",
     })
     expect(judged("recovery").verdict).toBe("junk")
   })
 
   test("never weighs exotic class items with different rolled perks against each other", () => {
-    const { jev, calls } = outclassedBy({ b: 0.99 })
     const spirits = (a: string, b: string) => ({
       tier: "exotic" as const,
       slot: "class" as const,
       intrinsics: ["Stoicism", a, b],
     })
-    const verdicts = run(
-      [
-        helmet("a", 75, spirits("Spirit of the Assassin", "Spirit of Inmost Light")),
-        helmet("b", 75, spirits("Spirit of the Horn", "Spirit of Contact")),
-      ],
-      context(),
-      jev,
-    )
+    const verdicts = run([
+      helmet("a", 75, spirits("Spirit of the Assassin", "Spirit of Inmost Light")),
+      helmet("b", 75, spirits("Spirit of the Horn", "Spirit of Contact")),
+    ])
     expect(verdictOf(verdicts, "b")).toEqual({ verdict: "keep", protections: ["only_copy"] })
-    expect(calls).toEqual([])
   })
 
   test("keeps the best copy of each exotic armor piece", () => {
-    const { jev } = outclassedBy({ b: 0.9 })
-    const verdicts = run(
-      [helmet("a", 66, { tier: "exotic" }), helmet("b", 60, { tier: "exotic" })],
-      context(),
-      jev,
-    )
+    const verdicts = run([helmet("a", 66, { tier: "exotic" }), helmet("b", 60, { tier: "exotic" })])
     expect(verdictOf(verdicts, "a")).toEqual({ verdict: "keep", protections: ["best_copy"] })
-    expect(verdictOf(verdicts, "b").verdict).toBe("junk")
+    expect(verdictOf(verdicts, "b")).toEqual(duplicateOf("a"))
   })
 })

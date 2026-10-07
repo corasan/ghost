@@ -50,10 +50,7 @@ const judgment: Judgment = {
   ),
   verdicts: new Map<string, Verdict>([
     ["keeper", { verdict: "keep", protections: ["best_copy"] }],
-    [
-      "dupe",
-      { verdict: "junk", signals: [{ kind: "duplicate", better: "keeper", outclassed: 0.93 }] },
-    ],
+    ["dupe", { verdict: "junk", signals: [{ kind: "duplicate", better: "keeper" }] }],
     [
       "trash",
       {
@@ -76,7 +73,7 @@ describe("flagged", () => {
 
   test("says DUPLICATE for duplicates only, which is how the app sorts DUPES from LOW ROLL", () => {
     const reasons = new Map(flagged(judgment).map((f) => [f.item.itemInstanceId, f.reason]))
-    expect(reasons.get("dupe")).toBe("Duplicate of Fatebringer 1990 · outclassed 0.93")
+    expect(reasons.get("dupe")).toBe("Duplicate of Fatebringer 1990")
     expect(reasons.get("trash")).not.toMatch(/duplicate/i)
   })
 })
@@ -93,7 +90,7 @@ describe("cleanupRows", () => {
         {
           itemInstanceId: "dupe",
           action: "tag_junk",
-          meta: "Duplicate of Fatebringer 1990 · outclassed 0.93",
+          meta: "Duplicate of Fatebringer 1990",
           selected: true,
         },
         {
@@ -146,7 +143,7 @@ test("names the tiers when a higher-tier copy is the better one", () => {
   const [row] = flagged({
     items,
     verdicts: new Map<string, Verdict>([
-      ["t4", { verdict: "junk", signals: [{ kind: "duplicate", better: "t5", outclassed: null }] }],
+      ["t4", { verdict: "junk", signals: [{ kind: "duplicate", better: "t5" }] }],
       ["t5", { verdict: "keep", protections: ["best_copy"] }],
     ]),
   })

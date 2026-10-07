@@ -129,7 +129,7 @@ const PresentPlan = Tool.make("present_plan", {
 
 const FindJunk = Tool.make("find_junk", {
   description:
-    "Ghost's judgment of which weapons and armor are junk, made on the server from the wishlist, the player's saved builds and loadouts, and Jev, so it is the same every time. Returns junk rows (safe to tag) and review rows (flagged, but something argues for keeping them), each with its reason. Locked, masterworked, equipped, crafted, wishlist rolls and gear in a build or loadout are never returned. For a cleanup plan, pass these rows to present_plan kind cleanup with action tag_junk; you may leave rows out, never add any.",
+    "Ghost's judgment of which weapons and armor are junk, made on the server from the wishlist and the player's saved builds and loadouts, so it is the same every time. Only the best copy of each weapon, and of each armor role, is kept, and a higher gear tier always counts as the better copy. Returns junk rows (safe to tag) and review rows (flagged, but something argues for keeping them), each with its reason. Locked, masterworked, equipped, crafted, wishlist rolls and gear in a build or loadout are never returned. For a cleanup plan, pass these rows to present_plan kind cleanup with action tag_junk; you may leave rows out, never add any.",
   parameters: Schema.Struct({
     slot: Schema.optional(ItemSlot),
     classType: Schema.optional(GuardianClass),

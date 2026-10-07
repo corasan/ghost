@@ -12,7 +12,7 @@ describe("chunk", () => {
   const budget = 2_000
   const chunks = chunk("jev-latest", intent, candidates, "item", budget)
 
-  test.each(["item", "set bonus", "outclassed"] as const)(
+  test.each(["item", "set bonus"] as const)(
     "keeps every request body about an %s within the token budget",
     (subject) => {
       const parts = chunk("jev-latest", intent, candidates, subject, budget)

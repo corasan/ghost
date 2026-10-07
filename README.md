@@ -86,14 +86,12 @@ model memory, and every answer lists its sources with their age.
 - **Junk**: the server judges it, not the agent. `find_junk` never flags gear
   that is locked, masterworked, equipped, crafted, marked keep, in a saved build
   or in-game loadout, or a wishlist roll. Copies of the same weapon (or armor of
-  the same class, slot, set and top three stats) are ranked by wishlist score,
-  gear tier and power (armor by stat total), and Jev is asked whether the best
-  copy makes each other copy redundant. Only a copy Jev rates at 0.85 or more,
-  that no saved build's purpose wants (Jev relevance 0.35 or more), and that is
-  not the only copy, the best copy or picked up in the last two days is junk and
-  ticked; the rest are listed unticked for review. With Jev down nothing is junk.
-  Jev's answers are cached in `jev_answers` by model, question, request and item
-  text, so the same vault gets the same verdicts. `bun scripts/junk-eval.ts`
+  the same class, slot, set, top three stats and tuned stat) are ranked by gear
+  tier, then wishlist score (armor by stat total), then power. Only the best copy
+  is kept; every other copy is junk and ticked, as is any copy with a higher-tier
+  copy in the same role whatever its tuning. A copy picked up in the last two
+  days, tier 5 armor whose tuned stat could not be read, and a trash roll with no
+  better copy are listed unticked for review. `bun scripts/junk-eval.ts`
   prints the verdicts for the account in `GHOST_DATA_DIR` without writing to
   Bungie.
 - **Perk, mod, fragment and aspect effects**: `describe_plugs` reads descriptions

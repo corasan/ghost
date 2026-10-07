@@ -1,5 +1,4 @@
 import { Effect, Layer } from "effect"
-import { JevLive } from "../src/agent/jev.ts"
 import { BungieClient, BungieClientLive } from "../src/bungie/client.ts"
 import type { OwnedItem } from "../src/bungie/inventory.ts"
 import { LoadoutsLive } from "../src/bungie/loadouts.ts"
@@ -10,7 +9,6 @@ import { BuildsRepoLive } from "../src/db/builds.ts"
 import { DatabaseLive } from "../src/db/client.ts"
 import { ItemsRepoLive } from "../src/db/items.ts"
 import { SettingsLive } from "../src/db/settings.ts"
-import { JevAnswersLive } from "../src/junk/cache.ts"
 import type { Verdict } from "../src/junk/judge.ts"
 import { flagged } from "../src/junk/proposal.ts"
 import { JunkJudge, JunkJudgeLive } from "../src/junk/service.ts"
@@ -35,11 +33,11 @@ const ReadOnlyBungie = Layer.effect(
   })),
 ).pipe(Layer.provide(BungieClientLive))
 
-const Repos = Layer.mergeAll(SettingsLive, ItemsRepoLive, BuildsRepoLive, JevAnswersLive).pipe(
+const Repos = Layer.mergeAll(SettingsLive, ItemsRepoLive, BuildsRepoLive).pipe(
   Layer.provideMerge(DatabaseLive),
 )
 
-const Clients = Layer.mergeAll(ReadOnlyBungie, ManifestLive, WishlistLive, JevLive).pipe(
+const Clients = Layer.mergeAll(ReadOnlyBungie, ManifestLive, WishlistLive).pipe(
   Layer.provideMerge(Repos),
 )
 
