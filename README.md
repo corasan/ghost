@@ -47,7 +47,13 @@ and chamfered corners instead of rounded ones.
   suggestion that returns to chat with it queued.
 - **Vault**: search by name, perk or type; category, rarity, element, class
   armor, dupes, junk, new and unlocked filters; sort by power, newest, stat
-  total or name. Cleanup mode shows Ghost's flagged list to tick and tag as junk.
+  total or name. Ghost's flagged list lets you tick and tag junk.
+- **Cleanup mode** (Vault, or ask "Clean up my vault"): Ghost moves what your
+  character carries to the vault, then hands junk over in batches that fill
+  every slot to nine. You delete in game; the server re-reads your inventory
+  every 5 seconds and sends the next batch once the current one is gone. KEEP
+  on any item sends it back untagged, and at the end your other gear can return.
+  Bungie's API can't delete items, so Ghost never does.
 - **Recent**: everything that arrived in the last 48 hours, grouped by arrival,
   with upgrades flagged, keep / junk on each row, and undo for batches Ghost moved.
 - **History**: every call Ghost made, grouped by request, with undo.
