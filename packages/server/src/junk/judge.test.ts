@@ -295,6 +295,39 @@ describe("judge", () => {
     expect(calls.map((c) => c.ids)).toEqual([["low"]])
   })
 
+  test("never weighs tier 5 armor tuned to different stats against each other", () => {
+    const { jev, calls } = outclassedBy({ low: 0.99 })
+    const verdicts = run(
+      [
+        helmet("high", 68, { gearTier: 5, tuning: "recovery" }),
+        helmet("low", 61, { gearTier: 5, tuning: "mobility" }),
+      ],
+      context(),
+      jev,
+    )
+    expect(verdictOf(verdicts, "low")).toEqual({ verdict: "keep", protections: ["only_copy"] })
+    expect(calls).toEqual([])
+  })
+
+  test("only reviews a tier 5 armor copy whose tuned stat could not be read", () => {
+    const { jev } = outclassedBy({ low: 0.99 })
+    const judged = (tuning: OwnedItem["tuning"]) =>
+      verdictOf(
+        run(
+          [helmet("high", 68, { gearTier: 5, tuning }), helmet("low", 61, { gearTier: 5, tuning })],
+          context(),
+          jev,
+        ),
+        "low",
+      )
+    expect(judged(null)).toEqual({
+      verdict: "review",
+      signals: [{ kind: "duplicate", better: "high", outclassed: 0.99 }],
+      why: "its tuned stat could not be read",
+    })
+    expect(judged("recovery").verdict).toBe("junk")
+  })
+
   test("never weighs exotic class items with different rolled perks against each other", () => {
     const { jev, calls } = outclassedBy({ b: 0.99 })
     const spirits = (a: string, b: string) => ({
