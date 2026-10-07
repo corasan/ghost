@@ -54,8 +54,12 @@ export interface JudgeContext {
 export const THRESHOLDS = {
   /** Jev's confidence that the better copy does everything this one does, needed to call it junk. */
   outclassed: 0.85,
-  /** Jev's relevance of an item to a saved build at which it is only ever reviewed. */
-  purpose: 0.5,
+  /**
+   * Jev's relevance of an item to a saved build at which it is only ever
+   * reviewed. Pieces a build runs without naming them score about 0.26 and a
+   * named one about 0.6, so 0.35 catches what Jev rates above the build's own gear.
+   */
+  purpose: 0.35,
   /** Items this new are only ever reviewed: the player may not have looked at them yet. */
   recentMs: 48 * 60 * 60 * 1000,
 } as const
@@ -100,8 +104,8 @@ const groupKey = (item: OwnedItem) =>
 
 const rank = (item: OwnedItem, ctx: JudgeContext) =>
   isWeapon(item.slot)
-    ? [ctx.rolls.get(item.itemInstanceId)?.score ?? -1, item.power ?? 0]
-    : [item.statTotal ?? 0, item.power ?? 0]
+    ? [ctx.rolls.get(item.itemInstanceId)?.score ?? -1, item.gearTier ?? 0, item.power ?? 0]
+    : [item.statTotal ?? 0, item.gearTier ?? 0, item.power ?? 0]
 
 const betterFirst = (ctx: JudgeContext) => (a: OwnedItem, b: OwnedItem) => {
   const [ra, rb] = [rank(a, ctx), rank(b, ctx)]

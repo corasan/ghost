@@ -188,6 +188,19 @@ describe("judge", () => {
     })
   })
 
+  test("keeps the higher gear tier when the wishlist rates both rolls the same", () => {
+    const { jev } = outclassedBy({ low: 0.99 })
+    const verdicts = run(
+      [
+        owned("low", "kinetic", { power: 560, gearTier: 2 }),
+        owned("high", "kinetic", { power: 500, gearTier: 5 }),
+      ],
+      context(),
+      jev,
+    )
+    expect(verdictOf(verdicts, "high")).toEqual({ verdict: "keep", protections: ["best_copy"] })
+  })
+
   test("only reviews a copy Jev rates just under the outclassed threshold", () => {
     const { jev } = outclassedBy({ worse: THRESHOLDS.outclassed - 0.01 })
     expect(verdictOf(run(pair(), context(), jev), "worse").verdict).toBe("review")
