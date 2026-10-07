@@ -135,6 +135,7 @@ describe("pieceSetBonuses", () => {
     intrinsics: [],
     crafted: false,
     tuning: null,
+    traits: [],
     set: techsec,
     ...fields,
   })

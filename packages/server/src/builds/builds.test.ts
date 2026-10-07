@@ -64,6 +64,7 @@ const owned = (id: string, slot: ItemSlot, fields: Partial<OwnedItem> = {}): Own
   set: null,
   crafted: false,
   tuning: null,
+  traits: [],
   ...fields,
 })
 

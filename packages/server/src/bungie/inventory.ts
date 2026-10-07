@@ -143,6 +143,8 @@ export type OwnedItem = Schema.Struct.Type<typeof ItemSummary.fields> & {
   readonly crafted: boolean
   /** Armor only: null when the piece has no tuning socket, or its tuning mods could not be read. */
   readonly tuning: Tuning | null
+  /** Weapons only: each trait column's perks, every option the column can slot, not just the selected one. */
+  readonly traits: ReadonlyArray<ReadonlyArray<string>>
 }
 
 export interface ModSocket {
@@ -330,6 +332,8 @@ const statsFrom = (stats: Readonly<Record<string, number>>) =>
   })
 
 /** Every hash the profile mentions, plugs included, so one manifest lookup covers it. */
+const isTrait = (plug: ManifestItem) => plug.typeName.includes("Trait")
+
 export const profileHashes = (profile: Profile): Set<number> => {
   const hashes = new Set<number>()
   const add = (list: { readonly items: ReadonlyArray<RawItem> } | undefined) => {
@@ -341,6 +345,10 @@ export const profileHashes = (profile: Profile): Set<number> => {
   for (const entry of Object.values(profile.itemComponents?.sockets?.data ?? {})) {
     for (const socket of entry.sockets)
       if (socket.plugHash !== undefined) hashes.add(socket.plugHash)
+  }
+  for (const entry of Object.values(profile.itemComponents?.reusablePlugs?.data ?? {})) {
+    for (const plugs of Object.values(entry.plugs))
+      for (const plug of plugs) hashes.add(plug.plugItemHash)
   }
   return hashes
 }
@@ -481,8 +489,19 @@ export const buildInventory = (
     const intrinsic = intrinsics[0]
     const perks = plugHashes.flatMap((hash) => {
       const plug = defs.get(hash)
-      return plug !== undefined && plug.typeName.includes("Trait") ? [plug.name] : []
+      return plug !== undefined && isTrait(plug) ? [plug.name] : []
     })
+    const traits = isWeapon(slot)
+      ? (sockets[id]?.sockets ?? []).flatMap((socket, index) => {
+          const selected = socket.plugHash === undefined ? undefined : defs.get(socket.plugHash)
+          if (selected === undefined || !isTrait(selected) || socket.isVisible === false) return []
+          const options = (reusable[id]?.plugs[String(index)] ?? []).flatMap((plug) => {
+            const option = defs.get(plug.plugItemHash)
+            return option !== undefined && isTrait(option) ? [option.name] : []
+          })
+          return [[...new Set([selected.name, ...options])]]
+        })
+      : []
     const state = raw.state ?? 0
     const memory = seen.get(id)
     return {
@@ -546,6 +565,7 @@ export const buildInventory = (
             tuningMods,
           )
         : null,
+      traits,
     }
   })
 

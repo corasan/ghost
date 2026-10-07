@@ -31,6 +31,9 @@ const defs = new Map<number, ManifestItem>([
   [10, def(10, { name: "Explosive Payload", typeName: "Trait" })],
   [11, def(11, { name: "Firefly", typeName: "Enhanced Trait" })],
   [12, def(12, { name: "Arrowhead Brake", typeName: "Barrel" })],
+  [13, def(13, { name: "Kill Clip", typeName: "Trait" })],
+  [14, def(14, { name: "Rampage", typeName: "Trait" })],
+  [15, def(15, { name: "Smallbore", typeName: "Barrel" })],
   [20, def(20, { name: "Sentinel", typeName: "Void Subclass", damageType: "void" })],
   [40, def(40, { name: "Firepower", typeName: "Arms Armor Mod" })],
   [41, def(41, { name: "Empty Mod Socket", typeName: "General Armor Mod" })],
@@ -325,6 +328,44 @@ describe("buildInventory, rolled perks", () => {
       true,
       true,
       false,
+    ])
+  })
+})
+
+describe("buildInventory, trait columns", () => {
+  test("reads every option a trait column can slot, with the selected one first", () => {
+    const [weapon] = buildInventory(
+      {
+        profileInventory: {
+          data: {
+            items: [{ itemHash: 1, itemInstanceId: "t5", quantity: 1, bucketHash: BUCKETS.vault }],
+          },
+        },
+        itemComponents: {
+          sockets: {
+            data: { t5: { sockets: [{ plugHash: 12 }, { plugHash: 10 }, { plugHash: 11 }] } },
+          },
+          reusablePlugs: {
+            data: {
+              t5: {
+                plugs: {
+                  "0": [{ plugItemHash: 12 }, { plugItemHash: 15 }],
+                  "1": [{ plugItemHash: 10 }, { plugItemHash: 13 }],
+                  "2": [{ plugItemHash: 14 }, { plugItemHash: 11 }],
+                },
+              },
+            },
+          },
+        },
+      },
+      defs,
+      new Map(),
+      new Map(),
+      new Map(),
+    ).items
+    expect(weapon?.traits).toEqual([
+      ["Explosive Payload", "Kill Clip"],
+      ["Firefly", "Rampage"],
     ])
   })
 })
