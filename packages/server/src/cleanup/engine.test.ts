@@ -38,6 +38,7 @@ const owned = (id: string, slot: ItemSlot, fields: Partial<OwnedItem> = {}): Own
   intrinsics: [],
   set: null,
   crafted: false,
+  tuning: null,
   ...fields,
 })
 

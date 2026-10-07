@@ -134,6 +134,7 @@ describe("pieceSetBonuses", () => {
     exoticPerk: null,
     intrinsics: [],
     crafted: false,
+    tuning: null,
     set: techsec,
     ...fields,
   })

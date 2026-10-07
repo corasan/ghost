@@ -56,6 +56,7 @@ const weapon = (id: string, power: number): OwnedItem => ({
   intrinsics: [],
   set: null,
   crafted: false,
+  tuning: null,
 })
 
 const inv: Inventory = {
