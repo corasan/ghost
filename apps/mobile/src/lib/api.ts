@@ -452,7 +452,6 @@ export function useLoadoutSlots(characterId: string | undefined) {
 
 const WATCHED = new Set<CleanupStage>(["stashing", "delivering", "returning"])
 
-/** The cleanup session in progress; polled while Ghost is moving items or watching for deletes. */
 export function useCleanup() {
   const url = useServerUrl()
   return useQuery({

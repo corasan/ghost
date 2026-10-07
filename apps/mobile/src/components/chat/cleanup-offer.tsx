@@ -19,7 +19,6 @@ function Line({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
-/** Ghost's offer to start cleanup mode, under the answer that made it. */
 export function CleanupOffer({ characterId }: { characterId: string | null }) {
   const { character } = useCharacter()
   const preview = useCleanupPreview(characterId ?? character?.characterId)

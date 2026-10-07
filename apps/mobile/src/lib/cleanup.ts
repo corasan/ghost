@@ -35,7 +35,6 @@ const tileOf = (entry: JunkEntry): Tile =>
     ? { kind: "item", entry, arrived: entry.state === "in_hand" }
     : { kind: "done", entry, deleted: entry.state === "deleted" }
 
-/** One row per slot the current batch uses, nine tiles each. */
 export const batchRows = (s: CleanupSession): ReadonlyArray<SlotRow> =>
   SLOTS.flatMap(([slot, label]) => {
     const entries = inBatch(s, s.batch).filter((e) => e.slot === slot)

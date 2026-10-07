@@ -212,7 +212,6 @@ const stows = (s: CleanupSession) =>
     .filter((e) => e.state === "keeping" || e.state === "skipping")
     .map((e) => moveOf("stow", e))
 
-/** The transfers the session still needs, in the order to make them. */
 export const nextMoves = (s: CleanupSession): ReadonlyArray<Move> => {
   switch (s.stage) {
     case "stashing":
@@ -264,7 +263,6 @@ const onEntry = (
     ),
   })
 
-/** Marks the item as on its way, so the screen can say so while the transfer runs. */
 export const begin = (s: CleanupSession, move: Move): CleanupSession =>
   onEntry(
     s,
@@ -347,7 +345,6 @@ export const keep = (
   )
 }
 
-/** What is left of the current batch goes back to the vault, still tagged junk. */
 export const skip = (s: CleanupSession): Result.Result<CleanupSession, string> =>
   handingOver(s)
     ? Result.succeed(
