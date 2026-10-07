@@ -253,6 +253,24 @@ const migrations = {
     `
     yield* sql`DROP TABLE IF EXISTS jev_answers`
   }),
+  // Ratings follow the weapon's name, since reissues get new item hashes and
+  // the player and Claude both name weapons, not hashes.
+  "0013_perk_ratings_by_weapon": Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    yield* sql`DROP TABLE IF EXISTS perk_ratings`
+    yield* sql`
+      CREATE TABLE perk_ratings (
+        weapon TEXT NOT NULL,
+        perk TEXT NOT NULL,
+        source TEXT NOT NULL,
+        rating TEXT NOT NULL,
+        note TEXT,
+        url TEXT,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (weapon, perk, source)
+      )
+    `
+  }),
 }
 
 const SqliteLive = Layer.unwrap(

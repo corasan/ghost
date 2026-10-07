@@ -51,7 +51,7 @@ const judgment: Judgment = {
   ),
   verdicts: new Map<string, Verdict>([
     ["keeper", { verdict: "keep", protections: ["best_copy"] }],
-    ["dupe", { verdict: "junk", signals: [{ kind: "duplicate", better: "keeper" }] }],
+    ["dupe", { verdict: "junk", signals: [{ kind: "duplicate", better: "keeper", shared: [] }] }],
     [
       "trash",
       {
@@ -62,6 +62,7 @@ const judgment: Judgment = {
     ],
     ["locked", { verdict: "keep", protections: ["locked"] }],
   ]),
+  columns: new Map(),
 }
 
 describe("flagged", () => {
@@ -144,9 +145,10 @@ test("names the tiers when a higher-tier copy is the better one", () => {
   const [row] = flagged({
     items,
     verdicts: new Map<string, Verdict>([
-      ["t4", { verdict: "junk", signals: [{ kind: "duplicate", better: "t5" }] }],
+      ["t4", { verdict: "junk", signals: [{ kind: "duplicate", better: "t5", shared: [] }] }],
       ["t5", { verdict: "keep", protections: ["best_copy"] }],
     ]),
+    columns: new Map(),
   })
   expect(row?.reason).toBe("Duplicate of Fatebringer 1990 · tier 4 vs 5")
 })

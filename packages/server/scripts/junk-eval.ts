@@ -8,6 +8,7 @@ import { AppConfig, AppConfigLive } from "../src/config.ts"
 import { BuildsRepoLive } from "../src/db/builds.ts"
 import { DatabaseLive } from "../src/db/client.ts"
 import { ItemsRepoLive } from "../src/db/items.ts"
+import { PerkRatingsLive } from "../src/db/perk-ratings.ts"
 import { SettingsLive } from "../src/db/settings.ts"
 import type { Verdict } from "../src/junk/judge.ts"
 import { flagged } from "../src/junk/proposal.ts"
@@ -33,7 +34,7 @@ const ReadOnlyBungie = Layer.effect(
   })),
 ).pipe(Layer.provide(BungieClientLive))
 
-const Repos = Layer.mergeAll(SettingsLive, ItemsRepoLive, BuildsRepoLive).pipe(
+const Repos = Layer.mergeAll(SettingsLive, ItemsRepoLive, BuildsRepoLive, PerkRatingsLive).pipe(
   Layer.provideMerge(DatabaseLive),
 )
 

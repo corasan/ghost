@@ -334,6 +334,10 @@ const statsFrom = (stats: Readonly<Record<string, number>>) =>
 /** Every hash the profile mentions, plugs included, so one manifest lookup covers it. */
 const isTrait = (plug: ManifestItem) => plug.typeName.includes("Trait")
 
+/** A rolled trait perk, as opposed to the origin trait every copy of a weapon shares. */
+export const isRolledTrait = (typeName: string) =>
+  typeName === "Trait" || typeName === "Enhanced Trait"
+
 export const profileHashes = (profile: Profile): Set<number> => {
   const hashes = new Set<number>()
   const add = (list: { readonly items: ReadonlyArray<RawItem> } | undefined) => {
@@ -494,10 +498,16 @@ export const buildInventory = (
     const traits = isWeapon(slot)
       ? (sockets[id]?.sockets ?? []).flatMap((socket, index) => {
           const selected = socket.plugHash === undefined ? undefined : defs.get(socket.plugHash)
-          if (selected === undefined || !isTrait(selected) || socket.isVisible === false) return []
+          if (
+            selected === undefined ||
+            !isRolledTrait(selected.typeName) ||
+            socket.isVisible === false
+          ) {
+            return []
+          }
           const options = (reusable[id]?.plugs[String(index)] ?? []).flatMap((plug) => {
             const option = defs.get(plug.plugItemHash)
-            return option !== undefined && isTrait(option) ? [option.name] : []
+            return option !== undefined && isRolledTrait(option.typeName) ? [option.name] : []
           })
           return [[...new Set([selected.name, ...options])]]
         })

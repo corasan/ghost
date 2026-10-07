@@ -11,7 +11,7 @@ const PROTECTED: Record<Protection, string> = {
   marked_keep: "the player marked it keep",
   in_build: "it is in a saved Ghost build",
   in_loadout: "it is in an in-game loadout",
-  wishlist_roll: "its roll is on the wishlist",
+  good_roll: "it has a good roll no other copy covers",
   only_copy: "it is the only copy",
   best_copy: "it is the best copy",
   recent: "it was picked up in the last two days",
@@ -20,6 +20,11 @@ const PROTECTED: Record<Protection, string> = {
 
 const signalText = (signal: Signal, item: OwnedItem, items: Judgment["items"]) => {
   if (signal.kind === "trash_roll") return `Trash roll · ${signal.score}/100`
+  if (signal.kind === "weak_roll") {
+    return signal.perks.length === 0
+      ? "No good perks"
+      : `No good perks · ${signal.perks.join(", ")}`
+  }
   const better = items.get(signal.better)
   const stats =
     item.statTotal !== null && better?.statTotal !== null && better !== undefined
@@ -29,7 +34,8 @@ const signalText = (signal: Signal, item: OwnedItem, items: Judgment["items"]) =
     better?.gearTier != null && (item.gearTier ?? 0) < better.gearTier
       ? ` · tier ${item.gearTier ?? "—"} vs ${better.gearTier}`
       : ""
-  return `Duplicate of ${better?.name ?? "a better copy"}${better?.power ? ` ${better.power}` : ""}${tiers}${stats}`
+  const shared = signal.shared.length === 0 ? "" : ` · same good perks: ${signal.shared.join(", ")}`
+  return `Duplicate of ${better?.name ?? "a better copy"}${better?.power ? ` ${better.power}` : ""}${tiers}${stats}${shared}`
 }
 
 export const reason = (item: OwnedItem, verdict: Verdict, items: Judgment["items"]) => {

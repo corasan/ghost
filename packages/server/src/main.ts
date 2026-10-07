@@ -23,6 +23,7 @@ import { AppConfig, AppConfigLive } from "./config.ts"
 import { CreatorNotesLive, CreatorRefreshLive } from "./creators/creators.ts"
 import { ActionsRepoLive } from "./db/actions.ts"
 import { BuildsRepoLive } from "./db/builds.ts"
+import { PerkRatingsLive } from "./db/perk-ratings.ts"
 import { ChargeEffectsLive } from "./db/charge.ts"
 import { DatabaseLive } from "./db/client.ts"
 import { ItemsRepoLive } from "./db/items.ts"
@@ -43,6 +44,7 @@ const Repositories = Layer.mergeAll(
   ItemsRepoLive,
   ActionsRepoLive,
   BuildsRepoLive,
+  PerkRatingsLive,
   SettingsLive,
   ChargeEffectsLive,
   CleanupRepoLive,

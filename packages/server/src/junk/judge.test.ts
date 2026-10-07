@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import type { ItemSlot } from "@ghost/contract"
 import type { Inventory, OwnedItem } from "../bungie/inventory.ts"
 import { type JudgeContext, judge, type Verdict } from "./judge.ts"
+import type { RatedColumns, Rating } from "./perks.ts"
 
 const NOW = Date.parse("2026-10-06T12:00:00Z")
 
@@ -70,6 +71,7 @@ const context = (fields: Partial<JudgeContext> = {}): JudgeContext => ({
   builds: new Set(),
   loadouts: new Set(),
   rolls: new Map(),
+  columns: new Map(),
   now: NOW,
   ...fields,
 })
@@ -88,10 +90,29 @@ const pair = (fields: Partial<OwnedItem> = {}) => [
   owned("worse", "kinetic", { power: 540, ...fields }),
 ]
 
-const duplicateOf = (better: string): Verdict => ({
+const duplicateOf = (better: string, shared: ReadonlyArray<string> = []): Verdict => ({
   verdict: "junk",
-  signals: [{ kind: "duplicate", better }],
+  signals: [{ kind: "duplicate", better, shared }],
 })
+
+const RATED = new Map<string, Rating>([
+  ["Kill Clip", "good"],
+  ["Rampage", "good"],
+  ["Outlaw", "ok"],
+  ["Feeding Frenzy", "ok"],
+])
+
+/** Trait columns as the judge sees them: every option a column can slot, rated by RATED. */
+const roll = (...columns: ReadonlyArray<ReadonlyArray<string>>): RatedColumns =>
+  columns.map((column) =>
+    column.map((name) => {
+      const rating = RATED.get(name) ?? "junk"
+      return { name, rating, source: rating === "junk" ? null : "community" }
+    }),
+  )
+
+const rolled = (rolls: Readonly<Record<string, RatedColumns>>) =>
+  context({ columns: new Map(Object.entries(rolls)) })
 
 describe("judge", () => {
   test("keeps only the best of many copies and calls every other copy junk", () => {
@@ -129,15 +150,63 @@ describe("judge", () => {
     })
   })
 
-  test("never proposes a roll the wishlist recommends", () => {
-    const rolls = new Map([
-      ["best", { wishlist: true, trash: false, score: 95 }],
-      ["worse", { wishlist: true, trash: false, score: 85 }],
-    ])
-    expect(verdictOf(run(pair(), context({ rolls })), "worse")).toEqual({
-      verdict: "keep",
-      protections: ["wishlist_roll"],
+  test("keeps one copy per distinct good roll and calls a copy with the same good perks junk", () => {
+    const verdicts = run(
+      [
+        owned("a", "kinetic", { power: 532 }),
+        owned("b", "kinetic", { power: 520 }),
+        owned("c", "kinetic", { power: 510 }),
+      ],
+      rolled({
+        a: roll(["Kill Clip"], ["Moving Target"]),
+        b: roll(["Outlaw"], ["Rampage"]),
+        c: roll(["Kill Clip"], ["Hip-Fire Grip"]),
+      }),
+    )
+    expect(verdictOf(verdicts, "a")).toEqual({ verdict: "keep", protections: ["good_roll"] })
+    expect(verdictOf(verdicts, "b")).toEqual({ verdict: "keep", protections: ["good_roll"] })
+    expect(verdictOf(verdicts, "c")).toEqual(duplicateOf("a", ["Kill Clip"]))
+  })
+
+  test("a copy that can slot several perks per column covers the copies with fewer", () => {
+    const verdicts = run(
+      [owned("multi", "kinetic", { power: 540 }), owned("single", "kinetic", { power: 500 })],
+      rolled({
+        multi: roll(["Kill Clip", "Outlaw"], ["Rampage", "Feeding Frenzy"]),
+        single: roll(["Outlaw"], ["Rampage"]),
+      }),
+    )
+    expect(verdictOf(verdicts, "multi")).toEqual({ verdict: "keep", protections: ["good_roll"] })
+    expect(verdictOf(verdicts, "single")).toEqual(duplicateOf("multi", ["Outlaw", "Rampage"]))
+  })
+
+  test("calls a roll with no good perks junk, naming its perks", () => {
+    const verdicts = run(
+      [owned("good", "kinetic", { power: 500 }), owned("weak", "kinetic", { power: 560 })],
+      rolled({
+        good: roll(["Kill Clip"], ["Moving Target"]),
+        weak: roll(["Outlaw"], ["Hip-Fire Grip"]),
+      }),
+    )
+    expect(verdictOf(verdicts, "weak")).toEqual({
+      verdict: "junk",
+      signals: [{ kind: "weak_roll", perks: ["Outlaw", "Hip-Fire Grip"] }],
     })
+  })
+
+  test("reviews, never junks, the best copy when no copy has a good roll", () => {
+    const verdicts = run(
+      [owned("high", "kinetic", { power: 560 }), owned("low", "kinetic", { power: 500 })],
+      rolled({
+        high: roll(["Outlaw"], ["Hip-Fire Grip"]),
+        low: roll(["Moving Target"], ["Hip-Fire Grip"]),
+      }),
+    )
+    expect(verdictOf(verdicts, "high")).toMatchObject({
+      verdict: "review",
+      why: "your best copy · no better copy",
+    })
+    expect(verdictOf(verdicts, "low").verdict).toBe("junk")
   })
 
   test("keeps the copy with the better wishlist score even when it has less power", () => {
@@ -185,7 +254,7 @@ describe("judge", () => {
   test("reviews, never junks, a copy picked up in the last two days", () => {
     expect(verdictOf(run(pair({ acquiredAt: "2026-10-05T20:00:00Z" })), "worse")).toEqual({
       verdict: "review",
-      signals: [{ kind: "duplicate", better: "best" }],
+      signals: [{ kind: "duplicate", better: "best", shared: [] }],
       why: "picked up in the last two days",
     })
   })
@@ -230,7 +299,7 @@ describe("judge", () => {
       )
     expect(judged(null)).toEqual({
       verdict: "review",
-      signals: [{ kind: "duplicate", better: "high" }],
+      signals: [{ kind: "duplicate", better: "high", shared: [] }],
       why: "its tuned stat could not be read",
     })
     expect(judged("recovery").verdict).toBe("junk")
