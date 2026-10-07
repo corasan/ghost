@@ -1,4 +1,10 @@
-import type { CleanupPreview, CleanupSession, JunkEntry, StashState } from "@ghost/contract"
+import type {
+  CleanupPreview,
+  CleanupSession,
+  JunkEntry,
+  ReviewItem,
+  StashState,
+} from "@ghost/contract"
 import { router } from "expo-router"
 import { type ReactNode, useState } from "react"
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
@@ -25,6 +31,7 @@ import {
   useCleanupAction,
   useCleanupPreview,
   useCreateJob,
+  useJunkReview,
   useKeepFromCleanup,
   useStartCleanup,
   useVault,
@@ -218,6 +225,57 @@ function Step({
   )
 }
 
+function ReviewRow({ item }: { item: ReviewItem }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityHint="Opens item details"
+      onPress={() => openItem(item.itemInstanceId)}
+      style={({ pressed }) => [styles.carried, pressed && { opacity: 0.6 }]}
+    >
+      <ItemIcon
+        icon={item.icon}
+        size={40}
+        element={item.damageType}
+        gearTier={item.gearTier}
+        masterwork={item.masterwork}
+      />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Body size={15} lines={1} style={{ fontFamily: Type.bodyMedium }}>
+          {item.name}
+        </Body>
+        <Meta lines={1}>{item.meta}</Meta>
+        <Meta color={Ghost.soft} style={{ marginTop: 2, lineHeight: 18 }}>
+          {item.reason}
+        </Meta>
+      </View>
+      <Chevron />
+    </Pressable>
+  )
+}
+
+function Review() {
+  const review = useJunkReview(true)
+  const items = review.data ?? []
+  if (review.isSuccess && items.length === 0) return null
+  return (
+    <View style={{ marginTop: 26 }}>
+      <View style={[styles.between, { paddingBottom: 6 }]}>
+        <Mono>REVIEW{review.isSuccess ? ` · ${items.length}` : ""}</Mono>
+        {review.isFetching ? <Meta color={Ghost.dim}>Checking…</Meta> : null}
+      </View>
+      <Meta style={{ paddingBottom: 10, lineHeight: 18 }}>
+        Flagged as junk, but something argues for keeping them. Open one to tag it junk or keep.
+      </Meta>
+      {review.isError ? (
+        <Meta color={Ghost.danger}>{errorMessage(review.error)}</Meta>
+      ) : (
+        items.map((item) => <ReviewRow key={item.itemInstanceId} item={item} />)
+      )}
+    </View>
+  )
+}
+
 function PlanView({ preview, name }: { preview: CleanupPreview; name: string }) {
   const start = useStartCleanup()
   const { vault } = preview
@@ -276,6 +334,7 @@ function PlanView({ preview, name }: { preview: CleanupPreview; name: string }) 
             {preview.equippedJunk.join(", ")}.
           </Meta>
         ) : null}
+        <Review />
       </ScrollView>
       <Footer note={start.isError ? errorMessage(start.error) : null}>
         <Button label="NOT NOW" onPress={() => router.navigate("/vault")} />
@@ -348,6 +407,7 @@ function EmptyView({ name, characterId }: { name: string; characterId: string })
         <Meta color={Ghost.dim} style={{ marginTop: 6 }}>
           You can also tag any item yourself from its actions.
         </Meta>
+        <Review />
       </ScrollView>
       <Footer note={createJob.isError ? errorMessage(createJob.error) : null}>
         <Button

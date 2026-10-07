@@ -910,6 +910,16 @@ export class CleanupPreview extends Schema.Class<CleanupPreview>("CleanupPreview
 export const StartCleanup = Schema.Struct({ characterId: Schema.String })
 export type StartCleanup = typeof StartCleanup.Type
 
+/** Flagged as junk, but something argues for keeping it, so the player decides. */
+export class ReviewItem extends Schema.Class<ReviewItem>("ReviewItem")({
+  ...cleanupItemFields,
+  reason: Schema.String,
+}) {}
+
+export class JudgeUnavailable extends Schema.TaggedError<JudgeUnavailable>()("JudgeUnavailable", {
+  reason: Schema.String,
+}) {}
+
 export const KeepFromCleanup = Schema.Struct({ itemIds: Schema.NonEmptyArray(Schema.String) })
 export type KeepFromCleanup = typeof KeepFromCleanup.Type
 

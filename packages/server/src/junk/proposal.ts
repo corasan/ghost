@@ -1,4 +1,4 @@
-import type { PlanAction } from "@ghost/contract"
+import { type GearSlot, type PlanAction, ReviewItem } from "@ghost/contract"
 import type { OwnedItem } from "../bungie/inventory.ts"
 import type { Protection, Signal, Verdict } from "./judge.ts"
 import type { Judgment } from "./service.ts"
@@ -108,3 +108,32 @@ export const cleanupRows = (
   }
   return errors.length > 0 ? { errors } : { rows }
 }
+
+const isGear = (item: OwnedItem): item is OwnedItem & { readonly slot: GearSlot } =>
+  item.slot !== "other"
+
+/** The review rows the player has not decided on yet. */
+export const reviewItems = (
+  judgment: Judgment,
+  decided: (itemInstanceId: string) => boolean,
+): ReadonlyArray<ReviewItem> =>
+  flagged(judgment).flatMap(({ item, verdict, reason }) =>
+    verdict === "review" && isGear(item) && !decided(item.itemInstanceId)
+      ? [
+          new ReviewItem({
+            itemInstanceId: item.itemInstanceId,
+            itemHash: item.itemHash,
+            name: item.name,
+            icon: item.icon,
+            slot: item.slot,
+            damageType: item.damageType,
+            gearTier: item.gearTier ?? null,
+            masterwork: item.masterwork,
+            meta: [item.typeName, item.power === null ? null : String(item.power)]
+              .filter((part) => part !== null)
+              .join(" · "),
+            reason,
+          }),
+        ]
+      : [],
+  )

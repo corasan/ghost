@@ -37,7 +37,9 @@ import {
   SavedBuild,
   SetAgentSettings,
   SetDecision,
+  JudgeUnavailable,
   KeepFromCleanup,
+  ReviewItem,
   StartCleanup,
   VaultSnapshot,
 } from "./schemas"
@@ -236,6 +238,12 @@ export const cleanupGroup = HttpApiGroup.make("cleanup")
       payload: StartCleanup,
       success: CleanupSession,
       error: [CleanupRefused.pipe(HttpApiSchema.status(409)), ...bungieErrors],
+    }),
+  )
+  .add(
+    HttpApiEndpoint.get("review", "/cleanup/review", {
+      success: Schema.Array(ReviewItem),
+      error: [JudgeUnavailable.pipe(HttpApiSchema.status(503)), ...bungieErrors],
     }),
   )
   .add(HttpApiEndpoint.post("pause", "/cleanup/:id/pause", cleanupCommand))

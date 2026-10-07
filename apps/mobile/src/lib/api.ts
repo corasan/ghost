@@ -10,6 +10,7 @@ import {
   ItemSummary,
   type Job,
   RecentItem,
+  type ReviewItem,
   type SaveBuild,
   type SavedBuild,
   VaultSnapshot,
@@ -64,6 +65,7 @@ export const queryKeys = {
   cleanup: (url: string) => [url, "cleanup"] as const,
   cleanupPreview: (url: string, characterId: string | undefined) =>
     [url, "cleanupPreview", characterId] as const,
+  junkReview: (url: string) => [url, "junkReview"] as const,
 }
 
 /** Queries worth keeping on disk so the app opens on real data, not spinners. */
@@ -231,9 +233,17 @@ export function useHistory() {
 /** After items move, everything that shows items or counts is out of date. */
 export const invalidateInventory = (queryClient: QueryClient) =>
   Promise.all(
-    ["jobs", "recent", "guardian", "vault", "briefing", "history", "builds", "cleanupPreview"].map(
-      (key) => queryClient.invalidateQueries({ queryKey: [getServerUrl(), key] }),
-    ),
+    [
+      "jobs",
+      "recent",
+      "guardian",
+      "vault",
+      "briefing",
+      "history",
+      "builds",
+      "cleanupPreview",
+      "junkReview",
+    ].map((key) => queryClient.invalidateQueries({ queryKey: [getServerUrl(), key] })),
   )
 
 export function useSetDecision() {
@@ -267,10 +277,14 @@ export function useSetDecision() {
             })
           : vault,
       )
+      queryClient.setQueriesData<readonly ReviewItem[]>(
+        { queryKey: [getServerUrl(), "junkReview"] },
+        (items) => items?.filter((item) => item.itemInstanceId !== input.id),
+      )
     },
     onSettled: () =>
       Promise.all(
-        ["recent", "vault", "briefing", "item"].map((key) =>
+        ["recent", "vault", "briefing", "item", "junkReview", "cleanupPreview"].map((key) =>
           queryClient.invalidateQueries({ queryKey: [getServerUrl(), key] }),
         ),
       ),
@@ -460,6 +474,17 @@ export function useCleanup() {
     refetchInterval: (query) =>
       query.state.data && WATCHED.has(query.state.data.stage) ? 2_000 : false,
     staleTime: 2_000,
+  })
+}
+
+export function useJunkReview(enabled: boolean) {
+  const url = useServerUrl()
+  return useQuery({
+    queryKey: queryKeys.junkReview(url),
+    queryFn: () => run((api) => api.cleanup.review()),
+    enabled,
+    staleTime: 60_000,
+    retry: false,
   })
 }
 

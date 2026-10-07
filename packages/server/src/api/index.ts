@@ -5,6 +5,7 @@ import {
   BungieFailed,
   GhostApi,
   Health,
+  JudgeUnavailable,
 } from "@ghost/contract"
 import { Effect, Layer, Option, Schema } from "effect"
 import { HttpApiBuilder, HttpApiScalar } from "effect/http-api"
@@ -14,7 +15,10 @@ import { BungieClient, type BungieError } from "../bungie/client.ts"
 import { Guardian } from "../bungie/guardian.ts"
 import { Builds } from "../builds/builds.ts"
 import { Cleanup } from "../cleanup/service.ts"
+import { ItemsRepo } from "../db/items.ts"
 import { JobsRepo } from "../db/jobs.ts"
+import { reviewItems } from "../junk/proposal.ts"
+import { JunkJudge } from "../junk/service.ts"
 import { Items } from "../items/items.ts"
 import { Plans } from "../plans/executor.ts"
 
@@ -156,6 +160,20 @@ const CleanupApiLive = HttpApiBuilder.group(GhostApi, "cleanup", (handlers) =>
       ),
     )
     .handle("current", () => Effect.flatMap(Cleanup, (c) => c.current))
+    .handle("review", () =>
+      Effect.gen(function* () {
+        const judgment = yield* Effect.flatMap(JunkJudge, (judge) => judge.judgeVault)
+        const decisions = yield* Effect.flatMap(ItemsRepo, (items) => items.decisions).pipe(
+          Effect.orDie,
+        )
+        return reviewItems(judgment, (id) => (decisions.get(id)?.decision ?? null) !== null)
+      }).pipe(
+        Effect.catchTag("BungieError", toBungieFailed),
+        Effect.catchTag("WishlistError", (e) =>
+          Effect.fail(new JudgeUnavailable({ reason: e.message })),
+        ),
+      ),
+    )
     .handle("start", ({ payload }) =>
       Effect.flatMap(Cleanup, (c) => c.start(payload.characterId)).pipe(
         Effect.catchTag("BungieError", toBungieFailed),

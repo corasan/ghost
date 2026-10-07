@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import type { OwnedItem } from "../bungie/inventory.ts"
 import type { Verdict } from "./judge.ts"
-import { cleanupRows, flagged } from "./proposal.ts"
+import { cleanupRows, flagged, reviewItems } from "./proposal.ts"
 import type { Judgment } from "./service.ts"
 
 const weapon = (id: string, name: string, fields: Partial<OwnedItem> = {}): OwnedItem => ({
@@ -123,5 +123,15 @@ describe("cleanupRows", () => {
       { itemInstanceId: "dupe", action: "to_vault" },
     ])
     expect("errors" in result && result.errors.length).toBe(4)
+  })
+})
+
+describe("reviewItems", () => {
+  test("lists only review rows, with the whole reason, until the player decides", () => {
+    const undecided = reviewItems(judgment, () => false)
+    expect(undecided.map((r) => [r.itemInstanceId, r.meta, r.reason])).toEqual([
+      ["trash", "Hand Cannon · 1990", "Trash roll · 10/100 · review: your only copy"],
+    ])
+    expect(reviewItems(judgment, (id) => id === "trash")).toEqual([])
   })
 })
