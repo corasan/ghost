@@ -122,6 +122,8 @@ export type OwnedItem = Schema.Struct.Type<typeof ItemSummary.fields> & {
   readonly energy: { readonly used: number; readonly capacity: number } | null
   /** Exotic armor only: its intrinsic perk. */
   readonly exoticPerk: ItemPerk | null
+  /** Exotic armor only: every intrinsic perk, which on an exotic class item includes its two rolled perks. */
+  readonly intrinsics: ReadonlyArray<string>
   /** Armor only: the armor set it belongs to. */
   readonly set: ArmorSet | null
   readonly crafted: boolean
@@ -424,14 +426,14 @@ export const buildInventory = (
           return [{ index, plugHash: plug.hash, empty: EMPTY_SOCKET.test(plug.name) }]
         })
       : []
-    const intrinsic =
+    const intrinsics =
       armor && def?.tier === "exotic"
-        ? (sockets[id]?.sockets ?? [])
-            .map((socket) =>
-              socket.plugHash === undefined ? undefined : defs.get(socket.plugHash),
-            )
-            .find((plug) => plug?.typeName === "Intrinsic" && plug.description !== "")
-        : undefined
+        ? (sockets[id]?.sockets ?? []).flatMap((socket) => {
+            const plug = socket.plugHash === undefined ? undefined : defs.get(socket.plugHash)
+            return plug?.typeName === "Intrinsic" && plug.description !== "" ? [plug] : []
+          })
+        : []
+    const intrinsic = intrinsics[0]
     const perks = plugHashes.flatMap((hash) => {
       const plug = defs.get(hash)
       return plug !== undefined && plug.typeName.includes("Trait") ? [plug.name] : []
@@ -488,6 +490,7 @@ export const buildInventory = (
               icon: intrinsic.icon,
               trait: false,
             }),
+      intrinsics: intrinsics.map((plug) => plug.name),
       set: armor ? (sets.get(raw.itemHash) ?? null) : null,
       crafted: (state & 8) !== 0,
     }
