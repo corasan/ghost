@@ -12,7 +12,7 @@ export const McpLive = Layer.mergeAll(
     version: "0.0.0",
     path: MCP_PATH,
     instructions:
-      "Read-only view of a Destiny 2 account plus fetched reference data. get_characters and search_items read the account; check_rolls and roll_recommendations judge rolls against the DIM community wishlist; describe_plugs gives current perk and mod effects. Nothing here moves items: propose changes with present_plan, which the player confirms in the app. Record every source you rely on with cite_sources.",
+      "Read-only view of a Destiny 2 account plus fetched reference data. get_characters and search_items read the account; check_rolls and roll_recommendations judge rolls against the DIM community wishlist; describe_plugs gives current perk and mod effects; find_junk is the server's judgment of what is junk. Nothing here moves items: propose changes with present_plan, which the player confirms in the app. Record every source you rely on with cite_sources.",
     protocols: [McpProtocol.v2025_11_25, McpProtocol.v2025_06_18, McpProtocol.v2025_03_26],
   }),
   McpServer.toolkit(GhostToolkit).pipe(Layer.provide(GhostToolkitHandlers)),
