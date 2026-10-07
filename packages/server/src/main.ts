@@ -11,6 +11,8 @@ import { JobRunnerLive } from "./agent/runner.ts"
 import { AgentConfigLive } from "./agent/settings.ts"
 import { ApiLive } from "./api/index.ts"
 import { ArtifactsLive } from "./bungie/artifact.ts"
+import { CleanupRepoLive } from "./cleanup/repo.ts"
+import { CleanupLive, CleanupWatcherLive } from "./cleanup/service.ts"
 import { BuildsLive } from "./builds/builds.ts"
 import { BungieClientLive } from "./bungie/client.ts"
 import { GuardianLive } from "./bungie/guardian.ts"
@@ -42,6 +44,7 @@ const Repositories = Layer.mergeAll(
   BuildsRepoLive,
   SettingsLive,
   ChargeEffectsLive,
+  CleanupRepoLive,
 ).pipe(Layer.provideMerge(DatabaseLive))
 
 const Clients = Layer.mergeAll(
@@ -59,9 +62,13 @@ const Profile = Layer.mergeAll(ProfileStoreLive, CreatorNotesLive).pipe(Layer.pr
 
 const Reads = LoadoutsLive.pipe(Layer.provideMerge(Profile))
 
-const Services = Layer.mergeAll(GuardianLive, ActivityLive, PlansLive, ArtifactsLive).pipe(
-  Layer.provideMerge(Reads),
-)
+const Services = Layer.mergeAll(
+  GuardianLive,
+  ActivityLive,
+  PlansLive,
+  ArtifactsLive,
+  CleanupLive,
+).pipe(Layer.provideMerge(Reads))
 
 const Actions = Layer.mergeAll(ItemsLive, BuildsLive).pipe(Layer.provideMerge(Services))
 
@@ -77,6 +84,7 @@ const ServerLive = Layer.unwrap(
 const Main = HttpRouter.serve(Routes, { disableLogger: true, middleware: requestLogger }).pipe(
   Layer.provide(HttpServer.layerServices),
   Layer.merge(JobRunnerLive),
+  Layer.merge(CleanupWatcherLive),
   Layer.merge(ProfileRefreshLive),
   Layer.merge(CreatorRefreshLive),
   Layer.provide(Actions),
