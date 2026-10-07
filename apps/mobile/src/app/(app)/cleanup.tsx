@@ -723,11 +723,6 @@ function DoneView({ session, name }: { session: CleanupSession; name: string }) 
   )
 }
 
-/**
- * Cleanup mode: Ghost stashes what the character carries, then hands junk
- * over in batches that fill every slot. The player deletes in game while
- * the server watches and sends the next batch.
- */
 export default function CleanupScreen() {
   const { character, characters } = useCharacter()
   const cleanup = useCleanup()

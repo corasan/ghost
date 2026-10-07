@@ -15,7 +15,6 @@ const fromRow = (row: { readonly state: string }) =>
 export interface CleanupRepoService {
   readonly save: (session: CleanupSession) => Effect.Effect<void, SqlError.SqlError>
   readonly get: (id: string) => Effect.Effect<CleanupSession, CleanupNotFound | SqlError.SqlError>
-  /** The newest session that has not been stopped or closed. */
   readonly active: Effect.Effect<Option.Option<CleanupSession>, SqlError.SqlError>
 }
 

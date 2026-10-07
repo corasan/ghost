@@ -38,11 +38,6 @@ import {
 } from "./engine.ts"
 import { CleanupRepo } from "./repo.ts"
 
-// The player deletes in game; Ghost only moves. A watcher re-reads the
-// profile every few seconds, folds it into the session and makes whatever
-// transfers the session still needs, one at a time. State lives in SQLite
-// and every step is "move it if it is not there yet", so a restart resumes.
-
 type CommandErrors = CleanupNotFound | CleanupRefused
 type BungieErrors = BungieError | BungieNotLinked
 
@@ -63,7 +58,6 @@ export interface CleanupService {
     id: string,
     itemInstanceId: string,
   ) => Effect.Effect<CleanupSession, CommandErrors>
-  /** One pass of the watcher: read the profile, then make the moves the session needs. */
   readonly tick: Effect.Effect<void, BungieErrors>
 }
 
@@ -233,7 +227,7 @@ export const cleanupLayer = (spacing: Duration.Input) =>
         const session = active.value
         const polling = POLLING.has(session.stage)
         if (!polling && nextMoves(session).length === 0) return
-        const inv = polling ? yield* freshInventory : yield* profile.inventory
+        const inv = yield* freshInventory
         if (polling) yield* record(session.id, (s, at) => reconcile(s, inv, at))
         const located = new Map(
           inv.items.map((item): [string, Where] => [
