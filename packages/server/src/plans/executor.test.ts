@@ -298,3 +298,40 @@ describe("apply with saveTo", () => {
     expect(undone.plan?.saveTo?.error).toBe("The in-game slot was kept.")
   })
 })
+
+describe("apply a cleanup plan", () => {
+  test("tags junk but refuses an item that was locked, masterworked or equipped since it was proposed", async () => {
+    const vault = { location: "vault", characterId: null, equipped: false } as const
+    const junk = owned("junk", "kinetic", vault)
+    const locked = owned("locked", "kinetic", { ...vault, locked: true })
+    const masterworked = owned("mw", "energy", { ...vault, masterwork: true })
+    const worn = owned("worn", "power")
+    const h = harness([junk, locked, masterworked, worn])
+    const rows = [junk, locked, masterworked, worn].map((item) => row(item, "tag_junk"))
+    const { job, actions } = await Effect.runPromise(
+      Effect.gen(function* () {
+        const jobs = yield* JobsRepo
+        const created = yield* jobs.createManual({
+          kind: "item_action",
+          prompt: "Clean up",
+          characterId: "titan-1",
+          plan: new Plan({ ...plan(rows, ""), kind: "cleanup", saveTo: undefined }),
+        })
+        const applied = yield* (yield* Plans).apply(
+          created.id,
+          rows.map((r) => r.itemInstanceId),
+        )
+        return { job: applied, actions: yield* (yield* ActionsRepo).forJobs([created.id]) }
+      }).pipe(Effect.provide(h.layer)),
+    )
+    expect(actions.map((a) => [a.itemInstanceId, a.kind, a.status])).toEqual([
+      ["junk", "tag_junk", "ok"],
+    ])
+    expect(job.plan?.rows.map((r) => [r.itemInstanceId, r.outcome, r.error])).toEqual([
+      ["junk", "ok", null],
+      ["locked", "failed", "it is locked, so it was not tagged junk"],
+      ["mw", "failed", "it is masterworked, so it was not tagged junk"],
+      ["worn", "failed", "it is equipped, so it was not tagged junk"],
+    ])
+  })
+})
