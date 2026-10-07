@@ -38,6 +38,8 @@ import {
   SetAgentSettings,
   SetDecision,
   JudgeUnavailable,
+  SetPerkRating,
+  WeaponPerks,
   KeepFromCleanup,
   ReviewItem,
   StartCleanup,
@@ -115,6 +117,12 @@ export const inventoryGroup = HttpApiGroup.make("inventory")
     }),
   )
 
+const perkErrors = [
+  ItemNotFound.pipe(HttpApiSchema.status(404)),
+  JudgeUnavailable.pipe(HttpApiSchema.status(503)),
+  ...bungieErrors,
+] as const
+
 export const itemsGroup = HttpApiGroup.make("items")
   .add(
     HttpApiEndpoint.get("detail", "/items/:id", {
@@ -129,6 +137,21 @@ export const itemsGroup = HttpApiGroup.make("items")
       payload: ItemAction,
       success: Job,
       error: [ItemNotFound.pipe(HttpApiSchema.status(404)), ...planErrors],
+    }),
+  )
+  .add(
+    HttpApiEndpoint.get("perks", "/items/:id/perks", {
+      params: { id: Schema.String },
+      success: WeaponPerks,
+      error: perkErrors,
+    }),
+  )
+  .add(
+    HttpApiEndpoint.post("ratePerk", "/items/:id/perks", {
+      params: { id: Schema.String },
+      payload: SetPerkRating,
+      success: WeaponPerks,
+      error: perkErrors,
     }),
   )
 

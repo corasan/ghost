@@ -916,6 +916,33 @@ export class ReviewItem extends Schema.Class<ReviewItem>("ReviewItem")({
   reason: Schema.String,
 }) {}
 
+export const PerkRating = Schema.Literals(["good", "ok", "junk"])
+export type PerkRating = typeof PerkRating.Type
+
+/** Who rated a perk, strongest first. */
+export const PerkRatingSource = Schema.Literals(["player", "claude", "wishlist", "community"])
+export type PerkRatingSource = typeof PerkRatingSource.Type
+
+export class RatedPerk extends Schema.Class<RatedPerk>("RatedPerk")({
+  name: Schema.String,
+  rating: PerkRating,
+  /** null when nothing rates the perk, which makes it junk. */
+  source: Schema.NullOr(PerkRatingSource),
+}) {}
+
+/** A weapon's trait columns, every perk each can slot, rated the way junk judging rates them. */
+export class WeaponPerks extends Schema.Class<WeaponPerks>("WeaponPerks")({
+  weapon: Schema.String,
+  columns: Schema.Array(Schema.Array(RatedPerk)),
+}) {}
+
+/** null drops the player's rating, leaving Claude's or the wishlist's. */
+export const SetPerkRating = Schema.Struct({
+  perk: Schema.String,
+  rating: Schema.NullOr(PerkRating),
+})
+export type SetPerkRating = typeof SetPerkRating.Type
+
 export class JudgeUnavailable extends Schema.TaggedError<JudgeUnavailable>()("JudgeUnavailable", {
   reason: Schema.String,
 }) {}

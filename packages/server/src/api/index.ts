@@ -5,7 +5,10 @@ import {
   BungieFailed,
   GhostApi,
   Health,
+  ItemNotFound,
   JudgeUnavailable,
+  RatedPerk,
+  WeaponPerks,
 } from "@ghost/contract"
 import { Effect, Layer, Option, Schema } from "effect"
 import { HttpApiBuilder, HttpApiScalar } from "effect/http-api"
@@ -16,6 +19,7 @@ import { Guardian } from "../bungie/guardian.ts"
 import { Builds } from "../builds/builds.ts"
 import { Cleanup } from "../cleanup/service.ts"
 import { ItemsRepo } from "../db/items.ts"
+import { PerkRatings } from "../db/perk-ratings.ts"
 import { JobsRepo } from "../db/jobs.ts"
 import { reviewItems } from "../junk/proposal.ts"
 import { JunkJudge } from "../junk/service.ts"
@@ -84,6 +88,26 @@ const InventoryLive = HttpApiBuilder.group(GhostApi, "inventory", (handlers) =>
     ),
 )
 
+const weaponPerks = (id: string) =>
+  Effect.flatMap(JunkJudge, (judge) => judge.perksOf(id)).pipe(
+    Effect.flatMap(
+      Option.match({
+        onNone: () => Effect.fail(new ItemNotFound({ id })),
+        onSome: ({ item, columns }) =>
+          Effect.succeed(
+            new WeaponPerks({
+              weapon: item.name,
+              columns: columns.map((column) => column.map((perk) => new RatedPerk(perk))),
+            }),
+          ),
+      }),
+    ),
+    Effect.catchTag("BungieError", toBungieFailed),
+    Effect.catchTag("WishlistError", (e) =>
+      Effect.fail(new JudgeUnavailable({ reason: e.message })),
+    ),
+  )
+
 const ItemsApiLive = HttpApiBuilder.group(GhostApi, "items", (handlers) =>
   handlers
     .handle("detail", ({ params }) =>
@@ -95,6 +119,26 @@ const ItemsApiLive = HttpApiBuilder.group(GhostApi, "items", (handlers) =>
       Effect.flatMap(Items, (items) => items.act(params.id, payload)).pipe(
         Effect.catchTag("BungieError", toBungieFailed),
       ),
+    )
+    .handle("perks", ({ params }) => weaponPerks(params.id))
+    .handle("ratePerk", ({ params, payload }) =>
+      Effect.gen(function* () {
+        const current = yield* weaponPerks(params.id)
+        const ratings = yield* PerkRatings
+        const write =
+          payload.rating === null
+            ? ratings.clear(current.weapon, payload.perk, "player")
+            : ratings.set({
+                weapon: current.weapon,
+                perk: payload.perk,
+                rating: payload.rating,
+                source: "player",
+                note: null,
+                url: null,
+              })
+        yield* write.pipe(Effect.orDie)
+        return yield* weaponPerks(params.id)
+      }),
     ),
 )
 
