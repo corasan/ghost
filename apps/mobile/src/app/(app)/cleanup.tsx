@@ -33,6 +33,7 @@ import {
   useCreateJob,
   useJunkReview,
   useKeepFromCleanup,
+  useSetDecision,
   useStartCleanup,
   useVault,
 } from "@/lib/api"
@@ -226,31 +227,51 @@ function Step({
 }
 
 function ReviewRow({ item }: { item: ReviewItem }) {
+  const setDecision = useSetDecision()
+  const decide = (decision: "keep" | "junk") =>
+    setDecision.mutate({ id: item.itemInstanceId, decision })
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityHint="Opens item details"
-      onPress={() => openItem(item.itemInstanceId)}
-      style={({ pressed }) => [styles.carried, pressed && { opacity: 0.6 }]}
-    >
-      <ItemIcon
-        icon={item.icon}
-        size={40}
-        element={item.damageType}
-        gearTier={item.gearTier}
-        masterwork={item.masterwork}
-      />
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Body size={15} lines={1} style={{ fontFamily: Type.bodyMedium }}>
-          {item.name}
-        </Body>
-        <Meta lines={1}>{item.meta}</Meta>
-        <Meta color={Ghost.soft} style={{ marginTop: 2, lineHeight: 18 }}>
-          {item.reason}
-        </Meta>
+    <View style={styles.review}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityHint="Opens item details"
+        onPress={() => openItem(item.itemInstanceId)}
+        style={({ pressed }) => [styles.reviewItem, pressed && { opacity: 0.6 }]}
+      >
+        <ItemIcon
+          icon={item.icon}
+          size={40}
+          element={item.damageType}
+          gearTier={item.gearTier}
+          masterwork={item.masterwork}
+        />
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Body size={15} lines={1} style={{ fontFamily: Type.bodyMedium }}>
+            {item.name}
+          </Body>
+          <Meta lines={1}>{item.meta}</Meta>
+          <Meta color={Ghost.soft} style={{ marginTop: 2, lineHeight: 18 }}>
+            {item.reason}
+          </Meta>
+        </View>
+        <Chevron />
+      </Pressable>
+      <View style={{ flexDirection: "row", gap: 8, paddingLeft: 52 }}>
+        <Button
+          label="KEEP"
+          compact
+          disabled={setDecision.isPending}
+          onPress={() => decide("keep")}
+        />
+        <Button
+          label="JUNK"
+          tone="danger"
+          compact
+          disabled={setDecision.isPending}
+          onPress={() => decide("junk")}
+        />
       </View>
-      <Chevron />
-    </Pressable>
+    </View>
   )
 }
 
@@ -265,7 +286,7 @@ function Review() {
         {review.isFetching ? <Meta color={Ghost.dim}>Checking…</Meta> : null}
       </View>
       <Meta style={{ paddingBottom: 10, lineHeight: 18 }}>
-        Flagged as junk, but something argues for keeping them. Open one to tag it junk or keep.
+        Flagged as junk, but something argues for keeping them. Open one for details.
       </Meta>
       {review.isError ? (
         <Meta color={Ghost.danger}>{errorMessage(review.error)}</Meta>
@@ -968,6 +989,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: Ghost.rule,
   },
+  review: { paddingVertical: 10, gap: 8, borderTopWidth: 1, borderTopColor: Ghost.rule },
+  reviewItem: { flexDirection: "row", alignItems: "center", gap: 12 },
   junk: { borderWidth: 1, borderColor: Ghost.danger, paddingHorizontal: 4, paddingVertical: 1 },
   slot: { paddingTop: 8, paddingBottom: 10, borderTopWidth: 1, borderTopColor: Ghost.rule },
   tile: { width: TILE, height: TILE },

@@ -114,6 +114,7 @@ export const ActivityLive = Layer.effect(
       Effect.gen(function* () {
         const row = yield* items.setDecision(itemInstanceId, decision).pipe(Effect.orDie)
         if (Option.isNone(row)) return Option.none()
+        yield* profile.invalidate
         const [item] = yield* enrich([row.value])
         return Option.fromNullishOr(item)
       })
