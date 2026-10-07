@@ -51,6 +51,14 @@ interface Where {
 const describe = (error: BungieError | BungieNotLinked) =>
   error._tag === "BungieError" ? error.message : "Bungie account is not linked"
 
+// The judge never proposes these, but the plan may be stale by the time the
+// player confirms it, so tagging checks the item as it is now.
+const JUNK_GUARDS: ReadonlyArray<readonly [(item: OwnedItem) => boolean, string]> = [
+  [(item) => item.locked, "it is locked"],
+  [(item) => item.masterwork, "it is masterworked"],
+  [(item) => item.equipped, "it is equipped"],
+]
+
 export const PlansLive = Layer.effect(
   Plans,
   Effect.gen(function* () {
@@ -288,8 +296,10 @@ export const PlansLive = Layer.effect(
             at.equipped = true
           })
 
-        const tagJunk = (item: OwnedItem) =>
-          items.setDecision(item.itemInstanceId, "junk").pipe(
+        const tagJunk = (item: OwnedItem) => {
+          const kept = JUNK_GUARDS.find(([applies]) => applies({ ...item, ...state(item) }))
+          if (kept !== undefined) return Effect.fail(`${kept[1]}, so it was not tagged junk`)
+          return items.setDecision(item.itemInstanceId, "junk").pipe(
             Effect.orDie,
             Effect.andThen(
               record({
@@ -307,6 +317,7 @@ export const PlansLive = Layer.effect(
               }),
             ),
           )
+        }
 
         const insertMods = (row: PlanRow, item: OwnedItem) =>
           Effect.gen(function* () {
