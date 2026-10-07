@@ -277,26 +277,15 @@ function EmptyView({ name, characterId }: { name: string; characterId: string })
   const createJob = useCreateJob()
   const sessionId = useSessionId()
 
-  const ask = (prompt: string) =>
+  const ask = (kind: "chat" | "vault_cleanup", prompt: string) =>
     createJob.mutate(
-      { kind: "chat", prompt, characterId, sessionId },
+      { kind, prompt, characterId, sessionId },
       {
         onSuccess: (job) => {
           if (job.sessionId !== null) continueSession(job.sessionId)
           router.navigate("/")
         },
       },
-    )
-
-  const tagJunk = () =>
-    createJob.mutate(
-      {
-        kind: "vault_cleanup",
-        prompt: "Clean up my vault: flag duplicates with a better copy and low rolls.",
-        characterId,
-        sessionId,
-      },
-      { onSuccess: () => router.navigate("/vault") },
     )
 
   return (
@@ -329,7 +318,7 @@ function EmptyView({ name, characterId }: { name: string; characterId: string })
             key={prompt}
             accessibilityRole="button"
             disabled={createJob.isPending}
-            onPress={() => ask(prompt)}
+            onPress={() => ask("chat", prompt)}
             style={({ pressed }) => [styles.ask, pressed && { opacity: 0.6 }]}
           >
             <Body size={15} color={Ghost.soft}>
@@ -347,7 +336,12 @@ function EmptyView({ name, characterId }: { name: string; characterId: string })
           label="ASK GHOST TO TAG JUNK"
           tone="solid"
           disabled={createJob.isPending}
-          onPress={tagJunk}
+          onPress={() =>
+            ask(
+              "vault_cleanup",
+              "Clean up my vault: flag duplicates with a better copy and low rolls.",
+            )
+          }
         />
       </Footer>
     </>
