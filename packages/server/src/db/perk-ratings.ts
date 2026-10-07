@@ -7,6 +7,7 @@ export interface PerkRatingRow {
   readonly weapon: string
   readonly perk: string
   readonly source: StoredRating["source"]
+  readonly purpose: StoredRating["purpose"]
   readonly rating: Rating
   readonly note: string | null
   readonly url: string | null
@@ -16,10 +17,13 @@ export interface PerkRatingRow {
 export const weaponKey = (name: string) => name.trim().toLowerCase()
 
 export interface PerkRatingsService {
-  /** Each weapon's ratings by perkKey, keyed by weaponKey, a player's rating winning over Claude's. */
+  /** Each weapon's ratings by perkKey, keyed by weaponKey. */
   readonly forWeapons: (
     names: ReadonlyArray<string>,
-  ) => Effect.Effect<ReadonlyMap<string, ReadonlyMap<string, StoredRating>>, SqlError.SqlError>
+  ) => Effect.Effect<
+    ReadonlyMap<string, ReadonlyMap<string, ReadonlyArray<StoredRating>>>,
+    SqlError.SqlError
+  >
   /** Every stored rating, or one weapon's, sorted by weapon then perk. */
   readonly rows: (weapon?: string) => Effect.Effect<ReadonlyArray<PerkRatingRow>, SqlError.SqlError>
   readonly set: (row: PerkRatingRow) => Effect.Effect<void, SqlError.SqlError>
@@ -27,6 +31,7 @@ export interface PerkRatingsService {
     weapon: string,
     perk: string,
     source: StoredRating["source"],
+    purpose: StoredRating["purpose"],
   ) => Effect.Effect<void, SqlError.SqlError>
 }
 
@@ -38,6 +43,7 @@ interface Row {
   readonly weapon: string
   readonly perk: string
   readonly source: StoredRating["source"]
+  readonly purpose: StoredRating["purpose"]
   readonly rating: Rating
   readonly note: string | null
   readonly url: string | null
@@ -45,7 +51,15 @@ interface Row {
 
 const BATCH = 500
 
-const toRow = (row: Row): PerkRatingRow => ({ ...row })
+const toRow = (row: Row): PerkRatingRow => ({
+  weapon: row.weapon,
+  perk: row.perk,
+  source: row.source,
+  purpose: row.purpose,
+  rating: row.rating,
+  note: row.note,
+  url: row.url,
+})
 
 export const PerkRatingsLive = Layer.effect(
   PerkRatings,
@@ -61,12 +75,13 @@ export const PerkRatingsLive = Layer.effect(
         (part) => sql<Row>`SELECT * FROM perk_ratings WHERE weapon IN ${sql.in(part)}`,
       ).pipe(
         Effect.map((parts) => {
-          const byWeapon = new Map<string, Map<string, StoredRating>>()
+          const byWeapon = new Map<string, Map<string, Array<StoredRating>>>()
           for (const row of parts.flat()) {
-            const ratings = byWeapon.get(row.weapon) ?? new Map<string, StoredRating>()
-            if (row.source === "player" || !ratings.has(row.perk)) {
-              ratings.set(row.perk, { rating: row.rating, source: row.source })
-            }
+            const ratings = byWeapon.get(row.weapon) ?? new Map<string, Array<StoredRating>>()
+            ratings.set(row.perk, [
+              ...(ratings.get(row.perk) ?? []),
+              { rating: row.rating, source: row.source, purpose: row.purpose },
+            ])
             byWeapon.set(row.weapon, ratings)
           }
           return byWeapon
@@ -84,18 +99,24 @@ export const PerkRatingsLive = Layer.effect(
       Effect.gen(function* () {
         const now = DateTime.formatIso(yield* DateTime.now)
         yield* sql`
-          INSERT INTO perk_ratings (weapon, perk, source, rating, note, url, updated_at)
-          VALUES (${weaponKey(row.weapon)}, ${perkKey(row.perk)}, ${row.source}, ${row.rating},
-            ${row.note}, ${row.url}, ${now})
-          ON CONFLICT (weapon, perk, source) DO UPDATE SET rating = excluded.rating,
+          INSERT INTO perk_ratings (weapon, perk, source, purpose, rating, note, url, updated_at)
+          VALUES (${weaponKey(row.weapon)}, ${perkKey(row.perk)}, ${row.source}, ${row.purpose},
+            ${row.rating}, ${row.note}, ${row.url}, ${now})
+          ON CONFLICT (weapon, perk, source, purpose) DO UPDATE SET rating = excluded.rating,
             note = excluded.note, url = excluded.url, updated_at = excluded.updated_at
         `
       })
 
-    const clear = (weapon: string, perk: string, source: StoredRating["source"]) =>
+    const clear = (
+      weapon: string,
+      perk: string,
+      source: StoredRating["source"],
+      purpose: StoredRating["purpose"],
+    ) =>
       sql`
         DELETE FROM perk_ratings
         WHERE weapon = ${weaponKey(weapon)} AND perk = ${perkKey(perk)} AND source = ${source}
+          AND purpose = ${purpose}
       `.pipe(Effect.asVoid)
 
     return { forWeapons, rows, set, clear }

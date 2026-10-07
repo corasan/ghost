@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import {
   COMMUNITY,
-  covers,
+  goodColumns,
   keepable,
   type PerkKnowledge,
   type RatedPerk,
@@ -11,38 +11,63 @@ import {
 
 const knowing = (fields: Partial<PerkKnowledge> = {}): PerkKnowledge => ({
   stored: new Map(),
-  wishlisted: new Map(),
+  wishlisted: { pve: new Map(), pvp: new Map() },
   trashed: new Set(),
   community: new Map(),
   ...fields,
 })
 
-const perk = (name: string, rating: RatedPerk["rating"]): RatedPerk => ({
+const NONE = { pve: 0, pvp: 0 }
+
+const perk = (
+  name: string,
+  rating: RatedPerk["rating"],
+  good: RatedPerk["good"] = [],
+): RatedPerk => ({
   name,
   rating,
+  good,
   source: rating === "junk" ? null : "community",
 })
 
 describe("ratePerk", () => {
-  test("a player's rating beats the wishlist and caps the perks it skips at ok", () => {
+  test("rates a perk per purpose, and a player's rating beats Claude's for the same purpose", () => {
     const known = knowing({
-      stored: new Map([["rampage", { rating: "junk", source: "player" }]]),
-      wishlisted: new Map([
-        ["rampage", 10],
-        ["kill clip", 10],
+      stored: new Map([
+        [
+          "rampage",
+          [
+            { rating: "ok", source: "claude", purpose: "pve" },
+            { rating: "good", source: "player", purpose: "pve" },
+            { rating: "junk", source: "claude", purpose: "pvp" },
+          ],
+        ],
       ]),
-      community: new Map([["kill clip", COMMUNITY.good]]),
     })
-    expect(ratePerk("Rampage", known, 10)).toEqual({
+    expect(ratePerk("Rampage", known, NONE)).toEqual({
       name: "Rampage",
-      rating: "junk",
+      rating: "good",
+      good: ["pve"],
       source: "player",
     })
-    expect(ratePerk("Enhanced Kill Clip", known, 10)).toEqual({
-      name: "Enhanced Kill Clip",
-      rating: "ok",
-      source: "wishlist",
+  })
+
+  test("a perk rated for any purpose is good for PvE and PvP", () => {
+    const known = knowing({
+      stored: new Map([["kill clip", [{ rating: "good", source: "claude", purpose: "any" }]]]),
     })
+    expect(ratePerk("Enhanced Kill Clip", known, NONE).good).toEqual(["pve", "pvp"])
+  })
+
+  test("a weapon with curated ratings leaves every perk the list skips at ok at best", () => {
+    const known = knowing({
+      stored: new Map([["demolitionist", [{ rating: "good", source: "claude", purpose: "pve" }]]]),
+      wishlisted: { pve: new Map([["subsistence", 10]]), pvp: new Map() },
+      community: new Map([["frenzy", COMMUNITY.good]]),
+    })
+    expect(
+      ["Subsistence", "Frenzy"].map((n) => ratePerk(n, known, { pve: 10, pvp: 0 }).rating),
+    ).toEqual(["ok", "ok"])
   })
 
   test("a perk in this weapon's trash rolls is junk however popular elsewhere", () => {
@@ -50,10 +75,31 @@ describe("ratePerk", () => {
       trashed: new Set(["frenzy"]),
       community: new Map([["frenzy", COMMUNITY.good + 100]]),
     })
-    expect(ratePerk("Frenzy", known, 0).rating).toBe("junk")
+    expect(ratePerk("Frenzy", known, NONE).rating).toBe("junk")
   })
 
-  test("rates by how many weapons the wishlist recommends a perk on", () => {
+  test("only the perks a purpose's wishlist rolls name most in a column are good for it", () => {
+    const known = knowing({
+      wishlisted: {
+        pve: new Map([
+          ["rampage", 10],
+          ["kill clip", Math.ceil(10 * WISHLIST_GOOD)],
+          ["multikill clip", Math.floor(10 * WISHLIST_GOOD) - 1],
+        ]),
+        pvp: new Map(),
+      },
+    })
+    const tops = { pve: 10, pvp: 0 }
+    expect(["Rampage", "Kill Clip", "Multikill Clip"].map((n) => ratePerk(n, known, tops))).toEqual(
+      [
+        { name: "Rampage", rating: "good", good: ["pve"], source: "wishlist" },
+        { name: "Kill Clip", rating: "good", good: ["pve"], source: "wishlist" },
+        { name: "Multikill Clip", rating: "ok", good: [], source: "wishlist" },
+      ],
+    )
+  })
+
+  test("rates a weapon the wishlist does not cover by how many weapons it recommends a perk on", () => {
     const known = knowing({
       community: new Map([
         ["demolitionist", COMMUNITY.good],
@@ -61,64 +107,26 @@ describe("ratePerk", () => {
         ["hip-fire grip", COMMUNITY.ok - 1],
       ]),
     })
-    expect(["Demolitionist", "Outlaw", "Hip-Fire Grip"].map((n) => ratePerk(n, known, 0))).toEqual([
-      { name: "Demolitionist", rating: "good", source: "community" },
-      { name: "Outlaw", rating: "ok", source: "community" },
-      { name: "Hip-Fire Grip", rating: "junk", source: null },
-    ])
-  })
-
-  test("a popular perk this weapon's own wishlist passes over is only ok", () => {
-    const known = knowing({
-      wishlisted: new Map([["kill clip", 4]]),
-      community: new Map([["demolitionist", COMMUNITY.good]]),
-    })
-    expect(ratePerk("Demolitionist", known, 4).rating).toBe("ok")
-  })
-
-  test("only the perks this weapon's wishlist names most in a column are good", () => {
-    const known = knowing({
-      wishlisted: new Map([
-        ["rampage", 10],
-        ["kill clip", Math.ceil(10 * WISHLIST_GOOD)],
-        ["multikill clip", Math.floor(10 * WISHLIST_GOOD) - 1],
-      ]),
-    })
     expect(
-      ["Rampage", "Kill Clip", "Multikill Clip"].map((n) => ratePerk(n, known, 10).rating),
-    ).toEqual(["good", "good", "ok"])
-  })
-
-  test("a weapon with curated ratings leaves every perk the list skips at ok at best", () => {
-    const known = knowing({
-      stored: new Map([["demolitionist", { rating: "good", source: "claude" }]]),
-      wishlisted: new Map([["subsistence", 10]]),
-      community: new Map([["rampage", COMMUNITY.good]]),
-    })
-    expect(
-      ["Demolitionist", "Subsistence", "Rampage"].map((n) => ratePerk(n, known, 10).rating),
-    ).toEqual(["good", "ok", "ok"])
+      ["Demolitionist", "Outlaw", "Hip-Fire Grip"].map((n) => ratePerk(n, known, NONE).rating),
+    ).toEqual(["good", "ok", "junk"])
   })
 })
 
 describe("keepable", () => {
   test("needs a good perk somewhere, or ok perks in both columns", () => {
-    expect(keepable([[perk("A", "good")], [perk("B", "junk")]])).toBe(true)
+    expect(keepable([[perk("A", "good", ["pve"])], [perk("B", "junk")]])).toBe(true)
     expect(keepable([[perk("A", "ok")], [perk("B", "ok")]])).toBe(true)
     expect(keepable([[perk("A", "ok")], [perk("B", "junk")]])).toBe(false)
   })
 })
 
-describe("covers", () => {
-  const t5 = [
-    [perk("Kill Clip", "good"), perk("Outlaw", "ok")],
-    [perk("Rampage", "good"), perk("Hip-Fire Grip", "junk")],
-  ]
-  test("a copy that can slot every good perk of another covers it, ok and junk aside", () => {
-    expect(covers(t5, [[perk("Kill Clip", "good")], [perk("Feeding Frenzy", "ok")]])).toBe(true)
-  })
-
-  test("a copy missing one of the other's good perks does not", () => {
-    expect(covers(t5, [[perk("Kill Clip", "good")], [perk("Frenzy", "good")]])).toBe(false)
+describe("goodColumns", () => {
+  test("counts the columns that can slot a perk good for the purpose", () => {
+    const columns = [
+      [perk("Demolitionist", "good", ["pve"]), perk("Tap the Trigger", "good", ["pvp"])],
+      [perk("Rampage", "good", ["pve"]), perk("Target Lock", "ok")],
+    ]
+    expect([goodColumns(columns, "pve"), goodColumns(columns, "pvp")]).toEqual([2, 1])
   })
 })

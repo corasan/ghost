@@ -1,6 +1,6 @@
 import { ARMOR_STATS } from "../bungie/masterwork.ts"
 import { type Inventory, isArmor, isWeapon, type OwnedItem } from "../bungie/inventory.ts"
-import { covers, keepable, type RatedColumns, rated } from "./perks.ts"
+import { goodColumns, keepable, type Purpose, PURPOSES, type RatedColumns, rated } from "./perks.ts"
 
 export type Protection =
   | "locked"
@@ -10,7 +10,8 @@ export type Protection =
   | "marked_keep"
   | "in_build"
   | "in_loadout"
-  | "good_roll"
+  | "best_pve"
+  | "best_pvp"
   | "only_copy"
   | "best_copy"
   | "recent"
@@ -20,7 +21,7 @@ export type Signal =
   | {
       readonly kind: "duplicate"
       readonly better: string
-      /** The good and ok perks the better copy also slots; empty when copies are not compared by roll. */
+      /** The copy's good perks, which the better copy's roll beats or matches; empty when copies are not compared by roll. */
       readonly shared: ReadonlyArray<string>
     }
   | { readonly kind: "weak_roll"; readonly perks: ReadonlyArray<string> }
@@ -84,14 +85,16 @@ const statProfile = (item: OwnedItem) => {
     .join("/")
 }
 
-// Armor copies serve the same role when one could stand in for the other:
+// Weapons are one weapon by name, so a reissue with a new item hash competes
+// with the copies it replaced. Armor copies serve the same role when one
+// could stand in for the other:
 // same class and slot, same set (or the same item), the same archetype and
 // tertiary, read from the three highest stats, and the same rolled exotic
 // perks, which is what sets one exotic class item apart from another. Copies
 // of one tier are only weighed against each other when tuned the same way.
 const roleKey = (item: OwnedItem) =>
   isWeapon(item.slot)
-    ? `weapon|${item.itemHash}`
+    ? `weapon|${item.name.toLowerCase()}`
     : `armor|${item.classType}|${item.slot}|${item.set?.name ?? item.itemHash}|${statProfile(item)}|${item.intrinsics.toSorted().join("/")}`
 
 const groupKey = (item: OwnedItem) =>
@@ -131,8 +134,8 @@ interface Standing {
   readonly shared: ReadonlyArray<string>
   /** The roll's perks, when none of them is worth keeping. */
   readonly weak: ReadonlyArray<string> | null
-  /** Why the copy stays: its roll no kept copy covers, or being the best when no roll is rated. */
-  readonly kept: "roll" | "best" | null
+  /** Why the copy stays: the best roll for some purposes, or being the best copy when no roll is. */
+  readonly kept: ReadonlyArray<Purpose> | "best" | null
 }
 
 type HigherTier = (item: OwnedItem) => OwnedItem | null
@@ -145,51 +148,55 @@ const bestOnly = (ordered: ReadonlyArray<OwnedItem>, higherTier: HigherTier) =>
     }),
   )
 
-const valuedNames = (columns: RatedColumns) =>
-  columns.flatMap((column) => column.filter((perk) => perk.rating !== "junk").map((p) => p.name))
+const goodNames = (columns: RatedColumns) =>
+  columns.flatMap((column) => column.filter((perk) => perk.rating === "good").map((p) => p.name))
 
 const selectedNames = (columns: RatedColumns) =>
   columns.flatMap((column) => (column[0] === undefined ? [] : [column[0].name]))
 
-// One copy per distinct good roll: walking from the best copy down, a copy
-// stays when its roll is worth keeping and no copy already kept can slot all
-// of its good and ok perks.
-const byRoll = (
+// For PvE and for PvP, the copy that can slot a good perk for it in the most
+// columns stays, the better copy winning a tie, and a PvP copy other than the
+// PvE one winning over it, so each purpose gets its own copy where it can.
+// When no copy has a perk good for either, the best copy with a roll worth
+// keeping stays.
+const byPurpose = (
   ordered: ReadonlyArray<OwnedItem>,
   columnsOf: (item: OwnedItem) => RatedColumns,
   higherTier: HigherTier,
 ) => {
-  const kept: Array<OwnedItem> = []
-  for (const item of ordered) {
-    const columns = columnsOf(item)
-    if (
-      higherTier(item) === null &&
-      keepable(columns) &&
-      !kept.some((other) => covers(columnsOf(other), columns))
-    ) {
-      kept.push(item)
-    }
+  const contenders = ordered.filter((item) => higherTier(item) === null)
+  const kept = new Map<OwnedItem, Array<Purpose>>()
+  for (const purpose of PURPOSES) {
+    const most = Math.max(0, ...contenders.map((item) => goodColumns(columnsOf(item), purpose)))
+    const tied = contenders.filter((item) => goodColumns(columnsOf(item), purpose) === most)
+    const winner = tied.find((item) => !kept.has(item)) ?? tied[0]
+    if (most > 0 && winner !== undefined) kept.set(winner, [...(kept.get(winner) ?? []), purpose])
   }
-  const fallback = kept.length === 0 ? ordered[0] : undefined
+  const fallback =
+    kept.size === 0 ? contenders.find((item) => keepable(columnsOf(item))) : undefined
+  const first = [...kept.keys()][0] ?? fallback ?? null
+  const lastResort = first === null ? ordered[0] : undefined
   return new Map(
     ordered.map((item): readonly [OwnedItem, Standing] => {
       const columns = columnsOf(item)
       const above = higherTier(item)
       if (above !== null) return [item, { better: above, shared: [], weak: null, kept: null }]
-      if (kept.includes(item)) return [item, { better: null, shared: [], weak: null, kept: "roll" }]
+      const purposes = kept.get(item)
+      if (purposes !== undefined)
+        return [item, { better: null, shared: [], weak: null, kept: purposes }]
+      if (item === fallback) return [item, { better: null, shared: [], weak: null, kept: "best" }]
       if (keepable(columns)) {
-        const better = kept.find((other) => covers(columnsOf(other), columns)) ?? null
-        return [item, { better, shared: valuedNames(columns), weak: null, kept: null }]
+        return [item, { better: first, shared: goodNames(columns), weak: null, kept: null }]
       }
       const weak = selectedNames(columns)
-      return [item, { better: null, shared: [], weak, kept: item === fallback ? "best" : null }]
+      return [item, { better: null, shared: [], weak, kept: item === lastResort ? "best" : null }]
     }),
   )
 }
 
 /**
- * Weapons keep one copy per distinct good roll, judged by the perks each
- * copy can slot, and armor keeps the best copy of each role. A higher gear
+ * Weapons keep their best PvE roll and their best PvP roll, judged by the
+ * perks each copy can slot, and armor keeps the best copy of each role. A higher gear
  * tier always wins. Every other copy is junk unless something protects it.
  */
 export const judge = (inv: Inventory, ctx: JudgeContext): ReadonlyMap<string, Verdict> => {
@@ -206,7 +213,7 @@ export const judge = (inv: Inventory, ctx: JudgeContext): ReadonlyMap<string, Ve
   for (const copies of groups.values()) {
     const ordered = copies.toSorted(betterFirst(ctx))
     const standings = ordered.some((item) => rated(columnsOf(item)))
-      ? byRoll(ordered, columnsOf, higherTier)
+      ? byPurpose(ordered, columnsOf, higherTier)
       : bestOnly(ordered, higherTier)
     for (const item of ordered) {
       const standing = standings.get(item)
@@ -221,8 +228,11 @@ export const judge = (inv: Inventory, ctx: JudgeContext): ReadonlyMap<string, Ve
           : []),
         ...(unreadTuning(item) ? (["unread_tuning"] as const) : []),
       ]
-      if (kept === "roll") {
-        verdicts.set(item.itemInstanceId, { verdict: "keep", protections: [...hard, "good_roll"] })
+      if (Array.isArray(kept)) {
+        const best = kept.map((purpose): Protection =>
+          purpose === "pve" ? "best_pve" : "best_pvp",
+        )
+        verdicts.set(item.itemInstanceId, { verdict: "keep", protections: [...hard, ...best] })
         continue
       }
       const roll = ctx.rolls.get(item.itemInstanceId)

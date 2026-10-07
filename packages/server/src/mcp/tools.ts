@@ -148,11 +148,15 @@ const PerkRatingsTool = Tool.make("perk_ratings", {
 
 const RatePerks = Tool.make("rate_perks", {
   description:
-    "Store how good a weapon's trait perks are, so junk judging uses it from now on and nobody has to look it up again. Rate the perks a current god roll guide picks in each trait column (PvE and PvP) good, the ones it calls also good ok, and any it warns against junk; perks you leave out count as ok at best. Pass the page you read in url (light.gg's god roll section is a good source). The player's own ratings always win over yours.",
+    "Store how good a weapon's trait perks are, so junk judging uses it from now on and nobody has to look it up again. Junk judging keeps the player's best PvE copy and best PvP copy of each weapon, so rate each guide's picks with its purpose: the perks a current PvE god roll picks in each trait column good with purpose pve, the PvP picks good with purpose pvp, the ones a guide calls also good ok, and any it warns against junk. Perks you leave out count as ok at best. Pass the page you read in url (light.gg's god roll section is a good source). The player's own ratings always win over yours.",
   parameters: Schema.Struct({
     weapon: Schema.String,
     perks: Schema.NonEmptyArray(
-      Schema.Struct({ perk: Schema.String, rating: Schema.Literals(["good", "ok", "junk"]) }),
+      Schema.Struct({
+        perk: Schema.String,
+        purpose: Schema.Literals(["pve", "pvp", "any"]),
+        rating: Schema.Literals(["good", "ok", "junk"]),
+      }),
     ),
     url: Schema.String,
     note: Schema.optional(Schema.String),
@@ -1274,10 +1278,11 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
         )
         yield* Effect.forEach(
           input.perks,
-          ({ perk, rating }) =>
+          ({ perk, purpose, rating }) =>
             ratings.set({
               weapon: input.weapon,
               perk,
+              purpose,
               rating,
               source: "claude",
               note: input.note ?? null,

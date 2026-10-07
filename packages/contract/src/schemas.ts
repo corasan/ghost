@@ -923,9 +923,14 @@ export type PerkRating = typeof PerkRating.Type
 export const PerkRatingSource = Schema.Literals(["player", "claude", "wishlist", "community"])
 export type PerkRatingSource = typeof PerkRatingSource.Type
 
+export const Purpose = Schema.Literals(["pve", "pvp"])
+export type Purpose = typeof Purpose.Type
+
 export class RatedPerk extends Schema.Class<RatedPerk>("RatedPerk")({
   name: Schema.String,
+  /** The best it rates for any purpose. */
   rating: PerkRating,
+  good: Schema.Array(Purpose),
   /** null when nothing rates the perk, which makes it junk. */
   source: Schema.NullOr(PerkRatingSource),
 }) {}
@@ -936,9 +941,10 @@ export class WeaponPerks extends Schema.Class<WeaponPerks>("WeaponPerks")({
   columns: Schema.Array(Schema.Array(RatedPerk)),
 }) {}
 
-/** null drops the player's rating, leaving Claude's or the wishlist's. */
+/** null drops the player's rating, leaving Claude's or the wishlist's. "any" rates it for PvE and PvP alike. */
 export const SetPerkRating = Schema.Struct({
   perk: Schema.String,
+  purpose: Schema.Literals(["pve", "pvp", "any"]),
   rating: Schema.NullOr(PerkRating),
 })
 export type SetPerkRating = typeof SetPerkRating.Type

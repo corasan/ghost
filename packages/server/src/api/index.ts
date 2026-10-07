@@ -127,12 +127,13 @@ const ItemsApiLive = HttpApiBuilder.group(GhostApi, "items", (handlers) =>
         const ratings = yield* PerkRatings
         const write =
           payload.rating === null
-            ? ratings.clear(current.weapon, payload.perk, "player")
+            ? ratings.clear(current.weapon, payload.perk, "player", payload.purpose)
             : ratings.set({
                 weapon: current.weapon,
                 perk: payload.perk,
                 rating: payload.rating,
                 source: "player",
+                purpose: payload.purpose,
                 note: null,
                 url: null,
               })

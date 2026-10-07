@@ -271,6 +271,29 @@ const migrations = {
       )
     `
   }),
+  // A perk can be good for PvE and not for PvP, so a rating names its purpose.
+  "0014_perk_rating_purpose": Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    yield* sql`
+      CREATE TABLE perk_ratings_next (
+        weapon TEXT NOT NULL,
+        perk TEXT NOT NULL,
+        source TEXT NOT NULL,
+        purpose TEXT NOT NULL,
+        rating TEXT NOT NULL,
+        note TEXT,
+        url TEXT,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (weapon, perk, source, purpose)
+      )
+    `
+    yield* sql`
+      INSERT INTO perk_ratings_next
+      SELECT weapon, perk, source, 'any', rating, note, url, updated_at FROM perk_ratings
+    `
+    yield* sql`DROP TABLE perk_ratings`
+    yield* sql`ALTER TABLE perk_ratings_next RENAME TO perk_ratings`
+  }),
 }
 
 const SqliteLive = Layer.unwrap(

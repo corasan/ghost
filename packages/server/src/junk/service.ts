@@ -10,7 +10,7 @@ import { PerkRatings, weaponKey } from "../db/perk-ratings.ts"
 import { checkRoll, perkKey, scoreFor, WILDCARD_ITEM } from "../wishlist/parse.ts"
 import { Wishlist, type WishlistError } from "../wishlist/wishlist.ts"
 import { judge, type RollStanding, type Verdict } from "./judge.ts"
-import { type PerkKnowledge, type RatedColumns, ratePerk } from "./perks.ts"
+import { type PerkKnowledge, type Purpose, PURPOSES, type RatedColumns, ratePerk } from "./perks.ts"
 
 export interface Judgment {
   readonly items: ReadonlyMap<string, OwnedItem>
@@ -72,9 +72,16 @@ export const JunkJudgeLive = Layer.effect(
         const nameOfWeapon = new Map(weapons.map((item) => [item.itemHash, item.name]))
         const knowledge = (itemHash: number): PerkKnowledge => {
           const own = (rolls.get(itemHash) ?? []).filter((roll) => roll.itemHash !== WILDCARD_ITEM)
-          const named = (trash: boolean) => {
+          const named = (trash: boolean, purpose?: Purpose) => {
             const counts = new Map<string, number>()
-            for (const roll of own.filter((each) => each.trash === trash)) {
+            const fits = (tags: ReadonlyArray<string>) => {
+              const lowered = tags.map((tag) => tag.toLowerCase())
+              const tagged = PURPOSES.filter((each) => lowered.includes(each))
+              return purpose === undefined || tagged.length === 0 || tagged.includes(purpose)
+            }
+            for (const roll of own.filter(
+              (each) => each.trash === trash && fits(each.block.tags),
+            )) {
               for (const key of new Set(roll.perkHashes.flatMap((hash) => traitKey(hash) ?? []))) {
                 counts.set(key, (counts.get(key) ?? 0) + 1)
               }
@@ -83,7 +90,7 @@ export const JunkJudgeLive = Layer.effect(
           }
           return {
             stored: stored.get(weaponKey(nameOfWeapon.get(itemHash) ?? "")) ?? new Map(),
-            wishlisted: named(false),
+            wishlisted: { pve: named(false, "pve"), pvp: named(false, "pvp") },
             trashed: new Set(named(true).keys()),
             community,
           }
@@ -91,14 +98,19 @@ export const JunkJudgeLive = Layer.effect(
         const known = new Map(
           [...new Set(weapons.map((item) => item.itemHash))].map((hash) => [hash, knowledge(hash)]),
         )
-        const columnTops = new Map<number, Array<number>>()
+        const columnTops = new Map<number, Array<Record<Purpose, number>>>()
         for (const item of weapons) {
           const tops = columnTops.get(item.itemHash) ?? []
-          const wishlisted = known.get(item.itemHash)?.wishlisted ?? new Map()
+          const wishlisted = known.get(item.itemHash)?.wishlisted
           item.traits.forEach((column, index) => {
+            const top = tops[index] ?? { pve: 0, pvp: 0 }
             for (const name of column) {
-              tops[index] = Math.max(tops[index] ?? 0, wishlisted.get(perkKey(name)) ?? 0)
+              for (const purpose of PURPOSES) {
+                const count = wishlisted?.[purpose].get(perkKey(name)) ?? 0
+                top[purpose] = Math.max(top[purpose], count)
+              }
             }
+            tops[index] = top
           })
           columnTops.set(item.itemHash, tops)
         }
@@ -109,7 +121,7 @@ export const JunkJudgeLive = Layer.effect(
             return [
               item.itemInstanceId,
               item.traits.map((column, index) =>
-                column.map((name) => ratePerk(name, knowing, tops[index] ?? 0)),
+                column.map((name) => ratePerk(name, knowing, tops[index] ?? { pve: 0, pvp: 0 })),
               ),
             ]
           }),
@@ -158,7 +170,7 @@ export const JunkJudgeLive = Layer.effect(
         const inv = yield* profile.inventory
         const item = inv.items.find((each) => each.itemInstanceId === itemInstanceId)
         if (item === undefined || !isWeapon(item.slot)) return Option.none()
-        const copies = inv.items.filter((each) => each.itemHash === item.itemHash)
+        const copies = inv.items.filter((each) => each.name === item.name)
         const { columns } = yield* rate(copies)
         return Option.some({ item, columns: columns.get(itemInstanceId) ?? [] })
       })

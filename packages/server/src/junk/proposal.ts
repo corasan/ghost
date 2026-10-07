@@ -11,7 +11,8 @@ const PROTECTED: Record<Protection, string> = {
   marked_keep: "the player marked it keep",
   in_build: "it is in a saved Ghost build",
   in_loadout: "it is in an in-game loadout",
-  good_roll: "it has a good roll no other copy covers",
+  best_pve: "it is your best PvE roll",
+  best_pvp: "it is your best PvP roll",
   only_copy: "it is the only copy",
   best_copy: "it is the best copy",
   recent: "it was picked up in the last two days",
@@ -34,7 +35,7 @@ const signalText = (signal: Signal, item: OwnedItem, items: Judgment["items"]) =
     better?.gearTier != null && (item.gearTier ?? 0) < better.gearTier
       ? ` · tier ${item.gearTier ?? "—"} vs ${better.gearTier}`
       : ""
-  const shared = signal.shared.length === 0 ? "" : ` · same good perks: ${signal.shared.join(", ")}`
+  const shared = signal.shared.length === 0 ? "" : ` · its good perks: ${signal.shared.join(", ")}`
   return `Duplicate of ${better?.name ?? "a better copy"}${better?.power ? ` ${better.power}` : ""}${tiers}${stats}${shared}`
 }
 

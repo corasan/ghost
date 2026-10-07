@@ -2,14 +2,14 @@ import { describe, expect, test } from "bun:test"
 import type { ItemSlot } from "@ghost/contract"
 import type { Inventory, OwnedItem } from "../bungie/inventory.ts"
 import { type JudgeContext, judge, type Verdict } from "./judge.ts"
-import type { RatedColumns, Rating } from "./perks.ts"
+import type { RatedColumns, RatedPerk } from "./perks.ts"
 
 const NOW = Date.parse("2026-10-06T12:00:00Z")
 
 const owned = (id: string, slot: ItemSlot, fields: Partial<OwnedItem> = {}): OwnedItem => ({
   itemInstanceId: id,
   itemHash: 1,
-  name: `Item ${id}`,
+  name: "Fatebringer",
   typeName: "Hand Cannon",
   icon: null,
   tier: "legendary",
@@ -95,19 +95,21 @@ const duplicateOf = (better: string, shared: ReadonlyArray<string> = []): Verdic
   signals: [{ kind: "duplicate", better, shared }],
 })
 
-const RATED = new Map<string, Rating>([
-  ["Kill Clip", "good"],
-  ["Rampage", "good"],
-  ["Outlaw", "ok"],
-  ["Feeding Frenzy", "ok"],
+const GOOD = new Map<string, RatedPerk["good"]>([
+  ["Demolitionist", ["pve"]],
+  ["Rampage", ["pve"]],
+  ["Tap the Trigger", ["pvp"]],
+  ["Master of Arms", ["pvp"]],
 ])
+const OK = new Set(["Outlaw", "Target Lock"])
 
-/** Trait columns as the judge sees them: every option a column can slot, rated by RATED. */
+/** Trait columns as the judge sees them: every option a column can slot, rated by GOOD and OK. */
 const roll = (...columns: ReadonlyArray<ReadonlyArray<string>>): RatedColumns =>
   columns.map((column) =>
-    column.map((name) => {
-      const rating = RATED.get(name) ?? "junk"
-      return { name, rating, source: rating === "junk" ? null : "community" }
+    column.map((name): RatedPerk => {
+      const good = GOOD.get(name) ?? []
+      const rating = good.length > 0 ? "good" : OK.has(name) ? "ok" : "junk"
+      return { name, rating, good, source: rating === "junk" ? null : "player" }
     }),
   )
 
@@ -150,51 +152,58 @@ describe("judge", () => {
     })
   })
 
-  test("keeps one copy per distinct good roll and calls a copy with the same good perks junk", () => {
+  test("keeps the best PvE copy and the best PvP copy and calls the rest junk", () => {
     const verdicts = run(
       [
-        owned("a", "kinetic", { power: 532 }),
-        owned("b", "kinetic", { power: 520 }),
-        owned("c", "kinetic", { power: 510 }),
+        owned("pve", "kinetic", { power: 510 }),
+        owned("pvp", "kinetic", { power: 505 }),
+        owned("half", "kinetic", { power: 532 }),
+        owned("weak", "kinetic", { power: 520 }),
       ],
       rolled({
-        a: roll(["Kill Clip"], ["Moving Target"]),
-        b: roll(["Outlaw"], ["Rampage"]),
-        c: roll(["Kill Clip"], ["Hip-Fire Grip"]),
+        pve: roll(["Demolitionist"], ["Rampage"]),
+        pvp: roll(["Tap the Trigger"], ["Master of Arms"]),
+        half: roll(["Demolitionist"], ["Target Lock"]),
+        weak: roll(["Outlaw"], ["Kill Clip"]),
       }),
     )
-    expect(verdictOf(verdicts, "a")).toEqual({ verdict: "keep", protections: ["good_roll"] })
-    expect(verdictOf(verdicts, "b")).toEqual({ verdict: "keep", protections: ["good_roll"] })
-    expect(verdictOf(verdicts, "c")).toEqual(duplicateOf("a", ["Kill Clip"]))
-  })
-
-  test("a copy that can slot several perks per column covers the copies with fewer", () => {
-    const verdicts = run(
-      [owned("multi", "kinetic", { power: 540 }), owned("single", "kinetic", { power: 500 })],
-      rolled({
-        multi: roll(["Kill Clip", "Outlaw"], ["Rampage", "Feeding Frenzy"]),
-        single: roll(["Outlaw"], ["Rampage"]),
-      }),
-    )
-    expect(verdictOf(verdicts, "multi")).toEqual({ verdict: "keep", protections: ["good_roll"] })
-    expect(verdictOf(verdicts, "single")).toEqual(duplicateOf("multi", ["Outlaw", "Rampage"]))
-  })
-
-  test("calls a roll with no good perks junk, naming its perks", () => {
-    const verdicts = run(
-      [owned("good", "kinetic", { power: 500 }), owned("weak", "kinetic", { power: 560 })],
-      rolled({
-        good: roll(["Kill Clip"], ["Moving Target"]),
-        weak: roll(["Outlaw"], ["Hip-Fire Grip"]),
-      }),
-    )
+    expect(verdictOf(verdicts, "pve")).toEqual({ verdict: "keep", protections: ["best_pve"] })
+    expect(verdictOf(verdicts, "pvp")).toEqual({ verdict: "keep", protections: ["best_pvp"] })
+    expect(verdictOf(verdicts, "half")).toEqual(duplicateOf("pve", ["Demolitionist"]))
     expect(verdictOf(verdicts, "weak")).toEqual({
       verdict: "junk",
-      signals: [{ kind: "weak_roll", perks: ["Outlaw", "Hip-Fire Grip"] }],
+      signals: [{ kind: "weak_roll", perks: ["Outlaw", "Kill Clip"] }],
     })
   })
 
-  test("reviews, never junks, the best copy when no copy has a good roll", () => {
+  test("keeps a second copy for PvP when it is as good there as the copy kept for PvE", () => {
+    const verdicts = run(
+      [owned("both", "kinetic", { power: 540 }), owned("pvp", "kinetic", { power: 500 })],
+      rolled({
+        both: roll(["Demolitionist", "Tap the Trigger"], ["Rampage", "Master of Arms"]),
+        pvp: roll(["Tap the Trigger"], ["Master of Arms"]),
+      }),
+    )
+    expect(verdictOf(verdicts, "both")).toEqual({ verdict: "keep", protections: ["best_pve"] })
+    expect(verdictOf(verdicts, "pvp")).toEqual({ verdict: "keep", protections: ["best_pvp"] })
+  })
+
+  test("one copy best at both stays as the only one when no other is as good for PvP", () => {
+    const verdicts = run(
+      [owned("both", "kinetic", { power: 540 }), owned("half", "kinetic", { power: 500 })],
+      rolled({
+        both: roll(["Demolitionist", "Tap the Trigger"], ["Rampage", "Master of Arms"]),
+        half: roll(["Tap the Trigger"], ["Target Lock"]),
+      }),
+    )
+    expect(verdictOf(verdicts, "both")).toEqual({
+      verdict: "keep",
+      protections: ["best_pve", "best_pvp"],
+    })
+    expect(verdictOf(verdicts, "half")).toEqual(duplicateOf("both", ["Tap the Trigger"]))
+  })
+
+  test("reviews, never junks, the best copy when no copy has a roll worth keeping", () => {
     const verdicts = run(
       [owned("high", "kinetic", { power: 560 }), owned("low", "kinetic", { power: 500 })],
       rolled({
@@ -220,6 +229,14 @@ describe("judge", () => {
     )
     expect(verdictOf(verdicts, "roll")).toEqual({ verdict: "keep", protections: ["best_copy"] })
     expect(verdictOf(verdicts, "strong")).toEqual(duplicateOf("roll"))
+  })
+
+  test("weighs a reissue with a new item hash against the copies of the weapon it replaced", () => {
+    const verdicts = run([
+      owned("old", "kinetic", { itemHash: 1, power: 560 }),
+      owned("new", "kinetic", { itemHash: 2, power: 500, gearTier: 5 }),
+    ])
+    expect(verdictOf(verdicts, "old")).toEqual(duplicateOf("new"))
   })
 
   test("keeps a higher-tier copy over a lower one with the better roll", () => {
