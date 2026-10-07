@@ -656,11 +656,14 @@ function DoneView({ session, name }: { session: CleanupSession; name: string }) 
           <Tally label="Kept" detail="Junk tag removed, left in vault" value={kept} />
           <Tally
             label="Skipped"
-            detail={
+            detail={[
               equipped.length > 0
                 ? `${equipped.join(", ")} ${equipped.length === 1 ? "is" : "are"} equipped`
-                : "Back in the vault, still tagged junk"
-            }
+                : null,
+              skipped > 0 ? `${skipped} back in the vault, still tagged junk` : null,
+            ]
+              .filter((part) => part !== null)
+              .join(". ")}
             value={skipped + equipped.length}
             last={failed === 0}
           />
