@@ -13,6 +13,7 @@ import { Activity } from "../activity/activity.ts"
 import { BungieClient, type BungieError } from "../bungie/client.ts"
 import { Guardian } from "../bungie/guardian.ts"
 import { Builds } from "../builds/builds.ts"
+import { Cleanup } from "../cleanup/service.ts"
 import { JobsRepo } from "../db/jobs.ts"
 import { Items } from "../items/items.ts"
 import { Plans } from "../plans/executor.ts"
@@ -147,6 +148,34 @@ const AgentLive = HttpApiBuilder.group(GhostApi, "agent", (handlers) =>
     ),
 )
 
+const CleanupApiLive = HttpApiBuilder.group(GhostApi, "cleanup", (handlers) =>
+  handlers
+    .handle("preview", ({ query }) =>
+      Effect.flatMap(Cleanup, (c) => c.preview(query.characterId)).pipe(
+        Effect.catchTag("BungieError", toBungieFailed),
+      ),
+    )
+    .handle("current", () => Effect.flatMap(Cleanup, (c) => c.current))
+    .handle("start", ({ payload }) =>
+      Effect.flatMap(Cleanup, (c) => c.start(payload.characterId)).pipe(
+        Effect.catchTag("BungieError", toBungieFailed),
+      ),
+    )
+    .handle("pause", ({ params }) => Effect.flatMap(Cleanup, (c) => c.command(params.id, "pause")))
+    .handle("resume", ({ params }) =>
+      Effect.flatMap(Cleanup, (c) => c.command(params.id, "resume")),
+    )
+    .handle("stop", ({ params }) => Effect.flatMap(Cleanup, (c) => c.command(params.id, "stop")))
+    .handle("return", ({ params }) =>
+      Effect.flatMap(Cleanup, (c) => c.command(params.id, "return")),
+    )
+    .handle("close", ({ params }) => Effect.flatMap(Cleanup, (c) => c.command(params.id, "close")))
+    .handle("skip", ({ params }) => Effect.flatMap(Cleanup, (c) => c.skip(params.id)))
+    .handle("keep", ({ params }) =>
+      Effect.flatMap(Cleanup, (c) => c.keep(params.id, params.itemId)),
+    ),
+)
+
 const Memberships = Schema.Struct({
   bungieNetUser: Schema.Struct({ membershipId: Schema.String, displayName: Schema.String }),
 })
@@ -183,6 +212,7 @@ export const ApiLive = HttpApiBuilder.layer(GhostApi, { openapiPath: "/openapi.j
     GuardianLive,
     BuildsLive,
     AgentLive,
+    CleanupApiLive,
     AuthLive,
   ]),
   Layer.merge(HttpApiScalar.layer(GhostApi, { path: "/docs" })),

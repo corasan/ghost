@@ -204,6 +204,20 @@ const migrations = {
       ON saved_builds (in_game_character_id, in_game_index)
     `
   }),
+  // A cleanup session is one JSON document; stage is its own column so the
+  // active session is found without decoding every past one.
+  "0009_cleanup_sessions": Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    yield* sql`
+      CREATE TABLE IF NOT EXISTS cleanup_sessions (
+        id TEXT PRIMARY KEY,
+        stage TEXT NOT NULL,
+        state TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    `
+  }),
 }
 
 const SqliteLive = Layer.unwrap(
