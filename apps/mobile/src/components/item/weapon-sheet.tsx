@@ -3,7 +3,7 @@ import { Image } from "expo-image"
 import { Fragment, type ReactNode, useState } from "react"
 import { Pressable, ScrollView, StyleSheet, View, type ViewProps } from "react-native"
 
-import { Body, Button, Cond, Meta, Mono } from "@/components/ghost/ui"
+import { Body, Button, Chip, Cond, Meta, Mono } from "@/components/ghost/ui"
 import { ItemActions } from "@/components/item/actions"
 import { ItemHeader } from "@/components/item/header"
 import { Ghost, Type } from "@/constants/theme"
@@ -21,6 +21,7 @@ import {
   type PerkRef,
   perkAt,
   poolSize,
+  rolledOnly,
   type SheetMode,
   signed,
   type Staged,
@@ -281,6 +282,11 @@ function Inspector({ itemId, sheet, at }: { itemId: string; sheet: WeaponSheet; 
   )
 }
 
+const LOCKED_LEGEND = [
+  "Can't be applied to this copy",
+  { borderWidth: 1, borderColor: "#5b626d", borderStyle: "dashed" },
+] as const
+
 function Legend({ items }: { items: ReadonlyArray<readonly [string, ViewProps["style"]]> }) {
   return (
     <View style={styles.legend}>
@@ -490,13 +496,20 @@ function ApplyBar({
   )
 }
 
-/** A weapon's sheet: every perk it can roll, laid out like the in-game roll, with its stats. */
+/** A weapon's sheet: the perks this copy rolled, or every perk the weapon can roll, laid out like the in-game roll, with its stats. */
 export function WeaponScreen({ item }: { item: ItemSummary & { itemInstanceId: string } }) {
   const bottomInset = useBottomInset()
   const sheet = useWeaponSheet(item.itemInstanceId)
   const [mode, setMode] = useState<SheetMode>(VIEWING)
-  const data = sheet.data
+  const [showAll, setShowAll] = useState(false)
+  const full = sheet.data
+  const data = full && (showAll ? full : rolledOnly(full))
   const applying = mode.kind === "apply"
+
+  const show = (all: boolean) => {
+    setShowAll(all)
+    if (mode.kind === "view") setMode(VIEWING)
+  }
 
   const tap = (ref: PerkRef) => {
     if (!data) return
@@ -542,7 +555,6 @@ export function WeaponScreen({ item }: { item: ItemSummary & { itemInstanceId: s
               ) : null}
             </View>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-              {data && !applying ? <Meta>{`${poolSize(data)} in the pool`}</Meta> : null}
               {data && (applying || canSwap(data)) ? (
                 <Pressable
                   accessibilityRole="button"
@@ -559,6 +571,20 @@ export function WeaponScreen({ item }: { item: ItemSummary & { itemInstanceId: s
           </View>
           {applying ? (
             <Meta>Tap a perk to stage it. Nothing changes on the weapon until you apply.</Meta>
+          ) : null}
+          {full ? (
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <Chip
+                label={`THIS COPY · ${poolSize(rolledOnly(full))}`}
+                active={!showAll}
+                onPress={() => show(false)}
+              />
+              <Chip
+                label={`ALL PERKS · ${poolSize(full)}`}
+                active={showAll}
+                onPress={() => show(true)}
+              />
+            </View>
           ) : null}
           {sheet.isError ? (
             <Meta color={Ghost.danger}>{errorMessage(sheet.error)}</Meta>
@@ -582,10 +608,7 @@ export function WeaponScreen({ item }: { item: ItemSummary & { itemInstanceId: s
                     ? [
                         ["On this copy", { borderWidth: 1.5, borderColor: Ghost.accent }],
                         ["Staged", { borderWidth: 1.5, borderColor: Ghost.ink }],
-                        [
-                          "Can't be applied to this copy",
-                          { borderWidth: 1, borderColor: "#5b626d", borderStyle: "dashed" },
-                        ],
+                        ...(showAll ? [LOCKED_LEGEND] : []),
                       ]
                     : [
                         ["On this copy", { borderWidth: 1.5, borderColor: Ghost.accent }],

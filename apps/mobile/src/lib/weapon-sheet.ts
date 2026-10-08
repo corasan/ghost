@@ -1,4 +1,4 @@
-import type { PerkColumn, Purpose, WeaponPerk, WeaponSheet } from "@ghost/contract"
+import { PerkColumn, type Purpose, type WeaponPerk, WeaponSheet } from "@ghost/contract"
 
 /** A perk by position: the column it sits in and its place in that column. */
 export type PerkRef = { readonly column: number; readonly perk: number }
@@ -108,6 +108,15 @@ export const goodActive = (sheet: WeaponSheet, purpose: Purpose) => {
   const active = sheet.columns.flatMap((column) => activeOf(column) ?? [])
   return { good: active.filter((perk) => perk.good.includes(purpose)).length, of: active.length }
 }
+
+/** The sheet cut down to what this copy rolled: the perk in each socket and the ones it can swap in. */
+export const rolledOnly = (sheet: WeaponSheet) =>
+  new WeaponSheet({
+    ...sheet,
+    columns: sheet.columns.map(
+      (column) => new PerkColumn({ ...column, perks: column.perks.filter((perk) => perk.rolled) }),
+    ),
+  })
 
 export const poolSize = (sheet: WeaponSheet) =>
   sheet.columns.reduce((sum, column) => sum + column.perks.length, 0)

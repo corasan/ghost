@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { PerkColumn, StatChange, WeaponPerk, WeaponSheet, WeaponStat } from "@ghost/contract"
-import { canSwap, goodActive, statBars, swapsOf, toggleStaged } from "./weapon-sheet"
+import { canSwap, goodActive, rolledOnly, statBars, swapsOf, toggleStaged } from "./weapon-sheet"
 
 const perk = (
   plugHash: number,
@@ -101,4 +101,12 @@ test("offers editing only when a rolled perk is out of its socket", () => {
     columns: [new PerkColumn({ ...trait, perks: [trait.perks[0]!] })],
   })
   expect(canSwap(fixed)).toBe(false)
+})
+
+test("this copy's view keeps the socketed and rolled perks and drops the rest of the pool", () => {
+  const names = rolledOnly(sheet).columns.map((column) => column.perks.map((each) => each.plugHash))
+  expect(names).toEqual([
+    [10, 11],
+    [30, 31],
+  ])
 })
