@@ -84,7 +84,7 @@ describe("weaponSheet", () => {
     [32, { "1240592695": 60 }],
     [20, { "155624089": -4, "3291498656": 9 }],
   ])
-  const sheet = weaponSheet(item, columns, [], investments)
+  const sheet = weaponSheet(item, columns, [], investments, null)
 
   test("splits each stat into what the active perks bring, never past the stat itself", () => {
     expect(sheet.stats.map((stat) => [stat.name, stat.value, stat.fromPerks, stat.bar])).toEqual([

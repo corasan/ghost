@@ -24,8 +24,9 @@ import { ProfileStore } from "../bungie/profile.ts"
 import { everySetBonus } from "../bungie/sets.ts"
 import { JobsRepo } from "../db/jobs.ts"
 import { JunkJudge } from "../junk/service.ts"
+import { judgeWeapons } from "../plans/compose.ts"
 import { Plans } from "../plans/executor.ts"
-import type { WishlistError } from "../wishlist/wishlist.ts"
+import { Wishlist, type WishlistError } from "../wishlist/wishlist.ts"
 import { poolColumns, weaponSheet } from "./sheet.ts"
 
 type ReadErrors = ItemNotFound | BungieError | BungieNotLinked
@@ -123,6 +124,7 @@ export const ItemsLive = Layer.effect(
     const jobs = yield* JobsRepo
     const plans = yield* Plans
     const judge = yield* JunkJudge
+    const judging = yield* Effect.context<Manifest | Wishlist>()
 
     const find = (id: string) =>
       Effect.gen(function* () {
@@ -215,7 +217,14 @@ export const ItemsLive = Layer.effect(
         const investments = yield* manifest.plugInvestments(
           columns.flatMap((column) => column.plugs.map((each) => each.plug.hash)),
         )
-        return weaponSheet(item, columns, rated, investments)
+        const judged = yield* judgeWeapons([item]).pipe(Effect.provide(judging))
+        return weaponSheet(
+          item,
+          columns,
+          rated,
+          investments,
+          judged.get(item.itemInstanceId)?.score ?? null,
+        )
       })
 
     const applyPerks = (id: string, input: ApplyPerks) =>

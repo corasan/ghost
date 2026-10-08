@@ -4,6 +4,7 @@ import { Fragment, type ReactNode, useState } from "react"
 import { Pressable, ScrollView, StyleSheet, View, type ViewProps } from "react-native"
 
 import { Body, Button, Chip, Cond, Meta, Mono } from "@/components/ghost/ui"
+import { rollTone } from "@/components/chat/plan-block"
 import { ItemActions } from "@/components/item/actions"
 import { ItemHeader } from "@/components/item/header"
 import { Ghost, Type } from "@/constants/theme"
@@ -412,6 +413,14 @@ function Summary({ sheet }: { sheet: WeaponSheet }) {
           </View>
         )
       })}
+      {sheet.score === null ? null : (
+        <View style={styles.roll}>
+          <Cond size={18} color={rollTone(sheet.score)} style={{ letterSpacing: 0 }}>
+            {sheet.score}
+          </Cond>
+          <Meta>Roll</Meta>
+        </View>
+      )}
     </View>
   )
 }
@@ -736,6 +745,7 @@ const styles = StyleSheet.create({
   statRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   track: { flex: 1, height: 6, backgroundColor: Ghost.rule },
   segment: { position: "absolute", top: 0, bottom: 0 },
+  roll: { marginLeft: "auto", flexDirection: "row", alignItems: "baseline", gap: 6 },
   badge: {
     paddingVertical: 3,
     paddingHorizontal: 8,

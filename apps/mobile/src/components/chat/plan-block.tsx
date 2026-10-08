@@ -32,6 +32,10 @@ const openItem = (id: string) => router.push({ pathname: "/item/[id]", params: {
 
 const outcomeTone = { ok: Ghost.good, failed: Ghost.danger, skipped: Ghost.dim } as const
 
+/** Green for a roll worth keeping, gold for a middling one, red for a poor one. */
+export const rollTone = (score: number) =>
+  score >= 70 ? Ghost.good : score >= 40 ? Ghost.gold : Ghost.danger
+
 export function RowRight({
   row,
   applied,
@@ -49,7 +53,7 @@ export function RowRight({
     )
   }
   if (roll && row.score !== null) {
-    const color = row.score >= 70 ? Ghost.good : row.score >= 40 ? Ghost.gold : Ghost.danger
+    const color = rollTone(row.score)
     return (
       <View style={{ alignItems: "flex-end" }}>
         <Cond size={20} color={color} style={{ letterSpacing: 0, lineHeight: 20 }}>

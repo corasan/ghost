@@ -110,11 +110,13 @@ export const weaponSheet = (
   columns: ReadonlyArray<PoolColumn>,
   rated: RatedColumns,
   investments: ReadonlyMap<number, StatMods>,
+  score: number | null,
 ): WeaponSheet => {
   const active = columns.flatMap((column) =>
     column.plugs.filter((each) => each.active).map((each) => investments.get(each.plug.hash)),
   )
   return new WeaponSheet({
+    score,
     columns: columns.map(
       (column, index) =>
         new PerkColumn({

@@ -317,7 +317,8 @@ export interface ComposedBuild {
 
 const refuse = (message: string) => new BuildRefusal({ message })
 
-const judgeWeapons = (weapons: ReadonlyArray<OwnedItem>) =>
+/** Each weapon's roll score and trait perks, judged against its wishlist rolls. */
+export const judgeWeapons = (weapons: ReadonlyArray<OwnedItem>) =>
   Effect.gen(function* () {
     if (weapons.length === 0) return new Map<string, ReturnType<typeof judgeWeapon>>()
     const manifest = yield* Manifest

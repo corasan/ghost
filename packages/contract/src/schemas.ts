@@ -995,6 +995,8 @@ export class WeaponStat extends Schema.Class<WeaponStat>("WeaponStat")({
 export class WeaponSheet extends Schema.Class<WeaponSheet>("WeaponSheet")({
   columns: Schema.Array(PerkColumn),
   stats: Schema.Array(WeaponStat),
+  /** How the roll on this copy compares with the wishlist, 0 to 100; null when the wishlist has no entries for it. */
+  score: Schema.NullOr(Schema.Number),
 }) {}
 
 /** Perks to swap in. A weapon in the vault goes to `characterId` first, since only carried weapons take perks. */
