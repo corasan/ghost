@@ -17,7 +17,7 @@ import {
 } from "@ghost/contract"
 import { Context, Effect, Layer } from "effect"
 import type { BungieError } from "../bungie/client.ts"
-import { type CharacterInfo, isWeapon, type OwnedItem } from "../bungie/inventory.ts"
+import { type CharacterInfo, isPerk, isWeapon, type OwnedItem } from "../bungie/inventory.ts"
 import { Manifest, type ManifestItem } from "../bungie/manifest.ts"
 import { armorStats } from "../bungie/masterwork.ts"
 import { ProfileStore } from "../bungie/profile.ts"
@@ -46,11 +46,6 @@ export interface ItemsService {
 }
 
 export class Items extends Context.Service<Items, ItemsService>()("Items") {}
-
-const NOT_A_PERK = /shader|ornament|tracker|memento|transmat|emote|^empty |^default /i
-
-export const isPerk = (plug: ManifestItem) =>
-  plug.description !== "" && !NOT_A_PERK.test(plug.typeName) && !NOT_A_PERK.test(plug.name)
 
 export const perksFrom = (
   plugHashes: ReadonlyArray<number>,

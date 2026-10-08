@@ -320,6 +320,7 @@ const ServiceTest = BuildsLive.pipe(
         plugFacts: () => Effect.succeed(new Map()),
         subclassPlugSets: () => Effect.succeed([]),
         weaponPerkPools: () => Effect.succeed([]),
+        weaponPerkSockets: () => Effect.succeed([]),
         plugInvestments: () => Effect.succeed(new Map()),
         armorMods: Effect.succeed([]),
         armorSets: Effect.succeed([]),

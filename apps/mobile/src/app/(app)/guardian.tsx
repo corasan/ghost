@@ -163,13 +163,12 @@ function ItemRow({
         >
           {item.name}
         </Body>
-        {!weapon && item.mods ? (
-          <ModStrip mods={item.mods} />
-        ) : (
+        {weapon || !item.mods ? (
           <Meta color={exotic ? Rarity.exotic : Ghost.muted} style={{ marginTop: 2 }} lines={1}>
             {weapon ? weaponMeta(item) : dotted([sentence(item.slot), exotic ? "Exotic" : null])}
           </Meta>
-        )}
+        ) : null}
+        {item.mods && item.mods.length > 0 ? <ModStrip mods={item.mods} /> : null}
       </View>
       <Cond size={nested ? 16 : 18} color={Ghost.gold} style={{ letterSpacing: 0 }}>
         {item.power ?? "—"}

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import type { OwnedItem } from "../bungie/inventory.ts"
 import type { ManifestItem } from "../bungie/manifest.ts"
-import { isPerk } from "./items.ts"
+import { isPerk } from "../bungie/inventory.ts"
 import { poolColumns, weaponSheet } from "./sheet.ts"
 
 const plug = (hash: number, name: string, typeName: string): [number, ManifestItem] => [

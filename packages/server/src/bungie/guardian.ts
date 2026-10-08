@@ -15,7 +15,7 @@ import { SituationalWriter } from "../agent/situational.ts"
 import { ChargeEffects } from "../db/charge.ts"
 import { Settings } from "../db/settings.ts"
 import type { BungieError } from "./client.ts"
-import { isArmor, type OwnedItem } from "./inventory.ts"
+import { isArmor, isPerk, isWeapon, type OwnedItem } from "./inventory.ts"
 import { describeLoadout, loadoutPlugHashes } from "./loadout.ts"
 import { Manifest, type ManifestItem } from "./manifest.ts"
 import { describeArmorMods, socketsNow, withChargeEffects } from "./mods.ts"
@@ -51,19 +51,43 @@ export const GuardianLive = Layer.effect(
       const plugs = yield* manifest.plugFacts(inv.characters.flatMap(loadoutPlugHashes))
       const onCharacters = inv.items.filter((i) => i.location === "character" && i.slot !== "other")
       const modDefs = yield* manifest
-        .lookup(onCharacters.flatMap((i) => i.modSockets.map((socket) => socket.plugHash)))
+        .lookup(
+          onCharacters.flatMap((i) => [
+            ...i.modSockets.map((socket) => socket.plugHash),
+            ...i.weaponSockets.map((socket) => socket.plugHash),
+          ]),
+        )
         .pipe(Effect.orElseSucceed((): ReadonlyMap<number, ManifestItem> => new Map()))
+      const weaponHashes = [
+        ...new Set(onCharacters.filter((i) => isWeapon(i.slot)).map((i) => i.itemHash)),
+      ]
+      const perkSockets = new Map(
+        yield* Effect.forEach(
+          weaponHashes,
+          (hash) =>
+            manifest.weaponPerkSockets(hash).pipe(Effect.map((sockets) => [hash, sockets] as const)),
+          { concurrency: 8 },
+        ),
+      )
+      const slotted = (def: ManifestItem) => new SlottedMod({ name: def.name, icon: def.icon })
+      const perksOf = (item: OwnedItem) => {
+        const sockets = new Set(perkSockets.get(item.itemHash) ?? [])
+        return item.weaponSockets.flatMap((socket) => {
+          const def = modDefs.get(socket.plugHash)
+          return sockets.has(socket.index) && def !== undefined && isPerk(def) ? [slotted(def)] : []
+        })
+      }
       const summary = (item: OwnedItem) =>
         new ItemSummary({
           ...item,
           mods: isArmor(item.slot)
             ? item.modSockets.map((socket) => {
                 const def = modDefs.get(socket.plugHash)
-                return socket.empty || def === undefined
-                  ? null
-                  : new SlottedMod({ name: def.name, icon: def.icon })
+                return socket.empty || def === undefined ? null : slotted(def)
               })
-            : undefined,
+            : isWeapon(item.slot)
+              ? perksOf(item)
+              : undefined,
         })
       return new GuardianSnapshot({
         characters: inv.characters.map(

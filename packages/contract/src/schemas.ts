@@ -85,7 +85,7 @@ export class ItemSummary extends Schema.Class<ItemSummary>("ItemSummary")({
   /** How many other copies of the same item the player owns. */
   duplicates: Schema.Number,
   decision: Schema.NullOr(ItemDecision),
-  /** Armor only, in socket order; null for an empty socket. Sent only with the guardian snapshot. */
+  /** Armor: its mods in socket order, null for an empty socket. Weapons: the perk in each perk socket. Sent only with the guardian snapshot. */
   mods: Schema.optional(Schema.Array(Schema.NullOr(SlottedMod))),
   /** When Ghost first saw this instance; null for items from the first sync. */
   acquiredAt: Schema.NullOr(Schema.String),

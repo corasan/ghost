@@ -370,6 +370,8 @@ export interface ManifestService {
   ) => Effect.Effect<ReadonlyMap<number, PlugFacts>>
   /** The plug set each socket of a subclass draws from, in socket order; null where it has none or Bungie cannot be asked. Never fails. */
   readonly subclassPlugSets: (hash: number) => Effect.Effect<ReadonlyArray<number | null>>
+  /** Which of a weapon's sockets hold perks, in socket order. Empty when Bungie cannot be asked. Never fails. */
+  readonly weaponPerkSockets: (itemHash: number) => Effect.Effect<ReadonlyArray<number>>
   /** A weapon's perk sockets in socket order, each with the plugs it can roll. Empty when Bungie cannot be asked. Never fails. */
   readonly weaponPerkPools: (itemHash: number) => Effect.Effect<ReadonlyArray<PerkPool>>
   /** What each plug adds to or takes from each stat, weapon stats included. A plug Bungie cannot be asked about is left out. Never fails. */
@@ -638,13 +640,34 @@ export const ManifestLive = Layer.effect(
         PlugEnvelope,
       ).pipe(Effect.map((json) => json.Response ?? {}))
 
+    const perkSockets = new Map<number, ReturnType<typeof perkSocketsOf>>()
+
+    const socketsOfWeapon = (itemHash: number) =>
+      Effect.gen(function* () {
+        const known = perkSockets.get(itemHash)
+        if (known !== undefined) return known
+        const sockets = perkSocketsOf(yield* entity("DestinyInventoryItemDefinition", itemHash))
+        perkSockets.set(itemHash, sockets)
+        return sockets
+      })
+
+    const weaponPerkSockets = (itemHash: number) =>
+      socketsOfWeapon(itemHash).pipe(
+        Effect.map((sockets) => sockets.map((socket) => socket.index)),
+        Effect.catch((error) =>
+          Effect.logWarning(`manifest: weapon ${itemHash} failed: ${error.message}`).pipe(
+            Effect.as([]),
+          ),
+        ),
+      )
+
     const perkPools = new Map<number, ReadonlyArray<PerkPool>>()
 
     const weaponPerkPools = (itemHash: number) =>
       Effect.gen(function* () {
         const known = perkPools.get(itemHash)
         if (known !== undefined) return known
-        const sockets = perkSocketsOf(yield* entity("DestinyInventoryItemDefinition", itemHash))
+        const sockets = yield* socketsOfWeapon(itemHash)
         const pools = yield* Effect.forEach(
           sockets,
           ({ index, plugSetHash }) =>
@@ -877,6 +900,7 @@ export const ManifestLive = Layer.effect(
       plugs.clear()
       plugSets.clear()
       perkPools.clear()
+      perkSockets.clear()
       investments.clear()
       armorMods = null
       armorSets = null
@@ -1106,6 +1130,7 @@ export const ManifestLive = Layer.effect(
       plugFacts,
       subclassPlugSets,
       weaponPerkPools,
+      weaponPerkSockets,
       plugInvestments,
       ensure,
       lookup,

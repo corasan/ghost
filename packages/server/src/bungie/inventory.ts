@@ -346,6 +346,12 @@ const statsFrom = (stats: Readonly<Record<string, number>>) =>
 /** Every hash the profile mentions, plugs included, so one manifest lookup covers it. */
 const isTrait = (plug: ManifestItem) => plug.typeName.includes("Trait")
 
+const NOT_A_PERK = /shader|ornament|tracker|memento|transmat|emote|^empty |^default /i
+
+/** A plug worth showing as a perk: it has effect text and is not cosmetic or an empty socket. */
+export const isPerk = (plug: ManifestItem) =>
+  plug.description !== "" && !NOT_A_PERK.test(plug.typeName) && !NOT_A_PERK.test(plug.name)
+
 /** A rolled trait perk, as opposed to the origin trait every copy of a weapon shares. */
 export const isRolledTrait = (typeName: string) =>
   typeName === "Trait" || typeName === "Enhanced Trait"
