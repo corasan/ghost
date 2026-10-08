@@ -12,7 +12,7 @@ import {
 } from "node:fs"
 import { Health } from "@ghost/contract"
 import { Data, Effect, Option, Schema } from "effect"
-import type { Settings } from "./config-file.ts"
+import { effectiveSettings, type Settings } from "./config-file.ts"
 import type { GhostHome } from "./home.ts"
 import { findClaude } from "./shell.ts"
 
@@ -22,52 +22,75 @@ export type ServerState =
   | { readonly _tag: "Stopped" }
   | { readonly _tag: "Running"; readonly pid: number }
 
-const alive = (pid: number) => {
-  try {
-    process.kill(pid, 0)
-    return true
-  } catch (error) {
-    return error instanceof Error && "code" in error && error.code === "EPERM"
-  }
+// A pid alone is not an identity: after a crash or reboot the number in a
+// leftover pid file can belong to anything. The pid file also records when
+// that process started, and only a process with the same start time is Ghost.
+const startedAt = (pid: number) => {
+  const ps = Bun.spawnSync(["ps", "-p", String(pid), "-o", "lstart="])
+  const started = ps.stdout.toString().trim()
+  return ps.success && started !== "" ? started : null
 }
 
-const readPid = (path: string) => {
+interface PidRecord {
+  readonly pid: number
+  readonly startedAt: string
+}
+
+const readRecord = (path: string): PidRecord | null => {
   try {
-    const pid = Number.parseInt(readFileSync(path, "utf8"), 10)
-    return Number.isInteger(pid) && pid > 0 ? pid : null
+    const [first = "", started = ""] = readFileSync(path, "utf8").split("\n")
+    const pid = Number.parseInt(first, 10)
+    return Number.isInteger(pid) && pid > 0 && started !== "" ? { pid, startedAt: started } : null
   } catch {
     return null
   }
 }
 
-/** Reads the pid file and clears it when the process it names has died. */
+const isLive = (record: PidRecord | null) =>
+  record !== null && startedAt(record.pid) === record.startedAt
+
+/** Reads the pid file. A file naming a process that is gone reads as Stopped. */
 export const serverState = (home: GhostHome): ServerState => {
-  const pid = readPid(home.pid)
-  if (pid !== null && alive(pid)) return { _tag: "Running", pid }
-  rmSync(home.pid, { force: true })
-  return { _tag: "Stopped" }
+  const record = readRecord(home.pid)
+  return record !== null && isLive(record)
+    ? { _tag: "Running", pid: record.pid }
+    : { _tag: "Stopped" }
+}
+
+const tryLink = (from: string, to: string) => {
+  try {
+    linkSync(from, to)
+    return true
+  } catch {
+    return false
+  }
 }
 
 /**
  * Claims the pid file for this process. The file appears with its contents in
  * one step (a hard link of a finished temp file), so two starts racing each
- * other cannot both win and a reader never sees it half written.
+ * other cannot both win and a reader never sees it half written. A stale file
+ * is first renamed aside, and only deleted once it proves to be stale, so a
+ * start clearing it cannot delete a claim another start just made.
  */
 export const claimPidFile = (home: GhostHome) =>
   Effect.acquireRelease(
     Effect.gen(function* () {
       mkdirSync(home.root, { recursive: true })
       const draft = `${home.pid}.${process.pid}`
-      writeFileSync(draft, String(process.pid))
-      const link = () => {
+      const aside = `${home.pid}.stale.${process.pid}`
+      writeFileSync(draft, `${process.pid}\n${startedAt(process.pid) ?? ""}`)
+      let claimed = tryLink(draft, home.pid)
+      if (!claimed && serverState(home)._tag === "Stopped") {
         try {
-          linkSync(draft, home.pid)
-          return true
+          renameSync(home.pid, aside)
         } catch {
-          return false
+          // another start moved it first
         }
+        if (isLive(readRecord(aside))) tryLink(aside, home.pid)
+        rmSync(aside, { force: true })
+        claimed = tryLink(draft, home.pid)
       }
-      const claimed = link() || (serverState(home)._tag === "Stopped" && link())
       rmSync(draft, { force: true })
       if (!claimed) {
         return yield* new CliFailure({
@@ -77,12 +100,14 @@ export const claimPidFile = (home: GhostHome) =>
     }),
     () =>
       Effect.sync(() => {
-        if (readPid(home.pid) === process.pid) rmSync(home.pid, { force: true })
+        if (readRecord(home.pid)?.pid === process.pid) rmSync(home.pid, { force: true })
       }),
   )
 
+export const settingsOf = (home: GhostHome) => effectiveSettings(home.config)
+
 export const portOf = (settings: Settings) => {
-  const port = Number(process.env.GHOST_PORT ?? settings.get("GHOST_PORT") ?? 4848)
+  const port = Number(settings.get("GHOST_PORT") ?? 4848)
   return Number.isInteger(port) && port > 0 && port < 65536 ? port : 4848
 }
 
@@ -134,22 +159,22 @@ export const startBackground = (home: GhostHome, settings: Settings) =>
       stdio: ["ignore", log, log],
       env: Object.fromEntries(serverEnv(home, settings)),
     })
+    let exited = false
+    child.once("exit", () => (exited = true))
     child.unref()
     closeSync(log)
-    const pid = child.pid
-    if (pid === undefined) return yield* new CliFailure({ message: "Could not start Ghost." })
+    if (child.pid === undefined) return yield* new CliFailure({ message: "Could not start Ghost." })
     const port = portOf(settings)
     const deadline = Date.now() + 30_000
     while (Date.now() < deadline) {
-      if (!alive(pid)) {
-        // Another start won the pid file while this one was launching.
-        const winner = serverState(home)
-        if (winner._tag === "Running") return winner.pid
+      // Whichever start won the pid file is the server; this child may have lost that race.
+      const state = serverState(home)
+      if (state._tag === "Running" && Option.isSome(yield* health(port))) return state.pid
+      if (exited && state._tag === "Stopped") {
         return yield* new CliFailure({
           message: `Ghost stopped while starting. The end of ${home.log}:\n\n${tail(home.log, 15)}`,
         })
       }
-      if (Option.isSome(yield* health(port))) return pid
       yield* Effect.sleep("250 millis")
     }
     return yield* new CliFailure({
@@ -157,12 +182,25 @@ export const startBackground = (home: GhostHome, settings: Settings) =>
     })
   })
 
-export const stopServer = (pid: number) =>
+const signal = (pid: number, name: NodeJS.Signals) => {
+  try {
+    process.kill(pid, name)
+  } catch {
+    // it exited on its own in the meantime
+  }
+}
+
+/** Stops the server named by the pid file and waits until it is gone. */
+export const stopServer = (home: GhostHome, pid: number) =>
   Effect.gen(function* () {
-    process.kill(pid, "SIGTERM")
+    const record = readRecord(home.pid)
+    const running = () => isLive(record)
+    signal(pid, "SIGTERM")
     const deadline = Date.now() + 10_000
-    while (alive(pid) && Date.now() < deadline) yield* Effect.sleep("100 millis")
-    if (alive(pid)) process.kill(pid, "SIGKILL")
+    while (running() && Date.now() < deadline) yield* Effect.sleep("100 millis")
+    if (running()) signal(pid, "SIGKILL")
+    while (running()) yield* Effect.sleep("100 millis")
+    if (readRecord(home.pid)?.pid === pid) rmSync(home.pid, { force: true })
   })
 
 export const tail = (path: string, lines: number) => {

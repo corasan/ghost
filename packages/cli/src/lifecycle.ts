@@ -1,6 +1,5 @@
 import { existsSync, openSync, readSync, closeSync, statSync } from "node:fs"
 import { Console, Effect, Layer, Option } from "effect"
-import { readSettings } from "./config-file.ts"
 import {
   CliFailure,
   claimPidFile,
@@ -8,6 +7,7 @@ import {
   portOf,
   serverEnv,
   serverState,
+  settingsOf,
   startBackground,
   stopServer,
   tail,
@@ -61,7 +61,7 @@ export const runForeground = (home: GhostHome) =>
   Effect.scoped(
     Effect.gen(function* () {
       yield* needsSetup(home)
-      const settings = readSettings(home.config)
+      const settings = settingsOf(home)
       for (const [key, value] of serverEnv(home, settings)) process.env[key] = value
       yield* claimPidFile(home)
       const port = portOf(settings)
@@ -81,7 +81,7 @@ export const runForeground = (home: GhostHome) =>
 export const start = (home: GhostHome) =>
   Effect.gen(function* () {
     yield* needsSetup(home)
-    const settings = readSettings(home.config)
+    const settings = settingsOf(home)
     const port = portOf(settings)
     const state = serverState(home)
     if (state._tag === "Running") {
@@ -98,10 +98,9 @@ export const stop = (home: GhostHome) =>
   Effect.gen(function* () {
     const state = serverState(home)
     if (state._tag === "Stopped") return yield* Console.log("Ghost isn't running.")
-    yield* stopServer(state.pid)
+    yield* stopServer(home, state.pid)
     const net = yield* tailnet
-    if (net._tag === "Connected") yield* unexpose(net.binary, portOf(readSettings(home.config)))
-    serverState(home)
+    if (net._tag === "Connected") yield* unexpose(net.binary, portOf(settingsOf(home)))
     yield* Console.log(`Stopped Ghost (pid ${state.pid}).`)
   })
 
@@ -109,7 +108,7 @@ export const restart = (home: GhostHome) => Effect.andThen(stop(home), start(hom
 
 export const status = (home: GhostHome) =>
   Effect.gen(function* () {
-    const port = portOf(readSettings(home.config))
+    const port = portOf(settingsOf(home))
     const state = serverState(home)
     const row = (label: string, value: string) => Console.log(`  ${dim(label.padEnd(8))} ${value}`)
     if (state._tag === "Stopped") {
@@ -167,4 +166,4 @@ export const logs = (home: GhostHome, lines: number, follow: boolean) =>
     }
   })
 
-export const pair = (home: GhostHome) => printPairing(portOf(readSettings(home.config)))
+export const pair = (home: GhostHome) => printPairing(portOf(settingsOf(home)))

@@ -6,8 +6,14 @@ export type Settings = ReadonlyMap<string, string>
 const LINE = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/
 
 const unquote = (raw: string) => {
-  const quoted = /^(["'])(.*)\1$/.exec(raw)
-  return quoted?.[2] ?? raw.replace(/\s+#.*$/, "")
+  if (/^".*"$/.test(raw)) {
+    try {
+      return String(JSON.parse(raw))
+    } catch {
+      return raw.slice(1, -1)
+    }
+  }
+  return /^'.*'$/.test(raw) ? raw.slice(1, -1) : raw.replace(/\s+#.*$/, "")
 }
 
 const quote = (value: string) => (/[\s#"']/.test(value) ? JSON.stringify(value) : value)
@@ -48,4 +54,15 @@ export const writeSettings = (path: string, updates: Settings) => {
   const current = existsSync(path) ? readFileSync(path, "utf8") : ""
   writeFileSync(path, updateSettings(current, updates), { mode: 0o600 })
   chmodSync(path, 0o600)
+}
+
+const OWN_KEYS = /^(GHOST_|BUNGIE_|TYPESAFE_)/
+
+/** config.env, with any of Ghost's settings exported in the shell taking precedence. */
+export const effectiveSettings = (path: string): Settings => {
+  const settings = new Map(readSettings(path))
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value !== undefined && OWN_KEYS.test(key)) settings.set(key, value)
+  }
+  return settings
 }

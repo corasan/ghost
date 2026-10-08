@@ -46,3 +46,13 @@ describe("updateSettings", () => {
     expect(parseSettings(written).get("GHOST_YOUTUBE_CHANNELS")).toBe("@Datto, Aegis #1")
   })
 })
+
+test("values with quotes and backslashes survive repeated saves", () => {
+  const value = 'say "hi" \\ bye'
+  const once = updateSettings("", new Map([["GHOST_NOTE", value]]))
+  const twice = updateSettings(
+    once,
+    new Map([["GHOST_NOTE", parseSettings(once).get("GHOST_NOTE") ?? ""]]),
+  )
+  expect(parseSettings(twice).get("GHOST_NOTE")).toBe(value)
+})

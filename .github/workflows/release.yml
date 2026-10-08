@@ -20,6 +20,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
       - run: bun install --frozen-lockfile
       - run: bun run --cwd packages/cli build --target ${{ matrix.target }} --outfile dist/${{ matrix.asset }}
       # macOS refuses to run an unsigned arm64 binary; an ad-hoc signature is enough.

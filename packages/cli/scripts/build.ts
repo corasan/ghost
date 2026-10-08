@@ -16,7 +16,7 @@ const { values } = parseArgs({
 const outfile = resolve(import.meta.dir, "..", values.outfile)
 const target = values.target === undefined ? [] : [`--target=${values.target}`]
 
-await $`bun build ${resolve(import.meta.dir, "../src/main.ts")} --compile --minify ${target} --outfile ${outfile}`
+await $`bun build ${resolve(import.meta.dir, "../src/main.ts")} --compile --minify --no-compile-autoload-dotenv ${target} --outfile ${outfile}`
 console.log(`Built ${outfile}`)
 
 if (values.install) {

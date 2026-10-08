@@ -2,8 +2,8 @@ import { createServer } from "node:net"
 import { Console, Effect, Option, Redacted, Schema, Terminal } from "effect"
 import { Prompt } from "effect/cli"
 import { BUNGIE_APPS, callbackPath, verifyApiKey } from "./bungie.ts"
-import { readSettings, type Settings, writeSettings } from "./config-file.ts"
-import { portOf, serverState } from "./daemon.ts"
+import { type Settings, writeSettings } from "./config-file.ts"
+import { portOf, serverState, settingsOf } from "./daemon.ts"
 import type { GhostHome } from "./home.ts"
 import { findClaude, isMac, isRoot, locate, run, runInteractive } from "./shell.ts"
 import { tailnet, tailnetUrl } from "./tailscale.ts"
@@ -373,5 +373,5 @@ export type Verdict = Outcome | { readonly _tag: "Blocked"; readonly by: string 
 
 export const machineOf = (home: GhostHome): Machine => ({
   home,
-  settings: readSettings(home.config),
+  settings: settingsOf(home),
 })
