@@ -3,18 +3,18 @@ import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { type ItemSlot, LoadoutSaveTo, Plan, PlanRow } from "@ghost/contract"
-import { Effect, Layer, Redacted } from "effect"
+import { Effect, Layer, Option, Redacted, type Result } from "effect"
 import type { MigrationError } from "effect/sql/Migrator"
 import type { SqlError } from "effect/sql/SqlError"
 import { BungieClient, BungieError, type LoadoutSnapshot } from "../bungie/client.ts"
 import type { CharacterInfo, Inventory, OwnedItem } from "../bungie/inventory.ts"
-import { Loadouts } from "../bungie/loadouts.ts"
+import { type GameLoadouts, Loadouts } from "../bungie/loadouts.ts"
 import { ProfileStore } from "../bungie/profile.ts"
 import { AppConfig } from "../config.ts"
 import { ActionsRepo, ActionsRepoLive } from "../db/actions.ts"
 import { BuildsRepo, BuildsRepoLive } from "../db/builds.ts"
 import { DatabaseLive } from "../db/client.ts"
-import { ItemsRepoLive } from "../db/items.ts"
+import { ItemsRepo, ItemsRepoLive } from "../db/items.ts"
 import { JobsRepo, JobsRepoLive } from "../db/jobs.ts"
 import { Plans, PlansLive } from "./executor.ts"
 import type { BuildRecipe } from "./recipe.ts"
@@ -117,16 +117,22 @@ const recipe: BuildRecipe = {
 
 interface Harness {
   readonly layer: Layer.Layer<
-    Plans | JobsRepo | BuildsRepo | ActionsRepo,
+    Plans | JobsRepo | BuildsRepo | ActionsRepo | ItemsRepo,
     MigrationError | SqlError
   >
   readonly snapshots: Array<LoadoutSnapshot>
   readonly equips: Array<string>
+  readonly transfers: Array<string>
 }
 
-const harness = (items: ReadonlyArray<OwnedItem>, refuseSnapshot?: string): Harness => {
+const harness = (
+  items: ReadonlyArray<OwnedItem>,
+  refuseSnapshot?: string,
+  game?: GameLoadouts,
+): Harness => {
   const snapshots: Array<LoadoutSnapshot> = []
   const equips: Array<string> = []
+  const transfers: Array<string> = []
   let inventory: Inventory = {
     membershipType: 3,
     membershipId: "m",
@@ -140,7 +146,27 @@ const harness = (items: ReadonlyArray<OwnedItem>, refuseSnapshot?: string): Harn
     authorizeUrl: Effect.succeed(""),
     exchangeCode: () => unlinked,
     get: () => unlinked,
-    transferItem: () => unlinked,
+    transferItem: (input) =>
+      Effect.suspend(() => {
+        const moving = inventory.items.find((i) => i.itemInstanceId === input.itemId)
+        if (moving?.equipped === true) {
+          return Effect.fail(new BungieError({ status: "Refused", message: "it is equipped" }))
+        }
+        transfers.push(`${input.itemId}:${input.transferToVault ? "vault" : "character"}`)
+        inventory = {
+          ...inventory,
+          items: inventory.items.map((item) =>
+            item.itemInstanceId !== input.itemId
+              ? item
+              : {
+                  ...item,
+                  location: input.transferToVault ? "vault" : "character",
+                  characterId: input.transferToVault ? null : input.characterId,
+                },
+          ),
+        }
+        return Effect.void
+      }),
     pullFromPostmaster: () => unlinked,
     equipItem: (input) =>
       Effect.sync(() => {
@@ -168,7 +194,7 @@ const harness = (items: ReadonlyArray<OwnedItem>, refuseSnapshot?: string): Harn
     invalidate: Effect.void,
   })
   const LoadoutsStub = Layer.succeed(Loadouts, {
-    current: unlinked,
+    current: game === undefined ? unlinked : Effect.succeed(game),
     invalidate: Effect.void,
     catalog: unlinked,
   })
@@ -176,7 +202,7 @@ const harness = (items: ReadonlyArray<OwnedItem>, refuseSnapshot?: string): Harn
     Layer.provideMerge(Repos),
     Layer.provide(Layer.mergeAll(Bungie, Profile, LoadoutsStub)),
   )
-  return { layer, snapshots, equips }
+  return { layer, snapshots, equips, transfers }
 }
 
 const saveTo = (buildId: string) =>
@@ -305,29 +331,66 @@ describe("apply with saveTo", () => {
   })
 })
 
+const noLoadouts: GameLoadouts = { byCharacter: new Map(), artifactHash: null }
+
+// Items exist in items_seen once a profile load has synced them.
+const seen = (items: ReadonlyArray<OwnedItem>) =>
+  Effect.flatMap(ItemsRepo, (repo) => repo.sync(items))
+
+const applyPlan = (
+  items: ReadonlyArray<OwnedItem>,
+  rows: ReadonlyArray<PlanRow>,
+  kind: Plan["kind"] = "cleanup",
+) =>
+  Effect.gen(function* () {
+    yield* seen(items)
+    const jobs = yield* JobsRepo
+    const created = yield* jobs.createManual({
+      kind: "item_action",
+      prompt: "Clean up",
+      characterId: "titan-1",
+      plan: new Plan({ ...plan(rows, ""), kind, saveTo: undefined }),
+    })
+    const plans = yield* Plans
+    const applied = yield* plans.apply(
+      created.id,
+      rows.map((r) => r.itemInstanceId),
+    )
+    return { job: applied, actions: yield* (yield* ActionsRepo).forJobs([created.id]), plans }
+  })
+
 describe("apply a cleanup plan", () => {
-  test("tags junk but refuses an item that was locked, masterworked or equipped since it was proposed", async () => {
-    const vault = { location: "vault", characterId: null, equipped: false } as const
+  const vault = { location: "vault", characterId: null, equipped: false } as const
+
+  test("tags junk but refuses an item the judge now protects", async () => {
     const junk = owned("junk", "kinetic", vault)
     const locked = owned("locked", "kinetic", { ...vault, locked: true })
     const masterworked = owned("mw", "energy", { ...vault, masterwork: true })
     const worn = owned("worn", "power")
-    const h = harness([junk, locked, masterworked, worn])
-    const rows = [junk, locked, masterworked, worn].map((item) => row(item, "tag_junk"))
+    const crafted = owned("crafted", "energy", { ...vault, crafted: true })
+    const keeper = owned("keeper", "energy", { ...vault, decision: "keep" })
+    const built = owned("built", "kinetic", vault)
+    const looped = owned("looped", "kinetic", vault)
+    const all = [junk, locked, masterworked, worn, crafted, keeper, built, looped]
+    const h = harness(all, undefined, {
+      byCharacter: new Map([
+        [
+          "titan-1",
+          [{ index: 0, nameHash: 1, colorHash: 1, iconHash: 1, itemInstanceIds: ["looped"] }],
+        ],
+      ]),
+      artifactHash: null,
+    })
+    const rows = all.map((item) => row(item, "tag_junk"))
     const { job, actions } = await Effect.runPromise(
       Effect.gen(function* () {
-        const jobs = yield* JobsRepo
-        const created = yield* jobs.createManual({
-          kind: "item_action",
-          prompt: "Clean up",
-          characterId: "titan-1",
-          plan: new Plan({ ...plan(rows, ""), kind: "cleanup", saveTo: undefined }),
+        yield* (yield* BuildsRepo).insert({
+          jobId: crypto.randomUUID(),
+          name: "Kinetic",
+          recipe,
+          plan: plan([row(built, "equip")], ""),
         })
-        const applied = yield* (yield* Plans).apply(
-          created.id,
-          rows.map((r) => r.itemInstanceId),
-        )
-        return { job: applied, actions: yield* (yield* ActionsRepo).forJobs([created.id]) }
+        return yield* applyPlan(all, rows)
       }).pipe(Effect.provide(h.layer)),
     )
     expect(actions.map((a) => [a.itemInstanceId, a.kind, a.status])).toEqual([
@@ -338,6 +401,177 @@ describe("apply a cleanup plan", () => {
       ["locked", "failed", "it is locked, so it was not tagged junk"],
       ["mw", "failed", "it is masterworked, so it was not tagged junk"],
       ["worn", "failed", "it is equipped, so it was not tagged junk"],
+      ["crafted", "failed", "it is crafted, so it was not tagged junk"],
+      ["keeper", "failed", "the player marked it keep, so it was not tagged junk"],
+      ["built", "failed", "it is in a saved Ghost build, so it was not tagged junk"],
+      ["looped", "failed", "it is in an in-game loadout, so it was not tagged junk"],
     ])
+  })
+
+  test("tags nothing when the in-game loadouts cannot be read", async () => {
+    const junk = owned("junk", "kinetic", vault)
+    const { job, actions } = await Effect.runPromise(
+      applyPlan([junk], [row(junk, "tag_junk")]).pipe(Effect.provide(harness([junk]).layer)),
+    )
+    expect(actions).toEqual([])
+    expect(job.plan?.rows[0]?.error).toBe(
+      "your in-game loadouts could not be read, so it was not tagged junk",
+    )
+  })
+
+  test("refuses to tag junk from a plan that is not a cleanup", async () => {
+    const junk = owned("junk", "kinetic", vault)
+    const { job, actions } = await Effect.runPromise(
+      applyPlan([junk], [row(junk, "tag_junk")], "transfer").pipe(
+        Effect.provide(harness([junk], undefined, noLoadouts).layer),
+      ),
+    )
+    expect(actions).toEqual([])
+    expect(job.plan?.rows[0]?.error).toBe("only a cleanup plan tags junk")
+  })
+
+  test("does not journal a tag for an item Ghost has never recorded", async () => {
+    const junk = owned("unseen", "kinetic", vault)
+    const h = harness([junk], undefined, noLoadouts)
+    const { job, actions } = await Effect.runPromise(
+      Effect.gen(function* () {
+        const created = yield* (yield* JobsRepo).createManual({
+          kind: "item_action",
+          prompt: "Clean up",
+          characterId: "titan-1",
+          plan: new Plan({
+            ...plan([row(junk, "tag_junk")], ""),
+            kind: "cleanup",
+            saveTo: undefined,
+          }),
+        })
+        const applied = yield* (yield* Plans).apply(created.id, ["unseen"])
+        return { job: applied, actions: yield* (yield* ActionsRepo).forJobs([created.id]) }
+      }).pipe(Effect.provide(h.layer)),
+    )
+    expect(actions).toEqual([])
+    expect(job.plan?.rows[0]?.outcome).toBe("failed")
+  })
+
+  test("undo puts back the decision each item had before", async () => {
+    const fresh = owned("fresh", "kinetic", vault)
+    const again = owned("again", "energy", { ...vault, decision: "junk" })
+    const h = harness([fresh, again], undefined, noLoadouts)
+    const decisions = await Effect.runPromise(
+      Effect.gen(function* () {
+        const repo = yield* ItemsRepo
+        yield* seen([fresh, again])
+        yield* repo.setDecision("again", "junk")
+        const { job, plans } = yield* applyPlan(
+          [fresh, again],
+          [row(fresh, "tag_junk"), row(again, "tag_junk")],
+        )
+        const undone = yield* plans.undo(job.id)
+        const [a, b] = [yield* repo.get("fresh"), yield* repo.get("again")]
+        return [undone.plan?.status, Option.getOrNull(a)?.decision, Option.getOrNull(b)?.decision]
+      }).pipe(Effect.provide(h.layer)),
+    )
+    expect(decisions).toEqual(["undone", null, "junk"])
+  })
+})
+
+describe("apply and undo run once", () => {
+  test("a second apply while the first runs is refused, and every call is made once", async () => {
+    const worn = owned("chest-old", "chest")
+    const chest = owned("chest-new", "chest", { equipped: false })
+    const h = harness([worn, chest])
+    const results = await Effect.runPromise(
+      Effect.gen(function* () {
+        const created = yield* (yield* JobsRepo).createManual({
+          kind: "item_action",
+          prompt: "Equip",
+          characterId: "titan-1",
+          plan: new Plan({ ...plan([row(chest, "equip")], ""), saveTo: undefined }),
+        })
+        const plans = yield* Plans
+        const both = yield* Effect.all(
+          [plans.apply(created.id, ["chest-new"]), plans.apply(created.id, ["chest-new"])].map(
+            Effect.result,
+          ),
+          { concurrency: 2 },
+        )
+        const again = yield* Effect.result(plans.apply(created.id, ["chest-new"]))
+        const undos = yield* Effect.all(
+          [plans.undo(created.id), plans.undo(created.id)].map(Effect.result),
+          { concurrency: 2 },
+        )
+        const redo = yield* Effect.result(plans.undo(created.id))
+        return { both, again, undos, redo }
+      }).pipe(Effect.provide(h.layer)),
+    )
+    const tags = (list: ReadonlyArray<Result.Result<unknown, { readonly _tag: string }>>) =>
+      list.map((r) => (r._tag === "Success" ? "ok" : r.failure._tag))
+    expect(tags(results.both)).toEqual(["ok", "PlanNotApplicable"])
+    expect(tags([results.again])).toEqual(["PlanNotApplicable"])
+    expect(tags(results.undos)).toEqual(["ok", "PlanNotApplicable"])
+    expect(tags([results.redo])).toEqual(["PlanNotApplicable"])
+    expect(h.equips).toEqual(["chest-new", "chest-old"])
+  })
+})
+
+describe("undo what cannot be reversed", () => {
+  test("an equip into an empty slot stays, keeps the item on the character, and the rest undoes", async () => {
+    const helm = owned("helm", "helmet", {
+      location: "vault",
+      characterId: null,
+      equipped: false,
+    })
+    const gloves = owned("gloves", "arms", { equipped: false })
+    const h = harness([helm, gloves])
+    const { undone, actions } = await Effect.runPromise(
+      Effect.gen(function* () {
+        const created = yield* (yield* JobsRepo).createManual({
+          kind: "item_action",
+          prompt: "Equip",
+          characterId: "titan-1",
+          plan: new Plan({
+            ...plan([row(helm, "equip"), row(gloves, "to_vault")], ""),
+            saveTo: undefined,
+          }),
+        })
+        const plans = yield* Plans
+        yield* plans.apply(created.id, ["helm", "gloves"])
+        const undone = yield* plans.undo(created.id)
+        return { undone, actions: yield* (yield* ActionsRepo).forJobs([created.id]) }
+      }).pipe(Effect.provide(h.layer)),
+    )
+    expect(undone.plan?.status).toBe("undone")
+    expect(actions.map((a) => [a.itemInstanceId, a.kind, a.status])).toEqual([
+      ["helm", "to_character", "ok"],
+      ["helm", "equip", "ok"],
+      ["gloves", "to_vault", "undone"],
+    ])
+    expect(h.transfers).toEqual(["helm:character", "gloves:vault", "gloves:character"])
+  })
+})
+
+describe("apply exotics", () => {
+  test("equips the piece that takes off the worn exotic before the new exotic", async () => {
+    const wornExotic = owned("chest-exotic", "chest", { tier: "exotic" })
+    const helm = owned("helm-old", "helmet")
+    const newExotic = owned("helm-exotic", "helmet", { tier: "exotic", equipped: false })
+    const chest = owned("chest-new", "chest", { equipped: false })
+    const h = harness([wornExotic, helm, newExotic, chest])
+    const job = await Effect.runPromise(
+      Effect.gen(function* () {
+        const created = yield* (yield* JobsRepo).createManual({
+          kind: "item_action",
+          prompt: "Equip",
+          characterId: "titan-1",
+          plan: new Plan({
+            ...plan([row(newExotic, "equip"), row(chest, "equip")], ""),
+            saveTo: undefined,
+          }),
+        })
+        return yield* (yield* Plans).apply(created.id, ["helm-exotic", "chest-new"])
+      }).pipe(Effect.provide(h.layer)),
+    )
+    expect(h.equips).toEqual(["chest-new", "helm-exotic"])
+    expect(job.plan?.rows.map((r) => r.itemInstanceId)).toEqual(["helm-exotic", "chest-new"])
   })
 })

@@ -858,7 +858,13 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
 
     const cleanupInput = (input: PlanInput) =>
       Effect.gen(function* () {
-        if (input.kind !== "cleanup") return input
+        if (input.kind !== "cleanup") {
+          const tagged = input.rows.filter((row) => row.action === "tag_junk")
+          if (tagged.length === 0) return input
+          return yield* new BuildRefusal({
+            message: `Error: only a cleanup plan tags junk, and only with rows find_junk returned; ${tagged.map((row) => row.itemInstanceId).join(", ")} use tag_junk in a ${input.kind} plan. Leave them out or call present_plan kind cleanup.`,
+          })
+        }
         const judgment = yield* junk.judgeVault.pipe(
           Effect.mapError((error) => new BuildRefusal({ message: explain(error) })),
         )

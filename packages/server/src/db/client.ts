@@ -294,6 +294,11 @@ const migrations = {
     yield* sql`DROP TABLE perk_ratings`
     yield* sql`ALTER TABLE perk_ratings_next RENAME TO perk_ratings`
   }),
+  // Undoing a junk tag puts back the decision the item had before.
+  "0015_action_previous_decision": Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    yield* sql`ALTER TABLE actions ADD COLUMN previous_decision TEXT`
+  }),
 }
 
 const SqliteLive = Layer.unwrap(
