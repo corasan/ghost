@@ -3,7 +3,7 @@ import type { OwnedItem } from "../bungie/inventory.ts"
 import type { Protection, Signal, Verdict } from "./judge.ts"
 import type { Judgment } from "./service.ts"
 
-const PROTECTED: Record<Protection, string> = {
+export const PROTECTED: Record<Protection, string> = {
   locked: "it is locked",
   masterworked: "it is masterworked",
   equipped: "it is equipped",
