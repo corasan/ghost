@@ -1,8 +1,16 @@
 import type { ItemSummary, PerkColumn, Purpose, WeaponPerk, WeaponSheet } from "@ghost/contract"
 import { Image } from "expo-image"
-import { Fragment, type ReactNode, useState } from "react"
-import { Pressable, ScrollView, StyleSheet, View, type ViewProps } from "react-native"
+import { useRef, useState } from "react"
+import {
+  type HostInstance,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+  type ViewProps,
+} from "react-native"
 
+import { Tooltip, TooltipLayer } from "@/components/ghost/tooltip"
 import { Body, Button, Chip, Cond, Meta, Mono } from "@/components/ghost/ui"
 import { rollTone } from "@/components/chat/plan-block"
 import { ItemActions } from "@/components/item/actions"
@@ -82,8 +90,9 @@ function PerkTile({
   perk: WeaponPerk
   look: TileLook
   size: number
-  onPress: () => void
+  onPress: (anchor: HostInstance) => void
 }) {
+  const self = useRef<HostInstance>(null)
   const round = isRound(column)
   const ring = RING_STYLE[look]
   const lit = perk.active || look === "staged" || look === "inspected"
@@ -96,7 +105,10 @@ function PerkTile({
         disabled: look === "locked",
       }}
       disabled={look === "locked"}
-      onPress={onPress}
+      ref={self}
+      onPress={() => {
+        if (self.current) onPress(self.current)
+      }}
       style={{ alignItems: "center", gap: 5 }}
     >
       <View style={[ring, { padding: RING - ring.borderWidth, borderRadius: round ? size : 5 }]}>
@@ -143,16 +155,13 @@ function Matrix({
   sheet,
   mode,
   onTap,
-  inspector,
 }: {
   sheet: WeaponSheet
   mode: SheetMode
-  onTap: (ref: PerkRef) => void
-  inspector: ReactNode
+  onTap: (ref: PerkRef, anchor: HostInstance) => void
 }) {
   const size = sheet.columns.length > 5 ? 42 : 52
   const rows = Math.max(0, ...sheet.columns.map((column) => column.perks.length))
-  const inspectedRow = mode.kind === "view" ? mode.inspected?.perk : undefined
   return (
     <View style={{ gap: 6 }}>
       <View style={styles.matrixRow}>
@@ -163,28 +172,25 @@ function Matrix({
         ))}
       </View>
       {Array.from({ length: rows }, (_, p) => (
-        <Fragment key={p}>
-          <View style={styles.matrixRow}>
-            {sheet.columns.map((column, c) => {
-              const perk = column.perks[p]
-              const ref = { column: c, perk: p }
-              return (
-                <View key={column.socketIndex} style={styles.cell}>
-                  {perk ? (
-                    <PerkTile
-                      column={column}
-                      perk={perk}
-                      look={lookOf(mode, column, perk, ref)}
-                      size={size}
-                      onPress={() => onTap(ref)}
-                    />
-                  ) : null}
-                </View>
-              )
-            })}
-          </View>
-          {inspectedRow === p ? inspector : null}
-        </Fragment>
+        <View key={p} style={styles.matrixRow}>
+          {sheet.columns.map((column, c) => {
+            const perk = column.perks[p]
+            const ref = { column: c, perk: p }
+            return (
+              <View key={column.socketIndex} style={styles.cell}>
+                {perk ? (
+                  <PerkTile
+                    column={column}
+                    perk={perk}
+                    look={lookOf(mode, column, perk, ref)}
+                    size={size}
+                    onPress={(anchor) => onTap(ref, anchor)}
+                  />
+                ) : null}
+              </View>
+            )
+          })}
+        </View>
       ))}
     </View>
   )
@@ -204,82 +210,72 @@ function DeltaChips({ swaps }: { swaps: ReadonlyArray<Swap> }) {
 
 function Inspector({ itemId, sheet, at }: { itemId: string; sheet: WeaponSheet; at: PerkRef }) {
   const rate = useRatePerk(itemId)
-  const [width, setWidth] = useState(0)
   const column = sheet.columns[at.column]
   const perk = perkAt(sheet, at)
   if (column === undefined || perk === undefined) return null
   const active = activeOf(column)
   const swaps = inspectedSwap(sheet, at)
-  const columnWidth = (width - COLUMN_GAP * (sheet.columns.length - 1)) / sheet.columns.length
-  const caret = at.column * (columnWidth + COLUMN_GAP) + columnWidth / 2 - 6
   const where = perk.active ? "ON THIS COPY" : perk.rolled ? "ROLLED ON THIS COPY" : "IN THE POOL"
   return (
-    <View
-      onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
-      onStartShouldSetResponder={() => true}
-      style={{ marginTop: 4, marginBottom: 6 }}
-    >
-      {width > 0 ? <View style={[styles.caret, { left: caret }]} /> : null}
-      <View style={styles.inspector}>
-        <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
-          <View style={[styles.inspectorIcon, { borderRadius: isRound(column) ? 16 : 3 }]}>
-            {perk.icon ? <Image source={perk.icon} style={StyleSheet.absoluteFill} /> : null}
-          </View>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Body size={16} style={{ fontFamily: Type.bodyMedium, lineHeight: 20 }}>
-              {perk.name}
-            </Body>
-            <Mono size={10}>{`${column.label} · ${where}`}</Mono>
-          </View>
+    <View style={{ gap: 8 }}>
+      <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+        <View style={[styles.inspectorIcon, { borderRadius: isRound(column) ? 16 : 3 }]}>
+          {perk.icon ? <Image source={perk.icon} style={StyleSheet.absoluteFill} /> : null}
         </View>
-        <Body size={14} color={Ghost.soft} style={{ lineHeight: 19 }}>
-          {perk.description.trim()}
-        </Body>
-        <View style={{ flexDirection: "row", gap: 8 }}>
-          {PURPOSES.map(([purpose, label]) => {
-            const good = perk.good.includes(purpose)
-            return (
-              <Pressable
-                key={purpose}
-                accessibilityRole="switch"
-                accessibilityLabel={`${perk.name} good for ${label}`}
-                accessibilityState={{ checked: good }}
-                disabled={rate.isPending}
-                onPress={() =>
-                  rate.mutate({ perk: perk.name, purpose, rating: good ? "ok" : "good" })
-                }
-                style={({ pressed }) => [
-                  styles.toggle,
-                  good && { backgroundColor: Ghost.good, borderColor: Ghost.good },
-                  (pressed || rate.isPending) && { opacity: 0.6 },
-                ]}
-              >
-                <View style={[styles.box, { borderColor: good ? Ghost.bg : Ghost.dim }]}>
-                  {good ? (
-                    <Cond size={11} color={Ghost.bg} style={{ lineHeight: 12 }}>
-                      ✓
-                    </Cond>
-                  ) : null}
-                </View>
-                <Cond size={15} color={good ? Ghost.bg : Ghost.dim}>
-                  {`GOOD FOR ${label}`}
-                </Cond>
-              </Pressable>
-            )
-          })}
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Body size={16} style={{ fontFamily: Type.bodyMedium, lineHeight: 20 }}>
+            {perk.name}
+          </Body>
+          <Mono size={10}>{`${column.label} · ${where}`}</Mono>
         </View>
-        <Meta color={rate.isError ? Ghost.danger : Ghost.dim}>
-          {rate.isError
-            ? errorMessage(rate.error)
-            : `${perk.source === null ? "Unrated" : SOURCE[perk.source]} · tap to change. Cleanup keeps your best PvE and PvP copy.`}
-        </Meta>
-        {perk.active || active === undefined ? null : (
-          <View style={styles.versus}>
-            <Meta>{`vs ${active.name}`}</Meta>
-            <DeltaChips swaps={swaps} />
-          </View>
-        )}
       </View>
+      <Body size={14} color={Ghost.soft} style={{ lineHeight: 19 }}>
+        {perk.description.trim()}
+      </Body>
+      <View style={{ flexDirection: "row", gap: 8 }}>
+        {PURPOSES.map(([purpose, label]) => {
+          const good = perk.good.includes(purpose)
+          return (
+            <Pressable
+              key={purpose}
+              accessibilityRole="switch"
+              accessibilityLabel={`${perk.name} good for ${label}`}
+              accessibilityState={{ checked: good }}
+              disabled={rate.isPending}
+              onPress={() =>
+                rate.mutate({ perk: perk.name, purpose, rating: good ? "ok" : "good" })
+              }
+              style={({ pressed }) => [
+                styles.toggle,
+                good && { backgroundColor: Ghost.good, borderColor: Ghost.good },
+                (pressed || rate.isPending) && { opacity: 0.6 },
+              ]}
+            >
+              <View style={[styles.box, { borderColor: good ? Ghost.bg : Ghost.dim }]}>
+                {good ? (
+                  <Cond size={11} color={Ghost.bg} style={{ lineHeight: 12 }}>
+                    ✓
+                  </Cond>
+                ) : null}
+              </View>
+              <Cond size={15} color={good ? Ghost.bg : Ghost.dim}>
+                {`GOOD FOR ${label}`}
+              </Cond>
+            </Pressable>
+          )
+        })}
+      </View>
+      <Meta color={rate.isError ? Ghost.danger : Ghost.dim}>
+        {rate.isError
+          ? errorMessage(rate.error)
+          : `${perk.source === null ? "Unrated" : SOURCE[perk.source]} · tap to change. Cleanup keeps your best PvE and PvP copy.`}
+      </Meta>
+      {perk.active || active === undefined ? null : (
+        <View style={styles.versus}>
+          <Meta>{`vs ${active.name}`}</Meta>
+          <DeltaChips swaps={swaps} />
+        </View>
+      )}
     </View>
   )
 }
@@ -511,22 +507,22 @@ export function WeaponScreen({ item }: { item: ItemSummary & { itemInstanceId: s
   const bottomInset = useBottomInset()
   const sheet = useWeaponSheet(item.itemInstanceId)
   const [mode, setMode] = useState<SheetMode>(VIEWING)
+  const [anchor, setAnchor] = useState<HostInstance>()
   const [showAll, setShowAll] = useState(false)
   const full = sheet.data
   const data = full && (showAll ? full : rolledOnly(full))
   const applying = mode.kind === "apply"
-  const inspecting = mode.kind === "view" && mode.inspected !== null
 
   const show = (all: boolean) => {
     setShowAll(all)
     if (mode.kind === "view") setMode(VIEWING)
   }
 
-  const tap = (ref: PerkRef) => {
+  const tap = (ref: PerkRef, tile: HostInstance) => {
     if (!data) return
     if (mode.kind === "view") {
-      const same = mode.inspected?.column === ref.column && mode.inspected.perk === ref.perk
-      setMode({ kind: "view", inspected: same ? null : ref })
+      setAnchor(tile)
+      setMode({ kind: "view", inspected: ref })
       return
     }
     const column = data.columns[ref.column]
@@ -543,19 +539,14 @@ export function WeaponScreen({ item }: { item: ItemSummary & { itemInstanceId: s
         : []
 
   return (
-    <View style={{ flex: 1 }}>
+    <TooltipLayer name="weapon">
       <ScrollView
         contentContainerStyle={{
           paddingTop: 28,
           paddingBottom: applying ? 220 + bottomInset : bottomInset + 20,
         }}
       >
-        <Pressable
-          accessible={false}
-          disabled={!inspecting}
-          onPress={() => setMode(VIEWING)}
-          style={{ gap: 22 }}
-        >
+        <View style={{ gap: 22 }}>
           <ItemHeader item={item} size={72} />
           {data && !applying ? <Summary sheet={data} /> : null}
           <View style={styles.section}>
@@ -610,16 +601,7 @@ export function WeaponScreen({ item }: { item: ItemSummary & { itemInstanceId: s
               <Meta color={Ghost.dim}>Loading…</Meta>
             ) : (
               <>
-                <Matrix
-                  sheet={data}
-                  mode={mode}
-                  onTap={tap}
-                  inspector={
-                    mode.kind === "view" && mode.inspected ? (
-                      <Inspector itemId={item.itemInstanceId} sheet={data} at={mode.inspected} />
-                    ) : null
-                  }
-                />
+                <Matrix sheet={data} mode={mode} onTap={tap} />
                 <Legend
                   items={
                     applying
@@ -649,8 +631,17 @@ export function WeaponScreen({ item }: { item: ItemSummary & { itemInstanceId: s
             />
           ) : null}
           {applying ? null : <ItemActions item={item} />}
-        </Pressable>
+        </View>
       </ScrollView>
+      {data && anchor && mode.kind === "view" && mode.inspected ? (
+        <Tooltip
+          key={`${mode.inspected.column}:${mode.inspected.perk}`}
+          anchor={anchor}
+          onClose={() => setMode(VIEWING)}
+        >
+          <Inspector itemId={item.itemInstanceId} sheet={data} at={mode.inspected} />
+        </Tooltip>
+      ) : null}
       {data && mode.kind === "apply" ? (
         <ApplyBar
           item={item}
@@ -660,7 +651,7 @@ export function WeaponScreen({ item }: { item: ItemSummary & { itemInstanceId: s
           onDone={() => setMode(VIEWING)}
         />
       ) : null}
-    </View>
+    </TooltipLayer>
   )
 }
 
@@ -681,26 +672,6 @@ const styles = StyleSheet.create({
   },
   tile: { overflow: "hidden", backgroundColor: Ghost.swatch },
   ratingBar: { height: 3, backgroundColor: Ghost.ruleStrong },
-  caret: {
-    position: "absolute",
-    top: -6,
-    width: 12,
-    height: 12,
-    zIndex: 1,
-    backgroundColor: "#1d2128",
-    borderLeftWidth: 1,
-    borderTopWidth: 1,
-    borderColor: "#3a414c",
-    transform: [{ rotate: "45deg" }],
-  },
-  inspector: {
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    gap: 8,
-    backgroundColor: "#1d2128",
-    borderWidth: 1,
-    borderColor: "#3a414c",
-  },
   inspectorIcon: {
     width: 32,
     height: 32,

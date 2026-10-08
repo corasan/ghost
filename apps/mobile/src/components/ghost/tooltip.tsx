@@ -106,7 +106,7 @@ export function Tooltip({
         />
         {place ? (
           <View
-            pointerEvents="none"
+            pointerEvents="box-none"
             onLayout={(event) => setHeight(event.nativeEvent.layout.height)}
             style={[
               styles.tip,
