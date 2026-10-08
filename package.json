@@ -13,7 +13,10 @@
     "mobile": "bun run --cwd apps/mobile start",
     "typecheck": "bun run --filter '*' typecheck",
     "lint": "oxlint",
-    "format": "oxfmt"
+    "format": "oxfmt",
+    "app:ios": "bun apps/mobile/scripts/install.ts ios",
+    "app:android": "bun apps/mobile/scripts/install.ts android",
+    "eas": "bun apps/mobile/scripts/eas.ts"
   },
   "devDependencies": {
     "@oxlint/plugins": "1.86.0",

@@ -41,3 +41,7 @@ example
 # generated native folders
 /ios
 /android
+
+# EAS local credentials (eas credentials can write these); real ones stay on EAS servers
+credentials.json
+credentials/
