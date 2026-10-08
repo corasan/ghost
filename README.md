@@ -143,7 +143,7 @@ environment, and signing credentials live on EAS's servers.
 
    `.env.local` is for your machine and the EAS variables are for the build
    server; both need the same values. Without `GHOST_APP_ID` the app id falls
-   back to the placeholder `com.example.ghost`, which only one Apple team can own.
+   back to the placeholder `com.example.ghost`, which is not meant to be signed.
 
 2. Register each friend's iPhone. iOS ad-hoc builds only install on devices
    listed in the provisioning profile, at most 100 per device type per year on
