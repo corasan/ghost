@@ -6,8 +6,10 @@
     "packages/*"
   ],
   "scripts": {
-    "server": "bun run serve && bun run --cwd packages/server dev",
-    "serve": "bun run --cwd packages/server serve",
+    "ghost": "bun packages/cli/src/main.ts",
+    "build:cli": "bun run --cwd packages/cli build",
+    "install:cli": "bun run --cwd packages/cli build --install",
+    "server": "bun run ghost pair && bun run --cwd packages/server dev",
     "mobile": "bun run --cwd apps/mobile start",
     "typecheck": "bun run --filter '*' typecheck",
     "lint": "oxlint",

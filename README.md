@@ -4,29 +4,83 @@ A Destiny 2 companion. The phone app talks over your tailnet to a small server
 running on your own computer; the server lets Claude act on your account through
 the Bungie API using the Claude subscription already logged in on that machine.
 
+## Running it
+
+The server runs on a computer that has Claude Code signed in. The `ghost` CLI
+sets that machine up, then starts and stops the server.
+
 ```
 apps/mobile        Expo SDK 58 app, native UI (SwiftUI on iOS, Jetpack Compose on Android)
+packages/cli       the `ghost` command: setup, doctor, start, stop, status, logs, pair
 packages/server    Bun + Effect server: REST API, SQLite, MCP tools, Claude agent runner
 packages/contract  The HTTP API and wire types both sides import
 ```
 
-## Running it
+### Install the CLI
+
+Download the latest release (macOS and Linux, arm64 and x64):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/corasan/ghost/main/install.sh | sh
+```
+
+Or build it from a clone, which needs [Bun](https://bun.sh):
 
 ```sh
 bun install
+bun run install:cli   # builds packages/cli/dist/ghost and copies it to ~/.local/bin
+```
 
-# server (on the machine that has `claude` logged in)
-cp packages/server/.env.example packages/server/.env   # fill in Bungie keys
-bun run server                                          # serves on the tailnet and prints a pairing QR, then starts the server
+Either way the result is one self-contained binary with the server inside it.
+Pushing a `v*` tag builds the release binaries (`.github/workflows/release.yml`).
+
+### Set up and run
+
+```sh
+ghost setup     # guided: Claude Code, Tailscale, your Bungie app, optional extras
+ghost start     # runs the server in the background and prints the pairing QR
+```
+
+`ghost setup` checks each thing the server needs and walks you through
+whatever is missing: it can install Claude Code and Tailscale, sign you in,
+tells you exactly what to enter when you register the Bungie application
+(including the redirect URL for this machine), and checks the API key with
+Bungie before saving it. Run it again any time; it only asks about what is
+still missing. `ghost doctor` runs the same checks without changing anything
+and exits non-zero when something required is missing.
+
+| Command                        | What it does                                                          |
+| ------------------------------ | --------------------------------------------------------------------- |
+| `ghost start`                  | Start in the background, wait until it answers, print the QR code     |
+| `ghost start -f`               | Run in this terminal instead, logging to stdout                       |
+| `ghost stop` / `ghost restart` | Stop the background server (and take it off the tailnet)              |
+| `ghost status`                 | Running or not, local and tailnet addresses, whether Bungie is linked |
+| `ghost logs [-f] [-n 100]`     | Print or follow the background server's log                           |
+| `ghost pair`                   | Print the QR code again                                               |
+
+Everything lives in `~/.ghost` (`GHOST_HOME` moves it): `config.env` with your
+keys, `data/` with the SQLite database, `ghost.log` and `ghost.pid`. Settings in
+the shell environment win over `config.env`. The server finds Claude Code on
+your PATH and uses its sign-in, so the subscription pays for each run.
+
+Scan the QR code with the phone's camera to open the app with the server's
+address saved, then sign in with Bungie. The address can also be changed by
+hand from the sign-in screen.
+
+### Working on Ghost
+
+```sh
+bun install
+bun run server   # serve on the tailnet, then run the server from source with reload
+bun run ghost -- doctor   # any CLI command, from source
 
 # app (needs a development build: @expo/ui has native code, so Expo Go won't do)
 cd apps/mobile
 bunx expo run:ios     # or: bunx expo run:android
 ```
 
-`bun run serve` prints the server's tailnet address and a QR code. Scan it with
-the phone's camera to open the app with that address saved, then sign in with
-Bungie. The address can also be changed by hand from the sign-in screen.
+`bun run server` reads `packages/server/.env` (copy `.env.example`), not
+`~/.ghost/config.env`.
 
 ## Chat is the app
 

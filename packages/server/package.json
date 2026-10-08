@@ -3,10 +3,12 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "exports": {
+    "./server": "./src/server.ts"
+  },
   "scripts": {
     "dev": "bun run scripts/dev.ts",
     "start": "bun run src/main.ts",
-    "serve": "bun run scripts/serve.ts",
     "typecheck": "tsc --noEmit",
     "test": "bun test"
   },
@@ -20,8 +22,6 @@
   },
   "devDependencies": {
     "@types/bun": "^1.3.14",
-    "@types/qrcode-terminal": "^0.12.2",
-    "qrcode-terminal": "^0.12.0",
     "typescript": "^7.0.2"
   }
 }

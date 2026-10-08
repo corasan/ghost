@@ -123,6 +123,7 @@ export const ClaudeAgentLive = Layer.effect(
             maxTurns: 40,
           }
           if (resume !== null) options.resume = resume
+          if (config.claudePath !== "") options.pathToClaudeCodeExecutable = config.claudePath
           let lastText = ""
           let conversation: string | null = null
           for await (const message of query({ prompt: fullPrompt, options })) {

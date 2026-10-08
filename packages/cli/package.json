@@ -1,0 +1,26 @@
+{
+  "name": "@ghost/cli",
+  "version": "0.1.0",
+  "private": true,
+  "bin": {
+    "ghost": "./src/main.ts"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "bun run scripts/build.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@effect/platform-bun": "^4.0.0",
+    "@ghost/contract": "workspace:*",
+    "@ghost/server": "workspace:*",
+    "effect": "^4.0.0",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.14",
+    "@types/qrcode-terminal": "^0.12.2",
+    "typescript": "^7.0.2"
+  }
+}
