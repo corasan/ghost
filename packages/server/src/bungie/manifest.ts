@@ -393,9 +393,14 @@ export interface ManifestService {
   readonly lookup: (
     hashes: Iterable<number>,
   ) => Effect.Effect<ReadonlyMap<number, ManifestItem>, BungieError>
-  /** Definitions whose name matches exactly (case-insensitive); several per name are common. */
+  /**
+   * Definitions whose name matches exactly (case-insensitive); several per name are common.
+   * By default only ones with effect text, as plugs have; "any" also finds
+   * weapons and armor, whose descriptions are empty.
+   */
   readonly findByName: (
     names: ReadonlyArray<string>,
+    kind?: "described" | "any",
   ) => Effect.Effect<ReadonlyArray<ManifestItem>, BungieError>
 }
 
@@ -995,14 +1000,15 @@ export const ManifestLive = Layer.effect(
         return result
       })
 
-    const findByName = (names: ReadonlyArray<string>) =>
+    const findByName = (names: ReadonlyArray<string>, kind: "described" | "any" = "described") =>
       Effect.gen(function* () {
         yield* ensure
         if (names.length === 0) return []
         const lowered = names.map((n) => n.toLowerCase())
+        const described = kind === "described" ? sql`AND description IS NOT NULL` : sql``
         const rows = yield* sql<ManifestRow>`
           SELECT * FROM manifest_items WHERE lower(name) IN ${sql.in(lowered)}
-          AND description IS NOT NULL LIMIT 200
+          ${described} LIMIT 200
         `.pipe(Effect.orDie)
         return rows.map(rowToItem)
       })

@@ -4,9 +4,10 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { Effect, Layer, Redacted } from "effect"
 import { FetchHttpClient } from "effect/http"
+import { SqlClient } from "effect/sql"
 import { AppConfig } from "../config.ts"
 import { DatabaseLive } from "../db/client.ts"
-import { SettingsLive } from "../db/settings.ts"
+import { Settings, SettingsLive } from "../db/settings.ts"
 import {
   keywordsFrom,
   Manifest,
@@ -88,8 +89,8 @@ describe("ManifestLive plug lookups", () => {
     jev: { apiKey: Redacted.make(""), model: "test" },
   })
   const manifest = ManifestLive.pipe(
-    Layer.provide(SettingsLive),
-    Layer.provide(DatabaseLive),
+    Layer.provideMerge(SettingsLive),
+    Layer.provideMerge(DatabaseLive),
     Layer.provide(config),
   )
 
@@ -137,5 +138,35 @@ describe("ManifestLive plug lookups", () => {
     })
     expect(third?.get(111)).toEqual(second?.get(111))
     expect(asked).toHaveLength(2)
+  })
+
+  test("names resolve from a whole local copy while Bungie is down", async () => {
+    const fetch = Object.assign(async () => maintenance(), { preconnect: () => {} })
+    const [described, any] = await Effect.runPromise(
+      Effect.gen(function* () {
+        const sql = yield* SqlClient.SqlClient
+        const settings = yield* Settings
+        yield* sql`INSERT INTO manifest_items ${sql.insert({
+          hash: 222,
+          name: "Ace of Spades",
+          type_name: "Hand Cannon",
+          icon: null,
+          tier_type: 6,
+          bucket_hash: 1498876634,
+          item_type: 3,
+          damage_type: 1,
+          class_type: 3,
+          description: null,
+        })}`
+        yield* settings.set("manifest.version", "local")
+        const service = yield* Manifest
+        return [
+          yield* service.findByName(["ace of spades"]),
+          yield* service.findByName(["ace of spades"], "any"),
+        ]
+      }).pipe(Effect.provide(manifest), Effect.provideService(FetchHttpClient.Fetch, fetch)),
+    )
+    expect(described).toEqual([])
+    expect(any?.map((item) => item.name)).toEqual(["Ace of Spades"])
   })
 })
