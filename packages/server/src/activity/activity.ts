@@ -30,6 +30,8 @@ export interface ActivityService {
   ) => Effect.Effect<Option.Option<RecentItem>>
   readonly briefing: (
     characterId?: string,
+    /** The player's IANA time zone, for when "today" starts. */
+    timeZone?: string,
   ) => Effect.Effect<Briefing, BungieError | BungieNotLinked>
 }
 
@@ -51,11 +53,20 @@ const fromOwned = (row: SeenRow, item: OwnedItem, upgrade: boolean) =>
     upgrade,
   })
 
-const startOfLocalDay = (nowMs: number) => {
-  const day = new Date(nowMs)
-  day.setHours(0, 0, 0, 0)
-  return day.toISOString()
-}
+/**
+ * Midnight in the player's time zone (an IANA name the app sends), so
+ * "today" turns over when theirs does. Without one, or with one that does
+ * not resolve, it falls back to the server's own time zone.
+ */
+export const startOfDay = (nowMs: number, timeZone?: string) =>
+  Option.match(timeZone === undefined ? Option.none() : DateTime.makeZoned(nowMs, { timeZone }), {
+    onNone: () => {
+      const day = new Date(nowMs)
+      day.setHours(0, 0, 0, 0)
+      return day.toISOString()
+    },
+    onSome: (zoned) => DateTime.formatIso(DateTime.startOf(zoned, "day")),
+  })
 
 export const ActivityLive = Layer.effect(
   Activity,
@@ -129,7 +140,7 @@ export const ActivityLive = Layer.effect(
       return { since: window.since, nowMs }
     }).pipe(Effect.orDie)
 
-    const briefing = (characterId?: string) =>
+    const briefing = (characterId?: string, timeZone?: string) =>
       Effect.gen(function* () {
         const inv = yield* profile.inventory
         const { since, nowMs } = yield* session
@@ -142,7 +153,9 @@ export const ActivityLive = Layer.effect(
           return item !== undefined && upgrade(item) ? [new ItemSummary(item)] : []
         })
         const recentRows = yield* items.recent.pipe(Effect.orDie)
-        const actionsToday = yield* actions.countOkSince(startOfLocalDay(nowMs)).pipe(Effect.orDie)
+        const actionsToday = yield* actions
+          .countOkSince(startOfDay(nowMs, timeZone))
+          .pipe(Effect.orDie)
         const capacities = yield* manifest.capacities
         return new Briefing({
           since,
