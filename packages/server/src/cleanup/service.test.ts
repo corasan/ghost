@@ -289,6 +289,28 @@ describe("cleanup watcher", () => {
     expect(account.where("k1")?.location).toBe("vault")
   })
 
+  test("marking a batch deleted delivers the next one while the profile still shows it", async () => {
+    const account = new Account(kinetic(10))
+    const { run } = harness(account)
+    const after = await run(
+      Effect.gen(function* () {
+        const cleanup = yield* Cleanup
+        const session = yield* cleanup.start(HUNTER)
+        yield* cleanup.tick
+        const handed = account.carried(HUNTER).map((i) => i.itemInstanceId)
+        const [first, ...rest] = handed
+        if (first === undefined) throw new Error("expected a delivery")
+        account.stale = account.inventory
+        account.delete(handed)
+        yield* cleanup.markDeleted(session.id, [first, ...rest])
+        yield* cleanup.tick
+        return yield* cleanup.current
+      }),
+    )
+    expect(after?.batch).toBe(1)
+    expect(account.carried(HUNTER).map((i) => i.itemInstanceId)).toEqual(["k9"])
+  })
+
   test("skip returns the rest of the batch to the vault, still tagged junk", async () => {
     const account = new Account(kinetic(10))
     const { run } = harness(account)

@@ -362,3 +362,28 @@ export const skip = (s: CleanupSession): Result.Result<CleanupSession, string> =
         }),
       )
     : Result.fail(`Cannot skip a cleanup that is ${s.stage}.`)
+
+export const markDeleted = (
+  s: CleanupSession,
+  itemInstanceIds: ReadonlyArray<string>,
+  now: string,
+): Result.Result<CleanupSession, string> => {
+  const picked = new Set(itemInstanceIds)
+  const held = s.junk.filter(
+    (e) => picked.has(e.itemInstanceId) && e.batch === s.batch && e.state === "in_hand",
+  )
+  if (!handingOver(s) || picked.size === 0 || held.length !== picked.size) {
+    return Result.fail("Only items on your character can be marked deleted.")
+  }
+  return Result.succeed(
+    advance(
+      new CleanupSession({
+        ...s,
+        junk: s.junk.map((e) =>
+          picked.has(e.itemInstanceId) ? new JunkEntry({ ...e, state: "deleted" }) : e,
+        ),
+      }),
+      now,
+    ),
+  )
+}

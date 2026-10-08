@@ -953,8 +953,8 @@ export class JudgeUnavailable extends Schema.TaggedError<JudgeUnavailable>()("Ju
   reason: Schema.String,
 }) {}
 
-export const KeepFromCleanup = Schema.Struct({ itemIds: Schema.NonEmptyArray(Schema.String) })
-export type KeepFromCleanup = typeof KeepFromCleanup.Type
+export const CleanupItems = Schema.Struct({ itemIds: Schema.NonEmptyArray(Schema.String) })
+export type CleanupItems = typeof CleanupItems.Type
 
 export class CleanupNotFound extends Schema.TaggedError<CleanupNotFound>()("CleanupNotFound", {
   id: Schema.String,

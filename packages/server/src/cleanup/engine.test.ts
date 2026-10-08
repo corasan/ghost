@@ -2,7 +2,18 @@ import { describe, expect, test } from "bun:test"
 import type { CleanupSession, GearSlot, ItemSlot } from "@ghost/contract"
 import { Result } from "effect"
 import type { Inventory, OwnedItem } from "../bungie/inventory.ts"
-import { begin, command, keep, nextMoves, plan, reconcile, settle, skip, start } from "./engine.ts"
+import {
+  begin,
+  command,
+  keep,
+  markDeleted,
+  nextMoves,
+  plan,
+  reconcile,
+  settle,
+  skip,
+  start,
+} from "./engine.ts"
 
 const HUNTER = "hunter-1"
 const NOW = "2026-10-06T12:00:00.000Z"
@@ -224,6 +235,25 @@ describe("delivering", () => {
     expect(stow?.kind).toBe("stow")
     if (stow === undefined) throw new Error("expected a stow move")
     expect(settle(landed, stow, "landed", NOW).junk[0]?.state).toBe("kept")
+  })
+
+  test("marking the whole batch deleted moves on before the profile catches up", () => {
+    const marked = Result.getOrThrow(markDeleted(delivered, batchIds(delivered, 0), NOW))
+    expect(marked.junk.filter((e) => e.batch === 0).every((e) => e.state === "deleted")).toBe(true)
+    expect(marked.batch).toBe(1)
+    expect(nextMoves(marked).map((m) => m.itemInstanceId)).toEqual(["kinetic-9", "kinetic-10"])
+  })
+
+  test("marking deleted holds the batch until every item in it is resolved", () => {
+    const marked = Result.getOrThrow(markDeleted(delivered, ["kinetic-0"], NOW))
+    expect(marked.junk.slice(0, 2).map((e) => e.state)).toEqual(["deleted", "in_hand"])
+    expect(marked.batch).toBe(0)
+  })
+
+  test("marking deleted refuses items that have not reached the character", () => {
+    const fresh = session(inv)
+    expect(Result.isFailure(markDeleted(fresh, ["kinetic-0"], NOW))).toBe(true)
+    expect(Result.isFailure(markDeleted(delivered, ["kinetic-0", "kinetic-10"], NOW))).toBe(true)
   })
 
   test("keep refuses an item outside the current batch", () => {

@@ -40,7 +40,7 @@ import {
   JudgeUnavailable,
   SetPerkRating,
   WeaponPerks,
-  KeepFromCleanup,
+  CleanupItems,
   ReviewItem,
   StartCleanup,
   VaultSnapshot,
@@ -278,7 +278,15 @@ export const cleanupGroup = HttpApiGroup.make("cleanup")
   .add(
     HttpApiEndpoint.post("keep", "/cleanup/:id/keep", {
       params: { id: Schema.String },
-      payload: KeepFromCleanup,
+      payload: CleanupItems,
+      success: CleanupSession,
+      error: cleanupErrors,
+    }),
+  )
+  .add(
+    HttpApiEndpoint.post("deleted", "/cleanup/:id/deleted", {
+      params: { id: Schema.String },
+      payload: CleanupItems,
       success: CleanupSession,
       error: cleanupErrors,
     }),

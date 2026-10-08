@@ -28,6 +28,7 @@ import {
   command,
   destination,
   keep,
+  markDeleted,
   type Move,
   nextMoves,
   type Outcome,
@@ -56,6 +57,10 @@ export interface CleanupService {
   ) => Effect.Effect<CleanupSession, CommandErrors>
   readonly skip: (id: string) => Effect.Effect<CleanupSession, CommandErrors>
   readonly keep: (
+    id: string,
+    itemInstanceIds: ReadonlyArray<string>,
+  ) => Effect.Effect<CleanupSession, CommandErrors>
+  readonly markDeleted: (
     id: string,
     itemInstanceIds: ReadonlyArray<string>,
   ) => Effect.Effect<CleanupSession, CommandErrors>
@@ -165,6 +170,9 @@ export const cleanupLayer = (spacing: Duration.Input) =>
           ),
           Effect.tap(() => profile.invalidate),
         )
+
+      const markItemsDeleted = (id: string, itemInstanceIds: ReadonlyArray<string>) =>
+        update(id, (session, at) => markDeleted(session, itemInstanceIds, at))
 
       const execute = (
         move: Move,
@@ -287,6 +295,7 @@ export const cleanupLayer = (spacing: Duration.Input) =>
         command: runCommand,
         skip: skipRest,
         keep: keepItems,
+        markDeleted: markItemsDeleted,
         tick,
       }
     }),
