@@ -1,6 +1,7 @@
 import { query, type Options } from "@anthropic-ai/claude-agent-sdk"
 import type { AgentEffort, JobKind, JobStep } from "@ghost/contract"
-import { Context, Duration, Effect, Layer, Schema } from "effect"
+import { Context, Duration, Effect, Layer, Redacted, Schema } from "effect"
+import { Access } from "../access.ts"
 import { AppConfig } from "../config.ts"
 import { MCP_PATH } from "../mcp/path.ts"
 import { AgentConfig } from "./settings.ts"
@@ -121,6 +122,7 @@ export const ClaudeAgentLive = Layer.effect(
   ClaudeAgent,
   Effect.gen(function* () {
     const config = yield* AppConfig
+    const { mcpToken } = yield* Access
     const agentConfig = yield* AgentConfig
     const mcpUrl = `http://127.0.0.1:${config.port}${MCP_PATH}`
 
@@ -141,7 +143,13 @@ export const ClaudeAgentLive = Layer.effect(
             model: config.model,
             effort,
             systemPrompt: SYSTEM_PROMPT,
-            mcpServers: { ghost: { type: "http", url: mcpUrl } },
+            mcpServers: {
+              ghost: {
+                type: "http",
+                url: mcpUrl,
+                headers: { Authorization: `Bearer ${Redacted.value(mcpToken)}` },
+              },
+            },
             tools: ["WebSearch", "WebFetch"],
             allowedTools: ["mcp__ghost__*", "WebSearch", "WebFetch"],
             permissionMode: "bypassPermissions",
