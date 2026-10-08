@@ -1,5 +1,7 @@
 import { ARMOR_STATS } from "../bungie/masterwork.ts"
 import { type Inventory, isArmor, isWeapon, type OwnedItem } from "../bungie/inventory.ts"
+import type { GameLoadouts } from "../bungie/loadouts.ts"
+import type { StoredBuild } from "../db/builds.ts"
 import { goodColumns, keepable, type Purpose, PURPOSES, type RatedColumns, rated } from "./perks.ts"
 
 export type Protection =
@@ -38,9 +40,20 @@ export interface RollStanding {
   readonly score: number | null
 }
 
-export interface JudgeContext {
+/** The items a saved Ghost build or an in-game loadout uses. */
+export interface InUse {
   readonly builds: ReadonlySet<string>
   readonly loadouts: ReadonlySet<string>
+}
+
+export const inUse = (saved: ReadonlyArray<StoredBuild>, game: GameLoadouts): InUse => ({
+  builds: new Set(saved.flatMap((build) => build.plan.rows.map((row) => row.itemInstanceId))),
+  loadouts: new Set(
+    [...game.byCharacter.values()].flat().flatMap((loadout) => loadout.itemInstanceIds),
+  ),
+})
+
+export interface JudgeContext extends InUse {
   readonly rolls: ReadonlyMap<string, RollStanding>
   /** Each weapon's trait columns with every perk rated. */
   readonly columns: ReadonlyMap<string, RatedColumns>
@@ -52,16 +65,19 @@ export const RECENT_MS = 48 * 60 * 60 * 1000
 
 // A hard protection keeps the item off the proposal; a soft one lets it be
 // listed for review but never ticked as junk.
-const HARD: ReadonlyArray<readonly [Protection, (item: OwnedItem, ctx: JudgeContext) => boolean]> =
-  [
-    ["locked", (item) => item.locked],
-    ["masterworked", (item) => item.masterwork],
-    ["equipped", (item) => item.equipped],
-    ["crafted", (item) => item.crafted],
-    ["marked_keep", (item) => item.decision === "keep"],
-    ["in_build", (item, ctx) => ctx.builds.has(item.itemInstanceId)],
-    ["in_loadout", (item, ctx) => ctx.loadouts.has(item.itemInstanceId)],
-  ]
+const HARD: ReadonlyArray<readonly [Protection, (item: OwnedItem, ctx: InUse) => boolean]> = [
+  ["locked", (item) => item.locked],
+  ["masterworked", (item) => item.masterwork],
+  ["equipped", (item) => item.equipped],
+  ["crafted", (item) => item.crafted],
+  ["marked_keep", (item) => item.decision === "keep"],
+  ["in_build", (item, ctx) => ctx.builds.has(item.itemInstanceId)],
+  ["in_loadout", (item, ctx) => ctx.loadouts.has(item.itemInstanceId)],
+]
+
+/** What keeps an item off every proposal. Tagging and cleanup check it again, since a plan can be stale. */
+export const hardProtections = (item: OwnedItem, ctx: InUse): ReadonlyArray<Protection> =>
+  HARD.flatMap(([protection, applies]) => (applies(item, ctx) ? [protection] : []))
 
 const SOFT_WHY: Record<"only_copy" | "best_copy" | "recent" | "unread_tuning", string> = {
   only_copy: "your only copy",
@@ -219,7 +235,7 @@ export const judge = (inv: Inventory, ctx: JudgeContext): ReadonlyMap<string, Ve
       const standing = standings.get(item)
       if (standing === undefined) continue
       const { better, kept } = standing
-      const hard = HARD.flatMap(([protection, applies]) => (applies(item, ctx) ? [protection] : []))
+      const hard = hardProtections(item, ctx)
       const soft = [
         ...(kept === "best" && copies.length === 1 ? (["only_copy"] as const) : []),
         ...(kept === "best" && copies.length > 1 ? (["best_copy"] as const) : []),

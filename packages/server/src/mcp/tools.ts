@@ -34,6 +34,7 @@ import {
 } from "../bungie/manifest.ts"
 import { ARMOR_STATS } from "../bungie/masterwork.ts"
 import { plugStatMods } from "../bungie/loadout.ts"
+import { Loadouts } from "../bungie/loadouts.ts"
 import { socketsNow } from "../bungie/mods.ts"
 import { ProfileStore } from "../bungie/profile.ts"
 import { isActive, setBonusesFor } from "../bungie/sets.ts"
@@ -42,9 +43,11 @@ import { CreatorNotes } from "../creators/creators.ts"
 import { NOTE_MAX_AGE_DAYS } from "../creators/parse.ts"
 import { plan } from "../cleanup/engine.ts"
 import { ChargeEffects } from "../db/charge.ts"
+import { BuildsRepo } from "../db/builds.ts"
 import { JobsRepo } from "../db/jobs.ts"
 import { PerkRatings } from "../db/perk-ratings.ts"
 import { cleanupRows, flagged, unrated } from "../junk/proposal.ts"
+import { inUse } from "../junk/judge.ts"
 import { JunkJudge } from "../junk/service.ts"
 import {
   BuildRefusal,
@@ -124,7 +127,7 @@ const ListSubclasses = Tool.make("list_subclasses", {
 
 const PresentPlan = Tool.make("present_plan", {
   description:
-    "Show the player a plan to confirm. Nothing moves until they tap the confirm button; the server then runs the selected rows. Call it once per request, after deciding. Row actions: to_vault, to_character, pull_postmaster, equip, tag_junk, or none (shown for comparison only). For a build, list the armor piece for every slot and one weapon for each of kinetic, energy and power, including pieces that stay equipped (action none), with at most one exotic weapon. The server fills in each weapon's type, its perks and, when you pass no score, its wishlist score. The app works out the build's six stat totals itself from the pieces you equip, before and after, and what masterworking would add, so do not do that arithmetic or repeat those numbers in your reply. For a build, also pick the subclass in subclass: its name (from list_subclasses) and the super, class ability, jump, melee, grenade, aspects and fragments you want, by the names list_subclasses gives. Anything you leave out stays as that subclass has it. Name the fragments the build needs; they go into empty slots first, then replace from the last slot back, and slots you leave spare keep their fragment. The aspects' fragment slots cap the fragments. The server checks the picks and tells you what to fix; on confirm it equips the subclass and slots the plugs, and the build's stats count the chosen fragments. Leave subclass out only when the equipped subclass and its plugs already fit. For a build, also recommend armor mods in mods: one entry per mod to put in, naming the piece (it must be a row) and the mod exactly as list_armor_mods gives it, with replaces when the piece has no free socket of that kind. Only list mods that change; what is already slotted stays. The server checks sockets and energy and tells you what to fix. Every armor charge mod the build will run (charged true in get_armor_mods or list_armor_mods, already slotted or swapped in) needs its numbers: if it has no chargeEffect yet, look up what it adds while charged and how extra copies stack, and pass it in chargeEffects with the source, for example '+10% Arc weapon damage; 17% with two copies, 22% with three'. For a build, also write situational: one to three sentences on what the build's conditional bonuses (armor charge mods, and fragments or aspects that only work under a condition) add together once they are up, how the player keeps them up, and what they lose when they drop. For a build, also write synergy, one or two sentences per part on how it feeds the rest of the build: exotic, what the exotic armor's perk does for this subclass and its loop; setBonuses, how the set bonuses the armor turns on (get_armor_mods lists them) fit the loop, plus any bonus one piece away worth chasing; mods, how the armor mods back the loop; weapons, how the three weapons, the exotic weapon included, feed the loop (every build needs it); artifact, how the artifact perks and any artifact-only mod back the loop and the weapons. Leave out a part the build lacks; the server refuses a build that has a part without its synergy. For a build, also pass artifact: the names of the Seasonal Artifact perks it runs, from get_artifact. The server checks them against the character's columns and points and marks which the player must select in game, or that the artifact needs a reset; say so in note, because only the player can select them. For a build, also pass purpose; the server judges the set bonuses against it and tells you when one the armor turns on fits the build poorly. Prefer armor whose set bonuses fit the build. For a build, pass stats only for the stat goals the player names: one entry each, label Health, Melee, Grenade, Super, Class or Weapons (Resilience is Health, Recovery is Class), target true, and value the number they asked for. The server refuses a build whose totals, after armor, mods and fragments, fall short of a goal; if the owned gear truly cannot reach it, pass shortfall with one sentence on why.",
+    "Show the player a plan to confirm. Nothing moves until they tap the confirm button; the server then runs the selected rows. Call it once per request, after deciding. Row actions: to_vault, to_character, pull_postmaster, equip, tag_junk, or none (shown for comparison only). For a build, list the armor piece for every slot and one weapon for each of kinetic, energy and power, including pieces that stay equipped (action none), with at most one exotic weapon and one exotic armor piece worn once it applies. Only a cleanup plan may use tag_junk. The server fills in each weapon's type, its perks and, when you pass no score, its wishlist score. The app works out the build's six stat totals itself from the pieces you equip, before and after, and what masterworking would add, so do not do that arithmetic or repeat those numbers in your reply. For a build, also pick the subclass in subclass: its name (from list_subclasses) and the super, class ability, jump, melee, grenade, aspects and fragments you want, by the names list_subclasses gives. Anything you leave out stays as that subclass has it. Name the fragments the build needs; they go into empty slots first, then replace from the last slot back, and slots you leave spare keep their fragment. The aspects' fragment slots cap the fragments. The server checks the picks and tells you what to fix; on confirm it equips the subclass and slots the plugs, and the build's stats count the chosen fragments. Leave subclass out only when the equipped subclass and its plugs already fit. For a build, also recommend armor mods in mods: one entry per mod to put in, naming the piece (it must be a row) and the mod exactly as list_armor_mods gives it, with replaces when the piece has no free socket of that kind. Only list mods that change; what is already slotted stays. The server checks sockets and energy and tells you what to fix. Every armor charge mod the build will run (charged true in get_armor_mods or list_armor_mods, already slotted or swapped in) needs its numbers: if it has no chargeEffect yet, look up what it adds while charged and how extra copies stack, and pass it in chargeEffects with the source, for example '+10% Arc weapon damage; 17% with two copies, 22% with three'. For a build, also write situational: one to three sentences on what the build's conditional bonuses (armor charge mods, and fragments or aspects that only work under a condition) add together once they are up, how the player keeps them up, and what they lose when they drop. For a build, also write synergy, one or two sentences per part on how it feeds the rest of the build: exotic, what the exotic armor's perk does for this subclass and its loop; setBonuses, how the set bonuses the armor turns on (get_armor_mods lists them) fit the loop, plus any bonus one piece away worth chasing; mods, how the armor mods back the loop; weapons, how the three weapons, the exotic weapon included, feed the loop (every build needs it); artifact, how the artifact perks and any artifact-only mod back the loop and the weapons. Leave out a part the build lacks; the server refuses a build that has a part without its synergy. For a build, also pass artifact: the names of the Seasonal Artifact perks it runs, from get_artifact. The server checks them against the character's columns and points and marks which the player must select in game, or that the artifact needs a reset; say so in note, because only the player can select them. For a build, also pass purpose; the server judges the set bonuses against it and tells you when one the armor turns on fits the build poorly. Prefer armor whose set bonuses fit the build. For a build, pass stats only for the stat goals the player names: one entry each, label Health, Melee, Grenade, Super, Class or Weapons (Resilience is Health, Recovery is Class), target true, and value the number they asked for. The server refuses a build whose totals, after armor, mods and fragments, fall short of a goal; if the owned gear truly cannot reach it, pass shortfall with one sentence on why.",
   parameters: PlanInput,
   success: Json,
 })
@@ -146,9 +149,26 @@ const PerkRatingsTool = Tool.make("perk_ratings", {
   success: Json,
 })
 
+// Stored ratings feed junk judging, so a page with injected instructions
+// must not be able to write them: only the sites the agent is told to use
+// count as a source.
+export const RATING_SOURCES = [
+  "light.gg",
+  "d2foundry.gg",
+  "destiny.report",
+  "destiny2.science",
+  "bungie.net",
+]
+
+export const ratingSourceAllowed = (url: string) => {
+  const host = URL.canParse(url) ? new URL(url) : undefined
+  if (host === undefined || host.protocol !== "https:") return false
+  return RATING_SOURCES.some((site) => host.hostname === site || host.hostname.endsWith(`.${site}`))
+}
+
 const RatePerks = Tool.make("rate_perks", {
   description:
-    "Store how good a weapon's trait perks are, so junk judging uses it from now on and nobody has to look it up again. Junk judging keeps the player's best PvE copy and best PvP copy of each weapon, so rate each guide's picks with its purpose: the perks a current PvE god roll picks in each trait column good with purpose pve, the PvP picks good with purpose pvp, the ones a guide calls also good ok, and any it warns against junk. Perks you leave out count as ok at best. Pass the page you read in url (light.gg's god roll section is a good source). The player's own ratings always win over yours.",
+    "Store how good a weapon's trait perks are, so junk judging uses it from now on and nobody has to look it up again. Junk judging keeps the player's best PvE copy and best PvP copy of each weapon, so rate each guide's picks with its purpose: the perks a current PvE god roll picks in each trait column good with purpose pve, the PvP picks good with purpose pvp, the ones a guide calls also good ok, and any it warns against junk. Perks you leave out count as ok at best. Pass the page you read in url (light.gg's god roll section is a good source); only https pages on light.gg, d2foundry.gg, destiny.report, destiny2.science or bungie.net are accepted. The player's own ratings always win over yours.",
   parameters: Schema.Struct({
     weapon: Schema.String,
     perks: Schema.NonEmptyArray(
@@ -770,6 +790,8 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
     const artifacts = yield* Artifacts
     const junk = yield* JunkJudge
     const ratings = yield* PerkRatings
+    const builds = yield* BuildsRepo
+    const loadouts = yield* Loadouts
 
     const withInventory = (f: (inv: Inventory) => Effect.Effect<string>) =>
       profile.inventory.pipe(
@@ -858,7 +880,13 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
 
     const cleanupInput = (input: PlanInput) =>
       Effect.gen(function* () {
-        if (input.kind !== "cleanup") return input
+        if (input.kind !== "cleanup") {
+          const tagged = input.rows.filter((row) => row.action === "tag_junk")
+          if (tagged.length === 0) return input
+          return yield* new BuildRefusal({
+            message: `Error: only a cleanup plan tags junk, and only with rows find_junk returned; ${tagged.map((row) => row.itemInstanceId).join(", ")} use tag_junk in a ${input.kind} plan. Leave them out or call present_plan kind cleanup.`,
+          })
+        }
         const judgment = yield* junk.judgeVault.pipe(
           Effect.mapError((error) => new BuildRefusal({ message: explain(error) })),
         )
@@ -887,6 +915,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
             const build = yield* composing(composeBuild(recipe, inv))
             const refusal = buildRules(recipe, build)
             if (refusal !== undefined) return yield* refusal
+            yield* chargeEffects.record(build.research).pipe(Effect.orDie)
             const judged = yield* judgeSetBonuses(recipe.purpose, build.plan.setBonuses ?? []).pipe(
               Effect.provideService(Jev, jev),
             )
@@ -1243,7 +1272,16 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
             const character = pickCharacter(inv, characterId)
             if (character === undefined) return "Error: this account has no characters."
             const capacities = yield* manifest.capacities
-            const { preview } = plan(inv, character.characterId, capacities.vault)
+            const used = yield* Effect.result(
+              Effect.all([builds.list.pipe(Effect.orDie), loadouts.current]),
+            )
+            if (used._tag === "Failure") return explain(used.failure)
+            const { preview } = plan(
+              inv,
+              character.characterId,
+              capacities.vault,
+              inUse(...used.success),
+            )
             if (preview.junk === 0) {
               return "Nothing is tagged junk, so there is nothing to offer. Call find_junk and propose its rows with present_plan kind cleanup."
             }
@@ -1269,6 +1307,9 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
 
     const rate_perks = (input: (typeof RatePerks)["parametersSchema"]["Type"]) =>
       Effect.gen(function* () {
+        if (!ratingSourceAllowed(input.url)) {
+          return `Error: ratings are only stored from ${RATING_SOURCES.join(", ")}. Look the weapon up on one of those and pass that page's url.`
+        }
         const inv = yield* profile.inventory
         const copies = inv.items.filter(
           (item) => item.name.toLowerCase() === input.weapon.trim().toLowerCase(),

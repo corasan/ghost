@@ -234,6 +234,14 @@ export const LoadoutsLive = Layer.effect(
           Effect.die(new Error(`unexpected Bungie loadouts response: ${String(cause)}`)),
         ),
       )
+      // A missing component is not "no loadouts": junk judging relies on it
+      // to protect loadout gear, so it fails rather than guess.
+      if (response.characterLoadouts?.data === undefined) {
+        return yield* new BungieError({
+          status: "MissingComponent",
+          message: "Bungie did not return your in-game loadouts; try again in a moment",
+        })
+      }
       return parseLoadouts(response)
     })
     const [cached, invalidate] = yield* Effect.cachedInvalidateWithTTL(load, "30 seconds")

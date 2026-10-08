@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import type { CleanupSession, GearSlot, ItemSlot } from "@ghost/contract"
 import { Result } from "effect"
 import type { Inventory, OwnedItem } from "../bungie/inventory.ts"
+import type { InUse } from "../junk/judge.ts"
 import {
   begin,
   command,
@@ -18,6 +19,7 @@ import {
 const HUNTER = "hunter-1"
 const NOW = "2026-10-06T12:00:00.000Z"
 const LATER = "2026-10-06T12:41:00.000Z"
+const free: InUse = { builds: new Set(), loadouts: new Set() }
 
 const owned = (id: string, slot: ItemSlot, fields: Partial<OwnedItem> = {}): OwnedItem => ({
   itemInstanceId: id,
@@ -84,7 +86,7 @@ const carried = (id: string, slot: ItemSlot, fields: Partial<OwnedItem> = {}) =>
   owned(id, slot, { location: "character", characterId: HUNTER, ...fields })
 
 const session = (inv: Inventory, capacity = 600): CleanupSession =>
-  start(plan(inv, HUNTER, capacity), "s1", NOW)
+  start(plan(inv, HUNTER, capacity, free), "s1", NOW)
 
 const remove = (inv: Inventory, ids: ReadonlyArray<string>): Inventory => ({
   ...inv,
@@ -115,7 +117,7 @@ const sizes = (s: CleanupSession) =>
 
 describe("plan", () => {
   test("fills every slot to nine per batch, reproducing the design's 118 items in 4 batches", () => {
-    const planned = plan(inventory(vaultJunk(DESIGN_COUNTS)), HUNTER, 600)
+    const planned = plan(inventory(vaultJunk(DESIGN_COUNTS)), HUNTER, 600, free)
     expect(planned.preview.junk).toBe(118)
     expect(planned.preview.batches).toBe(4)
     const s = start(planned, "s1", NOW)
@@ -139,7 +141,7 @@ describe("plan", () => {
       owned("vault-junk", "arms", { decision: "junk" }),
       owned("mail", "power", { location: "postmaster", characterId: HUNTER, decision: "junk" }),
     ])
-    const { preview } = plan(inv, HUNTER, 600)
+    const { preview } = plan(inv, HUNTER, 600, free)
     expect(preview).toMatchObject({
       junk: 2,
       batches: 1,
@@ -156,7 +158,69 @@ describe("plan", () => {
       [carried("a", "kinetic"), carried("b", "energy"), owned("j", "arms", { decision: "junk" })],
       599,
     )
-    expect(plan(inv, HUNTER, 600).preview).toMatchObject({ vault: { after: 601 }, fits: false })
+    expect(plan(inv, HUNTER, 600, free).preview).toMatchObject({
+      vault: { after: 601 },
+      fits: false,
+    })
+  })
+
+  test("keeps a slot free for junk that passes through the vault from another character", () => {
+    const fromTitan = owned("j", "arms", {
+      decision: "junk",
+      location: "character",
+      characterId: "titan-1",
+    })
+    const inv = inventory([carried("a", "kinetic"), fromTitan], 599)
+    expect(plan(inv, HUNTER, 600, free).preview).toMatchObject({
+      vault: { after: 600 },
+      fits: false,
+    })
+  })
+
+  test("hands over no junk that something has protected since it was tagged", () => {
+    const junk = { decision: "junk" } as const
+    const inv = inventory([
+      owned("plain", "kinetic", junk),
+      owned("locked", "kinetic", { ...junk, locked: true }),
+      owned("mw", "kinetic", { ...junk, masterwork: true }),
+      owned("crafted", "kinetic", { ...junk, crafted: true }),
+      owned("built", "kinetic", junk),
+      owned("looped", "kinetic", junk),
+    ])
+    const planned = plan(inv, HUNTER, 600, {
+      builds: new Set(["built"]),
+      loadouts: new Set(["looped"]),
+    })
+    expect(planned.junk.map((e) => e.itemInstanceId)).toEqual(["plain"])
+  })
+})
+
+describe("stop", () => {
+  test("after gear was stashed, ends as finished so the player can have it returned", () => {
+    const inv = inventory([carried("devils", "kinetic"), owned("j", "arms", { decision: "junk" })])
+    const stopped = command(runMoves(session(inv)), "stop", LATER)
+    expect(
+      Result.isSuccess(stopped) && [stopped.success.stage, stopped.success.finishedAt],
+    ).toEqual(["finished", LATER])
+  })
+
+  test("before anything was stashed, just stops", () => {
+    const inv = inventory([carried("devils", "kinetic"), owned("j", "arms", { decision: "junk" })])
+    const stopped = command(session(inv), "stop", LATER)
+    expect(Result.isSuccess(stopped) && stopped.success.stage).toBe("stopped")
+  })
+})
+
+describe("reconcile without the vault", () => {
+  test("does not read vault junk as deleted when Bungie leaves the vault out", () => {
+    const inv = inventory([carried("devils", "kinetic"), ...vaultJunk([["energy", 2]])])
+    const delivering = runMoves(session(inv))
+    expect(delivering.stash.map((e) => e.state)).toEqual(["in_vault"])
+    const noVault = { ...remove(inv, ["devils", "energy-0", "energy-1"]), vaultCount: 0 }
+    const after = reconcile(delivering, noVault, LATER)
+    expect(after.junk.map((e) => e.state)).not.toContain("deleted")
+    const gone = reconcile(delivering, { ...noVault, vaultCount: 1 }, LATER)
+    expect(gone.junk.map((e) => e.state)).toContain("deleted")
   })
 })
 

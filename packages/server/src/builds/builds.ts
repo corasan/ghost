@@ -115,6 +115,8 @@ export interface Substitution {
   readonly recipe: BuildRecipe
   readonly substituted: ReadonlyArray<string>
   readonly lost: ReadonlyArray<PlanRow>
+  /** The saved rows' order by the ids they have now: a copy's id for a substituted row, the old id for a lost one. */
+  readonly order: ReadonlyArray<string>
 }
 
 export const substitute = (recipe: BuildRecipe, plan: Plan, inventory: Inventory): Substitution => {
@@ -157,17 +159,18 @@ export const substitute = (recipe: BuildRecipe, plan: Plan, inventory: Inventory
     },
     substituted,
     lost,
+    order: recipe.rows.map((row) => renamed(row.itemInstanceId)),
   }
 }
 
-const inRecipeOrder = (
-  recipe: BuildRecipe,
+export const inRecipeOrder = (
+  order: ReadonlyArray<string>,
   composed: ReadonlyArray<PlanRow>,
   lost: ReadonlyArray<PlanRow>,
 ) => {
   const byId = new Map([...composed, ...lost].map((row) => [row.itemInstanceId, row]))
-  return recipe.rows.flatMap((row) => {
-    const found = byId.get(row.itemInstanceId)
+  return order.flatMap((id) => {
+    const found = byId.get(id)
     return found === undefined ? [] : [found]
   })
 }
@@ -307,7 +310,7 @@ export const BuildsLive = Layer.effect(
             row.characterId === undefined ? row : { ...row, characterId: target.characterId },
           ),
         }
-        const { recipe, substituted, lost } = substitute(retargeted, build.plan, inv)
+        const { recipe, substituted, lost, order } = substitute(retargeted, build.plan, inv)
         const composed = yield* composeBuild(recipe, inv).pipe(
           Effect.provideContext(composing),
           Effect.catchTag("BuildRefusal", (refusal) =>
@@ -318,7 +321,7 @@ export const BuildsLive = Layer.effect(
         const plan = new Plan({
           ...composed.plan,
           subtitle: build.name,
-          rows: inRecipeOrder(retargeted, composed.plan.rows, lost),
+          rows: inRecipeOrder(order, composed.plan.rows, lost),
           confirmLabel: confirmLabel(saveTo, build.name),
           saveTo,
           saveable: true,

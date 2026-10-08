@@ -9,7 +9,7 @@ import { BuildsRepo } from "../db/builds.ts"
 import { PerkRatings, weaponKey } from "../db/perk-ratings.ts"
 import { checkRoll, perkKey, scoreFor, WILDCARD_ITEM } from "../wishlist/parse.ts"
 import { Wishlist, type WishlistError } from "../wishlist/wishlist.ts"
-import { judge, type RollStanding, type Verdict } from "./judge.ts"
+import { inUse, judge, type RollStanding, type Verdict } from "./judge.ts"
 import { type PerkKnowledge, type Purpose, PURPOSES, type RatedColumns, ratePerk } from "./perks.ts"
 
 export interface Judgment {
@@ -158,10 +158,7 @@ export const JunkJudgeLive = Layer.effect(
         }),
       )
       const verdicts = judge(inv, {
-        builds: new Set(saved.flatMap((build) => build.plan.rows.map((row) => row.itemInstanceId))),
-        loadouts: new Set(
-          [...game.byCharacter.values()].flat().flatMap((loadout) => loadout.itemInstanceIds),
-        ),
+        ...inUse(saved, game),
         rolls: rollStandings,
         columns,
         now: DateTime.toEpochMillis(yield* DateTime.now),

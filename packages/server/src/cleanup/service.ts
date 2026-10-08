@@ -19,9 +19,12 @@ import {
 } from "effect"
 import { BungieClient, type BungieError } from "../bungie/client.ts"
 import type { Inventory } from "../bungie/inventory.ts"
+import { Loadouts } from "../bungie/loadouts.ts"
 import { Manifest } from "../bungie/manifest.ts"
 import { ProfileStore } from "../bungie/profile.ts"
+import { BuildsRepo } from "../db/builds.ts"
 import { ItemsRepo } from "../db/items.ts"
+import { inUse } from "../junk/judge.ts"
 import {
   begin,
   type CleanupCommand,
@@ -37,6 +40,7 @@ import {
   settle,
   skip,
   start,
+  vaultRead,
 } from "./engine.ts"
 import { CleanupRepo } from "./repo.ts"
 
@@ -105,6 +109,8 @@ export const cleanupLayer = (spacing: Duration.Input) =>
       const manifest = yield* Manifest
       const items = yield* ItemsRepo
       const repo = yield* CleanupRepo
+      const builds = yield* BuildsRepo
+      const loadouts = yield* Loadouts
       const lock = yield* Semaphore.make(1)
 
       const now = Effect.map(DateTime.now, DateTime.formatIso)
@@ -127,7 +133,8 @@ export const cleanupLayer = (spacing: Duration.Input) =>
             return yield* new CleanupRefused({ reason: "That character is not on this account." })
           }
           const capacities = yield* manifest.capacities
-          return plan(inv, characterId, capacities.vault)
+          const saved = yield* builds.list.pipe(Effect.orDie)
+          return plan(inv, characterId, capacities.vault, inUse(saved, yield* loadouts.current))
         })
 
       const preview = (characterId: string) =>
@@ -251,6 +258,11 @@ export const cleanupLayer = (spacing: Duration.Input) =>
         const polling = POLLING.has(session.stage)
         if (!polling && nextMoves(session).length === 0) return
         const inv = yield* freshInventory
+        if (!vaultRead(session, inv)) {
+          const reason = "Bungie did not return the vault; trying again."
+          yield* record(session.id, (s) => new CleanupSession({ ...s, error: reason }))
+          return
+        }
         if (polling) yield* record(session.id, (s, at) => reconcile(s, inv, at))
         const located = new Map(
           inv.items.map((item): [string, Where] => [

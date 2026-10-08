@@ -487,6 +487,39 @@ describe("buildRules", () => {
     expect(await verdict(recipe({ rows: oneExotic }))).toBe("ok")
   })
 
+  test("refuses a build that would wear two exotic armor pieces", async () => {
+    const helm = owned("helm-exotic", "helmet", {
+      name: "Helm of Saint-14",
+      tier: "exotic",
+      location: "character",
+      characterId: "titan-1",
+      equipped: true,
+    })
+    const input = recipe()
+    const message = await composeBuild(input, {
+      ...inventory,
+      items: [...inventory.items, helm],
+    }).pipe(
+      Effect.provide(ComposeTest),
+      Effect.map((build) => buildRules(input, build)?.message ?? "ok"),
+      Effect.runPromise,
+    )
+    expect(message).toStartWith(
+      "Error: a build can wear only one exotic armor piece; this one ends up with Helm of Saint-14 and Starfire Protocol.",
+    )
+  })
+
+  test("refuses an item listed in two rows", async () => {
+    const rows = [
+      { itemInstanceId: "chest-exotic", action: "equip" as const },
+      { itemInstanceId: "chest-exotic", action: "to_vault" as const },
+      ...weaponRows(["kinetic-1", "energy-1", "power-1"]),
+    ]
+    expect(await verdict(recipe({ rows }))).toStartWith(
+      "Error: items listed in more than one row: chest-exotic.",
+    )
+  })
+
   test("refuses a build without synergy for its weapons", async () => {
     expect(await verdict(recipe({ synergy: { exotic: "Grenades." } }))).toStartWith(
       "Error: the build needs synergy, one or two sentences per part on how it feeds the rest of the build: weapons, on how the three weapons feed the loop: Weapon kinetic-1 (Hand Cannon, kinetic)",

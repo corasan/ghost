@@ -1,4 +1,4 @@
-import type { ActionStatus } from "@ghost/contract"
+import type { ActionStatus, ItemDecision } from "@ghost/contract"
 import { Context, DateTime, Effect, Layer } from "effect"
 import { SqlClient, type SqlError } from "effect/sql"
 
@@ -34,6 +34,8 @@ export interface ActionRecord {
   readonly socketIndex?: number | null
   readonly plugHash?: number | null
   readonly previousPlugHash?: number | null
+  /** For tag_junk: the decision the item had before, so undo can put it back. */
+  readonly previousDecision?: ItemDecision | null
   readonly status: ActionStatus
   readonly error: string | null
   readonly createdAt: string
@@ -55,6 +57,7 @@ interface ActionRow {
   readonly socket_index: number | null
   readonly plug_hash: number | null
   readonly previous_plug_hash: number | null
+  readonly previous_decision: string | null
   readonly status: ActionStatus
   readonly error: string | null
   readonly created_at: string
@@ -74,6 +77,10 @@ const fromRow = (row: ActionRow): ActionRecord => ({
   socketIndex: row.socket_index,
   plugHash: row.plug_hash,
   previousPlugHash: row.previous_plug_hash,
+  previousDecision:
+    row.previous_decision === "keep" || row.previous_decision === "junk"
+      ? row.previous_decision
+      : null,
   status: row.status,
   error: row.error,
   createdAt: row.created_at,
@@ -116,6 +123,7 @@ export const ActionsRepoLive = Layer.effect(
             socket_index: action.socketIndex ?? null,
             plug_hash: action.plugHash ?? null,
             previous_plug_hash: action.previousPlugHash ?? null,
+            previous_decision: action.previousDecision ?? null,
             status: action.status,
             error: action.error,
             created_at: now,
