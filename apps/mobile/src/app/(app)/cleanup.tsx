@@ -26,13 +26,14 @@ import {
 import { Ghost, Gutter, Type } from "@/constants/theme"
 import {
   type CleanupAction,
+  type CleanupMark,
   errorMessage,
   useCleanup,
   useCleanupAction,
   useCleanupPreview,
   useCreateJob,
   useJunkReview,
-  useKeepFromCleanup,
+  useMarkCleanupItems,
   useSetDecision,
   useStartCleanup,
   useVault,
@@ -593,21 +594,49 @@ function TileView({
   )
 }
 
+function BarAction({
+  label,
+  accessibilityLabel,
+  disabled,
+  onPress,
+}: {
+  label: string
+  accessibilityLabel: string
+  disabled: boolean
+  onPress: () => void
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [styles.keep, (pressed || disabled) && { opacity: 0.4 }]}
+    >
+      <Cond size={13} color={Ghost.accent}>
+        {label}
+      </Cond>
+    </Pressable>
+  )
+}
+
 function BatchView({ session, name }: { session: CleanupSession; name: string }) {
   const act = useCleanupAction()
-  const keep = useKeepFromCleanup()
+  const mark = useMarkCleanupItems()
   const [selecting, setSelecting] = useState(false)
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set())
   const rows = batchRows(session)
-  const selected = rows
+  const items = rows
     .flatMap((row) => row.tiles)
-    .flatMap((tile) =>
-      tile.kind === "item" && picked.has(tile.entry.itemInstanceId) ? [tile.entry] : [],
-    )
+    .flatMap((tile) => (tile.kind === "item" ? [tile] : []))
+  const selected = items.filter((tile) => picked.has(tile.entry.itemInstanceId))
+  const arrived = items.filter((tile) => tile.arrived)
+  const selectedArrived = selected.every((tile) => tile.arrived)
   const paused = session.stage === "paused"
   const { deleted } = tally(session)
-  const busy = act.isPending || keep.isPending
-  const failure = act.isError ? act.error : keep.isError ? keep.error : null
+  const busy = act.isPending || mark.isPending
+  const failure = act.isError ? act.error : mark.isError ? mark.error : null
+  const pending = mark.isPending ? mark.variables.mark : null
 
   const toggleSelecting = () => {
     setSelecting((on) => !on)
@@ -621,11 +650,11 @@ function BatchView({ session, name }: { session: CleanupSession; name: string })
       return next
     })
 
-  const keepSelected = () => {
-    const [first, ...rest] = selected.map((entry) => entry.itemInstanceId)
+  const markTiles = (tiles: ReadonlyArray<{ readonly entry: JunkEntry }>, as: CleanupMark) => {
+    const [first, ...rest] = tiles.map((tile) => tile.entry.itemInstanceId)
     if (first === undefined) return
-    keep.mutate(
-      { id: session.id, itemIds: [first, ...rest] },
+    mark.mutate(
+      { id: session.id, mark: as, itemIds: [first, ...rest] },
       {
         onSuccess: () => {
           setPicked(new Set())
@@ -718,30 +747,40 @@ function BatchView({ session, name }: { session: CleanupSession; name: string })
           <Meta color={selected.length > 0 ? Ghost.ink : Ghost.dim} style={{ flex: 1 }}>
             {selected.length > 0
               ? `${plural(selected.length, "item")} selected`
-              : "Tap items to keep them."}
+              : "Tap items to keep or mark deleted."}
           </Meta>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Keep ${plural(selected.length, "item")}`}
-            disabled={busy || selected.length === 0}
-            onPress={keepSelected}
-            style={({ pressed }) => [
-              styles.keep,
-              (pressed || busy || selected.length === 0) && { opacity: 0.4 },
-            ]}
-          >
-            <Cond size={13} color={Ghost.accent}>
-              {keep.isPending
+          <BarAction
+            label={pending === "deleted" ? "MARKING…" : "DELETED"}
+            accessibilityLabel={`Mark ${plural(selected.length, "item")} deleted`}
+            disabled={busy || selected.length === 0 || !selectedArrived}
+            onPress={() => markTiles(selected, "deleted")}
+          />
+          <BarAction
+            label={
+              pending === "keep"
                 ? "KEEPING…"
                 : selected.length > 0
                   ? `KEEP ${selected.length}`
-                  : "KEEP"}
-            </Cond>
-          </Pressable>
+                  : "KEEP"
+            }
+            accessibilityLabel={`Keep ${plural(selected.length, "item")}`}
+            disabled={busy || selected.length === 0}
+            onPress={() => markTiles(selected, "keep")}
+          />
         </View>
       ) : (
         <View style={styles.picked}>
-          <Meta color={Ghost.dim}>Tap an item to see its details.</Meta>
+          <Meta color={Ghost.dim} style={{ flex: 1 }}>
+            Tap an item to see its details.
+          </Meta>
+          {arrived.length > 0 ? (
+            <BarAction
+              label={pending === "deleted" ? "MARKING…" : "ALL DELETED"}
+              accessibilityLabel={`Mark all ${plural(arrived.length, "item")} deleted`}
+              disabled={busy}
+              onPress={() => markTiles(arrived, "deleted")}
+            />
+          ) : null}
         </View>
       )}
       <Footer note={failure ? errorMessage(failure) : session.error}>

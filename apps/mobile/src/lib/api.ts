@@ -576,12 +576,18 @@ export function useCleanupAction() {
   })
 }
 
-export function useKeepFromCleanup() {
+export type CleanupMark = "keep" | "deleted"
+
+export function useMarkCleanupItems() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (input: { id: string; itemIds: readonly [string, ...string[]] }) =>
+    mutationFn: (input: {
+      id: string
+      mark: CleanupMark
+      itemIds: readonly [string, ...string[]]
+    }) =>
       run((api) =>
-        api.cleanup.keep({ params: { id: input.id }, payload: { itemIds: input.itemIds } }),
+        api.cleanup[input.mark]({ params: { id: input.id }, payload: { itemIds: input.itemIds } }),
       ),
     onSuccess: (session) => settleCleanup(queryClient, session),
   })
