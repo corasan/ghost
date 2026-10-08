@@ -133,12 +133,12 @@ environment, and signing credentials live on EAS's servers.
    committing either:
 
    ```sh
-   bun run eas login
-   bun run eas init     # prints the project id; it cannot write it into app.config.ts
+   eas login
+   eas init     # prints the project id; it cannot write it into app.config.ts
    echo 'GHOST_APP_ID=com.you.ghost' >> apps/mobile/.env.local
    echo 'EAS_PROJECT_ID=<id>' >> apps/mobile/.env.local
-   bun run eas env:create --environment preview --name GHOST_APP_ID --value com.you.ghost --visibility plaintext
-   bun run eas env:create --environment preview --name EAS_PROJECT_ID --value <id> --visibility plaintext
+   eas env:create --environment preview --name GHOST_APP_ID --value com.you.ghost --visibility plaintext
+   eas env:create --environment preview --name EAS_PROJECT_ID --value <id> --visibility plaintext
    ```
 
    `.env.local` is for your machine and the EAS variables are for the build
@@ -150,13 +150,13 @@ environment, and signing credentials live on EAS's servers.
    a paid Apple Developer account (ad hoc needs a paid account):
 
    ```sh
-   bun run eas device:create   # gives a link or QR code; your friend opens it on their iPhone
+   eas device:create   # gives a link or QR code; your friend opens it on their iPhone
    ```
 
 3. Build:
 
    ```sh
-   bun run eas build --profile adhoc --platform all
+   eas build --profile adhoc --platform all
    ```
 
    The first iOS build asks you to sign in to Apple. EAS creates the
