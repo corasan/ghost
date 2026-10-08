@@ -4,7 +4,7 @@ import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } fr
 import { SqlClient } from "effect/sql"
 import { AppConfig } from "../config.ts"
 import { Settings } from "../db/settings.ts"
-import { BungieError } from "./client.ts"
+import { BungieError, PLATFORM_TIMEOUT, readEnvelope, retryPolicy, timeoutAfter } from "./client.ts"
 
 // Bungie's API only ever gives you item *hashes*. Names, tiers, and slots
 // live in the "manifest", a set of JSON blobs published with every game
@@ -527,9 +527,9 @@ const ManifestIndex = Schema.Struct({
 type ManifestIndex = typeof ManifestIndex.Type
 
 const LiteDefinitions = Schema.Record(Schema.String, LiteDefinition)
-const PlugEnvelope = Schema.Struct({ Response: Schema.optionalKey(PlugDefinition) })
-const PlugSetEnvelope = Schema.Struct({ Response: Schema.optionalKey(PlugSetDefinition) })
-const IndexEnvelope = Schema.Struct({ Response: ManifestIndex })
+const decodePlug = Schema.decodeUnknownEffect(PlugDefinition)
+const decodePlugSet = Schema.decodeUnknownEffect(PlugSetDefinition)
+const decodeIndex = Schema.decodeUnknownEffect(ManifestIndex)
 const StoredElementIcons = Schema.Record(Schema.String, Schema.String)
 
 const definitionsOf = <S extends Schema.Top>(definition: S) =>
@@ -573,6 +573,13 @@ const ARMOR_STAT_HASHES = [
 ]
 const BATCH = 500
 const CHECK_EVERY_MS = 60 * 60 * 1000
+/** After a failed version check with a usable local copy, try again this soon. */
+const RECHECK_AFTER_FAILURE_MS = 5 * 60 * 1000
+/** The definition files run to tens of megabytes. */
+const CONTENT_TIMEOUT = "5 minutes"
+/** Per-hash Platform calls in flight at once, well under Bungie's rate limit. */
+const FAN_OUT = 4
+const MAX_PLUG_FAILURES = 3
 
 export const ManifestLive = Layer.effect(
   Manifest,
@@ -589,10 +596,31 @@ export const ManifestLive = Layer.effect(
     const transport = (cause: unknown) =>
       new BungieError({ status: "Transport", message: String(cause) })
 
+    /** A definition file from the CDN; plain JSON, not an envelope. */
     const fetchJson = <S extends Schema.Constraint>(url: string, schema: S) =>
       http
         .get(url)
-        .pipe(Effect.flatMap(HttpClientResponse.schemaBodyJson(schema)), Effect.mapError(transport))
+        .pipe(
+          Effect.flatMap(HttpClientResponse.schemaBodyJson(schema)),
+          Effect.mapError(transport),
+          timeoutAfter(CONTENT_TIMEOUT),
+          Effect.retry(retryPolicy(true)),
+        )
+
+    /** The `Response` of a public Platform endpoint. A Bungie error code fails it, so nothing below caches one. */
+    const platform = (path: string) =>
+      http
+        .get(`https://www.bungie.net/Platform${path}`)
+        .pipe(
+          Effect.mapError(transport),
+          Effect.flatMap(readEnvelope),
+          timeoutAfter(PLATFORM_TIMEOUT),
+          Effect.retry(retryPolicy(true)),
+        )
+
+    const manifestIndex = platform("/Destiny2/Manifest/").pipe(
+      Effect.flatMap((raw) => decodeIndex(raw).pipe(Effect.mapError(transport))),
+    )
 
     const replaceAll = (definitions: typeof LiteDefinitions.Type) =>
       Effect.gen(function* () {
@@ -634,11 +662,16 @@ export const ManifestLive = Layer.effect(
 
     const plugs = new Map<number, PlugFacts>()
 
+    // A successful reply without a definition means Bungie has none for the
+    // hash, which reads as an empty definition. Errors fail and are not cached.
     const entity = (table: string, hash: number) =>
-      fetchJson(
-        `https://www.bungie.net/Platform/Destiny2/Manifest/${table}/${hash}/`,
-        PlugEnvelope,
-      ).pipe(Effect.map((json) => json.Response ?? {}))
+      platform(`/Destiny2/Manifest/${table}/${hash}/`).pipe(
+        Effect.flatMap((raw) =>
+          raw === undefined || raw === null
+            ? Effect.succeed<PlugDefinition>({})
+            : decodePlug(raw).pipe(Effect.mapError(transport)),
+        ),
+      )
 
     const perkSockets = new Map<number, ReturnType<typeof perkSocketsOf>>()
 
@@ -673,22 +706,24 @@ export const ManifestLive = Layer.effect(
           ({ index, plugSetHash }) =>
             plugSetHash === null
               ? Effect.succeed({ index, pool: [] })
-              : fetchJson(
-                  `https://www.bungie.net/Platform/Destiny2/Manifest/DestinyPlugSetDefinition/${plugSetHash}/`,
-                  PlugSetEnvelope,
-                ).pipe(
-                  Effect.map((json) => ({
+              : platform(`/Destiny2/Manifest/DestinyPlugSetDefinition/${plugSetHash}/`).pipe(
+                  Effect.flatMap((raw) =>
+                    raw === undefined || raw === null
+                      ? Effect.succeed<typeof PlugSetDefinition.Type>({})
+                      : decodePlugSet(raw).pipe(Effect.mapError(transport)),
+                  ),
+                  Effect.map((definition) => ({
                     index,
                     pool: [
                       ...new Set(
-                        (json.Response?.reusablePlugItems ?? [])
+                        (definition.reusablePlugItems ?? [])
                           .filter((plug) => plug.currentlyCanRoll !== false)
                           .map((plug) => plug.plugItemHash),
                       ),
                     ],
                   })),
                 ),
-          { concurrency: 4 },
+          { concurrency: FAN_OUT },
         )
         perkPools.set(itemHash, pools)
         return pools
@@ -712,7 +747,7 @@ export const ManifestLive = Layer.effect(
               Effect.logWarning(`manifest: plug ${hash} failed: ${error.message}`),
             ),
           ),
-        { concurrency: 8, discard: true },
+        { concurrency: FAN_OUT, discard: true },
       ).pipe(
         Effect.map(
           (): ReadonlyMap<number, StatMods> =>
@@ -745,50 +780,58 @@ export const ManifestLive = Layer.effect(
         ),
       )
 
+    // Once a few hashes have failed even after retries, Bungie is down or
+    // throttling hard, and the rest of the call is skipped rather than
+    // waited out hash by hash. A later call asks again.
     const plugFacts = (hashes: ReadonlyArray<number>) =>
-      Effect.forEach(
-        hashes.filter((hash) => !plugs.has(hash)),
-        (hash) =>
-          Effect.gen(function* () {
-            const definition = yield* entity("DestinyInventoryItemDefinition", hash)
-            const perk = definition.perks?.[0]?.perkHash
-            const own = definition.displayProperties?.description ?? ""
-            const described =
-              (own && !ARMOR_CHARGE.test(own)) || perk === undefined
-                ? definition
-                : yield* entity("DestinySandboxPerkDefinition", perk)
-            const description = described.displayProperties?.description || own
-            const known = yield* readKeywords
-            plugs.set(hash, {
-              mods: statModsFrom(definition, false),
-              classMods: statModsFrom(definition, true),
-              fragmentSlots: definition.plug?.energyCapacity?.capacityValue ?? 0,
-              energyCost: definition.plug?.energyCost?.energyCost ?? 0,
-              category: definition.plug?.plugCategoryIdentifier ?? "",
-              artifact: (definition.plug?.insertionRules ?? []).some((rule) =>
-                /artifact/i.test(rule.failureMessage ?? ""),
-              ),
-              charged: ARMOR_CHARGE.test(own) || ARMOR_CHARGE.test(description),
-              description,
-              keywords: (definition.traitHashes ?? []).flatMap((trait) => known[trait] ?? []),
-            })
-          }).pipe(
-            Effect.catch((error) =>
-              Effect.logWarning(`manifest: plug ${hash} failed: ${error.message}`),
-            ),
-          ),
-        { concurrency: 8, discard: true },
-      ).pipe(
-        Effect.map(
-          (): ReadonlyMap<number, PlugFacts> =>
-            new Map(
-              hashes.flatMap((hash) => {
-                const facts = plugs.get(hash)
-                return facts === undefined ? [] : [[hash, facts]]
+      Effect.suspend(() => {
+        let failures = 0
+        return Effect.forEach(
+          hashes.filter((hash) => !plugs.has(hash)),
+          (hash) =>
+            Effect.gen(function* () {
+              if (failures >= MAX_PLUG_FAILURES) return
+              const definition = yield* entity("DestinyInventoryItemDefinition", hash)
+              const perk = definition.perks?.[0]?.perkHash
+              const own = definition.displayProperties?.description ?? ""
+              const described =
+                (own && !ARMOR_CHARGE.test(own)) || perk === undefined
+                  ? definition
+                  : yield* entity("DestinySandboxPerkDefinition", perk)
+              const description = described.displayProperties?.description || own
+              const known = yield* readKeywords
+              plugs.set(hash, {
+                mods: statModsFrom(definition, false),
+                classMods: statModsFrom(definition, true),
+                fragmentSlots: definition.plug?.energyCapacity?.capacityValue ?? 0,
+                energyCost: definition.plug?.energyCost?.energyCost ?? 0,
+                category: definition.plug?.plugCategoryIdentifier ?? "",
+                artifact: (definition.plug?.insertionRules ?? []).some((rule) =>
+                  /artifact/i.test(rule.failureMessage ?? ""),
+                ),
+                charged: ARMOR_CHARGE.test(own) || ARMOR_CHARGE.test(description),
+                description,
+                keywords: (definition.traitHashes ?? []).flatMap((trait) => known[trait] ?? []),
+              })
+            }).pipe(
+              Effect.catch((error) => {
+                failures += 1
+                return Effect.logWarning(`manifest: plug ${hash} failed: ${error.message}`)
               }),
             ),
-        ),
-      )
+          { concurrency: FAN_OUT, discard: true },
+        ).pipe(
+          Effect.map(
+            (): ReadonlyMap<number, PlugFacts> =>
+              new Map(
+                hashes.flatMap((hash) => {
+                  const facts = plugs.get(hash)
+                  return facts === undefined ? [] : [[hash, facts]]
+                }),
+              ),
+          ),
+        )
+      })
 
     let capacities: Capacities | null = null
 
@@ -865,25 +908,43 @@ export const ManifestLive = Layer.effect(
         Effect.catch((error) => Effect.logWarning(`manifest: keywords failed: ${error.message}`)),
       )
 
+    // An empty table means an earlier download stored nothing, so the saved
+    // version cannot be trusted.
+    const populated = sql<{ count: number }>`
+      SELECT COUNT(*) AS count FROM manifest_items
+    `.pipe(
+      Effect.orDie,
+      Effect.map(([stored]) => (stored?.count ?? 0) > 0),
+    )
+
+    // Bungie being down should not take lookups down with it while the local
+    // copy is whole; the check is tried again a few minutes later.
+    const remoteIndex = manifestIndex.pipe(
+      Effect.map(Option.some),
+      Effect.catch((error) =>
+        Effect.gen(function* () {
+          const local = yield* settings.get(VERSION_KEY).pipe(Effect.orDie)
+          if (Option.isNone(local) || !(yield* populated)) return yield* error
+          yield* Effect.logWarning(
+            `manifest: version check failed, using ${local.value}: ${error.message}`,
+          )
+          checkedAt = Date.now() - CHECK_EVERY_MS + RECHECK_AFTER_FAILURE_MS
+          return Option.none<ManifestIndex>()
+        }),
+      ),
+    )
+
     const ensure = Effect.gen(function* () {
       if (Date.now() - checkedAt < CHECK_EVERY_MS) return
-      const index = yield* fetchJson(
-        "https://www.bungie.net/Platform/Destiny2/Manifest/",
-        IndexEnvelope,
-      )
-      const remote = index.Response
+      const index = yield* remoteIndex
+      if (Option.isNone(index)) return
+      const remote = index.value
       yield* refreshCapacities(remote)
       yield* refreshStatFacts(remote)
       yield* refreshElementIcons(remote)
       yield* refreshKeywords(remote)
       const local = yield* settings.get(VERSION_KEY).pipe(Effect.orDie)
-      // An empty table means an earlier download stored nothing, so the saved
-      // version cannot be trusted.
-      const [stored] = yield* sql<{ count: number }>`
-        SELECT COUNT(*) AS count FROM manifest_items
-      `.pipe(Effect.orDie)
-      const populated = (stored?.count ?? 0) > 0
-      if (populated && Option.isSome(local) && local.value === remote.version) {
+      if ((yield* populated) && Option.isSome(local) && local.value === remote.version) {
         checkedAt = Date.now()
         return
       }
@@ -989,6 +1050,9 @@ export const ManifestLive = Layer.effect(
           AND name NOT LIKE 'Empty %'
       `.pipe(Effect.orDie)
       const facts = yield* plugFacts(rows.map((row) => row.hash))
+      // Facts are missing only where Bungie failed; storing that list would
+      // hide those mods until the next patch.
+      const complete = facts.size === rows.length
       const found = rows.flatMap((row): Array<ArmorModEntry> => {
         const known = facts.get(row.hash)
         if (known === undefined || !BUILD_SOCKET.test(known.category)) return []
@@ -1003,7 +1067,7 @@ export const ManifestLive = Layer.effect(
           },
         ]
       })
-      if (found.length === 0) return found
+      if (found.length === 0 || !complete) return found
       armorMods = found
       yield* settings.set(ARMOR_MODS_KEY, JSON.stringify(found)).pipe(Effect.orDie)
       if (version !== null) yield* settings.set(ARMOR_MODS_VERSION_KEY, version).pipe(Effect.orDie)
@@ -1026,12 +1090,8 @@ export const ManifestLive = Layer.effect(
         armorSets = stored.value
         return armorSets
       }
-      const index = yield* fetchJson(
-        "https://www.bungie.net/Platform/Destiny2/Manifest/",
-        IndexEnvelope,
-      )
-      const path =
-        index.Response.jsonWorldComponentContentPaths.en?.DestinyEquipableItemSetDefinition
+      const index = yield* manifestIndex
+      const path = index.jsonWorldComponentContentPaths.en?.DestinyEquipableItemSetDefinition
       if (path === undefined) return []
       const definitions = yield* fetchJson(
         `https://www.bungie.net${path}`,
@@ -1054,7 +1114,7 @@ export const ManifestLive = Layer.effect(
               Effect.logWarning(`manifest: set perk ${hash} failed: ${error.message}`),
             ),
           ),
-        { concurrency: 8, discard: true },
+        { concurrency: FAN_OUT, discard: true },
       )
       const found = armorSetsFrom(definitions, perks)
       if (found.length === 0 || perks.size < perkHashes.size) return found
