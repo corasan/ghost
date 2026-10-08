@@ -5,7 +5,7 @@ import { Command, Flag } from "effect/cli"
 import pkg from "../package.json" with { type: "json" }
 import { doctor, setup } from "./checkup.ts"
 import { ghostHome } from "./home.ts"
-import { logs, pair, restart, runForeground, start, status, stop } from "./lifecycle.ts"
+import { logs, pair, restart, runForeground, start, status, stop, token } from "./lifecycle.ts"
 import { red } from "./ui.ts"
 
 const home = ghostHome()
@@ -63,6 +63,10 @@ const pairCommand = Command.make("pair", {}, () => pair(home)).pipe(
   Command.withDescription("Show the QR code that connects the phone app"),
 )
 
+const tokenCommand = Command.make("token", {}, () => token(home)).pipe(
+  Command.withDescription("Print the token the phone app sends, to enter it by hand"),
+)
+
 const ghost = Command.make("ghost").pipe(
   Command.withDescription("Run the Ghost server for the Destiny 2 companion app"),
   Command.withSubcommands([
@@ -74,6 +78,7 @@ const ghost = Command.make("ghost").pipe(
     statusCommand,
     logsCommand,
     pairCommand,
+    tokenCommand,
   ]),
 )
 

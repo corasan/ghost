@@ -5,6 +5,7 @@ import { BUNGIE_APPS, callbackPath, verifyApiKey } from "./bungie.ts"
 import { type Settings, writeSettings } from "./config-file.ts"
 import { BILLING_KEYS, portOf, serverState, settingsOf } from "./daemon.ts"
 import type { GhostHome } from "./home.ts"
+import { pairingToken, rememberOwner } from "./pairing.ts"
 import { findClaude, isMac, isRoot, locate, run, runInteractive } from "./shell.ts"
 import { tailnet, tailnetUrl } from "./tailscale.ts"
 import { bold, cyan, dim } from "./ui.ts"
@@ -32,6 +33,7 @@ export type RequirementId =
   | "bungie"
   | "port"
   | "yt-dlp"
+  | "pairing"
   | "typesafe"
 
 /**
@@ -357,6 +359,27 @@ const ytDlp: Requirement = {
     }),
 }
 
+const pairing: Requirement = {
+  id: "pairing",
+  name: "Pairing token",
+  optional: false,
+  needs: null,
+  check: ({ settings }) =>
+    Effect.sync(() => {
+      if ((settings.get("GHOST_TOKEN") ?? "") === "") {
+        return missing("not made yet, so the app cannot pair", "Run `ghost setup` or `ghost start`")
+      }
+      const owner = settings.get("GHOST_TAILSCALE_USER") ?? ""
+      return ready(owner === "" ? "set" : `set; on the tailnet only ${owner} gets in`)
+    }),
+  resolve: (machine) =>
+    Effect.gen(function* () {
+      pairingToken(machine.home)
+      rememberOwner(machine.home, yield* tailnet)
+      yield* say("The phone app gets this token from the QR code that `ghost start` shows.")
+    }),
+}
+
 const typesafe: Requirement = {
   id: "typesafe",
   name: "TypeSafe key",
@@ -391,6 +414,7 @@ export const requirements: ReadonlyArray<Requirement> = [
   tailscaleHttps,
   bungie,
   port,
+  pairing,
   ytDlp,
   typesafe,
 ]
