@@ -82,6 +82,96 @@ bunx expo run:ios     # or: bunx expo run:android
 `bun run server` reads `packages/server/.env` (copy `.env.example`), not
 `~/.ghost/config.env`.
 
+## Installing the app on your phone
+
+There is no App Store build. Build it yourself and install it over a cable, or
+install a build someone shared with you from EAS.
+
+### Build and install from a clone
+
+```sh
+bun install
+bun run app:ios       # Mac with Xcode, iPhone plugged in
+bun run app:android   # JDK 17+, Android SDK, phone with USB debugging on
+```
+
+Each command checks what the build needs first (Xcode, CocoaPods and a signing
+certificate for iOS; a JDK, the Android SDK and an authorized phone for
+Android) and says how to fix anything missing. Then it builds in Release and
+installs on the phone. A Release build carries its JavaScript inside the app,
+so it runs on its own without Metro. Add `--clean` to regenerate `ios/` or
+`android/` from scratch, for example after changing the app id.
+
+The first run asks for an **app id** (for example `com.alex.ghost`) and saves
+it in `apps/mobile/.env.local`, which git ignores. It becomes the iOS bundle id
+and the Android package. On iOS a bundle id belongs to the first Apple team
+that registers it, so each person needs their own.
+
+**iOS signing.** iOS only runs apps signed by a certificate Apple issued, for a
+provisioning profile that lists the bundle id and this phone. A free Apple ID
+is enough: add it in Xcode > Settings > Accounts, and Xcode creates the
+"Apple Development" certificate and the profile for you. If you have several
+teams, put `APPLE_TEAM_ID=XXXXXXXXXX` in `apps/mobile/.env.local` to skip the
+question. On the phone, turn on Settings > Privacy & Security > Developer Mode,
+and after the first install trust your Apple ID under Settings > General >
+VPN & Device Management. With a free Apple ID the profile expires after 7 days;
+run the command again to refresh it. A paid account lasts a year.
+
+**Android signing.** Android installs any app signed with any key, but an
+update must be signed with the same key as the installed copy. The release
+build here is signed with the debug key that `expo prebuild` generates, which
+is fine for your own phone. Uninstall it before installing a build signed with
+a different key, such as one from EAS.
+
+### Share ad-hoc builds with EAS
+
+This is how to give builds to friends without the App Store, Play Store or
+TestFlight. Nothing personal is committed: the EAS project id comes from your
+environment, and signing credentials live on EAS's servers.
+
+1. Create the EAS project, and give it your app id and project id without
+   committing either:
+
+   ```sh
+   bun run eas login
+   bun run eas init     # prints the project id; it cannot write it into app.config.ts
+   echo 'GHOST_APP_ID=com.you.ghost' >> apps/mobile/.env.local
+   echo 'EAS_PROJECT_ID=<id>' >> apps/mobile/.env.local
+   bun run eas env:create --environment preview --name GHOST_APP_ID --value com.you.ghost --visibility plaintext
+   bun run eas env:create --environment preview --name EAS_PROJECT_ID --value <id> --visibility plaintext
+   ```
+
+   `.env.local` is for your machine and the EAS variables are for the build
+   server; both need the same values. Without `GHOST_APP_ID` the app id falls
+   back to the placeholder `com.example.ghost`, which is not meant to be signed.
+
+2. Register each friend's iPhone. iOS ad-hoc builds only install on devices
+   listed in the provisioning profile, at most 100 per device type per year on
+   a paid Apple Developer account (ad hoc needs a paid account):
+
+   ```sh
+   bun run eas device:create   # gives a link or QR code; your friend opens it on their iPhone
+   ```
+
+3. Build:
+
+   ```sh
+   bun run eas build --profile adhoc --platform all
+   ```
+
+   The first iOS build asks you to sign in to Apple. EAS creates the
+   distribution certificate and an ad-hoc profile with the registered devices
+   and keeps them on its servers. Android builds an APK signed with a keystore
+   EAS generates and keeps. Rebuild after registering a new iPhone, since the
+   profile has to include it.
+
+4. Share the build page link (or its QR code). On iPhone, open it in Safari and
+   install, then turn on Developer Mode. On Android, download the APK and allow
+   installing from the browser.
+
+`eas credentials` shows or downloads what EAS stores. If it writes a local
+`credentials.json` or `credentials/` folder, git ignores both.
+
 ## Chat is the app
 
 The app follows "Ghost - App Map v2": chat is the main screen and everything

@@ -1,0 +1,16 @@
+{
+  "cli": {
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "adhoc": {
+      "distribution": "internal",
+      "environment": "preview",
+      "autoIncrement": true,
+      "android": {
+        "buildType": "apk"
+      }
+    }
+  }
+}
