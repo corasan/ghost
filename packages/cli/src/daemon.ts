@@ -2,7 +2,6 @@ import { spawn } from "node:child_process"
 import {
   closeSync,
   linkSync,
-  mkdirSync,
   openSync,
   readFileSync,
   renameSync,
@@ -13,20 +12,24 @@ import {
 import { Health } from "@ghost/contract"
 import { Data, Effect, Option, Schema } from "effect"
 import { effectiveSettings, type Settings } from "./config-file.ts"
-import type { GhostHome } from "./home.ts"
+import { ensureHome, type GhostHome } from "./home.ts"
 import { findClaude } from "./shell.ts"
 
 export class CliFailure extends Data.TaggedError("CliFailure")<{ readonly message: string }> {}
 
 export type ServerState =
   | { readonly _tag: "Stopped" }
-  | { readonly _tag: "Running"; readonly pid: number }
+  | { readonly _tag: "Running"; readonly pid: number; readonly port: number | null }
 
 // A pid alone is not an identity: after a crash or reboot the number in a
 // leftover pid file can belong to anything. The pid file also records when
 // that process started, and only a process with the same start time is Ghost.
+// `ps` prints that time in the locale and time zone it runs with, so both are
+// pinned: a stop run from another shell must read the same string as start.
 const startedAt = (pid: number) => {
-  const ps = Bun.spawnSync(["ps", "-p", String(pid), "-o", "lstart="])
+  const ps = Bun.spawnSync(["ps", "-p", String(pid), "-o", "lstart="], {
+    env: { PATH: process.env.PATH ?? "/usr/bin:/bin", LC_ALL: "C", TZ: "UTC" },
+  })
   const started = ps.stdout.toString().trim()
   return ps.success && started !== "" ? started : null
 }
@@ -34,13 +37,18 @@ const startedAt = (pid: number) => {
 interface PidRecord {
   readonly pid: number
   readonly startedAt: string
+  /** The port this server put on the tailnet, so stop takes that one off even if config changed. */
+  readonly port: number | null
 }
 
 const readRecord = (path: string): PidRecord | null => {
   try {
-    const [first = "", started = ""] = readFileSync(path, "utf8").split("\n")
+    const [first = "", started = "", served = ""] = readFileSync(path, "utf8").split("\n")
     const pid = Number.parseInt(first, 10)
-    return Number.isInteger(pid) && pid > 0 && started !== "" ? { pid, startedAt: started } : null
+    const port = Number.parseInt(served, 10)
+    return Number.isInteger(pid) && pid > 0 && started !== ""
+      ? { pid, startedAt: started, port: Number.isInteger(port) ? port : null }
+      : null
   } catch {
     return null
   }
@@ -53,7 +61,7 @@ const isLive = (record: PidRecord | null) =>
 export const serverState = (home: GhostHome): ServerState => {
   const record = readRecord(home.pid)
   return record !== null && isLive(record)
-    ? { _tag: "Running", pid: record.pid }
+    ? { _tag: "Running", pid: record.pid, port: record.port }
     : { _tag: "Stopped" }
 }
 
@@ -73,13 +81,13 @@ const tryLink = (from: string, to: string) => {
  * is first renamed aside, and only deleted once it proves to be stale, so a
  * start clearing it cannot delete a claim another start just made.
  */
-export const claimPidFile = (home: GhostHome) =>
+export const claimPidFile = (home: GhostHome, port: number) =>
   Effect.acquireRelease(
     Effect.gen(function* () {
-      mkdirSync(home.root, { recursive: true })
+      ensureHome(home)
       const draft = `${home.pid}.${process.pid}`
       const aside = `${home.pid}.stale.${process.pid}`
-      writeFileSync(draft, `${process.pid}\n${startedAt(process.pid) ?? ""}`)
+      writeFileSync(draft, `${process.pid}\n${startedAt(process.pid) ?? ""}\n${port}`)
       let claimed = tryLink(draft, home.pid)
       if (!claimed && serverState(home)._tag === "Stopped") {
         try {
@@ -150,7 +158,7 @@ const rotateLog = (path: string) => {
 /** Starts `ghost start --foreground` detached, logging to the log file, and waits for /health. */
 export const startBackground = (home: GhostHome, settings: Settings) =>
   Effect.gen(function* () {
-    mkdirSync(home.root, { recursive: true })
+    ensureHome(home)
     rotateLog(home.log)
     const log = openSync(home.log, "a")
     const [command = process.execPath, ...args] = self
@@ -177,8 +185,10 @@ export const startBackground = (home: GhostHome, settings: Settings) =>
       }
       yield* Effect.sleep("250 millis")
     }
+    // Stop the child rather than leave a server that may come up after this reported failure.
+    signal(child.pid, "SIGTERM")
     return yield* new CliFailure({
-      message: `Ghost did not answer on port ${port} within 30 seconds. See \`ghost logs\`.`,
+      message: `Ghost did not answer on port ${port} within 30 seconds, so it was stopped. See \`ghost logs\`.`,
     })
   })
 

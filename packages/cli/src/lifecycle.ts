@@ -63,8 +63,8 @@ export const runForeground = (home: GhostHome) =>
       yield* needsSetup(home)
       const settings = settingsOf(home)
       for (const [key, value] of serverEnv(home, settings)) process.env[key] = value
-      yield* claimPidFile(home)
       const port = portOf(settings)
+      yield* claimPidFile(home, port)
       // The process that puts Ghost on the tailnet takes it off again on the way out.
       yield* Effect.addFinalizer(() =>
         Effect.flatMap(tailnet, (net) =>
@@ -100,7 +100,9 @@ export const stop = (home: GhostHome) =>
     if (state._tag === "Stopped") return yield* Console.log("Ghost isn't running.")
     yield* stopServer(home, state.pid)
     const net = yield* tailnet
-    if (net._tag === "Connected") yield* unexpose(net.binary, portOf(settingsOf(home)))
+    // The port the server recorded, not today's config: GHOST_PORT may have changed since it started.
+    if (net._tag === "Connected")
+      yield* unexpose(net.binary, state.port ?? portOf(settingsOf(home)))
     yield* Console.log(`Stopped Ghost (pid ${state.pid}).`)
   })
 
@@ -160,7 +162,14 @@ export const logs = (home: GhostHome, lines: number, follow: boolean) =>
     while (true) {
       yield* Effect.sleep("500 millis")
       if (!existsSync(home.log)) continue
-      const next = readFrom(home.log, offset)
+      // The log can be rotated between the check above and the read.
+      const next = (() => {
+        try {
+          return readFrom(home.log, offset)
+        } catch {
+          return { text: "", offset }
+        }
+      })()
       offset = next.offset
       if (next.text !== "") process.stdout.write(next.text)
     }

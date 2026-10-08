@@ -300,8 +300,9 @@ const SqliteLive = Layer.unwrap(
   Effect.gen(function* () {
     const { dataDir } = yield* AppConfig
     // The data directory is gitignored, so a fresh clone does not have it and
-    // SQLite refuses to create a file inside a missing folder.
-    yield* Effect.sync(() => mkdirSync(dataDir, { recursive: true }))
+    // SQLite refuses to create a file inside a missing folder. It holds the
+    // Bungie tokens, so only this user may read it.
+    yield* Effect.sync(() => mkdirSync(dataDir, { recursive: true, mode: 0o700 }))
     return SqliteClient.layer({ filename: `${dataDir}/ghost.sqlite`, create: true })
   }),
 ).pipe(Layer.provide(Reactivity.layer))

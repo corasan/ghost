@@ -18,6 +18,17 @@ describe("parseSettings", () => {
       ["GHOST_PORT", "4900"],
     ])
   })
+
+  test("drops a comment after a quoted value", () => {
+    const settings = parseSettings(
+      ['GHOST_A="a b" # note', "GHOST_B='c d'   # note", 'GHOST_C="say \\"hi\\"" # x'].join("\n"),
+    )
+    expect([...settings]).toEqual([
+      ["GHOST_A", "a b"],
+      ["GHOST_B", "c d"],
+      ["GHOST_C", 'say "hi"'],
+    ])
+  })
 })
 
 describe("updateSettings", () => {

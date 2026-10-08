@@ -5,15 +5,20 @@ export type Settings = ReadonlyMap<string, string>
 
 const LINE = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/
 
+// A quoted value may be followed by a comment, as in KEY="a b" # note.
+const DOUBLE = /^("(?:[^"\\]|\\.)*")(?:\s+#.*)?$/
+const SINGLE = /^'([^']*)'(?:\s+#.*)?$/
+
 const unquote = (raw: string) => {
-  if (/^".*"$/.test(raw)) {
+  const double = DOUBLE.exec(raw)?.[1]
+  if (double !== undefined) {
     try {
-      return String(JSON.parse(raw))
+      return String(JSON.parse(double))
     } catch {
-      return raw.slice(1, -1)
+      return double.slice(1, -1)
     }
   }
-  return /^'.*'$/.test(raw) ? raw.slice(1, -1) : raw.replace(/\s+#.*$/, "")
+  return SINGLE.exec(raw)?.[1] ?? raw.replace(/\s+#.*$/, "")
 }
 
 const quote = (value: string) => (/[\s#"']/.test(value) ? JSON.stringify(value) : value)
@@ -50,7 +55,7 @@ export const readSettings = (path: string): Settings =>
   existsSync(path) ? parseSettings(readFileSync(path, "utf8")) : new Map()
 
 export const writeSettings = (path: string, updates: Settings) => {
-  mkdirSync(dirname(path), { recursive: true })
+  mkdirSync(dirname(path), { recursive: true, mode: 0o700 })
   const current = existsSync(path) ? readFileSync(path, "utf8") : ""
   writeFileSync(path, updateSettings(current, updates), { mode: 0o600 })
   chmodSync(path, 0o600)

@@ -1,3 +1,4 @@
+import { chmodSync, mkdirSync } from "node:fs"
 import { homedir } from "node:os"
 import { join } from "node:path"
 
@@ -19,4 +20,13 @@ export const ghostHome = (): GhostHome => {
     pid: join(root, "ghost.pid"),
     log: join(root, "ghost.log"),
   }
+}
+
+/**
+ * Creates the home directory readable by this user only: config.env holds the
+ * Bungie secret and the pairing token, and data/ holds the Bungie tokens.
+ */
+export const ensureHome = (home: GhostHome) => {
+  mkdirSync(home.root, { recursive: true, mode: 0o700 })
+  chmodSync(home.root, 0o700)
 }
