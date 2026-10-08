@@ -2,7 +2,7 @@ import { query } from "@anthropic-ai/claude-agent-sdk"
 import { Context, Effect, Layer, Schema } from "effect"
 import { AppConfig } from "../config.ts"
 import { extractJsonText } from "../creators/parse.ts"
-import { AgentFailed } from "./claude.ts"
+import { abortOn, AgentFailed, within } from "./claude.ts"
 
 export interface SituationalInput {
   readonly subclass: string
@@ -57,7 +57,7 @@ export const SituationalWriterLive = Layer.effect(
 
     const write = (input: SituationalInput) =>
       Effect.tryPromise({
-        try: async () => {
+        try: async (signal) => {
           const prompt = [
             `Subclass: ${input.subclass}`,
             "Aspects and fragments:",
@@ -77,6 +77,7 @@ export const SituationalWriterLive = Layer.effect(
               permissionMode: "bypassPermissions",
               allowDangerouslySkipPermissions: true,
               maxTurns: 20,
+              abortController: abortOn(signal),
             },
           })) {
             if (message.type === "result") {
@@ -88,6 +89,7 @@ export const SituationalWriterLive = Layer.effect(
         },
         catch: (error) => new AgentFailed({ message: String(error) }),
       }).pipe(
+        within("5 minutes", "The situational writer"),
         Effect.flatMap((text) =>
           Effect.try({
             try: () => extractJsonText(text),
