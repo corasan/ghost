@@ -44,6 +44,7 @@ const trait = new PerkColumn({
   ],
 })
 const sheet = new WeaponSheet({
+  score: null,
   columns: [barrel, trait],
   stats: [
     new WeaponStat({ name: "Range", value: 40, fromPerks: 18, bar: true }),
