@@ -1,3 +1,4 @@
+import { LegendList } from "@legendapp/list/react-native"
 import type {
   CleanupPreview,
   CleanupSession,
@@ -276,8 +277,7 @@ function ReviewRow({ item }: { item: ReviewItem }) {
   )
 }
 
-function Review() {
-  const review = useJunkReview(true)
+function ReviewHeading({ review }: { review: ReturnType<typeof useJunkReview> }) {
   const items = review.data ?? []
   if (review.isSuccess && items.length === 0) return null
   return (
@@ -289,12 +289,28 @@ function Review() {
       <Meta style={{ paddingBottom: 10, lineHeight: 18 }}>
         Flagged as junk, but something argues for keeping them. Open one for details.
       </Meta>
-      {review.isError ? (
-        <Meta color={Ghost.danger}>{errorMessage(review.error)}</Meta>
-      ) : (
-        items.map((item) => <ReviewRow key={item.itemInstanceId} item={item} />)
-      )}
+      {review.isError ? <Meta color={Ghost.danger}>{errorMessage(review.error)}</Meta> : null}
     </View>
+  )
+}
+
+/** A cleanup page whose content ends in the review list, virtualized below it. */
+function ReviewPage({ children }: { children: ReactNode }) {
+  const review = useJunkReview(true)
+  return (
+    <LegendList
+      style={{ flex: 1 }}
+      contentContainerStyle={styles.page}
+      data={review.isError ? [] : (review.data ?? [])}
+      keyExtractor={(item) => item.itemInstanceId}
+      renderItem={({ item }) => <ReviewRow item={item} />}
+      ListHeaderComponent={
+        <>
+          {children}
+          <ReviewHeading review={review} />
+        </>
+      }
+    />
   )
 }
 
@@ -304,7 +320,7 @@ function PlanView({ preview, name }: { preview: CleanupPreview; name: string }) 
   const spare = vault.capacity - vault.after
   return (
     <>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.page}>
+      <ReviewPage>
         <Crumb label="VAULT › CLEANUP" right={name} />
         <Headline title="CLEAN UP MODE" />
         <View style={{ marginTop: 18 }}>
@@ -356,8 +372,7 @@ function PlanView({ preview, name }: { preview: CleanupPreview; name: string }) 
             {preview.equippedJunk.join(", ")}.
           </Meta>
         ) : null}
-        <Review />
-      </ScrollView>
+      </ReviewPage>
       <Footer note={start.isError ? errorMessage(start.error) : null}>
         <Button label="NOT NOW" onPress={() => router.navigate("/vault")} />
         <Button
@@ -389,7 +404,7 @@ function EmptyView({ name, characterId }: { name: string; characterId: string })
 
   return (
     <>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.page}>
+      <ReviewPage>
         <Crumb label="VAULT › CLEANUP" right={name} />
         <Headline title="CLEAN UP MODE" />
         <View style={styles.empty}>
@@ -429,8 +444,7 @@ function EmptyView({ name, characterId }: { name: string; characterId: string })
         <Meta color={Ghost.dim} style={{ marginTop: 6 }}>
           You can also tag any item yourself from its actions.
         </Meta>
-        <Review />
-      </ScrollView>
+      </ReviewPage>
       <Footer note={createJob.isError ? errorMessage(createJob.error) : null}>
         <Button
           label="ASK GHOST TO TAG JUNK"
@@ -476,12 +490,14 @@ function StashingView({ session, name }: { session: CleanupSession; name: string
         </View>
         <Mono style={{ paddingTop: 18, paddingBottom: 6 }}>CARRIED · {total}</Mono>
       </View>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: Gutter }}>
-        {session.stash.map((entry) => (
-          <View
-            key={entry.itemInstanceId}
-            style={[styles.carried, { opacity: entry.state === "queued" ? 0.5 : 1 }]}
-          >
+      <LegendList
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: Gutter }}
+        data={session.stash}
+        keyExtractor={(entry) => entry.itemInstanceId}
+        recycleItems
+        renderItem={({ item: entry }) => (
+          <View style={[styles.carried, { opacity: entry.state === "queued" ? 0.5 : 1 }]}>
             <ItemIcon
               icon={entry.icon}
               size={40}
@@ -506,8 +522,8 @@ function StashingView({ session, name }: { session: CleanupSession; name: string
             </View>
             <Meta color={STASH_TONE[entry.state]}>{STASH_LABEL[entry.state]}</Meta>
           </View>
-        ))}
-      </ScrollView>
+        )}
+      />
       <Footer note={act.isError ? errorMessage(act.error) : session.error}>
         <View style={{ flex: 1, gap: 8 }}>
           <Button
@@ -718,9 +734,14 @@ function BatchView({ session, name }: { session: CleanupSession; name: string })
           </View>
         </View>
       </View>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: Gutter }}>
-        {rows.map((row) => (
-          <View key={row.slot} style={styles.slot}>
+      <LegendList
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: Gutter }}
+        data={rows}
+        keyExtractor={(row) => row.slot}
+        extraData={[picked, selecting]}
+        renderItem={({ item: row }) => (
+          <View style={styles.slot}>
             <View style={[styles.between, { paddingBottom: 7 }]}>
               <Cond size={16} style={{ lineHeight: 20 }}>
                 {row.label}
@@ -740,8 +761,8 @@ function BatchView({ session, name }: { session: CleanupSession; name: string })
               ))}
             </View>
           </View>
-        ))}
-      </ScrollView>
+        )}
+      />
       {selecting ? (
         <View style={styles.picked}>
           <Meta color={selected.length > 0 ? Ghost.ink : Ghost.dim} style={{ flex: 1 }}>
