@@ -750,7 +750,7 @@ function BatchView({ session, name }: { session: CleanupSession; name: string })
                 {row.left > 0 ? `${row.left} left` : "Clear"}
               </Meta>
             </View>
-            <View style={styles.between}>
+            <View style={styles.tiles}>
               {row.tiles.map((tile, i) => (
                 <TileView
                   key={tile.kind === "empty" ? `empty-${i}` : tile.entry.itemInstanceId}
@@ -1053,6 +1053,7 @@ const styles = StyleSheet.create({
   reviewItem: { flexDirection: "row", alignItems: "center", gap: 12 },
   junk: { borderWidth: 1, borderColor: Ghost.danger, paddingHorizontal: 4, paddingVertical: 1 },
   slot: { paddingTop: 8, paddingBottom: 10, borderTopWidth: 1, borderTopColor: Ghost.rule },
+  tiles: { flexDirection: "row", justifyContent: "space-between" },
   tile: { width: TILE, height: TILE },
   ring: {
     position: "absolute",
