@@ -32,7 +32,15 @@ const openItem = (id: string) => router.push({ pathname: "/item/[id]", params: {
 
 const outcomeTone = { ok: Ghost.good, failed: Ghost.danger, skipped: Ghost.dim } as const
 
-export function RowRight({ row, applied }: { row: PlanRow; applied: boolean }) {
+export function RowRight({
+  row,
+  applied,
+  roll = true,
+}: {
+  row: PlanRow
+  applied: boolean
+  roll?: boolean
+}) {
   if (applied && row.outcome) {
     return (
       <Meta color={outcomeTone[row.outcome]}>
@@ -40,7 +48,7 @@ export function RowRight({ row, applied }: { row: PlanRow; applied: boolean }) {
       </Meta>
     )
   }
-  if (row.score !== null) {
+  if (roll && row.score !== null) {
     const color = row.score >= 70 ? Ghost.good : row.score >= 40 ? Ghost.gold : Ghost.danger
     return (
       <View style={{ alignItems: "flex-end" }}>

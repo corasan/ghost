@@ -260,7 +260,7 @@ function Piece({
             </Meta>
           ) : null}
         </View>
-        <RowRight row={row} applied={applied} />
+        <RowRight row={row} applied={applied} roll={false} />
         <Chevron direction={open ? "up" : "down"} size={6} />
       </Pressable>
       {open ? (
@@ -329,7 +329,7 @@ function Weapon({ row, applied }: { row: PlanRow; applied: boolean }) {
           )
         ) : null}
       </View>
-      <RowRight row={row} applied={applied} />
+      <RowRight row={row} applied={applied} roll={false} />
     </Pressable>
   )
 }
