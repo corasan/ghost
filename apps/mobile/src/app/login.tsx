@@ -57,7 +57,7 @@ export default function LoginScreen() {
         <Body size={12} color={Ghost.dim} style={{ textAlign: "center", lineHeight: 17 }}>
           {online
             ? "Sign-in happens in the browser. The server keeps the tokens; the app never sees them."
-            : "Run `bun run serve` on the server and scan its QR code with the camera to connect."}
+            : "Run `ghost start` on the server and scan its QR code with the camera to connect."}
         </Body>
         <Pressable hitSlop={12} style={styles.server} onPress={() => router.push("/settings")}>
           <View style={[styles.dot, { backgroundColor: status.color }]} />
