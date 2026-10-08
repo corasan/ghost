@@ -149,9 +149,26 @@ const PerkRatingsTool = Tool.make("perk_ratings", {
   success: Json,
 })
 
+// Stored ratings feed junk judging, so a page with injected instructions
+// must not be able to write them: only the sites the agent is told to use
+// count as a source.
+export const RATING_SOURCES = [
+  "light.gg",
+  "d2foundry.gg",
+  "destiny.report",
+  "destiny2.science",
+  "bungie.net",
+]
+
+export const ratingSourceAllowed = (url: string) => {
+  const host = URL.canParse(url) ? new URL(url) : undefined
+  if (host === undefined || host.protocol !== "https:") return false
+  return RATING_SOURCES.some((site) => host.hostname === site || host.hostname.endsWith(`.${site}`))
+}
+
 const RatePerks = Tool.make("rate_perks", {
   description:
-    "Store how good a weapon's trait perks are, so junk judging uses it from now on and nobody has to look it up again. Junk judging keeps the player's best PvE copy and best PvP copy of each weapon, so rate each guide's picks with its purpose: the perks a current PvE god roll picks in each trait column good with purpose pve, the PvP picks good with purpose pvp, the ones a guide calls also good ok, and any it warns against junk. Perks you leave out count as ok at best. Pass the page you read in url (light.gg's god roll section is a good source). The player's own ratings always win over yours.",
+    "Store how good a weapon's trait perks are, so junk judging uses it from now on and nobody has to look it up again. Junk judging keeps the player's best PvE copy and best PvP copy of each weapon, so rate each guide's picks with its purpose: the perks a current PvE god roll picks in each trait column good with purpose pve, the PvP picks good with purpose pvp, the ones a guide calls also good ok, and any it warns against junk. Perks you leave out count as ok at best. Pass the page you read in url (light.gg's god roll section is a good source); only https pages on light.gg, d2foundry.gg, destiny.report, destiny2.science or bungie.net are accepted. The player's own ratings always win over yours.",
   parameters: Schema.Struct({
     weapon: Schema.String,
     perks: Schema.NonEmptyArray(
@@ -1290,6 +1307,9 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
 
     const rate_perks = (input: (typeof RatePerks)["parametersSchema"]["Type"]) =>
       Effect.gen(function* () {
+        if (!ratingSourceAllowed(input.url)) {
+          return `Error: ratings are only stored from ${RATING_SOURCES.join(", ")}. Look the weapon up on one of those and pass that page's url.`
+        }
         const inv = yield* profile.inventory
         const copies = inv.items.filter(
           (item) => item.name.toLowerCase() === input.weapon.trim().toLowerCase(),
