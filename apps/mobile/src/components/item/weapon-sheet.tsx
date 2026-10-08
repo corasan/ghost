@@ -215,6 +215,7 @@ function Inspector({ itemId, sheet, at }: { itemId: string; sheet: WeaponSheet; 
   return (
     <View
       onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
+      onStartShouldSetResponder={() => true}
       style={{ marginTop: 4, marginBottom: 6 }}
     >
       {width > 0 ? <View style={[styles.caret, { left: caret }]} /> : null}
@@ -505,6 +506,7 @@ export function WeaponScreen({ item }: { item: ItemSummary & { itemInstanceId: s
   const full = sheet.data
   const data = full && (showAll ? full : rolledOnly(full))
   const applying = mode.kind === "apply"
+  const inspecting = mode.kind === "view" && mode.inspected !== null
 
   const show = (all: boolean) => {
     setShowAll(all)
@@ -537,96 +539,108 @@ export function WeaponScreen({ item }: { item: ItemSummary & { itemInstanceId: s
         contentContainerStyle={{
           paddingTop: 28,
           paddingBottom: applying ? 220 + bottomInset : bottomInset + 20,
-          gap: 22,
         }}
       >
-        <ItemHeader item={item} size={72} />
-        {data && !applying ? <Summary sheet={data} /> : null}
-        <View style={styles.section}>
-          <View style={styles.perksHeading}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <Mono>PERKS</Mono>
-              {applying ? (
-                <View style={styles.modeTag}>
-                  <Mono size={10} color={Ghost.bg}>
-                    APPLY MODE
-                  </Mono>
-                </View>
-              ) : null}
+        <Pressable
+          accessible={false}
+          disabled={!inspecting}
+          onPress={() => setMode(VIEWING)}
+          style={{ gap: 22 }}
+        >
+          <ItemHeader item={item} size={72} />
+          {data && !applying ? <Summary sheet={data} /> : null}
+          <View style={styles.section}>
+            <View style={styles.perksHeading}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <Mono>PERKS</Mono>
+                {applying ? (
+                  <View style={styles.modeTag}>
+                    <Mono size={10} color={Ghost.bg}>
+                      APPLY MODE
+                    </Mono>
+                  </View>
+                ) : null}
+              </View>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                {data && (applying || canSwap(data)) ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    hitSlop={8}
+                    onPress={() =>
+                      setMode(applying ? VIEWING : { kind: "apply", staged: new Map() })
+                    }
+                    style={{ paddingVertical: 10, paddingLeft: 4 }}
+                  >
+                    <Cond size={14} color={Ghost.accent} style={{ letterSpacing: 1.4 }}>
+                      {applying ? "DONE" : "EDIT PERKS"}
+                    </Cond>
+                  </Pressable>
+                ) : null}
+              </View>
             </View>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-              {data && (applying || canSwap(data)) ? (
-                <Pressable
-                  accessibilityRole="button"
-                  hitSlop={8}
-                  onPress={() => setMode(applying ? VIEWING : { kind: "apply", staged: new Map() })}
-                  style={{ paddingVertical: 10, paddingLeft: 4 }}
-                >
-                  <Cond size={14} color={Ghost.accent} style={{ letterSpacing: 1.4 }}>
-                    {applying ? "DONE" : "EDIT PERKS"}
-                  </Cond>
-                </Pressable>
-              ) : null}
-            </View>
+            {applying ? (
+              <Meta>Tap a perk to stage it. Nothing changes on the weapon until you apply.</Meta>
+            ) : null}
+            {full ? (
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <Chip
+                  label={`THIS COPY · ${poolSize(rolledOnly(full))}`}
+                  active={!showAll}
+                  onPress={() => show(false)}
+                />
+                <Chip
+                  label={`ALL PERKS · ${poolSize(full)}`}
+                  active={showAll}
+                  onPress={() => show(true)}
+                />
+              </View>
+            ) : null}
+            {sheet.isError ? (
+              <Meta color={Ghost.danger}>{errorMessage(sheet.error)}</Meta>
+            ) : !data ? (
+              <Meta color={Ghost.dim}>Loading…</Meta>
+            ) : (
+              <>
+                <Matrix
+                  sheet={data}
+                  mode={mode}
+                  onTap={tap}
+                  inspector={
+                    mode.kind === "view" && mode.inspected ? (
+                      <Inspector itemId={item.itemInstanceId} sheet={data} at={mode.inspected} />
+                    ) : null
+                  }
+                />
+                <Legend
+                  items={
+                    applying
+                      ? [
+                          ["On this copy", { borderWidth: 1.5, borderColor: Ghost.accent }],
+                          ["Staged", { borderWidth: 1.5, borderColor: Ghost.ink }],
+                          ...(showAll ? [LOCKED_LEGEND] : []),
+                        ]
+                      : [
+                          ["On this copy", { borderWidth: 1.5, borderColor: Ghost.accent }],
+                          ["Enhanced", { borderWidth: 1.5, borderColor: Ghost.gold }],
+                          [
+                            "Good for PvE · PvP",
+                            { height: 3, width: 14, backgroundColor: Ghost.good },
+                          ],
+                        ]
+                  }
+                />
+              </>
+            )}
           </View>
-          {applying ? (
-            <Meta>Tap a perk to stage it. Nothing changes on the weapon until you apply.</Meta>
+          {data && data.stats.length > 0 ? (
+            <Stats
+              sheet={data}
+              swaps={swaps}
+              heading={applying ? "STATS AFTER APPLYING" : "STATS"}
+            />
           ) : null}
-          {full ? (
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              <Chip
-                label={`THIS COPY · ${poolSize(rolledOnly(full))}`}
-                active={!showAll}
-                onPress={() => show(false)}
-              />
-              <Chip
-                label={`ALL PERKS · ${poolSize(full)}`}
-                active={showAll}
-                onPress={() => show(true)}
-              />
-            </View>
-          ) : null}
-          {sheet.isError ? (
-            <Meta color={Ghost.danger}>{errorMessage(sheet.error)}</Meta>
-          ) : !data ? (
-            <Meta color={Ghost.dim}>Loading…</Meta>
-          ) : (
-            <>
-              <Matrix
-                sheet={data}
-                mode={mode}
-                onTap={tap}
-                inspector={
-                  mode.kind === "view" && mode.inspected ? (
-                    <Inspector itemId={item.itemInstanceId} sheet={data} at={mode.inspected} />
-                  ) : null
-                }
-              />
-              <Legend
-                items={
-                  applying
-                    ? [
-                        ["On this copy", { borderWidth: 1.5, borderColor: Ghost.accent }],
-                        ["Staged", { borderWidth: 1.5, borderColor: Ghost.ink }],
-                        ...(showAll ? [LOCKED_LEGEND] : []),
-                      ]
-                    : [
-                        ["On this copy", { borderWidth: 1.5, borderColor: Ghost.accent }],
-                        ["Enhanced", { borderWidth: 1.5, borderColor: Ghost.gold }],
-                        [
-                          "Good for PvE · PvP",
-                          { height: 3, width: 14, backgroundColor: Ghost.good },
-                        ],
-                      ]
-                }
-              />
-            </>
-          )}
-        </View>
-        {data && data.stats.length > 0 ? (
-          <Stats sheet={data} swaps={swaps} heading={applying ? "STATS AFTER APPLYING" : "STATS"} />
-        ) : null}
-        {applying ? null : <ItemActions item={item} />}
+          {applying ? null : <ItemActions item={item} />}
+        </Pressable>
       </ScrollView>
       {data && mode.kind === "apply" ? (
         <ApplyBar
