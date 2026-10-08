@@ -1,0 +1,43 @@
+name: Release CLI
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: bun-linux-x64, asset: ghost-linux-x64 }
+          - { os: ubuntu-latest, target: bun-linux-arm64, asset: ghost-linux-arm64 }
+          - { os: macos-latest, target: bun-darwin-arm64, asset: ghost-darwin-arm64 }
+          - { os: macos-latest, target: bun-darwin-x64, asset: ghost-darwin-x64 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run --cwd packages/cli build --target ${{ matrix.target }} --outfile dist/${{ matrix.asset }}
+      # macOS refuses to run an unsigned arm64 binary; an ad-hoc signature is enough.
+      - if: runner.os == 'macOS'
+        run: codesign --force --sign - packages/cli/dist/${{ matrix.asset }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: packages/cli/dist/${{ matrix.asset }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
