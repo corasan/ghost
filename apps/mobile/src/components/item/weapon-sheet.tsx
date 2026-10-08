@@ -1,6 +1,6 @@
 import type { ItemSummary, PerkColumn, Purpose, WeaponPerk, WeaponSheet } from "@ghost/contract"
 import { Image } from "expo-image"
-import { useState } from "react"
+import { Fragment, type ReactNode, useState } from "react"
 import { Pressable, ScrollView, StyleSheet, View, type ViewProps } from "react-native"
 
 import { Body, Button, Cond, Meta, Mono } from "@/components/ghost/ui"
@@ -33,6 +33,7 @@ import {
 } from "@/lib/weapon-sheet"
 
 const RING = 4
+const COLUMN_GAP = 8
 const PURPOSES: ReadonlyArray<readonly [Purpose, string]> = [
   ["pve", "PVE"],
   ["pvp", "PVP"],
@@ -140,36 +141,48 @@ function Matrix({
   sheet,
   mode,
   onTap,
+  inspector,
 }: {
   sheet: WeaponSheet
   mode: SheetMode
   onTap: (ref: PerkRef) => void
+  inspector: ReactNode
 }) {
   const size = sheet.columns.length > 5 ? 42 : 52
+  const rows = Math.max(0, ...sheet.columns.map((column) => column.perks.length))
+  const inspectedRow = mode.kind === "view" ? mode.inspected?.perk : undefined
   return (
-    <View style={{ flexDirection: "row", gap: 8 }}>
-      {sheet.columns.map((column, c) => (
-        <View
-          key={column.socketIndex}
-          style={{ flex: 1, minWidth: 0, alignItems: "center", gap: 6 }}
-        >
-          <Mono size={10} style={styles.columnLabel} lines={1}>
+    <View style={{ gap: 6 }}>
+      <View style={styles.matrixRow}>
+        {sheet.columns.map((column) => (
+          <Mono key={column.socketIndex} size={10} style={styles.columnLabel} lines={1}>
             {column.label}
           </Mono>
-          {column.perks.map((perk, p) => {
-            const ref = { column: c, perk: p }
-            return (
-              <PerkTile
-                key={perk.plugHash}
-                column={column}
-                perk={perk}
-                look={lookOf(mode, column, perk, ref)}
-                size={size}
-                onPress={() => onTap(ref)}
-              />
-            )
-          })}
-        </View>
+        ))}
+      </View>
+      {Array.from({ length: rows }, (_, p) => (
+        <Fragment key={p}>
+          <View style={styles.matrixRow}>
+            {sheet.columns.map((column, c) => {
+              const perk = column.perks[p]
+              const ref = { column: c, perk: p }
+              return (
+                <View key={column.socketIndex} style={styles.cell}>
+                  {perk ? (
+                    <PerkTile
+                      column={column}
+                      perk={perk}
+                      look={lookOf(mode, column, perk, ref)}
+                      size={size}
+                      onPress={() => onTap(ref)}
+                    />
+                  ) : null}
+                </View>
+              )
+            })}
+          </View>
+          {inspectedRow === p ? inspector : null}
+        </Fragment>
       ))}
     </View>
   )
@@ -195,11 +208,15 @@ function Inspector({ itemId, sheet, at }: { itemId: string; sheet: WeaponSheet; 
   if (column === undefined || perk === undefined) return null
   const active = activeOf(column)
   const swaps = inspectedSwap(sheet, at)
-  const caret = width === 0 ? 0 : ((at.column + 0.5) * width) / sheet.columns.length - 6
+  const columnWidth = (width - COLUMN_GAP * (sheet.columns.length - 1)) / sheet.columns.length
+  const caret = at.column * (columnWidth + COLUMN_GAP) + columnWidth / 2 - 6
   const where = perk.active ? "ON THIS COPY" : perk.rolled ? "ROLLED ON THIS COPY" : "IN THE POOL"
   return (
-    <View onLayout={(event) => setWidth(event.nativeEvent.layout.width)} style={{ marginTop: 6 }}>
-      <View style={[styles.caret, { left: caret }]} />
+    <View
+      onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
+      style={{ marginTop: 4, marginBottom: 6 }}
+    >
+      {width > 0 ? <View style={[styles.caret, { left: caret }]} /> : null}
       <View style={styles.inspector}>
         <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
           <View style={[styles.inspectorIcon, { borderRadius: isRound(column) ? 16 : 3 }]}>
@@ -549,10 +566,16 @@ export function WeaponScreen({ item }: { item: ItemSummary & { itemInstanceId: s
             <Meta color={Ghost.dim}>Loading…</Meta>
           ) : (
             <>
-              <Matrix sheet={data} mode={mode} onTap={tap} />
-              {mode.kind === "view" && mode.inspected ? (
-                <Inspector itemId={item.itemInstanceId} sheet={data} at={mode.inspected} />
-              ) : null}
+              <Matrix
+                sheet={data}
+                mode={mode}
+                onTap={tap}
+                inspector={
+                  mode.kind === "view" && mode.inspected ? (
+                    <Inspector itemId={item.itemInstanceId} sheet={data} at={mode.inspected} />
+                  ) : null
+                }
+              />
               <Legend
                 items={
                   applying
@@ -599,8 +622,11 @@ const styles = StyleSheet.create({
   section: { paddingHorizontal: 20, gap: 12 },
   perksHeading: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   modeTag: { paddingVertical: 2, paddingHorizontal: 6, backgroundColor: Ghost.accent },
+  matrixRow: { flexDirection: "row", gap: COLUMN_GAP },
+  cell: { flex: 1, minWidth: 0, alignItems: "center" },
   columnLabel: {
-    alignSelf: "stretch",
+    flex: 1,
+    minWidth: 0,
     textAlign: "center",
     paddingBottom: 6,
     borderBottomWidth: 1,
