@@ -553,8 +553,13 @@ const cleanupAction = (api: Api, id: string, action: CleanupAction) => {
   }
 }
 
+const ENDED = new Set<CleanupStage>(["stopped", "closed"])
+
 const settleCleanup = (queryClient: QueryClient, session: CleanupSession) => {
-  queryClient.setQueryData(queryKeys.cleanup(getServerUrl()), session)
+  queryClient.setQueryData(
+    queryKeys.cleanup(getServerUrl()),
+    ENDED.has(session.stage) ? null : session,
+  )
   return invalidateInventory(queryClient)
 }
 
