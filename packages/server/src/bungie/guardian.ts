@@ -10,7 +10,7 @@ import {
   Source,
   VaultSnapshot,
 } from "@ghost/contract"
-import { Context, Effect, Layer, Option } from "effect"
+import { Clock, Context, Effect, Layer, Option, Schema, Semaphore } from "effect"
 import { SituationalWriter } from "../agent/situational.ts"
 import { ChargeEffects } from "../db/charge.ts"
 import { Settings } from "../db/settings.ts"
@@ -34,6 +34,14 @@ export interface GuardianService {
 
 export class Guardian extends Context.Service<Guardian, GuardianService>()("Guardian") {}
 
+const SUMMARIES_KEY = "situational.summaries"
+const MAX_SUMMARIES = 50
+const RETRY_FAILED_MS = 60 * 60 * 1000
+
+const decodeSummaries = Schema.decodeOption(
+  Schema.fromJsonString(Schema.Array(Schema.Tuple([Schema.String, Schema.String]))),
+)
+
 export const GuardianLive = Layer.effect(
   Guardian,
   Effect.gen(function* () {
@@ -43,6 +51,41 @@ export const GuardianLive = Layer.effect(
     const settings = yield* Settings
     const writer = yield* SituationalWriter
     const writing = new Set<string>()
+    // When each loadout's last write failed, so a failing model is not
+    // called again on every request.
+    const failedAt = new Map<string, number>()
+    const summariesLock = yield* Semaphore.make(1)
+
+    // Summaries live in one settings row, newest first and capped, instead
+    // of a row per loadout ever worn.
+    const readSummaries = settings.get(SUMMARIES_KEY).pipe(
+      Effect.orDie,
+      Effect.map((raw) =>
+        raw.pipe(
+          Option.flatMap(decodeSummaries),
+          Option.getOrElse((): ReadonlyArray<readonly [string, string]> => []),
+        ),
+      ),
+    )
+
+    const saveSummary = (key: string, summary: string) =>
+      Effect.gen(function* () {
+        const kept = (yield* readSummaries).filter(([known]) => known !== key)
+        const next = [[key, summary] as const, ...kept].slice(0, MAX_SUMMARIES)
+        yield* settings.set(SUMMARIES_KEY, JSON.stringify(next))
+      }).pipe(summariesLock.withPermits(1))
+
+    // A summary from before they shared a row is moved over when read.
+    const summaryFor = (key: string) =>
+      Effect.gen(function* () {
+        const found = (yield* readSummaries).find(([known]) => known === key)
+        if (found !== undefined) return found[1]
+        const legacy = Option.getOrNull(yield* settings.get(key).pipe(Effect.orDie))
+        if (legacy === null) return null
+        yield* saveSummary(key, legacy).pipe(Effect.orDie)
+        yield* settings.remove(key).pipe(Effect.orDie)
+        return legacy
+      })
 
     const snapshot = Effect.gen(function* () {
       const inv = yield* profile.inventory
@@ -172,14 +215,16 @@ export const GuardianLive = Layer.effect(
 
         const read = Effect.gen(function* () {
           const effects = yield* chargeEffects.forMods([...copies.keys()]).pipe(Effect.orDie)
-          const summary = Option.getOrNull(yield* settings.get(key).pipe(Effect.orDie))
+          const summary = yield* summaryFor(key)
           return { effects, summary }
         })
 
         const stored = yield* read
         const missing = [...copies.keys()].filter((name) => !stored.effects.has(name.toLowerCase()))
         const complete = stored.summary !== null && missing.length === 0
-        if (!complete && !writing.has(key)) {
+        const now = yield* Clock.currentTimeMillis
+        const coolingOff = now - (failedAt.get(key) ?? -Infinity) < RETRY_FAILED_MS
+        if (!complete && !writing.has(key) && !coolingOff) {
           writing.add(key)
           yield* writer
             .write({
@@ -206,10 +251,16 @@ export const GuardianLive = Layer.effect(
                         }),
                       })),
                   ),
-                  settings.set(key, written.summary),
+                  saveSummary(key, written.summary),
                 ]),
               ),
-              Effect.catchCause((cause) => Effect.logWarning("situational: not written", cause)),
+              Effect.tap(() => Effect.sync(() => failedAt.delete(key))),
+              Effect.catchCause((cause) =>
+                Effect.andThen(
+                  Effect.sync(() => failedAt.set(key, now)),
+                  Effect.logWarning("situational: not written", cause),
+                ),
+              ),
               Effect.ensuring(Effect.sync(() => writing.delete(key))),
               Effect.forkDetach,
             )
