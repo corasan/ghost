@@ -16,7 +16,7 @@ import { StatusBar } from "expo-status-bar"
 import { useEffect } from "react"
 import { Platform } from "react-native"
 
-import { AnimatedSplashOverlay } from "@/components/animated-icon"
+import { AnimatedSplashOverlay } from "@/components/splash-overlay"
 import { TooltipLayer } from "@/components/ghost/tooltip"
 import { Ghost } from "@/constants/theme"
 import { useHealth } from "@/lib/api"
