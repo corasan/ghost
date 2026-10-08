@@ -19,30 +19,35 @@ import {
 } from "@ghost/contract"
 import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Effect } from "effect"
-import { FetchHttpClient } from "effect/http"
+import { FetchHttpClient, HttpClient, HttpClientError, HttpClientRequest } from "effect/http"
 import { HttpApiClient } from "effect/http-api"
-import { getServerUrl, useServerUrl } from "./server-url"
+import { getServerToken, getServerUrl, useServerUrl } from "./server-url"
 
 // HttpApiClient reads the same contract the server implements, so every
 // call below is typed end to end: params, payload, success and error
 // shapes all come from packages/contract.
-const makeApi = (baseUrl: string) =>
+// Every request carries the pairing token; the server refuses anything else.
+const makeApi = (baseUrl: string, token: string) =>
   Effect.runPromise(
-    HttpApiClient.make(GhostApi, { baseUrl }).pipe(Effect.provide(FetchHttpClient.layer)),
+    HttpApiClient.make(GhostApi, {
+      baseUrl,
+      transformClient: HttpClient.mapRequest(HttpClientRequest.bearerToken(token)),
+    }).pipe(Effect.provide(FetchHttpClient.layer)),
   )
 
 type Api = Awaited<ReturnType<typeof makeApi>>
 
 // Building the client walks the whole contract, so do it once per server URL
-// instead of once per request.
-let client: { url: string; api: Promise<Api> } | undefined
-const apiFor = (url: string) => {
-  if (client?.url !== url) client = { url, api: makeApi(url) }
+// and token instead of once per request.
+let client: { url: string; token: string; api: Promise<Api> } | undefined
+const apiFor = (url: string, token: string) => {
+  if (client?.url !== url || client.token !== token)
+    client = { url, token, api: makeApi(url, token) }
   return client.api
 }
 
 const run = async <A, E>(f: (api: Api) => Effect.Effect<A, E>) =>
-  Effect.runPromise(f(await apiFor(getServerUrl())))
+  Effect.runPromise(f(await apiFor(getServerUrl(), getServerToken())))
 
 // Every key starts with the server URL so pointing the app at another
 // server never shows the old server's cached data.
@@ -605,5 +610,15 @@ export function useMarkCleanupItems() {
   })
 }
 
+// The server answers 401 to a request without the right pairing token.
+const unpaired = (error: Error) =>
+  HttpClientError.isHttpClientError(error) && error.response?.status === 401
+
 export const errorMessage = (error: Error | null) =>
-  error === null ? String(error) : "reason" in error ? String(error.reason) : error.message
+  error === null
+    ? String(error)
+    : unpaired(error)
+      ? "Not paired with this server. Run `ghost pair` on it and scan the QR code."
+      : "reason" in error
+        ? String(error.reason)
+        : error.message
