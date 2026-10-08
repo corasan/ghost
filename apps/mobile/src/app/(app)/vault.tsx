@@ -1,14 +1,36 @@
 import type { ItemSummary, Job, Plan } from "@ghost/contract"
 import { LegendList } from "@legendapp/list/react-native"
+import { AnimatedLegendList } from "@legendapp/list/reanimated"
 import { router } from "expo-router"
-import { useMemo, useState } from "react"
+import { type ReactNode, useMemo, useState } from "react"
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native"
+import Animated, {
+  Extrapolation,
+  interpolate,
+  type SharedValue,
+  useAnimatedStyle,
+  useSharedValue,
+} from "react-native-reanimated"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { PlanRowView } from "@/components/chat/plan-block"
 import { liveLabel } from "@/lib/plan-card"
 import { Unavailable } from "@/components/ghost/unavailable"
 import { ItemIcon } from "@/components/ghost/item-icon"
-import { Body, Button, Chip, Cond, Cut, Meta, PageHeader, Said, Tick } from "@/components/ghost/ui"
+import {
+  Bars,
+  Body,
+  Button,
+  Chip,
+  Cond,
+  Cut,
+  Meta,
+  Mono,
+  PageHeader,
+  Said,
+  Tick,
+  useOpenDrawer,
+} from "@/components/ghost/ui"
 import { Ghost, Gutter, Type } from "@/constants/theme"
 import {
   useApplyPlan,
@@ -256,6 +278,91 @@ function Filters({ shown }: { shown: number }) {
   )
 }
 
+const BAR = 40
+
+/**
+ * Pins `pinned` under a compact bar once the list has scrolled `top` away.
+ * The panel translates rather than resizing, so the list never re-lays-out.
+ */
+function CollapsingHeader({
+  scroll,
+  title,
+  figure,
+  top,
+  pinned,
+  onHeight,
+}: {
+  scroll: SharedValue<number>
+  title: string
+  figure: ReactNode
+  top: ReactNode
+  pinned: ReactNode
+  onHeight: (height: number) => void
+}) {
+  const insets = useSafeAreaInsets()
+  const openDrawer = useOpenDrawer()
+  const barHeight = insets.top + BAR
+  const [topHeight, setTopHeight] = useState(0)
+  const collapse = Math.max(1, topHeight - barHeight)
+
+  const panel = useAnimatedStyle(() => ({
+    transform: [{ translateY: -Math.min(scroll.get(), collapse) }],
+  }))
+  const fading = useAnimatedStyle(() => ({
+    opacity: interpolate(scroll.get(), [0, collapse], [1, 0], Extrapolation.CLAMP),
+  }))
+  const leaving = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      scroll.get(),
+      [collapse * 0.5, collapse * 0.75],
+      [1, 0],
+      Extrapolation.CLAMP,
+    ),
+  }))
+  const arriving = useAnimatedStyle(() => ({
+    opacity: interpolate(scroll.get(), [collapse * 0.7, collapse], [0, 1], Extrapolation.CLAMP),
+  }))
+
+  return (
+    <>
+      <Animated.View
+        onLayout={(event) => onHeight(event.nativeEvent.layout.height)}
+        style={[styles.panel, panel]}
+      >
+        <Animated.View
+          onLayout={(event) => setTopHeight(event.nativeEvent.layout.height)}
+          style={fading}
+        >
+          {top}
+        </Animated.View>
+        {pinned}
+      </Animated.View>
+      <View style={[styles.bar, { height: barHeight, paddingTop: insets.top }]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open menu"
+          hitSlop={14}
+          onPress={openDrawer}
+          style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
+        >
+          <Bars color={Ghost.accent} />
+          <View style={{ justifyContent: "center" }}>
+            <Animated.View style={arriving}>
+              <Cond size={20}>{title}</Cond>
+            </Animated.View>
+            <Animated.View style={[StyleSheet.absoluteFill, { justifyContent: "center" }, leaving]}>
+              <Mono size={11} color={Ghost.accent}>
+                GHOST
+              </Mono>
+            </Animated.View>
+          </View>
+        </Pressable>
+        <Animated.View style={arriving}>{figure}</Animated.View>
+      </View>
+    </>
+  )
+}
+
 export default function VaultScreen() {
   const bottomInset = useBottomInset()
   const vault = useVault()
@@ -267,6 +374,8 @@ export default function VaultScreen() {
   const filter = useVaultFilter()
   const picked = usePicked()
   const pull = usePullRefresh(vault.refetch)
+  const scroll = useSharedValue(0)
+  const [headerHeight, setHeaderHeight] = useState(0)
 
   const items = vault.data?.items ?? []
   const preview = useCleanupPreview(character?.characterId)
@@ -291,27 +400,31 @@ export default function VaultScreen() {
   const pickedItems = items.filter((item) => item.itemInstanceId && picked.has(item.itemInstanceId))
   const selecting = pickedItems.length > 0
 
+  const header = (
+    <PageHeader
+      title="VAULT"
+      subtitle={
+        cleanup ? "Cleanup mode" : reviewing ? "Ghost is reviewing" : `${shown.length} shown`
+      }
+      subtitleColor={cleanup ? Ghost.danger : Ghost.dim}
+      figure={vault.data ? count : "—"}
+      figureSuffix={vault.data ? `/${capacity}` : undefined}
+      caption={vault.data ? `${capacity - count} free` : "Space"}
+    >
+      <View style={styles.meter}>
+        <View
+          style={{
+            width: `${Math.min(100, fill * 100)}%`,
+            backgroundColor: fill >= 0.9 ? Ghost.danger : Ghost.accent,
+          }}
+        />
+      </View>
+    </PageHeader>
+  )
+
   return (
     <View style={{ flex: 1, backgroundColor: Ghost.bg }}>
-      <PageHeader
-        title="VAULT"
-        subtitle={
-          cleanup ? "Cleanup mode" : reviewing ? "Ghost is reviewing" : `${shown.length} shown`
-        }
-        subtitleColor={cleanup ? Ghost.danger : Ghost.dim}
-        figure={vault.data ? count : "—"}
-        figureSuffix={vault.data ? `/${capacity}` : undefined}
-        caption={vault.data ? `${capacity - count} free` : "Space"}
-      >
-        <View style={styles.meter}>
-          <View
-            style={{
-              width: `${Math.min(100, fill * 100)}%`,
-              backgroundColor: fill >= 0.9 ? Ghost.danger : Ghost.accent,
-            }}
-          />
-        </View>
-      </PageHeader>
+      {vault.data && !cleanup ? null : header}
 
       {!vault.data ? (
         <View style={{ paddingHorizontal: Gutter }}>
@@ -327,17 +440,9 @@ export default function VaultScreen() {
         <Cleanup job={cleanup} plan={cleanupPlan} />
       ) : (
         <>
-          <View style={{ marginHorizontal: Gutter, marginTop: 16 }}>
-            <Said size={14}>
-              {reviewing
-                ? "Reviewing your vault for duplicates and weak rolls against current community picks…"
-                : vaultSaid(count, capacity, preview.data?.junk ?? vaultJunk)}
-            </Said>
-          </View>
-          <CleanupCard name={character ? sentence(character.classType) : "your Guardian"} />
-          <Filters shown={shown.length} />
-          <LegendList
+          <AnimatedLegendList
             style={{ flex: 1 }}
+            sharedValues={{ scrollOffset: scroll }}
             data={shown}
             keyExtractor={(item) => item.itemInstanceId ?? `${item.itemHash}`}
             recycleItems
@@ -346,7 +451,9 @@ export default function VaultScreen() {
             keyboardDismissMode="on-drag"
             refreshing={pull.refreshing}
             onRefresh={pull.onRefresh}
-            contentContainerStyle={{ paddingTop: 8, paddingBottom: bottomInset + 16 }}
+            progressViewOffset={headerHeight}
+            scrollIndicatorInsets={{ top: headerHeight }}
+            contentContainerStyle={{ paddingTop: headerHeight, paddingBottom: bottomInset + 16 }}
             ListEmptyComponent={
               <Body color={Ghost.dim} style={{ paddingHorizontal: Gutter, paddingTop: 24 }}>
                 Nothing matches. Loosen a filter or clear the search.
@@ -374,6 +481,33 @@ export default function VaultScreen() {
                 />
               </View>
             )}
+          />
+          <CollapsingHeader
+            scroll={scroll}
+            onHeight={setHeaderHeight}
+            top={
+              <>
+                {header}
+                <View style={{ marginHorizontal: Gutter, marginTop: 16 }}>
+                  <Said size={14}>
+                    {reviewing
+                      ? "Reviewing your vault for duplicates and weak rolls against current community picks…"
+                      : vaultSaid(count, capacity, preview.data?.junk ?? vaultJunk)}
+                  </Said>
+                </View>
+                <CleanupCard name={character ? sentence(character.classType) : "your Guardian"} />
+              </>
+            }
+            pinned={<Filters shown={shown.length} />}
+            title="VAULT"
+            figure={
+              <Cond size={20}>
+                {count}
+                <Cond size={20} color={Ghost.dim}>
+                  /{capacity}
+                </Cond>
+              </Cond>
+            }
           />
           {pickedItems.length > 0 ? (
             <View style={[styles.footer, { paddingBottom: bottomInset + 12 }]}>
@@ -409,6 +543,25 @@ export default function VaultScreen() {
 }
 
 const styles = StyleSheet.create({
+  panel: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    paddingBottom: 8,
+    backgroundColor: Ghost.bg,
+  },
+  bar: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Gutter,
+    backgroundColor: Ghost.bg,
+  },
   meter: { marginTop: 14, height: 3, backgroundColor: Ghost.rule, flexDirection: "row" },
   chips: { flexDirection: "row", gap: 6, paddingHorizontal: Gutter, paddingTop: 16 },
   search: {
