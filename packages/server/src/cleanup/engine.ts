@@ -11,6 +11,7 @@ import {
 } from "@ghost/contract"
 import { Result } from "effect"
 import type { Inventory, OwnedItem } from "../bungie/inventory.ts"
+import { hardProtections, type InUse } from "../junk/judge.ts"
 
 /** A bucket holds ten, and one of them is the equipped item. */
 export const SLOT_ROOM = 9
@@ -72,9 +73,35 @@ export const assignBatches = <T extends { readonly slot: GearSlot }>(
 const batchCount = (batched: ReadonlyArray<{ readonly batch: number }>) =>
   batched.reduce((most, { batch }) => Math.max(most, batch + 1), 0)
 
-export const plan = (inv: Inventory, characterId: string, capacity: number): CleanupPlan => {
+/**
+ * Without the vault component every vault item reads as gone. A profile
+ * that shows an empty vault while the session has gear stashed there is
+ * taken as one Bungie sent without it, so nothing is settled from it.
+ */
+export const vaultRead = (s: CleanupSession, inv: Inventory) =>
+  inv.vaultCount > 0 ||
+  inv.items.some((item) => item.location === "vault") ||
+  !s.stash.some((e) => e.state === "in_vault")
+
+/**
+ * An item tagged junk is handed over only while nothing protects it: it may
+ * have been locked, masterworked, crafted or put in a build or loadout
+ * since it was tagged. An equipped one is named instead, for the player to
+ * take off.
+ */
+export const plan = (
+  inv: Inventory,
+  characterId: string,
+  capacity: number,
+  used: InUse,
+): CleanupPlan => {
   const gear = inv.items.filter(isGear)
-  const junk = gear.filter((i) => i.decision === "junk" && i.location !== "postmaster")
+  const junk = gear.filter(
+    (i) =>
+      i.decision === "junk" &&
+      i.location !== "postmaster" &&
+      hardProtections(i, used).every((protection) => protection === "equipped"),
+  )
   const carried = gear.filter(
     (i) => i.location === "character" && i.characterId === characterId && !i.equipped,
   )
@@ -82,6 +109,11 @@ export const plan = (inv: Inventory, characterId: string, capacity: number): Cle
   const stash = carried.map(
     (item) =>
       new StashEntry({ ...entryFields(item), junk: item.decision === "junk", state: "queued" }),
+  )
+  // Junk on another character passes through the vault on its way over, so
+  // the vault needs one free slot beyond what the stash fills.
+  const passing = batched.some(
+    ({ item }) => item.location === "character" && item.characterId !== characterId,
   )
   const after = inv.vaultCount + stash.length
   return {
@@ -98,7 +130,7 @@ export const plan = (inv: Inventory, characterId: string, capacity: number): Cle
       returnable: stash.filter((e) => !e.junk).length,
       equippedJunk: junk.filter((i) => i.equipped).map((i) => i.name),
       vault: { count: inv.vaultCount, capacity, after },
-      fits: after <= capacity,
+      fits: after + (passing ? 1 : 0) <= capacity,
     }),
   }
 }
@@ -170,6 +202,7 @@ export const reconcile = (s: CleanupSession, inv: Inventory, now: string): Clean
   }
   const inVault = (id: string) => owned.get(id)?.location === "vault"
   const handing = s.stage === "delivering" || s.stage === "paused"
+  const complete = vaultRead(s, inv)
 
   const stash = s.stash.map((e) => {
     if (PENDING_STASH.has(e.state) && inVault(e.itemInstanceId)) {
@@ -183,7 +216,7 @@ export const reconcile = (s: CleanupSession, inv: Inventory, now: string): Clean
 
   const junk = s.junk.map((e) => {
     const id = e.itemInstanceId
-    if ((UNRESOLVED_JUNK.has(e.state) || e.state === "failed") && !owned.has(id))
+    if (complete && (UNRESOLVED_JUNK.has(e.state) || e.state === "failed") && !owned.has(id))
       return new JunkEntry({ ...e, state: "deleted" })
     if (e.state === "keeping" && inVault(id)) return new JunkEntry({ ...e, state: "kept" })
     if (e.state === "skipping" && inVault(id)) return new JunkEntry({ ...e, state: "skipped" })
@@ -319,9 +352,13 @@ export const command = (
   now: string,
 ): Result.Result<CleanupSession, string> => {
   const { from, to } = COMMANDS[name]
-  return from.has(s.stage)
-    ? Result.succeed(advance(withStage(s, to), now))
-    : Result.fail(`Cannot ${name} a cleanup that is ${s.stage}.`)
+  if (!from.has(s.stage)) return Result.fail(`Cannot ${name} a cleanup that is ${s.stage}.`)
+  // Stopping after gear was stashed ends like a finished cleanup, so the
+  // player can still have it returned instead of finding it in the vault.
+  if (name === "stop" && s.stash.some(returnable)) {
+    return Result.succeed(withStage(s, "finished", { finishedAt: now }))
+  }
+  return Result.succeed(advance(withStage(s, to), now))
 }
 
 const handingOver = (s: CleanupSession) => s.stage === "delivering" || s.stage === "paused"

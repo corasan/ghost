@@ -34,6 +34,7 @@ import {
 } from "../bungie/manifest.ts"
 import { ARMOR_STATS } from "../bungie/masterwork.ts"
 import { plugStatMods } from "../bungie/loadout.ts"
+import { Loadouts } from "../bungie/loadouts.ts"
 import { socketsNow } from "../bungie/mods.ts"
 import { ProfileStore } from "../bungie/profile.ts"
 import { isActive, setBonusesFor } from "../bungie/sets.ts"
@@ -42,9 +43,11 @@ import { CreatorNotes } from "../creators/creators.ts"
 import { NOTE_MAX_AGE_DAYS } from "../creators/parse.ts"
 import { plan } from "../cleanup/engine.ts"
 import { ChargeEffects } from "../db/charge.ts"
+import { BuildsRepo } from "../db/builds.ts"
 import { JobsRepo } from "../db/jobs.ts"
 import { PerkRatings } from "../db/perk-ratings.ts"
 import { cleanupRows, flagged, unrated } from "../junk/proposal.ts"
+import { inUse } from "../junk/judge.ts"
 import { JunkJudge } from "../junk/service.ts"
 import {
   BuildRefusal,
@@ -770,6 +773,8 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
     const artifacts = yield* Artifacts
     const junk = yield* JunkJudge
     const ratings = yield* PerkRatings
+    const builds = yield* BuildsRepo
+    const loadouts = yield* Loadouts
 
     const withInventory = (f: (inv: Inventory) => Effect.Effect<string>) =>
       profile.inventory.pipe(
@@ -1250,7 +1255,16 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
             const character = pickCharacter(inv, characterId)
             if (character === undefined) return "Error: this account has no characters."
             const capacities = yield* manifest.capacities
-            const { preview } = plan(inv, character.characterId, capacities.vault)
+            const used = yield* Effect.result(
+              Effect.all([builds.list.pipe(Effect.orDie), loadouts.current]),
+            )
+            if (used._tag === "Failure") return explain(used.failure)
+            const { preview } = plan(
+              inv,
+              character.characterId,
+              capacities.vault,
+              inUse(...used.success),
+            )
             if (preview.junk === 0) {
               return "Nothing is tagged junk, so there is nothing to offer. Call find_junk and propose its rows with present_plan kind cleanup."
             }
