@@ -6,6 +6,8 @@ export interface AppConfigValues {
   readonly dataDir: string
   readonly model: string
   readonly effort: string
+  /** The Claude Code executable the agent runs; empty uses the one bundled with the SDK. */
+  readonly claudePath: string
   /** Comma-separated @handles, UC… channel ids or names to search; empty turns creator notes off. */
   readonly youtubeChannels: string
   readonly bungie: {
@@ -30,6 +32,7 @@ const config = Config.all({
   dataDir: Config.String("GHOST_DATA_DIR").pipe(Config.withDefault("./data")),
   model: Config.String("GHOST_MODEL").pipe(Config.withDefault("claude-sonnet-5-5")),
   effort: Config.String("GHOST_EFFORT").pipe(Config.withDefault("high")),
+  claudePath: Config.String("GHOST_CLAUDE_PATH").pipe(Config.withDefault("")),
   youtubeChannels: Config.String("GHOST_YOUTUBE_CHANNELS").pipe(
     Config.withDefault("@Datto,@CammyCakes,@FalloutPlays,Aegis Destiny 2"),
   ),

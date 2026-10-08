@@ -294,6 +294,7 @@ const ConfigTest = Layer.succeed(AppConfig, {
   dataDir,
   model: "test",
   effort: "low",
+  claudePath: "",
   youtubeChannels: "",
   bungie: { apiKey: Redacted.make(""), clientId: "", clientSecret: Redacted.make("") },
   jev: { apiKey: Redacted.make(""), model: "test" },

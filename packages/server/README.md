@@ -3,7 +3,7 @@
 Bun + Effect 4. Start with `bun run dev` (watch mode) or `bun run start`.
 
 ```
-src/main.ts         wires every layer and starts the Bun HTTP server
+src/server.ts       wires every layer into the server (src/main.ts runs it)
 src/config.ts       env vars, with defaults for a zero-config local run
 src/db/             SQLite client, migrations, and the three repositories
 src/bungie/         Bungie Platform client with OAuth token refresh
