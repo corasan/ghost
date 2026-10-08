@@ -73,6 +73,35 @@ export const toSource = (s: typeof SourceInput.Type) =>
 
 const ELEMENTS: ReadonlySet<DamageType> = new Set(["arc", "solar", "void", "stasis", "strand"])
 
+/** The icon of the plug named `name` among the weapon's sockets. */
+export const perkIcon = (
+  item: Pick<OwnedItem, "plugHashes">,
+  name: string,
+  defs: ReadonlyMap<number, ManifestItem>,
+) => item.plugHashes.map((hash) => defs.get(hash)).find((def) => def?.name === name)?.icon ?? null
+
+/** Fills in perk icons a plan was saved without, from the weapons as they are now. */
+export const withPerkIcons = (
+  plan: Plan,
+  items: ReadonlyMap<string, Pick<OwnedItem, "plugHashes">>,
+  defs: ReadonlyMap<number, ManifestItem>,
+): Plan =>
+  new Plan({
+    ...plan,
+    rows: plan.rows.map((row) => {
+      const item = items.get(row.itemInstanceId)
+      if (item === undefined || row.perks === undefined) return row
+      return new PlanRow({
+        ...row,
+        perks: row.perks.map((perk) =>
+          perk.icon !== undefined
+            ? perk
+            : new PlanPerk({ ...perk, icon: perkIcon(item, perk.name, defs) }),
+        ),
+      })
+    }),
+  })
+
 type BuildWeapon = Pick<OwnedItem, "name" | "typeName" | "damageType">
 
 const weaponLine = (weapon: BuildWeapon, element: DamageType | undefined) =>
@@ -405,6 +434,9 @@ export const composeBuild = (
         ? pieces.filter(({ item }) => isWeapon(item.slot)).map(({ item }) => item)
         : []
     const judged = yield* judgeWeapons(weapons)
+    const perkDefs = yield* manifest
+      .lookup(weapons.flatMap((item) => item.plugHashes))
+      .pipe(Effect.orElseSucceed((): ReadonlyMap<number, ManifestItem> => new Map()))
     const drafted = pieces.map(({ row: r, item }) => {
       const characterId =
         r.action === "pull_postmaster"
@@ -460,7 +492,11 @@ export const composeBuild = (
             ? undefined
             : { used: mods.energyUsed, capacity: item.energy.capacity },
         origin: from === undefined ? undefined : title(from),
-        perks: judged.get(item.itemInstanceId)?.perks.map((perk) => new PlanPerk(perk)),
+        perks: judged
+          .get(item.itemInstanceId)
+          ?.perks.map(
+            (perk) => new PlanPerk({ ...perk, icon: perkIcon(item, perk.name, perkDefs) }),
+          ),
         typeName: judged.has(item.itemInstanceId) ? item.typeName : undefined,
       })
     })

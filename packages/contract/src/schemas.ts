@@ -176,6 +176,8 @@ export class PlanPerk extends Schema.Class<PlanPerk>("PlanPerk")({
   name: Schema.String,
   /** Highlighted as part of what makes the roll good. */
   good: Schema.Boolean,
+  /** Left out by plans saved before perks carried icons. */
+  icon: Schema.optional(Schema.NullOr(Schema.String)),
 }) {}
 
 export class PlanRow extends Schema.Class<PlanRow>("PlanRow")({

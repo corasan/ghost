@@ -321,7 +321,13 @@ function Weapon({ row, applied }: { row: PlanRow; applied: boolean }) {
         <Meta color={row.error ? Ghost.danger : Ghost.muted} style={{ marginTop: 2 }} lines={1}>
           {row.error ?? row.typeName ?? row.meta}
         </Meta>
-        {row.perks && row.perks.length > 0 ? <Perks perks={row.perks} /> : null}
+        {row.perks && row.perks.length > 0 ? (
+          row.perks.every((perk) => perk.icon !== undefined) ? (
+            <ModStrip mods={row.perks} />
+          ) : (
+            <Perks perks={row.perks} />
+          )
+        ) : null}
       </View>
       <RowRight row={row} applied={applied} />
     </Pressable>

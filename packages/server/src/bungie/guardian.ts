@@ -65,7 +65,9 @@ export const GuardianLive = Layer.effect(
         yield* Effect.forEach(
           weaponHashes,
           (hash) =>
-            manifest.weaponPerkSockets(hash).pipe(Effect.map((sockets) => [hash, sockets] as const)),
+            manifest
+              .weaponPerkSockets(hash)
+              .pipe(Effect.map((sockets) => [hash, sockets] as const)),
           { concurrency: 8 },
         ),
       )

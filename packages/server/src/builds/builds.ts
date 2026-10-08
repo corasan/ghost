@@ -33,13 +33,13 @@ import {
   slotsFor,
   validateSlot,
 } from "../bungie/loadouts.ts"
-import { Manifest } from "../bungie/manifest.ts"
+import { Manifest, type ManifestItem } from "../bungie/manifest.ts"
 import { ProfileStore } from "../bungie/profile.ts"
 import { ChargeEffects } from "../db/charge.ts"
 import { BuildsRepo, type StoredBuild } from "../db/builds.ts"
 import { JobsRepo } from "../db/jobs.ts"
 import { title } from "../items/items.ts"
-import { composeBuild } from "../plans/compose.ts"
+import { composeBuild, withPerkIcons } from "../plans/compose.ts"
 import type { BuildRecipe } from "../plans/recipe.ts"
 import { Wishlist } from "../wishlist/wishlist.ts"
 
@@ -204,6 +204,7 @@ export const BuildsLive = Layer.effect(
     const jobs = yield* JobsRepo
     const profile = yield* ProfileStore
     const loadouts = yield* Loadouts
+    const manifest = yield* Manifest
     const composing = yield* Effect.context<
       Manifest | ProfileStore | ChargeEffects | Wishlist | Artifacts
     >()
@@ -211,6 +212,20 @@ export const BuildsLive = Layer.effect(
     const present = (stored: ReadonlyArray<StoredBuild>) =>
       Effect.gen(function* () {
         const live = yield* Effect.option(Effect.all([profile.inventory, loadouts.current]))
+        const items = new Map(
+          Option.match(live, {
+            onNone: () => [],
+            onSome: ([inventory]) => inventory.items.map((item) => [item.itemInstanceId, item]),
+          }),
+        )
+        const weapons = stored.flatMap((build) =>
+          build.plan.rows.flatMap((row) =>
+            row.perks ? (items.get(row.itemInstanceId) ?? []) : [],
+          ),
+        )
+        const defs = yield* manifest
+          .lookup(weapons.flatMap((item) => item.plugHashes))
+          .pipe(Effect.orElseSucceed((): ReadonlyMap<number, ManifestItem> => new Map()))
         return stored.flatMap((build) => {
           const facets = buildFacets(build.plan)
           if (facets === undefined) return []
@@ -229,7 +244,7 @@ export const BuildsLive = Layer.effect(
             new SavedBuild({
               id: build.id,
               name: build.name,
-              plan: build.plan,
+              plan: withPerkIcons(build.plan, items, defs),
               facets,
               readiness: Option.getOrNull(readiness),
               inGame: build.inGame,

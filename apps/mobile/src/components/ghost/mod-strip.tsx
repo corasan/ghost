@@ -3,9 +3,9 @@ import { StyleSheet, View } from "react-native"
 import { PlugIcon } from "@/components/ghost/plug-icon"
 import { Ghost } from "@/constants/theme"
 
-export type StripMod = { name: string; icon?: string | null; swap?: boolean } | null
+export type StripMod = { name: string; icon?: string | null; swap?: boolean; good?: boolean } | null
 
-/** A piece's mods as a row of icons in socket order; null is an empty socket. */
+/** A piece's mods or a weapon's perks as a row of icons in socket order; null is an empty socket. */
 export function ModStrip({ mods }: { mods: readonly StripMod[] }) {
   return (
     <View style={styles.row}>
@@ -13,8 +13,14 @@ export function ModStrip({ mods }: { mods: readonly StripMod[] }) {
         mod ? (
           <View
             key={i}
-            accessibilityLabel={mod.swap ? `${mod.name}, swapped in` : mod.name}
-            style={[styles.slot, mod.swap && { borderColor: Ghost.accent }]}
+            accessibilityLabel={
+              mod.swap ? `${mod.name}, swapped in` : mod.good ? `${mod.name}, good roll` : mod.name
+            }
+            style={[
+              styles.slot,
+              mod.good && { borderColor: Ghost.good },
+              mod.swap && { borderColor: Ghost.accent },
+            ]}
           >
             <PlugIcon icon={mod.icon} size={22} />
           </View>
