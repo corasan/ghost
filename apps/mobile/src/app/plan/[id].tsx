@@ -1,5 +1,7 @@
 import type { Job, Plan, PlanRow } from "@ghost/contract"
+import { LegendList } from "@legendapp/list/react-native"
 import { router, useLocalSearchParams } from "expo-router"
+import type { ReactNode } from "react"
 import { ScrollView, StyleSheet, View } from "react-native"
 
 import { PlanRowView, useConfirmPlan } from "@/components/chat/plan-block"
@@ -35,32 +37,65 @@ const sectionsOf = (plan: Plan): ReadonlyArray<Section> => {
   ].filter((section) => section.rows.length > 0)
 }
 
-function ItemRows({ job, plan }: { job: Job; plan: Plan }) {
+type Entry = { kind: "section"; section: Section } | { kind: "row"; row: PlanRow }
+
+const entriesOf = (plan: Plan): Entry[] =>
+  sectionsOf(plan).flatMap((section) => [
+    { kind: "section" as const, section },
+    ...section.rows.map((row) => ({ kind: "row" as const, row })),
+  ])
+
+function ItemRows({
+  job,
+  plan,
+  notice,
+  bottom,
+}: {
+  job: Job
+  plan: Plan
+  notice: ReactNode
+  bottom: number
+}) {
   const selection = usePlanSelection(job.id, plan)
   const applied = plan.status !== "proposed"
   return (
-    <>
-      <Cond size={24} style={{ letterSpacing: 0.5, marginBottom: 4 }}>
-        {plan.title}
-      </Cond>
-      {plan.subtitle ? <Meta>{plan.subtitle}</Meta> : null}
-      {sectionsOf(plan).map((section) => (
-        <View key={section.label} style={{ marginTop: 22 }}>
-          <Mono style={{ paddingBottom: 8 }}>{section.label}</Mono>
-          {section.note ? <Meta style={{ paddingBottom: 10 }}>{section.note}</Meta> : null}
-          {section.rows.map((row) => (
-            <PlanRowView
-              key={row.itemInstanceId}
-              row={row}
-              applied={applied}
-              ticked={selection.selected.has(row.itemInstanceId)}
-              onToggle={() => selection.toggle(row.itemInstanceId)}
-              metaLines={0}
-            />
-          ))}
-        </View>
-      ))}
-    </>
+    <LegendList
+      data={entriesOf(plan)}
+      keyExtractor={(entry) =>
+        entry.kind === "section" ? entry.section.label : entry.row.itemInstanceId
+      }
+      getItemType={(entry) => entry.kind}
+      recycleItems
+      extraData={selection.selected}
+      contentContainerStyle={[styles.content, { paddingBottom: bottom }]}
+      ListHeaderComponent={
+        <>
+          {notice}
+          <Cond size={24} style={{ letterSpacing: 0.5, marginBottom: 4 }}>
+            {plan.title}
+          </Cond>
+          {plan.subtitle ? <Meta>{plan.subtitle}</Meta> : null}
+        </>
+      }
+      renderItem={({ item: entry }) =>
+        entry.kind === "section" ? (
+          <View style={{ marginTop: 22 }}>
+            <Mono style={{ paddingBottom: 8 }}>{entry.section.label}</Mono>
+            {entry.section.note ? (
+              <Meta style={{ paddingBottom: 10 }}>{entry.section.note}</Meta>
+            ) : null}
+          </View>
+        ) : (
+          <PlanRowView
+            row={entry.row}
+            applied={applied}
+            ticked={selection.selected.has(entry.row.itemInstanceId)}
+            onToggle={() => selection.toggle(entry.row.itemInstanceId)}
+            metaLines={0}
+          />
+        )
+      }
+    />
   )
 }
 
@@ -109,20 +144,23 @@ export default function PlanDetailsScreen() {
     )
   }
 
+  const notice = substituted ? (
+    <Body size={13} color={Ghost.gold} style={styles.substituted}>
+      {`Another copy of ${substituted.split("\n").join(", ")} stands in for the one you saved, which is gone.`}
+    </Body>
+  ) : null
+  const bottom = footer.height + 28
+
   return (
     <View collapsable={false} style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: footer.height + 28 }]}>
-        {substituted ? (
-          <Body size={13} color={Ghost.gold} style={styles.substituted}>
-            {`Another copy of ${substituted.split("\n").join(", ")} stands in for the one you saved, which is gone.`}
-          </Body>
-        ) : null}
-        {plan.kind === "build" ? (
+      {plan.kind === "build" ? (
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: bottom }]}>
+          {notice}
           <BuildSections plan={plan} />
-        ) : (
-          <ItemRows job={job.data} plan={plan} />
-        )}
-      </ScrollView>
+        </ScrollView>
+      ) : (
+        <ItemRows job={job.data} plan={plan} notice={notice} bottom={bottom} />
+      )}
       <View collapsable={false} onLayout={footer.onLayout} style={styles.footerSlot}>
         <Footer job={job.data} plan={plan} inset={bottomInset} />
       </View>
