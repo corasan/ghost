@@ -97,9 +97,31 @@ export const ProfileStoreLive = Layer.effect(
       return { inventory, plugSets }
     })
 
-    const [cached, invalidate] = yield* Effect.cachedInvalidateWithTTL(load, "30 seconds")
+    // A load already in flight when something moved read the profile before
+    // the move. Each load notes the generation it started in, and one that
+    // started before the latest invalidate is dropped and loaded again
+    // rather than cached for 30 seconds.
+    let generation = 0
+    const tagged = Effect.suspend(() => {
+      const started = generation
+      return Effect.map(load, (profile) => ({ ...profile, generation: started }))
+    })
+    const [cached, forget] = yield* Effect.cachedInvalidateWithTTL(tagged, "30 seconds")
+    const invalidate = Effect.sync(() => {
+      generation += 1
+    }).pipe(Effect.andThen(forget))
     // A failure (not linked yet, Bungie down) must not stick for 30 seconds.
-    const loaded = cached.pipe(Effect.tapError(() => invalidate))
+    const loaded: Effect.Effect<
+      Effect.Success<typeof tagged>,
+      Effect.Error<typeof tagged>
+    > = cached.pipe(
+      Effect.tapError(() => forget),
+      Effect.flatMap((profile) =>
+        profile.generation === generation
+          ? Effect.succeed(profile)
+          : forget.pipe(Effect.andThen(Effect.suspend(() => loaded))),
+      ),
+    )
     const inventory = Effect.map(loaded, (profile) => profile.inventory)
     const plugSets = Effect.map(loaded, (profile) => profile.plugSets)
 
