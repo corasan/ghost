@@ -9,8 +9,8 @@ import {
 import { Context, Effect, Layer, Redacted, Schema } from "effect"
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http"
 import { AppConfig } from "../config.ts"
-import { BungieError, BungieClient } from "./client.ts"
-import { ProfileStore } from "./profile.ts"
+import { BungieClient, BungieError, PLATFORM_TIMEOUT, retryPolicy, timeoutAfter } from "./client.ts"
+import { Membership } from "./membership.ts"
 
 const EMPTY_ID = "0"
 
@@ -211,7 +211,7 @@ export const LoadoutsLive = Layer.effect(
   Effect.gen(function* () {
     const config = yield* AppConfig
     const bungie = yield* BungieClient
-    const profile = yield* ProfileStore
+    const membership = (yield* Membership).current
     const http = (yield* HttpClient.HttpClient).pipe(
       HttpClient.mapRequest(
         HttpClientRequest.setHeader("X-API-Key", Redacted.value(config.bungie.apiKey)),
@@ -222,12 +222,17 @@ export const LoadoutsLive = Layer.effect(
     const fetchJson = <S extends Schema.Constraint>(url: string, schema: S) =>
       http
         .get(url)
-        .pipe(Effect.flatMap(HttpClientResponse.schemaBodyJson(schema)), Effect.mapError(transport))
+        .pipe(
+          Effect.flatMap(HttpClientResponse.schemaBodyJson(schema)),
+          Effect.mapError(transport),
+          timeoutAfter(PLATFORM_TIMEOUT),
+          Effect.retry(retryPolicy(true)),
+        )
 
     const load = Effect.gen(function* () {
-      const inv = yield* profile.inventory
+      const { membershipType, membershipId } = yield* membership
       const raw = yield* bungie.get(
-        `/Destiny2/${inv.membershipType}/Profile/${inv.membershipId}/?components=${LOADOUT_COMPONENTS.join(",")}`,
+        `/Destiny2/${membershipType}/Profile/${membershipId}/?components=${LOADOUT_COMPONENTS.join(",")}`,
       )
       const response = yield* Schema.decodeUnknownEffect(LoadoutsResponse)(raw).pipe(
         Effect.catch((cause) =>

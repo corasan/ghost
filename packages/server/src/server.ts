@@ -18,6 +18,7 @@ import { BungieClientLive } from "./bungie/client.ts"
 import { GuardianLive } from "./bungie/guardian.ts"
 import { LoadoutsLive } from "./bungie/loadouts.ts"
 import { ManifestLive } from "./bungie/manifest.ts"
+import { MembershipLive } from "./bungie/membership.ts"
 import { ProfileRefreshLive, ProfileStoreLive } from "./bungie/profile.ts"
 import { AppConfig, AppConfigLive } from "./config.ts"
 import { CreatorNotesLive, CreatorRefreshLive } from "./creators/creators.ts"
@@ -61,7 +62,10 @@ const Clients = Layer.mergeAll(
   JevLive,
 ).pipe(Layer.provideMerge(AgentConfigLive), Layer.provideMerge(Repositories))
 
-const Profile = Layer.mergeAll(ProfileStoreLive, CreatorNotesLive).pipe(Layer.provideMerge(Clients))
+const Profile = Layer.mergeAll(ProfileStoreLive, CreatorNotesLive).pipe(
+  Layer.provideMerge(MembershipLive),
+  Layer.provideMerge(Clients),
+)
 
 const Reads = LoadoutsLive.pipe(Layer.provideMerge(Profile))
 
