@@ -313,7 +313,7 @@ export const authGroup = HttpApiGroup.make("auth")
   .add(HttpApiEndpoint.get("start", "/auth/bungie/start", { success: BungieAuthStart }))
   .add(
     HttpApiEndpoint.get("callback", "/auth/bungie/callback", {
-      query: { code: Schema.String },
+      query: { code: Schema.String, state: Schema.String },
       success: BungieAuthResult,
       error: BungieAuthFailed,
     }),
