@@ -1,6 +1,7 @@
 import { existsSync, openSync, readSync, closeSync, statSync } from "node:fs"
 import { Console, Effect, Layer, Option } from "effect"
 import {
+  BILLING_KEYS,
   CliFailure,
   claimPidFile,
   health,
@@ -63,6 +64,7 @@ export const runForeground = (home: GhostHome) =>
       yield* needsSetup(home)
       const settings = settingsOf(home)
       for (const [key, value] of serverEnv(home, settings)) process.env[key] = value
+      for (const key of BILLING_KEYS) delete process.env[key]
       const port = portOf(settings)
       yield* claimPidFile(home, port)
       // The process that puts Ghost on the tailnet takes it off again on the way out.

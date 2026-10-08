@@ -3,7 +3,7 @@ import { Console, Effect, Option, Redacted, Schema, Terminal } from "effect"
 import { Prompt } from "effect/cli"
 import { BUNGIE_APPS, callbackPath, verifyApiKey } from "./bungie.ts"
 import { type Settings, writeSettings } from "./config-file.ts"
-import { portOf, serverState, settingsOf } from "./daemon.ts"
+import { BILLING_KEYS, portOf, serverState, settingsOf } from "./daemon.ts"
 import type { GhostHome } from "./home.ts"
 import { findClaude, isMac, isRoot, locate, run, runInteractive } from "./shell.ts"
 import { tailnet, tailnetUrl } from "./tailscale.ts"
@@ -25,6 +25,7 @@ export interface Machine {
 export type RequirementId =
   | "claude"
   | "claude-login"
+  | "api-key"
   | "tailscale"
   | "tailscale-up"
   | "tailscale-https"
@@ -131,6 +132,30 @@ const claudeLogin: Requirement = {
         : missing("not signed in", "Run: claude auth login")
     }),
   resolve: () => runIf("Sign in to Claude now?", [findClaude() ?? "claude", "auth", "login"]),
+}
+
+// Ghost drops these before starting the server, so this only warns: the same
+// shell would bill API credits for any other Claude Code run.
+const apiKey: Requirement = {
+  id: "api-key",
+  name: "Claude billing",
+  optional: true,
+  needs: null,
+  check: () =>
+    Effect.sync(() => {
+      const set = BILLING_KEYS.filter((key) => (process.env[key] ?? "") !== "")
+      return set.length === 0
+        ? ready("no API key in this shell, so runs use your subscription")
+        : missing(
+            `${set.join(" and ")} ${set.length === 1 ? "is" : "are"} set in this shell; Ghost ignores ${set.length === 1 ? "it" : "them"} and uses your subscription`,
+            `Remove ${set.join(" and ")} from your shell profile unless you meant to bill API credits`,
+          )
+    }),
+  resolve: () =>
+    say(
+      "Claude Code bills an API key in the environment instead of your subscription.",
+      "Ghost does not pass it to the server, but other Claude Code runs from this shell will use it.",
+    ),
 }
 
 const tailscale: Requirement = {
@@ -360,6 +385,7 @@ const typesafe: Requirement = {
 export const requirements: ReadonlyArray<Requirement> = [
   claude,
   claudeLogin,
+  apiKey,
   tailscale,
   tailscaleUp,
   tailscaleHttps,

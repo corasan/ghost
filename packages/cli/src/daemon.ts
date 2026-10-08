@@ -119,6 +119,12 @@ export const portOf = (settings: Settings) => {
   return Number.isInteger(port) && port > 0 && port < 65536 ? port : 4848
 }
 
+/**
+ * Claude Code prefers an API key over the subscription login, so a key
+ * exported in the shell would quietly bill API credits for every run.
+ */
+export const BILLING_KEYS = ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"] as const
+
 /** What the server process sees: the shell beats config.env, which beats the CLI's defaults. */
 export const serverEnv = (home: GhostHome, settings: Settings) => {
   const env = new Map([["GHOST_DATA_DIR", home.data]])
@@ -127,6 +133,7 @@ export const serverEnv = (home: GhostHome, settings: Settings) => {
   for (const [key, value] of settings) env.set(key, value)
   for (const [key, value] of Object.entries(process.env))
     if (value !== undefined) env.set(key, value)
+  for (const key of BILLING_KEYS) env.delete(key)
   return env
 }
 
