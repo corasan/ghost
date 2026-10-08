@@ -88,6 +88,9 @@ export const PERSISTED = new Set([
   "builds",
 ])
 
+// The server counts "actions today" from midnight where the player is.
+const localTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
+
 const HEALTH_TIMEOUT_MS = 8_000
 
 // Health doubles as a latency probe for the "MCP · LOCAL · 12MS" line in the menu.
@@ -244,7 +247,11 @@ export function useBriefing(characterId: string | undefined) {
   return useQuery({
     queryKey: queryKeys.briefing(url, characterId),
     queryFn: () =>
-      run((api) => api.guardian.briefing({ query: characterId ? { characterId } : {} })),
+      run((api) =>
+        api.guardian.briefing({
+          query: { ...(characterId ? { characterId } : {}), tz: localTimeZone },
+        }),
+      ),
     staleTime: 60_000,
     refetchInterval: 5 * 60_000,
     retry: false,
