@@ -31,6 +31,11 @@ export interface JunkJudgeService {
     Option.Option<{ readonly item: OwnedItem; readonly columns: RatedColumns }>,
     JudgeErrors
   >
+  /** Rates the named perks of one weapon the way judging rates its traits, each column ranked on its own. */
+  readonly rateColumns: (
+    item: OwnedItem,
+    columns: ReadonlyArray<ReadonlyArray<string>>,
+  ) => Effect.Effect<RatedColumns, JudgeErrors>
 }
 
 export class JunkJudge extends Context.Service<JunkJudge, JunkJudgeService>()("JunkJudge") {}
@@ -45,7 +50,10 @@ export const JunkJudgeLive = Layer.effect(
     const manifest = yield* Manifest
     const ratings = yield* PerkRatings
 
-    const rate = (weapons: ReadonlyArray<OwnedItem>) =>
+    const rate = (
+      weapons: ReadonlyArray<OwnedItem>,
+      columnsOf: (item: OwnedItem) => ReadonlyArray<ReadonlyArray<string>> = (item) => item.traits,
+    ) =>
       Effect.gen(function* () {
         const rolls = yield* wishlist.rollsFor(weapons.map((item) => item.itemHash))
         const recommended = yield* wishlist.recommended
@@ -102,7 +110,7 @@ export const JunkJudgeLive = Layer.effect(
         for (const item of weapons) {
           const tops = columnTops.get(item.itemHash) ?? []
           const wishlisted = known.get(item.itemHash)?.wishlisted
-          item.traits.forEach((column, index) => {
+          columnsOf(item).forEach((column, index) => {
             const top = tops[index] ?? { pve: 0, pvp: 0 }
             for (const name of column) {
               for (const purpose of PURPOSES) {
@@ -120,7 +128,7 @@ export const JunkJudgeLive = Layer.effect(
             const tops = columnTops.get(item.itemHash) ?? []
             return [
               item.itemInstanceId,
-              item.traits.map((column, index) =>
+              columnsOf(item).map((column, index) =>
                 column.map((name) => ratePerk(name, knowing, tops[index] ?? { pve: 0, pvp: 0 })),
               ),
             ]
@@ -175,6 +183,11 @@ export const JunkJudgeLive = Layer.effect(
         return Option.some({ item, columns: columns.get(itemInstanceId) ?? [] })
       })
 
-    return { judgeVault, perksOf }
+    const rateColumns = (item: OwnedItem, columns: ReadonlyArray<ReadonlyArray<string>>) =>
+      rate([item], () => columns).pipe(
+        Effect.map((rated) => rated.columns.get(item.itemInstanceId) ?? []),
+      )
+
+    return { judgeVault, perksOf, rateColumns }
   }),
 )

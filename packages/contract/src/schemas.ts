@@ -949,6 +949,61 @@ export const SetPerkRating = Schema.Struct({
 })
 export type SetPerkRating = typeof SetPerkRating.Type
 
+/** What a perk adds to or takes from one weapon stat. */
+export class StatChange extends Schema.Class<StatChange>("StatChange")({
+  stat: Schema.String,
+  value: Schema.Number,
+}) {}
+
+export class WeaponPerk extends Schema.Class<WeaponPerk>("WeaponPerk")({
+  name: Schema.String,
+  /** Effect text from the current patch's manifest. */
+  description: Schema.String,
+  icon: Schema.NullOr(Schema.String),
+  plugHash: Schema.Number,
+  enhanced: Schema.Boolean,
+  /** In the socket on this copy now. */
+  active: Schema.Boolean,
+  /** This copy rolled it, so it can be swapped in for free. */
+  rolled: Schema.Boolean,
+  stats: Schema.Array(StatChange),
+  good: Schema.Array(Purpose),
+  /** Who rated it; null when nothing does. */
+  source: Schema.NullOr(PerkRatingSource),
+}) {}
+
+/** One perk socket with every perk the weapon can roll there, the active one first among equals in pool order. */
+export class PerkColumn extends Schema.Class<PerkColumn>("PerkColumn")({
+  /** Short, for example "BARREL", "MAG", "TRAIT 1" or "ORIGIN". */
+  label: Schema.String,
+  socketIndex: Schema.Number,
+  perks: Schema.Array(WeaponPerk),
+}) {}
+
+export class WeaponStat extends Schema.Class<WeaponStat>("WeaponStat")({
+  name: Schema.String,
+  value: Schema.Number,
+  /** How much of the value the active perks bring. */
+  fromPerks: Schema.Number,
+  /** Shown as a 0-100 bar; false for counts such as RPM and magazine size. */
+  bar: Schema.Boolean,
+}) {}
+
+/** A weapon's perks socket by socket, rated, with its stats. */
+export class WeaponSheet extends Schema.Class<WeaponSheet>("WeaponSheet")({
+  columns: Schema.Array(PerkColumn),
+  stats: Schema.Array(WeaponStat),
+}) {}
+
+/** Perks to swap in. A weapon in the vault goes to `characterId` first, since only carried weapons take perks. */
+export const ApplyPerks = Schema.Struct({
+  characterId: Schema.String,
+  plugs: Schema.NonEmptyArray(
+    Schema.Struct({ socketIndex: Schema.Number, plugHash: Schema.Number }),
+  ),
+})
+export type ApplyPerks = typeof ApplyPerks.Type
+
 export class JudgeUnavailable extends Schema.TaggedError<JudgeUnavailable>()("JudgeUnavailable", {
   reason: Schema.String,
 }) {}

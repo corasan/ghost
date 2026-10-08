@@ -49,6 +49,8 @@ const owned = (id: string, slot: ItemSlot, fields: Partial<OwnedItem> = {}): Own
   },
   plugHashes: [],
   modSockets: [],
+  weaponSockets: [],
+  weaponStats: {},
   energy: null,
   exoticPerk: null,
   intrinsics: [],

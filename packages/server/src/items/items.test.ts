@@ -130,6 +130,8 @@ describe("pieceSetBonuses", () => {
     armorStats: null,
     plugHashes: [],
     modSockets: [],
+    weaponSockets: [],
+    weaponStats: {},
     energy: null,
     exoticPerk: null,
     intrinsics: [],

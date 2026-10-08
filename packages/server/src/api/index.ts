@@ -121,6 +121,19 @@ const ItemsApiLive = HttpApiBuilder.group(GhostApi, "items", (handlers) =>
       ),
     )
     .handle("perks", ({ params }) => weaponPerks(params.id))
+    .handle("sheet", ({ params }) =>
+      Effect.flatMap(Items, (items) => items.sheet(params.id)).pipe(
+        Effect.catchTag("BungieError", toBungieFailed),
+        Effect.catchTag("WishlistError", (e) =>
+          Effect.fail(new JudgeUnavailable({ reason: e.message })),
+        ),
+      ),
+    )
+    .handle("applyPerks", ({ params, payload }) =>
+      Effect.flatMap(Items, (items) => items.applyPerks(params.id, payload)).pipe(
+        Effect.catchTag("BungieError", toBungieFailed),
+      ),
+    )
     .handle("ratePerk", ({ params, payload }) =>
       Effect.gen(function* () {
         const current = yield* weaponPerks(params.id)

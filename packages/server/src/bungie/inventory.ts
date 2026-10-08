@@ -145,6 +145,18 @@ export type OwnedItem = Schema.Struct.Type<typeof ItemSummary.fields> & {
   readonly tuning: Tuning | null
   /** Weapons only: each trait column's perks, every option the column can slot, not just the selected one. */
   readonly traits: ReadonlyArray<ReadonlyArray<string>>
+  /** Weapons only: every visible socket with a plug, in socket order. */
+  readonly weaponSockets: ReadonlyArray<WeaponSocket>
+  /** Weapons only: the stats the game shows, keyed by stat hash. */
+  readonly weaponStats: Readonly<Record<string, number>>
+}
+
+export interface WeaponSocket {
+  /** Position among the item's sockets, which is how Bungie addresses it. */
+  readonly index: number
+  readonly plugHash: number
+  /** Plugs this copy rolled for the socket, which it can swap in for free. */
+  readonly rolled: ReadonlyArray<number>
 }
 
 export interface ModSocket {
@@ -512,6 +524,25 @@ export const buildInventory = (
           return [[...new Set([selected.name, ...options])]]
         })
       : []
+    const weaponSockets = isWeapon(slot)
+      ? (sockets[id]?.sockets ?? []).flatMap((socket, index): Array<WeaponSocket> =>
+          socket.plugHash === undefined || socket.isVisible === false
+            ? []
+            : [
+                {
+                  index,
+                  plugHash: socket.plugHash,
+                  rolled: (reusable[id]?.plugs[String(index)] ?? []).map(
+                    (plug) => plug.plugItemHash,
+                  ),
+                },
+              ],
+        )
+      : []
+    const weaponStats =
+      isWeapon(slot) && rawStats !== undefined
+        ? Object.fromEntries(Object.entries(rawStats).map(([hash, stat]) => [hash, stat.value]))
+        : {}
     const state = raw.state ?? 0
     const memory = seen.get(id)
     return {
@@ -576,6 +607,8 @@ export const buildInventory = (
           )
         : null,
       traits,
+      weaponSockets,
+      weaponStats,
     }
   })
 

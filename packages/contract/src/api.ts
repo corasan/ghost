@@ -39,6 +39,8 @@ import {
   SetDecision,
   JudgeUnavailable,
   SetPerkRating,
+  WeaponSheet,
+  ApplyPerks,
   WeaponPerks,
   CleanupItems,
   ReviewItem,
@@ -152,6 +154,21 @@ export const itemsGroup = HttpApiGroup.make("items")
       payload: SetPerkRating,
       success: WeaponPerks,
       error: perkErrors,
+    }),
+  )
+  .add(
+    HttpApiEndpoint.get("sheet", "/items/:id/sheet", {
+      params: { id: Schema.String },
+      success: WeaponSheet,
+      error: perkErrors,
+    }),
+  )
+  .add(
+    HttpApiEndpoint.post("applyPerks", "/items/:id/perks/apply", {
+      params: { id: Schema.String },
+      payload: ApplyPerks,
+      success: Job,
+      error: [ItemNotFound.pipe(HttpApiSchema.status(404)), ...planErrors],
     }),
   )
 

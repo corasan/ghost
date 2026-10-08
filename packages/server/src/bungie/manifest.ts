@@ -123,12 +123,71 @@ const PlugDefinition = Schema.Struct({
   sockets: Schema.optionalKey(
     Schema.Struct({
       socketEntries: Schema.optionalKey(
-        Schema.Array(Schema.Struct({ reusablePlugSetHash: optionalNumber })),
+        Schema.Array(
+          Schema.Struct({
+            reusablePlugSetHash: optionalNumber,
+            randomizedPlugSetHash: optionalNumber,
+          }),
+        ),
+      ),
+      socketCategories: Schema.optionalKey(
+        Schema.Array(
+          Schema.Struct({
+            socketCategoryHash: optionalNumber,
+            socketIndexes: Schema.optionalKey(Schema.Array(Schema.Number)),
+          }),
+        ),
       ),
     }),
   ),
 })
 export type PlugDefinition = typeof PlugDefinition.Type
+
+const PlugSetDefinition = Schema.Struct({
+  reusablePlugItems: Schema.optionalKey(
+    Schema.Array(
+      Schema.Struct({
+        plugItemHash: Schema.Number,
+        currentlyCanRoll: Schema.optionalKey(Schema.Boolean),
+      }),
+    ),
+  ),
+})
+
+/** The socket category Bungie files a weapon's barrel, magazine, trait and origin sockets under. */
+export const WEAPON_PERKS_CATEGORY = 4241085061
+
+/** A weapon socket that slots perks, with every plug its perk pool can roll today. */
+export interface PerkPool {
+  readonly index: number
+  readonly pool: ReadonlyArray<number>
+}
+
+/** Which sockets a weapon definition files as perks, with the plug set each one draws from. */
+export const perkSocketsOf = (
+  definition: PlugDefinition,
+): ReadonlyArray<{ readonly index: number; readonly plugSetHash: number | null }> => {
+  const entries = definition.sockets?.socketEntries ?? []
+  const indexes =
+    definition.sockets?.socketCategories?.find(
+      (category) => category.socketCategoryHash === WEAPON_PERKS_CATEGORY,
+    )?.socketIndexes ?? []
+  return indexes.map((index) => ({
+    index,
+    plugSetHash:
+      entries[index]?.randomizedPlugSetHash ?? entries[index]?.reusablePlugSetHash ?? null,
+  }))
+}
+
+/** What a plug adds to or takes from each stat, weapon stats included, leaving out changes that only apply in some conditions. */
+export const investmentOf = (definition: PlugDefinition): StatMods =>
+  Object.fromEntries(
+    (definition.investmentStats ?? []).flatMap((stat) =>
+      stat.statTypeHash !== undefined && stat.value && !stat.isConditionallyActive
+        ? [[String(stat.statTypeHash), stat.value]]
+        : [],
+    ),
+  )
 
 const KeywordFacts = Schema.Struct({
   name: Schema.String,
@@ -311,6 +370,12 @@ export interface ManifestService {
   ) => Effect.Effect<ReadonlyMap<number, PlugFacts>>
   /** The plug set each socket of a subclass draws from, in socket order; null where it has none or Bungie cannot be asked. Never fails. */
   readonly subclassPlugSets: (hash: number) => Effect.Effect<ReadonlyArray<number | null>>
+  /** A weapon's perk sockets in socket order, each with the plugs it can roll. Empty when Bungie cannot be asked. Never fails. */
+  readonly weaponPerkPools: (itemHash: number) => Effect.Effect<ReadonlyArray<PerkPool>>
+  /** What each plug adds to or takes from each stat, weapon stats included. A plug Bungie cannot be asked about is left out. Never fails. */
+  readonly plugInvestments: (
+    hashes: ReadonlyArray<number>,
+  ) => Effect.Effect<ReadonlyMap<number, StatMods>>
   /** Every armor mod that fits a build socket. Slow the first time after a patch, then stored. Never fails. */
   readonly armorMods: Effect.Effect<ReadonlyArray<ArmorModEntry>>
   /** Armor sets with their bonuses resolved. Slow the first time after a patch, then stored. Never fails. */
@@ -461,6 +526,7 @@ type ManifestIndex = typeof ManifestIndex.Type
 
 const LiteDefinitions = Schema.Record(Schema.String, LiteDefinition)
 const PlugEnvelope = Schema.Struct({ Response: Schema.optionalKey(PlugDefinition) })
+const PlugSetEnvelope = Schema.Struct({ Response: Schema.optionalKey(PlugSetDefinition) })
 const IndexEnvelope = Schema.Struct({ Response: ManifestIndex })
 const StoredElementIcons = Schema.Record(Schema.String, Schema.String)
 
@@ -571,6 +637,70 @@ export const ManifestLive = Layer.effect(
         `https://www.bungie.net/Platform/Destiny2/Manifest/${table}/${hash}/`,
         PlugEnvelope,
       ).pipe(Effect.map((json) => json.Response ?? {}))
+
+    const perkPools = new Map<number, ReadonlyArray<PerkPool>>()
+
+    const weaponPerkPools = (itemHash: number) =>
+      Effect.gen(function* () {
+        const known = perkPools.get(itemHash)
+        if (known !== undefined) return known
+        const sockets = perkSocketsOf(yield* entity("DestinyInventoryItemDefinition", itemHash))
+        const pools = yield* Effect.forEach(
+          sockets,
+          ({ index, plugSetHash }) =>
+            plugSetHash === null
+              ? Effect.succeed({ index, pool: [] })
+              : fetchJson(
+                  `https://www.bungie.net/Platform/Destiny2/Manifest/DestinyPlugSetDefinition/${plugSetHash}/`,
+                  PlugSetEnvelope,
+                ).pipe(
+                  Effect.map((json) => ({
+                    index,
+                    pool: [
+                      ...new Set(
+                        (json.Response?.reusablePlugItems ?? [])
+                          .filter((plug) => plug.currentlyCanRoll !== false)
+                          .map((plug) => plug.plugItemHash),
+                      ),
+                    ],
+                  })),
+                ),
+          { concurrency: 4 },
+        )
+        perkPools.set(itemHash, pools)
+        return pools
+      }).pipe(
+        Effect.catch((error) =>
+          Effect.logWarning(`manifest: weapon ${itemHash} failed: ${error.message}`).pipe(
+            Effect.as([]),
+          ),
+        ),
+      )
+
+    const investments = new Map<number, StatMods>()
+
+    const plugInvestments = (hashes: ReadonlyArray<number>) =>
+      Effect.forEach(
+        [...new Set(hashes)].filter((hash) => !investments.has(hash)),
+        (hash) =>
+          entity("DestinyInventoryItemDefinition", hash).pipe(
+            Effect.map((definition) => investments.set(hash, investmentOf(definition))),
+            Effect.catch((error) =>
+              Effect.logWarning(`manifest: plug ${hash} failed: ${error.message}`),
+            ),
+          ),
+        { concurrency: 8, discard: true },
+      ).pipe(
+        Effect.map(
+          (): ReadonlyMap<number, StatMods> =>
+            new Map(
+              hashes.flatMap((hash) => {
+                const stats = investments.get(hash)
+                return stats === undefined ? [] : [[hash, stats]]
+              }),
+            ),
+        ),
+      )
 
     const plugSets = new Map<number, ReadonlyArray<number | null>>()
 
@@ -746,6 +876,8 @@ export const ManifestLive = Layer.effect(
       missing.clear()
       plugs.clear()
       plugSets.clear()
+      perkPools.clear()
+      investments.clear()
       armorMods = null
       armorSets = null
       tuningMods = null
@@ -973,6 +1105,8 @@ export const ManifestLive = Layer.effect(
       statFacts: readStatFacts,
       plugFacts,
       subclassPlugSets,
+      weaponPerkPools,
+      plugInvestments,
       ensure,
       lookup,
       findByName,
