@@ -1,5 +1,4 @@
 import type { ItemDetail, ItemPerk } from "@ghost/contract"
-import { Image } from "expo-image"
 import { useLocalSearchParams } from "expo-router"
 import { ScrollView, View } from "react-native"
 
@@ -8,7 +7,7 @@ import { SetBonusText } from "@/components/ghost/set-bonus"
 import { ArmorStatLine, Body, Meta, Mono } from "@/components/ghost/ui"
 import { ItemActions } from "@/components/item/actions"
 import { ItemHeader } from "@/components/item/header"
-import { PerkRatings } from "@/components/item/perk-ratings"
+import { WeaponScreen } from "@/components/item/weapon-sheet"
 import { Ghost, Type } from "@/constants/theme"
 import { errorMessage, useItemDetail } from "@/lib/api"
 import { useBottomInset } from "@/lib/insets"
@@ -65,7 +64,7 @@ function ExoticPerk({ perk }: { perk: ItemPerk }) {
       <Mono>EXOTIC PERK</Mono>
       <View style={{ flexDirection: "row", gap: 12 }}>
         <View style={{ width: 2, backgroundColor: Ghost.gold }} />
-        <PerkIcon icon={perk.icon} round={false} enhanced={false} />
+        <PlugIcon icon={perk.icon} size={PERK_ICON} />
         <View style={{ flex: 1 }}>
           <Body size={15} color={Ghost.gold} style={{ fontFamily: Type.bodyMedium }}>
             {perk.name}
@@ -75,61 +74,6 @@ function ExoticPerk({ perk }: { perk: ItemPerk }) {
           </Body>
         </View>
       </View>
-    </View>
-  )
-}
-
-function PerkIcon({
-  icon,
-  round,
-  enhanced,
-}: {
-  icon: string | null
-  round: boolean
-  enhanced: boolean
-}) {
-  return (
-    <View
-      style={{
-        width: PERK_ICON,
-        height: PERK_ICON,
-        borderWidth: enhanced ? 1.5 : 0,
-        borderColor: Ghost.gold,
-        borderRadius: round ? PERK_ICON / 2 : 0,
-        overflow: "hidden",
-        backgroundColor: Ghost.swatch,
-      }}
-    >
-      {icon ? (
-        <Image source={icon} style={{ width: "100%", height: "100%" }} transition={120} />
-      ) : null}
-    </View>
-  )
-}
-
-function Perks({ perks }: { perks: ItemDetail["perks"] }) {
-  const ordered = [...perks.filter((perk) => perk.trait), ...perks.filter((perk) => !perk.trait)]
-  return (
-    <View style={{ paddingHorizontal: 20, gap: 12 }}>
-      <Mono>PERKS</Mono>
-      {ordered.map((perk, i) => (
-        <View key={`${perk.name}${i}`} style={{ flexDirection: "row", gap: 12 }}>
-          <View style={{ width: 2, backgroundColor: perk.trait ? Ghost.good : Ghost.ruleStrong }} />
-          <PerkIcon icon={perk.icon} round={perk.trait} enhanced={perk.enhanced ?? false} />
-          <View style={{ flex: 1 }}>
-            <Body
-              size={15}
-              color={perk.trait ? Ghost.ink : Ghost.soft}
-              style={{ fontFamily: Type.bodyMedium }}
-            >
-              {perk.name}
-            </Body>
-            <Body size={14} color={Ghost.muted} style={{ lineHeight: 20, marginTop: 2 }}>
-              {perk.description.trim()}
-            </Body>
-          </View>
-        </View>
-      ))}
     </View>
   )
 }
@@ -150,7 +94,11 @@ export default function ItemScreen() {
     )
   }
 
-  const { item, perks, stats, setBonuses, exoticPerk } = detail.data
+  const { item, stats, setBonuses, exoticPerk } = detail.data
+  const instanceId = item.itemInstanceId
+  if (instanceId !== null && WEAPON_SLOTS.has(item.slot)) {
+    return <WeaponScreen item={{ ...item, itemInstanceId: instanceId }} />
+  }
   const set = armorSet(setBonuses)
   return (
     <ScrollView
@@ -160,10 +108,6 @@ export default function ItemScreen() {
       {exoticPerk ? <ExoticPerk perk={exoticPerk} /> : null}
       {stats.length > 0 ? <Stats stats={stats} /> : null}
       {set ? <ArmorSetSection set={set} /> : null}
-      {perks.length > 0 ? <Perks perks={perks} /> : null}
-      {item.itemInstanceId !== null && WEAPON_SLOTS.has(item.slot) ? (
-        <PerkRatings itemId={item.itemInstanceId} />
-      ) : null}
       <ItemActions item={item} />
     </ScrollView>
   )

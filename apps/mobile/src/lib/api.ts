@@ -13,9 +13,9 @@ import {
   type ReviewItem,
   type SaveBuild,
   type SavedBuild,
+  type ApplyPerks,
   type SetPerkRating,
   VaultSnapshot,
-  type WeaponPerks,
 } from "@ghost/contract"
 import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Effect } from "effect"
@@ -51,7 +51,7 @@ export const queryKeys = {
   jobs: (url: string, sessionId?: string | null) => [url, "jobs", sessionId ?? "all"] as const,
   sessions: (url: string) => [url, "sessions"] as const,
   item: (url: string, id: string) => [url, "item", id] as const,
-  weaponPerks: (url: string, id: string) => [url, "weaponPerks", id] as const,
+  weaponSheet: (url: string, id: string) => [url, "weaponSheet", id] as const,
   agent: (url: string) => [url, "agent"] as const,
   recent: (url: string, characterId: string | undefined) => [url, "recent", characterId] as const,
   guardian: (url: string) => [url, "guardian"] as const,
@@ -163,12 +163,11 @@ export function useItemDetail(id: string) {
   })
 }
 
-export function useWeaponPerks(id: string, enabled: boolean) {
+export function useWeaponSheet(id: string) {
   const url = useServerUrl()
   return useQuery({
-    queryKey: queryKeys.weaponPerks(url, id),
-    queryFn: () => run((api) => api.items.perks({ params: { id } })),
-    enabled,
+    queryKey: queryKeys.weaponSheet(url, id),
+    queryFn: () => run((api) => api.items.sheet({ params: { id } })),
     staleTime: 60_000,
     retry: false,
   })
@@ -179,18 +178,26 @@ export function useRatePerk(id: string) {
   return useMutation({
     mutationFn: (input: SetPerkRating) =>
       run((api) => api.items.ratePerk({ params: { id }, payload: input })),
-    onSuccess: (perks) => {
-      const url = getServerUrl()
-      queryClient.setQueriesData(
-        { queryKey: [url, "weaponPerks"] },
-        (current: WeaponPerks | undefined) => (current?.weapon === perks.weapon ? perks : current),
-      )
-      return Promise.all(
-        ["weaponPerks", "junkReview", "cleanupPreview"].map((key) =>
-          queryClient.invalidateQueries({ queryKey: [url, key] }),
+    onSuccess: () =>
+      Promise.all(
+        ["weaponSheet", "junkReview", "cleanupPreview"].map((key) =>
+          queryClient.invalidateQueries({ queryKey: [getServerUrl(), key] }),
         ),
-      )
-    },
+      ),
+  })
+}
+
+export function useApplyPerks(id: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: ApplyPerks) =>
+      run((api) => api.items.applyPerks({ params: { id }, payload: input })),
+    onSuccess: () =>
+      Promise.all([
+        invalidateInventory(queryClient),
+        queryClient.invalidateQueries({ queryKey: [getServerUrl(), "item"] }),
+        queryClient.invalidateQueries({ queryKey: [getServerUrl(), "weaponSheet"] }),
+      ]),
   })
 }
 
