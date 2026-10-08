@@ -129,18 +129,21 @@ This is how to give builds to friends without the App Store, Play Store or
 TestFlight. Nothing personal is committed: the EAS project id comes from your
 environment, and signing credentials live on EAS's servers.
 
-1. Create the EAS project and keep its id out of git:
+1. Create the EAS project, and give it your app id and project id without
+   committing either:
 
    ```sh
    bun run eas login
    bun run eas init     # prints the project id; it cannot write it into app.config.ts
+   echo 'GHOST_APP_ID=com.you.ghost' >> apps/mobile/.env.local
    echo 'EAS_PROJECT_ID=<id>' >> apps/mobile/.env.local
+   bun run eas env:create --environment preview --name GHOST_APP_ID --value com.you.ghost --visibility plaintext
    bun run eas env:create --environment preview --name EAS_PROJECT_ID --value <id> --visibility plaintext
    ```
 
-   The first id is for your machine, the second is for the build server. Set
-   `GHOST_APP_ID` the same two ways if you do not use the default
-   `com.henrypl.ghost`.
+   `.env.local` is for your machine and the EAS variables are for the build
+   server; both need the same values. Without `GHOST_APP_ID` the app id falls
+   back to the placeholder `dev.ghost.app`, which only one Apple team can own.
 
 2. Register each friend's iPhone. iOS ad-hoc builds only install on devices
    listed in the provisioning profile, at most 100 per device type per year on
