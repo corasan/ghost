@@ -9,6 +9,7 @@ import type { ExpoConfig } from 'expo/config'
 const appId = process.env.GHOST_APP_ID ?? 'com.example.ghost'
 const appleTeamId = process.env.APPLE_TEAM_ID
 const easProjectId = process.env.EAS_PROJECT_ID
+const updatesUrl = process.env.UPDATES_URL
 
 const config: ExpoConfig = {
   name: 'Ghost',
@@ -55,7 +56,7 @@ const config: ExpoConfig = {
     typedRoutes: true,
     reactCompiler: true,
   },
-  extra: easProjectId === undefined ? undefined : { eas: { projectId: easProjectId } },
+  extra: easProjectId === undefined ? undefined : { eas: { projectId: easProjectId, updatesUrl } },
 }
 
 export default config
