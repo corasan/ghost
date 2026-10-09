@@ -22,6 +22,9 @@ const config: ExpoConfig = {
     bundleIdentifier: appId,
     supportsTablet: false,
     appleTeamId,
+    infoPlist: {
+      ITSAppUsesNonExemptEncryption: false
+    }
   },
   android: {
     adaptiveIcon: {
