@@ -23,6 +23,18 @@ export const abortOn = (signal: AbortSignal) => {
   return controller
 }
 
+/**
+ * The one way the server starts Claude Code. Without an explicit executable the
+ * SDK looks for its per-platform optional package next to itself, which a
+ * `bun build --compile` binary does not carry, so every call has to pass the
+ * `claude` the CLI found (GHOST_CLAUDE_PATH).
+ */
+export const runClaude = (claudePath: string, prompt: string, options: Options) =>
+  query({
+    prompt,
+    options: claudePath === "" ? options : { ...options, pathToClaudeCodeExecutable: claudePath },
+  })
+
 /** Fails a model call that runs past `limit`. The timeout interrupts it, which aborts the subprocess. */
 export const within =
   (limit: Duration.Input, what: string) =>
@@ -158,10 +170,9 @@ export const ClaudeAgentLive = Layer.effect(
             abortController: abortOn(signal),
           }
           if (resume !== null) options.resume = resume
-          if (config.claudePath !== "") options.pathToClaudeCodeExecutable = config.claudePath
           let lastText = ""
           let conversation: string | null = null
-          for await (const message of query({ prompt: fullPrompt, options })) {
+          for await (const message of runClaude(config.claudePath, fullPrompt, options)) {
             if (message.type === "assistant") {
               conversation = message.session_id
               for (const block of message.message.content) {
