@@ -16,6 +16,7 @@ import { AgentConfig } from "../agent/settings.ts"
 import { Activity } from "../activity/activity.ts"
 import { BungieClient, type BungieError } from "../bungie/client.ts"
 import { Guardian } from "../bungie/guardian.ts"
+import { ProfileStore } from "../bungie/profile.ts"
 import { Builds } from "../builds/builds.ts"
 import { Cleanup } from "../cleanup/service.ts"
 import { ItemsRepo } from "../db/items.ts"
@@ -269,7 +270,9 @@ const AuthLive = HttpApiBuilder.group(GhostApi, "auth", (handlers) =>
     .handle("callback", ({ query }) =>
       Effect.gen(function* () {
         const bungie = yield* BungieClient
-        yield* bungie.exchangeCode(query.code)
+        yield* bungie.exchangeCode(query.code, query.state)
+        // The cached profile may be another account's.
+        yield* Effect.flatMap(ProfileStore, (profile) => profile.invalidate)
         const raw = yield* bungie.get("/User/GetMembershipsForCurrentUser/")
         const me = yield* Schema.decodeUnknownEffect(Memberships)(raw)
         return new BungieAuthResult({

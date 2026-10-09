@@ -66,6 +66,20 @@ describe("parseFeed", () => {
       },
     ])
   })
+
+  test("skips an entry with a malformed date or an id that is not a video id", () => {
+    const entry = (videoId: string, published: string) => `<entry>
+  <yt:videoId>${videoId}</yt:videoId>
+  <yt:channelId>UCaaaaaaaaaaaaaaaaaaaaaa</yt:channelId>
+  <published>${published}</published>
+ </entry>`
+    const feed = `<feed><title>Datto</title>
+ ${entry("abc123def45", "yesterday-ish")}
+ ${entry("../../../etc", "2026-09-30T16:00:00+00:00")}
+ ${entry("zzz123def45", "2026-09-30T16:00:00+00:00")}
+</feed>`
+    expect(parseFeed(feed).map((video) => video.videoId)).toEqual(["zzz123def45"])
+  })
 })
 
 describe("captions", () => {

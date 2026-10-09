@@ -18,6 +18,7 @@ import {
   parseJson3,
   rankNotes,
   transcriptText,
+  VIDEO_ID,
   videoUrl,
 } from "./parse.ts"
 
@@ -35,6 +36,7 @@ const REFRESH_EVERY = "6 hours"
 const VIDEOS_PER_RUN = 10
 const MAX_TRANSCRIPT_CHARS = 60_000
 const DAY_MS = 86_400_000
+const FETCH_TIMEOUT = "30 seconds"
 
 export interface CreatorNote {
   readonly claim: string
@@ -109,7 +111,8 @@ const ytDlp = Bun.which("yt-dlp")
 /** English captions through yt-dlp, or null when it is missing or finds none. */
 const captionsFor = (videoId: string, dataDir: string) =>
   Effect.tryPromise(async (): Promise<ReadonlyArray<CaptionLine> | null> => {
-    if (ytDlp === null) return null
+    // The id becomes a folder that is deleted afterwards.
+    if (ytDlp === null || !VIDEO_ID.test(videoId)) return null
     const dir = join(dataDir, "captions", videoId)
     mkdirSync(dir, { recursive: true })
     try {
@@ -161,15 +164,14 @@ export const CreatorNotesLive = Layer.effect(
     const refs = parseChannelList(config.youtubeChannels)
 
     const fetchText = (url: string) =>
-      http
-        .execute(page(url))
-        .pipe(
-          Effect.flatMap((response) =>
-            response.status === 200
-              ? response.text
-              : Effect.fail(new Error(`HTTP ${response.status} for ${url}`)),
-          ),
-        )
+      http.execute(page(url)).pipe(
+        Effect.flatMap((response) =>
+          response.status === 200
+            ? response.text
+            : Effect.fail(new Error(`HTTP ${response.status} for ${url}`)),
+        ),
+        Effect.timeout(FETCH_TIMEOUT),
+      )
 
     const setChannel = (
       ref: ChannelRef,
@@ -204,7 +206,7 @@ export const CreatorNotesLive = Layer.effect(
       })
 
     const knownNames = (names: ReadonlyArray<string>) =>
-      Effect.map(manifest.findByName(names), (defs) => {
+      Effect.map(manifest.findByName(names, "any"), (defs) => {
         const map = new Map<string, string>()
         for (const def of defs) map.set(def.name.toLowerCase(), def.name)
         return map
@@ -266,6 +268,20 @@ export const CreatorNotesLive = Layer.effect(
         )
       })
 
+    // A video whose summary failed is tried once more a day later, then left
+    // alone, so a video the model cannot handle is not paid for every run.
+    const recordFailure = (video: FeedVideo) =>
+      Effect.gen(function* () {
+        const now = DateTime.formatIso(yield* DateTime.now)
+        yield* sql`
+          INSERT INTO creator_videos
+            (video_id, channel_id, channel_title, title, published_at, basis, status, processed_at)
+          VALUES (${video.videoId}, ${video.channelId}, ${video.channelTitle}, ${video.title},
+                  ${video.publishedAt}, 'none', 'failed', ${now})
+          ON CONFLICT(video_id) DO UPDATE SET status = 'gave_up', processed_at = excluded.processed_at
+        `
+      }).pipe(Effect.orDie)
+
     const prune = (cutoff: string) =>
       Effect.gen(function* () {
         yield* sql`
@@ -306,9 +322,13 @@ export const CreatorNotesLive = Layer.effect(
         fresh.push(...videos.filter((v) => v.publishedAt >= cutoff))
       }
       if (fresh.length === 0) return
+      const retryBefore = new Date(
+        DateTime.toEpochMillis(yield* DateTime.now) - DAY_MS,
+      ).toISOString()
       const seen = new Set(
         (yield* sql<{ video_id: string }>`
           SELECT video_id FROM creator_videos WHERE video_id IN ${sql.in(fresh.map((v) => v.videoId))}
+            AND NOT (status = 'failed' AND processed_at < ${retryBefore})
         `.pipe(Effect.orDie)).map((row) => row.video_id),
       )
       const queue = fresh
@@ -329,7 +349,10 @@ export const CreatorNotesLive = Layer.effect(
       for (const video of queue) {
         yield* processVideo(video).pipe(
           Effect.catch((error) =>
-            Effect.logWarning(`creator note for ${video.videoId} failed: ${String(error)}`),
+            Effect.andThen(
+              Effect.logWarning(`creator note for ${video.videoId} failed: ${String(error)}`),
+              recordFailure(video),
+            ),
           ),
         )
       }

@@ -3,6 +3,7 @@ import { Deferred, Effect, Fiber, Layer } from "effect"
 import { ItemsRepo } from "../db/items.ts"
 import { BungieClient } from "./client.ts"
 import { Manifest } from "./manifest.ts"
+import { Membership } from "./membership.ts"
 import { ProfileStore, ProfileStoreLive } from "./profile.ts"
 import { unlockedPlugs } from "./subclass.ts"
 
@@ -34,12 +35,11 @@ const sections = new Map(
   }),
 )
 
+const membership = Layer.mock(Membership, {
+  current: Effect.succeed({ membershipId: "4611686018467260757", membershipType: 3 }),
+})
+
 const answer = (path: string) => {
-  if (path.startsWith("/User/"))
-    return Effect.succeed({
-      primaryMembershipId: "4611686018467260757",
-      destinyMemberships: [{ membershipId: "4611686018467260757", membershipType: 3 }],
-    })
   const components = new URL(path, "https://www.bungie.net").searchParams.get("components") ?? ""
   return Effect.succeed(
     Object.assign(
@@ -61,7 +61,9 @@ const items = Layer.mock(ItemsRepo, {
   decisions: Effect.succeed(new Map()),
 })
 
-const store = ProfileStoreLive.pipe(Layer.provide(Layer.mergeAll(bungie, manifest, items)))
+const store = ProfileStoreLive.pipe(
+  Layer.provide(Layer.mergeAll(bungie, manifest, items, membership)),
+)
 
 describe("ProfileStore.plugSets", () => {
   test("reads the plug sets Bungie sends with the item sockets component", async () => {
@@ -81,7 +83,6 @@ describe("ProfileStore.invalidate", () => {
     let gate: Deferred.Deferred<void> | undefined
     const counting = Layer.mock(BungieClient, {
       get: (path) => {
-        if (path.startsWith("/User/")) return answer(path)
         loads += 1
         const held = gate
         return held === undefined
@@ -89,7 +90,9 @@ describe("ProfileStore.invalidate", () => {
           : Deferred.await(held).pipe(Effect.andThen(answer(path)))
       },
     })
-    const counted = ProfileStoreLive.pipe(Layer.provide(Layer.mergeAll(counting, manifest, items)))
+    const counted = ProfileStoreLive.pipe(
+      Layer.provide(Layer.mergeAll(counting, manifest, items, membership)),
+    )
     const total = await Effect.gen(function* () {
       const profile = yield* ProfileStore
       const held = yield* Deferred.make<void>()
