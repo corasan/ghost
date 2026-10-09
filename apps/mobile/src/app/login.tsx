@@ -5,14 +5,15 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { Body, Button, Cond, Diamond, Meta, Mono } from "@/components/ghost/ui"
 import { Ghost } from "@/constants/theme"
-import { useBungieAuthStart, useHealth } from "@/lib/api"
-import { useServerUrl } from "@/lib/server-url"
+import { errorMessage, useBungieAuthStart, useHealth } from "@/lib/api"
+import { useServerToken, useServerUrl } from "@/lib/server-url"
 import { useBottomInset } from "@/lib/insets"
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets()
   const bottomInset = useBottomInset()
   const serverUrl = useServerUrl()
+  const paired = useServerToken() !== ""
   const health = useHealth()
   const authStart = useBungieAuthStart()
   const online = health.data !== undefined
@@ -54,10 +55,20 @@ export default function LoginScreen() {
             onPress={signIn}
           />
         </View>
-        <Body size={12} color={Ghost.dim} style={{ textAlign: "center", lineHeight: 17 }}>
-          {online
-            ? "Sign-in happens in the browser. The server keeps the tokens; the app never sees them."
-            : "Run `ghost start` on the server and scan its QR code with the camera to connect."}
+        {/* /health answers without the pairing token, so "online" does not mean
+            paired; starting the sign-in is the first call that needs it. */}
+        <Body
+          size={12}
+          color={authStart.isError ? Ghost.danger : Ghost.dim}
+          style={{ textAlign: "center", lineHeight: 17 }}
+        >
+          {authStart.isError
+            ? errorMessage(authStart.error)
+            : !online
+              ? "Run `ghost start` on the server and scan its QR code with the camera to connect."
+              : !paired
+                ? "Not paired with this server. Run `ghost pair` on it and scan the QR code."
+                : "Sign-in happens in the browser. The server keeps the tokens; the app never sees them."}
         </Body>
         <Pressable hitSlop={12} style={styles.server} onPress={() => router.push("/settings")}>
           <View style={[styles.dot, { backgroundColor: status.color }]} />
