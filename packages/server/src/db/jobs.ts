@@ -9,10 +9,10 @@ import {
   type JobStatus,
   Plan,
   Source,
-} from "@ghost/contract"
-import { Context, DateTime, Effect, Layer, Option, Schema } from "effect"
-import { SqlClient, type SqlError } from "effect/sql"
-import { BuildRecipe } from "../plans/recipe.ts"
+} from '@ghost/contract'
+import { Context, DateTime, Effect, Layer, Option, Schema } from 'effect'
+import { SqlClient, type SqlError } from 'effect/sql'
+import { BuildRecipe } from '../plans/recipe.ts'
 
 interface JobRow {
   readonly id: string
@@ -83,7 +83,7 @@ interface SessionRow {
 }
 
 export interface ManualJob {
-  readonly kind: Extract<JobKind, "item_action" | "saved_build">
+  readonly kind: Extract<JobKind, 'item_action' | 'saved_build'>
   readonly prompt: string
   readonly characterId: string | null
   readonly plan: Plan
@@ -117,7 +117,7 @@ export interface JobsRepoService {
   readonly failInterrupted: Effect.Effect<void, SqlError.SqlError>
 }
 
-export class JobsRepo extends Context.Service<JobsRepo, JobsRepoService>()("JobsRepo") {}
+export class JobsRepo extends Context.Service<JobsRepo, JobsRepoService>()('JobsRepo') {}
 
 export const JobsRepoLive = Layer.effect(
   JobsRepo,
@@ -202,7 +202,7 @@ export const JobsRepoLive = Layer.effect(
         `
       })
 
-    const setStatus: JobsRepoService["setStatus"] = (id, status, patch) =>
+    const setStatus: JobsRepoService['setStatus'] = (id, status, patch) =>
       Effect.gen(function* () {
         const now = DateTime.formatIso(yield* DateTime.now)
         yield* sql`

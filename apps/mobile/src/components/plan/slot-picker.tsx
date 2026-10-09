@@ -1,11 +1,11 @@
-import type { InGameSlot, LoadoutIdentity, LoadoutSlots, SavedBuild } from "@ghost/contract"
-import { Image } from "expo-image"
-import type { ReactNode } from "react"
-import { Pressable, StyleSheet, View } from "react-native"
+import type { InGameSlot, LoadoutIdentity, LoadoutSlots, SavedBuild } from '@ghost/contract'
+import { Image } from 'expo-image'
+import type { ReactNode } from 'react'
+import { Pressable, StyleSheet, View } from 'react-native'
 
-import { Body, Chip, Cut, Meta, Mono } from "@/components/ghost/ui"
-import { Ghost } from "@/constants/theme"
-import type { SlotChoice } from "@/lib/loadout-slots"
+import { Body, Chip, Cut, Meta, Mono } from '@/components/ghost/ui'
+import { Ghost } from '@/constants/theme'
+import type { SlotChoice } from '@/lib/loadout-slots'
 
 const SLOTS_PER_ROW = 5
 
@@ -31,7 +31,7 @@ function SlotTile({
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected: chosen }}
-      accessibilityLabel={`Slot ${slot.index + 1}, ${slot.empty ? "empty" : (slot.name?.name ?? "filled")}`}
+      accessibilityLabel={`Slot ${slot.index + 1}, ${slot.empty ? 'empty' : (slot.name?.name ?? 'filled')}`}
       onPress={onPress}
       style={({ pressed }) => [{ flex: 1, gap: 4 }, pressed && { opacity: 0.6 }]}
     >
@@ -54,7 +54,7 @@ function SlotTile({
         )}
       </Cut>
       <Meta size={11} color={chosen ? Ghost.accent : Ghost.dim} lines={1}>
-        {slot.empty ? "Empty" : (slot.name?.name ?? `Slot ${slot.index + 1}`)}
+        {slot.empty ? 'Empty' : (slot.name?.name ?? `Slot ${slot.index + 1}`)}
       </Meta>
     </Pressable>
   )
@@ -128,7 +128,7 @@ export function SlotPicker({
       <Group label="SLOT">
         <View style={{ gap: 10 }}>
           {rows.map((row, i) => (
-            <View key={i} style={{ flexDirection: "row", gap: 8 }}>
+            <View key={i} style={{ flexDirection: 'row', gap: 8 }}>
               {row.map((slot) => (
                 <SlotTile
                   key={slot.index}
@@ -182,16 +182,16 @@ export function SlotPicker({
 }
 
 const styles = StyleSheet.create({
-  wrap: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  tile: { aspectRatio: 1, alignItems: "center", justifyContent: "center" },
-  slotIcon: { width: "62%", height: "62%" },
+  wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  tile: { aspectRatio: 1, alignItems: 'center', justifyContent: 'center' },
+  slotIcon: { width: '62%', height: '62%' },
   swatch: {
     width: 40,
     height: 40,
     borderWidth: 2,
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
     backgroundColor: Ghost.swatch,
   },
 })

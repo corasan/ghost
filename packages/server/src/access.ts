@@ -1,8 +1,8 @@
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto"
-import { Config, Context, Effect, Layer, Redacted } from "effect"
-import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http"
-import { AppConfig } from "./config.ts"
-import { MCP_PATH } from "./mcp/path.ts"
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
+import { Config, Context, Effect, Layer, Redacted } from 'effect'
+import { HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http'
+import { AppConfig } from './config.ts'
+import { MCP_PATH } from './mcp/path.ts'
 
 export interface AccessValues {
   /** The pairing token the app sends as `Authorization: Bearer`. Empty refuses every guarded request. */
@@ -17,27 +17,27 @@ export interface AccessValues {
   readonly localHosts: ReadonlySet<string>
 }
 
-export class Access extends Context.Service<Access, AccessValues>()("Access") {}
+export class Access extends Context.Service<Access, AccessValues>()('Access') {}
 
 export const AccessLive = Layer.effect(
   Access,
   Effect.gen(function* () {
     const { host, port } = yield* AppConfig
     const settings = yield* Config.all({
-      token: Config.Redacted("GHOST_TOKEN").pipe(Config.withDefault(Redacted.make(""))),
-      tailscaleUser: Config.String("GHOST_TAILSCALE_USER").pipe(Config.withDefault("")),
-      tailnetHost: Config.String("GHOST_TAILNET_HOST").pipe(Config.withDefault("")),
+      token: Config.Redacted('GHOST_TOKEN').pipe(Config.withDefault(Redacted.make(''))),
+      tailscaleUser: Config.String('GHOST_TAILSCALE_USER').pipe(Config.withDefault('')),
+      tailnetHost: Config.String('GHOST_TAILNET_HOST').pipe(Config.withDefault('')),
     })
-    if (Redacted.value(settings.token) === "") {
+    if (Redacted.value(settings.token) === '') {
       yield* Effect.logWarning(
-        "GHOST_TOKEN is not set, so the API refuses every request. `ghost start` sets one up.",
+        'GHOST_TOKEN is not set, so the API refuses every request. `ghost start` sets one up.',
       )
     }
     return {
       ...settings,
-      mcpToken: Redacted.make(randomBytes(32).toString("base64url")),
+      mcpToken: Redacted.make(randomBytes(32).toString('base64url')),
       localHosts: new Set(
-        ["127.0.0.1", "localhost", "[::1]", host].map((name) => `${name}:${port}`.toLowerCase()),
+        ['127.0.0.1', 'localhost', '[::1]', host].map((name) => `${name}:${port}`.toLowerCase()),
       ),
     }
   }),
@@ -57,14 +57,14 @@ export interface Incoming {
 
 // Bungie's browser redirect cannot carry a header, and the CLI polls health
 // before it has anything to send.
-const OPEN = new Set(["/health", "/auth/bungie/callback"])
+const OPEN = new Set(['/health', '/auth/bungie/callback'])
 
 // Hashing first makes both sides the same length, which timingSafeEqual needs.
 const sameSecret = (given: string, expected: string) =>
-  expected !== "" &&
+  expected !== '' &&
   timingSafeEqual(
-    createHash("sha256").update(given).digest(),
-    createHash("sha256").update(expected).digest(),
+    createHash('sha256').update(given).digest(),
+    createHash('sha256').update(expected).digest(),
   )
 
 /**
@@ -79,30 +79,30 @@ const sameSecret = (given: string, expected: string) =>
  *   /mcp so only the agent this server runs can call its tools.
  */
 export const refusal = (access: AccessValues, request: Incoming): Refusal | null => {
-  const host = (request.headers.host ?? "").toLowerCase()
-  const login = request.headers["tailscale-user-login"]
+  const host = (request.headers.host ?? '').toLowerCase()
+  const login = request.headers['tailscale-user-login']
   const tailnet = access.tailnetHost.toLowerCase()
   const knownHost =
     access.localHosts.has(host) ||
-    (tailnet !== ""
+    (tailnet !== ''
       ? host === tailnet || host.startsWith(`${tailnet}:`)
-      : login !== undefined && host !== "")
-  if (!knownHost) return { status: 403, message: "Unknown host" }
+      : login !== undefined && host !== '')
+  if (!knownHost) return { status: 403, message: 'Unknown host' }
   if (
     login !== undefined &&
-    access.tailscaleUser !== "" &&
+    access.tailscaleUser !== '' &&
     login.toLowerCase() !== access.tailscaleUser.toLowerCase()
   ) {
-    return { status: 403, message: "This Ghost belongs to another tailnet user" }
+    return { status: 403, message: 'This Ghost belongs to another tailnet user' }
   }
-  const path = request.url.split(/[?#]/)[0] ?? ""
-  if (request.method === "GET" && OPEN.has(path)) return null
+  const path = request.url.split(/[?#]/)[0] ?? ''
+  if (request.method === 'GET' && OPEN.has(path)) return null
   const expected =
     path === MCP_PATH || path.startsWith(`${MCP_PATH}/`) ? access.mcpToken : access.token
-  const given = /^Bearer\s+(\S+)\s*$/i.exec(request.headers.authorization ?? "")?.[1] ?? ""
+  const given = /^Bearer\s+(\S+)\s*$/i.exec(request.headers.authorization ?? '')?.[1] ?? ''
   return sameSecret(given, Redacted.value(expected))
     ? null
-    : { status: 401, message: "Pair this app with `ghost pair`" }
+    : { status: 401, message: 'Pair this app with `ghost pair`' }
 }
 
 /** Runs `refusal` in front of every route, the MCP endpoint and the docs included. */
@@ -117,7 +117,7 @@ export const AccessGuard = HttpRouter.middleware(
           { error: refused.message },
           {
             status: refused.status,
-            headers: refused.status === 401 ? { "www-authenticate": "Bearer" } : {},
+            headers: refused.status === 401 ? { 'www-authenticate': 'Bearer' } : {},
           },
         )
       })

@@ -8,10 +8,10 @@ import {
   type ItemSlot,
   StashEntry,
   type StashState,
-} from "@ghost/contract"
-import { Result } from "effect"
-import type { Inventory, OwnedItem } from "../bungie/inventory.ts"
-import { hardProtections, type InUse } from "../junk/judge.ts"
+} from '@ghost/contract'
+import { Result } from 'effect'
+import type { Inventory, OwnedItem } from '../bungie/inventory.ts'
+import { hardProtections, type InUse } from '../junk/judge.ts'
 
 /** A bucket holds ten, and one of them is the equipped item. */
 export const SLOT_ROOM = 9
@@ -23,7 +23,7 @@ export interface CleanupPlan {
   readonly capacity: number
 }
 
-export type MoveKind = "stash" | "deliver" | "stow" | "return"
+export type MoveKind = 'stash' | 'deliver' | 'stow' | 'return'
 
 export interface Move {
   readonly kind: MoveKind
@@ -32,20 +32,20 @@ export interface Move {
 }
 
 export const destination = (kind: MoveKind) =>
-  kind === "stash" || kind === "stow" ? ("vault" as const) : ("character" as const)
+  kind === 'stash' || kind === 'stow' ? ('vault' as const) : ('character' as const)
 
 type GearItem = OwnedItem & { readonly slot: GearSlot }
 
-const isGear = (item: OwnedItem): item is GearItem => item.slot !== ("other" satisfies ItemSlot)
+const isGear = (item: OwnedItem): item is GearItem => item.slot !== ('other' satisfies ItemSlot)
 
 const metaOf = (item: OwnedItem) =>
   [
     item.typeName,
     item.statTotal === null ? null : `Total ${item.statTotal}`,
-    item.duplicates > 0 ? "Duplicate" : null,
+    item.duplicates > 0 ? 'Duplicate' : null,
   ]
     .filter((part) => part !== null)
-    .join(" · ")
+    .join(' · ')
 
 const entryFields = (item: GearItem) => ({
   itemInstanceId: item.itemInstanceId,
@@ -80,8 +80,8 @@ const batchCount = (batched: ReadonlyArray<{ readonly batch: number }>) =>
  */
 export const vaultRead = (s: CleanupSession, inv: Inventory) =>
   inv.vaultCount > 0 ||
-  inv.items.some((item) => item.location === "vault") ||
-  !s.stash.some((e) => e.state === "in_vault")
+  inv.items.some((item) => item.location === 'vault') ||
+  !s.stash.some((e) => e.state === 'in_vault')
 
 /**
  * An item tagged junk is handed over only while nothing protects it: it may
@@ -98,29 +98,29 @@ export const plan = (
   const gear = inv.items.filter(isGear)
   const junk = gear.filter(
     (i) =>
-      i.decision === "junk" &&
-      i.location !== "postmaster" &&
-      hardProtections(i, used).every((protection) => protection === "equipped"),
+      i.decision === 'junk' &&
+      i.location !== 'postmaster' &&
+      hardProtections(i, used).every((protection) => protection === 'equipped'),
   )
   const carried = gear.filter(
-    (i) => i.location === "character" && i.characterId === characterId && !i.equipped,
+    (i) => i.location === 'character' && i.characterId === characterId && !i.equipped,
   )
   const batched = assignBatches(junk.filter((i) => !i.equipped))
   const stash = carried.map(
     (item) =>
-      new StashEntry({ ...entryFields(item), junk: item.decision === "junk", state: "queued" }),
+      new StashEntry({ ...entryFields(item), junk: item.decision === 'junk', state: 'queued' }),
   )
   // Junk on another character passes through the vault on its way over, so
   // the vault needs one free slot beyond what the stash fills.
   const passing = batched.some(
-    ({ item }) => item.location === "character" && item.characterId !== characterId,
+    ({ item }) => item.location === 'character' && item.characterId !== characterId,
   )
   const after = inv.vaultCount + stash.length
   return {
     capacity,
     stash,
     junk: batched.map(
-      ({ item, batch }) => new JunkEntry({ ...entryFields(item), batch, state: "waiting" }),
+      ({ item, batch }) => new JunkEntry({ ...entryFields(item), batch, state: 'waiting' }),
     ),
     preview: new CleanupPreview({
       characterId,
@@ -135,21 +135,21 @@ export const plan = (
   }
 }
 
-const PENDING_STASH = new Set<StashState>(["queued", "moving"])
-const UNRESOLVED_JUNK = new Set<JunkState>(["waiting", "moving", "in_hand", "keeping", "skipping"])
+const PENDING_STASH = new Set<StashState>(['queued', 'moving'])
+const UNRESOLVED_JUNK = new Set<JunkState>(['waiting', 'moving', 'in_hand', 'keeping', 'skipping'])
 
-const returnable = (e: StashEntry) => !e.junk && e.state === "in_vault"
+const returnable = (e: StashEntry) => !e.junk && e.state === 'in_vault'
 
 const withStage = (s: CleanupSession, stage: CleanupStage, patch: Partial<CleanupSession> = {}) =>
   new CleanupSession({ ...s, ...patch, stage })
 
 export const advance = (s: CleanupSession, now: string): CleanupSession => {
   switch (s.stage) {
-    case "stashing":
+    case 'stashing':
       return s.stash.some((e) => PENDING_STASH.has(e.state))
         ? s
-        : advance(withStage(s, "delivering"), now)
-    case "delivering": {
+        : advance(withStage(s, 'delivering'), now)
+    case 'delivering': {
       let batch = s.batch
       while (
         batch < s.batches &&
@@ -158,12 +158,12 @@ export const advance = (s: CleanupSession, now: string): CleanupSession => {
         batch += 1
       }
       if (batch >= s.batches) {
-        return withStage(s, "finished", { batch: Math.max(0, s.batches - 1), finishedAt: now })
+        return withStage(s, 'finished', { batch: Math.max(0, s.batches - 1), finishedAt: now })
       }
       return batch === s.batch ? s : new CleanupSession({ ...s, batch })
     }
-    case "returning":
-      return s.stash.some(returnable) ? s : withStage(s, "closed")
+    case 'returning':
+      return s.stash.some(returnable) ? s : withStage(s, 'closed')
     default:
       return s
   }
@@ -174,7 +174,7 @@ export const start = (planned: CleanupPlan, id: string, now: string): CleanupSes
     new CleanupSession({
       id,
       characterId: planned.preview.characterId,
-      stage: "stashing",
+      stage: 'stashing',
       startedAt: now,
       finishedAt: null,
       batch: 0,
@@ -198,35 +198,35 @@ export const reconcile = (s: CleanupSession, inv: Inventory, now: string): Clean
   const owned = new Map(inv.items.map((item) => [item.itemInstanceId, item]))
   const onCharacter = (id: string) => {
     const item = owned.get(id)
-    return item?.location === "character" && item.characterId === s.characterId
+    return item?.location === 'character' && item.characterId === s.characterId
   }
-  const inVault = (id: string) => owned.get(id)?.location === "vault"
-  const handing = s.stage === "delivering" || s.stage === "paused"
+  const inVault = (id: string) => owned.get(id)?.location === 'vault'
+  const handing = s.stage === 'delivering' || s.stage === 'paused'
   const complete = vaultRead(s, inv)
 
   const stash = s.stash.map((e) => {
     if (PENDING_STASH.has(e.state) && inVault(e.itemInstanceId)) {
-      return new StashEntry({ ...e, state: "in_vault" })
+      return new StashEntry({ ...e, state: 'in_vault' })
     }
-    if (s.stage === "returning" && returnable(e) && onCharacter(e.itemInstanceId)) {
-      return new StashEntry({ ...e, state: "returned" })
+    if (s.stage === 'returning' && returnable(e) && onCharacter(e.itemInstanceId)) {
+      return new StashEntry({ ...e, state: 'returned' })
     }
     return e
   })
 
   const junk = s.junk.map((e) => {
     const id = e.itemInstanceId
-    if (complete && (UNRESOLVED_JUNK.has(e.state) || e.state === "failed") && !owned.has(id))
-      return new JunkEntry({ ...e, state: "deleted" })
-    if (e.state === "keeping" && inVault(id)) return new JunkEntry({ ...e, state: "kept" })
-    if (e.state === "skipping" && inVault(id)) return new JunkEntry({ ...e, state: "skipped" })
+    if (complete && (UNRESOLVED_JUNK.has(e.state) || e.state === 'failed') && !owned.has(id))
+      return new JunkEntry({ ...e, state: 'deleted' })
+    if (e.state === 'keeping' && inVault(id)) return new JunkEntry({ ...e, state: 'kept' })
+    if (e.state === 'skipping' && inVault(id)) return new JunkEntry({ ...e, state: 'skipped' })
     if (
       handing &&
       e.batch === s.batch &&
-      (e.state === "waiting" || e.state === "moving") &&
+      (e.state === 'waiting' || e.state === 'moving') &&
       onCharacter(id)
     ) {
-      return new JunkEntry({ ...e, state: "in_hand" })
+      return new JunkEntry({ ...e, state: 'in_hand' })
     }
     return e
   })
@@ -242,39 +242,39 @@ const moveOf = (kind: MoveKind, e: StashEntry | JunkEntry): Move => ({
 
 const stows = (s: CleanupSession) =>
   s.junk
-    .filter((e) => e.state === "keeping" || e.state === "skipping")
-    .map((e) => moveOf("stow", e))
+    .filter((e) => e.state === 'keeping' || e.state === 'skipping')
+    .map((e) => moveOf('stow', e))
 
 export const nextMoves = (s: CleanupSession): ReadonlyArray<Move> => {
   switch (s.stage) {
-    case "stashing":
-      return s.stash.filter((e) => PENDING_STASH.has(e.state)).map((e) => moveOf("stash", e))
-    case "delivering":
+    case 'stashing':
+      return s.stash.filter((e) => PENDING_STASH.has(e.state)).map((e) => moveOf('stash', e))
+    case 'delivering':
       return [
         ...stows(s),
         ...s.junk
-          .filter((e) => e.batch === s.batch && (e.state === "waiting" || e.state === "moving"))
-          .map((e) => moveOf("deliver", e)),
+          .filter((e) => e.batch === s.batch && (e.state === 'waiting' || e.state === 'moving'))
+          .map((e) => moveOf('deliver', e)),
       ]
-    case "paused":
+    case 'paused':
       return stows(s)
-    case "returning":
-      return s.stash.filter(returnable).map((e) => moveOf("return", e))
+    case 'returning':
+      return s.stash.filter(returnable).map((e) => moveOf('return', e))
     default:
       return []
   }
 }
 
 const STASH_LANDING: Partial<Record<MoveKind, ReadonlyMap<StashState, StashState>>> = {
-  stash: new Map([["moving", "in_vault"]]),
-  return: new Map([["in_vault", "returned"]]),
+  stash: new Map([['moving', 'in_vault']]),
+  return: new Map([['in_vault', 'returned']]),
 }
 
 const JUNK_LANDING: Partial<Record<MoveKind, ReadonlyMap<JunkState, JunkState>>> = {
-  deliver: new Map([["moving", "in_hand"]]),
+  deliver: new Map([['moving', 'in_hand']]),
   stow: new Map([
-    ["keeping", "kept"],
-    ["skipping", "skipped"],
+    ['keeping', 'kept'],
+    ['skipping', 'skipped'],
   ]),
 }
 
@@ -300,12 +300,12 @@ export const begin = (s: CleanupSession, move: Move): CleanupSession =>
   onEntry(
     s,
     move,
-    (state) => (move.kind === "stash" && state === "queued" ? "moving" : state),
-    (state) => (move.kind === "deliver" && state === "waiting" ? "moving" : state),
+    (state) => (move.kind === 'stash' && state === 'queued' ? 'moving' : state),
+    (state) => (move.kind === 'deliver' && state === 'waiting' ? 'moving' : state),
   )
 
 /** `gone` means the item no longer exists, which for handed-over junk means the player deleted it. */
-export type Outcome = "landed" | "gone" | { readonly failed: string }
+export type Outcome = 'landed' | 'gone' | { readonly failed: string }
 
 /**
  * Records how a transfer went. An entry that changed while the transfer ran
@@ -321,29 +321,29 @@ export const settle = (
     <S extends string>(landing: ReadonlyMap<S, S> | undefined, failed: S) =>
     (state: S): S => {
       const to = landing?.get(state)
-      return to === undefined ? state : outcome === "landed" ? to : failed
+      return to === undefined ? state : outcome === 'landed' ? to : failed
     }
   const next = onEntry(
     s,
     move,
-    land(STASH_LANDING[move.kind], "failed"),
-    outcome === "gone" ? () => "deleted" : land(JUNK_LANDING[move.kind], "failed"),
+    land(STASH_LANDING[move.kind], 'failed'),
+    outcome === 'gone' ? () => 'deleted' : land(JUNK_LANDING[move.kind], 'failed'),
   )
-  const error = outcome === "landed" || outcome === "gone" ? null : outcome.failed
+  const error = outcome === 'landed' || outcome === 'gone' ? null : outcome.failed
   return advance(new CleanupSession({ ...next, error }), now)
 }
 
-export type CleanupCommand = "pause" | "resume" | "stop" | "return" | "close"
+export type CleanupCommand = 'pause' | 'resume' | 'stop' | 'return' | 'close'
 
 const COMMANDS: Record<
   CleanupCommand,
   { readonly from: ReadonlySet<CleanupStage>; readonly to: CleanupStage }
 > = {
-  pause: { from: new Set(["delivering"]), to: "paused" },
-  resume: { from: new Set(["paused"]), to: "delivering" },
-  stop: { from: new Set(["stashing", "delivering", "paused"]), to: "stopped" },
-  return: { from: new Set(["finished"]), to: "returning" },
-  close: { from: new Set(["finished"]), to: "closed" },
+  pause: { from: new Set(['delivering']), to: 'paused' },
+  resume: { from: new Set(['paused']), to: 'delivering' },
+  stop: { from: new Set(['stashing', 'delivering', 'paused']), to: 'stopped' },
+  return: { from: new Set(['finished']), to: 'returning' },
+  close: { from: new Set(['finished']), to: 'closed' },
 }
 
 export const command = (
@@ -355,15 +355,15 @@ export const command = (
   if (!from.has(s.stage)) return Result.fail(`Cannot ${name} a cleanup that is ${s.stage}.`)
   // Stopping after gear was stashed ends like a finished cleanup, so the
   // player can still have it returned instead of finding it in the vault.
-  if (name === "stop" && s.stash.some(returnable)) {
-    return Result.succeed(withStage(s, "finished", { finishedAt: now }))
+  if (name === 'stop' && s.stash.some(returnable)) {
+    return Result.succeed(withStage(s, 'finished', { finishedAt: now }))
   }
   return Result.succeed(advance(withStage(s, to), now))
 }
 
-const handingOver = (s: CleanupSession) => s.stage === "delivering" || s.stage === "paused"
+const handingOver = (s: CleanupSession) => s.stage === 'delivering' || s.stage === 'paused'
 
-const HANDED = new Set<JunkState>(["waiting", "moving", "in_hand"])
+const HANDED = new Set<JunkState>(['waiting', 'moving', 'in_hand'])
 
 export const keep = (
   s: CleanupSession,
@@ -374,13 +374,13 @@ export const keep = (
     (e) => picked.has(e.itemInstanceId) && e.batch === s.batch && HANDED.has(e.state),
   )
   if (!handingOver(s) || picked.size === 0 || handed.length !== picked.size) {
-    return Result.fail("Those items are not in the batch Ghost handed over.")
+    return Result.fail('Those items are not in the batch Ghost handed over.')
   }
   return Result.succeed(
     new CleanupSession({
       ...s,
       junk: s.junk.map((e) =>
-        picked.has(e.itemInstanceId) ? new JunkEntry({ ...e, state: "keeping" }) : e,
+        picked.has(e.itemInstanceId) ? new JunkEntry({ ...e, state: 'keeping' }) : e,
       ),
     }),
   )
@@ -393,7 +393,7 @@ export const skip = (s: CleanupSession): Result.Result<CleanupSession, string> =
           ...s,
           junk: s.junk.map((e) =>
             e.batch === s.batch && HANDED.has(e.state)
-              ? new JunkEntry({ ...e, state: "skipping" })
+              ? new JunkEntry({ ...e, state: 'skipping' })
               : e,
           ),
         }),
@@ -407,17 +407,17 @@ export const markDeleted = (
 ): Result.Result<CleanupSession, string> => {
   const picked = new Set(itemInstanceIds)
   const held = s.junk.filter(
-    (e) => picked.has(e.itemInstanceId) && e.batch === s.batch && e.state === "in_hand",
+    (e) => picked.has(e.itemInstanceId) && e.batch === s.batch && e.state === 'in_hand',
   )
   if (!handingOver(s) || picked.size === 0 || held.length !== picked.size) {
-    return Result.fail("Only items on your character can be marked deleted.")
+    return Result.fail('Only items on your character can be marked deleted.')
   }
   return Result.succeed(
     advance(
       new CleanupSession({
         ...s,
         junk: s.junk.map((e) =>
-          picked.has(e.itemInstanceId) ? new JunkEntry({ ...e, state: "deleted" }) : e,
+          picked.has(e.itemInstanceId) ? new JunkEntry({ ...e, state: 'deleted' }) : e,
         ),
       }),
       now,

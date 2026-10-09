@@ -1,43 +1,43 @@
-import type { RecentItem } from "@ghost/contract"
-import { LegendList } from "@legendapp/list/react-native"
-import { useLocalSearchParams } from "expo-router"
-import { useMemo, useState } from "react"
-import { Pressable, StyleSheet, View } from "react-native"
+import type { RecentItem } from '@ghost/contract'
+import { LegendList } from '@legendapp/list/react-native'
+import { useLocalSearchParams } from 'expo-router'
+import { useMemo, useState } from 'react'
+import { Pressable, StyleSheet, View } from 'react-native'
 
-import { ItemIcon } from "@/components/ghost/item-icon"
-import { Body, Chip, Meta, Nudge, PageHeader } from "@/components/ghost/ui"
-import { Ghost, Gutter, Type } from "@/constants/theme"
-import { useJobs, useRecentItems, useSetDecision, useUndoPlan } from "@/lib/api"
-import { useCharacter } from "@/lib/character"
-import { usePullRefresh } from "@/lib/refresh"
-import { clock, groupRecent, locationLabel, sourceLabel } from "@/lib/format"
-import { useBottomInset } from "@/lib/insets"
+import { ItemIcon } from '@/components/ghost/item-icon'
+import { Body, Chip, Meta, Nudge, PageHeader } from '@/components/ghost/ui'
+import { Ghost, Gutter, Type } from '@/constants/theme'
+import { useJobs, useRecentItems, useSetDecision, useUndoPlan } from '@/lib/api'
+import { useCharacter } from '@/lib/character'
+import { usePullRefresh } from '@/lib/refresh'
+import { clock, groupRecent, locationLabel, sourceLabel } from '@/lib/format'
+import { useBottomInset } from '@/lib/insets'
 
-type Filter = "all" | "undecided" | "upgrades"
+type Filter = 'all' | 'undecided' | 'upgrades'
 
 type Row =
-  | { type: "group"; key: string; label: string; jobId: string | null }
-  | { type: "item"; key: string; item: RecentItem }
+  | { type: 'group'; key: string; label: string; jobId: string | null }
+  | { type: 'item'; key: string; item: RecentItem }
 
 function Decide({ item }: { item: RecentItem }) {
   const setDecision = useSetDecision()
-  const decide = (decision: RecentItem["decision"]) =>
+  const decide = (decision: RecentItem['decision']) =>
     setDecision.mutate({ id: item.itemInstanceId, decision })
   if (item.decision) {
     return (
       <Pressable hitSlop={12} accessibilityLabel="Undo decision" onPress={() => decide(null)}>
-        <Meta color={item.decision === "keep" ? Ghost.good : Ghost.danger}>
-          {item.decision === "keep" ? "Kept" : "Junk"}
+        <Meta color={item.decision === 'keep' ? Ghost.good : Ghost.danger}>
+          {item.decision === 'keep' ? 'Kept' : 'Junk'}
         </Meta>
       </Pressable>
     )
   }
   return (
-    <View style={{ flexDirection: "row", gap: 6 }}>
-      <Pressable accessibilityLabel="Keep" style={styles.decide} onPress={() => decide("keep")}>
+    <View style={{ flexDirection: 'row', gap: 6 }}>
+      <Pressable accessibilityLabel="Keep" style={styles.decide} onPress={() => decide('keep')}>
         <View style={styles.check} />
       </Pressable>
-      <Pressable accessibilityLabel="Junk" style={styles.decide} onPress={() => decide("junk")}>
+      <Pressable accessibilityLabel="Junk" style={styles.decide} onPress={() => decide('junk')}>
         <Body size={13} color={Ghost.danger}>
           ✕
         </Body>
@@ -62,7 +62,7 @@ function ItemRow({ item }: { item: RecentItem }) {
         masterwork={item.masterwork}
       />
       <View style={{ flex: 1, minWidth: 0 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Body size={15} style={{ fontFamily: Type.bodyMedium, flexShrink: 1 }} lines={1}>
             {item.name ?? `Item ${item.itemHash}`}
           </Body>
@@ -75,7 +75,7 @@ function ItemRow({ item }: { item: RecentItem }) {
           ) : null}
         </View>
         <Meta style={{ marginTop: 2 }} lines={1}>
-          {meta.join(" · ")}
+          {meta.join(' · ')}
         </Meta>
       </View>
       <Decide item={item} />
@@ -90,7 +90,7 @@ function ItemRow({ item }: { item: RecentItem }) {
 export default function RecentScreen() {
   const bottomInset = useBottomInset()
   const { filter: initial } = useLocalSearchParams<{ filter?: Filter }>()
-  const [filter, setFilter] = useState<Filter>(initial ?? "all")
+  const [filter, setFilter] = useState<Filter>(initial ?? 'all')
   const { character } = useCharacter()
   const recent = useRecentItems(character?.characterId)
   const pull = usePullRefresh(recent.refetch)
@@ -100,11 +100,11 @@ export default function RecentScreen() {
   const items = recent.data ?? []
   const undecided = items.filter((item) => item.decision === null)
   const upgrades = items.filter((item) => item.upgrade)
-  const shown = filter === "all" ? items : filter === "undecided" ? undecided : upgrades
+  const shown = filter === 'all' ? items : filter === 'undecided' ? undecided : upgrades
 
   const undoable = useMemo(
     () =>
-      new Set((jobs.data ?? []).flatMap((job) => (job.plan?.status === "applied" ? [job.id] : []))),
+      new Set((jobs.data ?? []).flatMap((job) => (job.plan?.status === 'applied' ? [job.id] : []))),
     [jobs.data],
   )
 
@@ -112,13 +112,13 @@ export default function RecentScreen() {
     () =>
       groupRecent(shown).flatMap((group) => [
         {
-          type: "group" as const,
+          type: 'group' as const,
           key: `g-${group.key}`,
-          label: `${clock(group.at)} · ${group.jobId ? "Moved by Ghost" : sourceLabel(group.source)} · ${group.items.length}`,
+          label: `${clock(group.at)} · ${group.jobId ? 'Moved by Ghost' : sourceLabel(group.source)} · ${group.items.length}`,
           jobId: group.jobId,
         },
         ...group.items.map((item) => ({
-          type: "item" as const,
+          type: 'item' as const,
           key: item.itemInstanceId,
           item,
         })),
@@ -136,17 +136,17 @@ export default function RecentScreen() {
         figure={items.length}
         caption={`${undecided.length} undecided`}
       />
-      <View style={{ flexDirection: "row", gap: 6, paddingHorizontal: Gutter, paddingTop: 18 }}>
-        <Chip label="ALL" active={filter === "all"} onPress={() => setFilter("all")} />
+      <View style={{ flexDirection: 'row', gap: 6, paddingHorizontal: Gutter, paddingTop: 18 }}>
+        <Chip label="ALL" active={filter === 'all'} onPress={() => setFilter('all')} />
         <Chip
           label="UNDECIDED"
-          active={filter === "undecided"}
-          onPress={() => setFilter("undecided")}
+          active={filter === 'undecided'}
+          onPress={() => setFilter('undecided')}
         />
         <Chip
           label={`UPGRADES ${upgrades.length}`}
-          active={filter === "upgrades"}
-          onPress={() => setFilter("upgrades")}
+          active={filter === 'upgrades'}
+          onPress={() => setFilter('upgrades')}
         />
       </View>
       <LegendList
@@ -161,16 +161,16 @@ export default function RecentScreen() {
         ListEmptyComponent={
           <Body color={Ghost.dim} style={{ paddingTop: 24 }}>
             {recent.isPending
-              ? "Loading…"
+              ? 'Loading…'
               : recent.isError
                 ? "Can't reach the Ghost server."
-                : filter === "all"
-                  ? "Nothing new in the last two days. Ghost notices new drops each time it syncs your inventory."
-                  : "Nothing here right now."}
+                : filter === 'all'
+                  ? 'Nothing new in the last two days. Ghost notices new drops each time it syncs your inventory.'
+                  : 'Nothing here right now.'}
           </Body>
         }
         renderItem={({ item: row }) =>
-          row.type === "group" ? (
+          row.type === 'group' ? (
             <View style={styles.group}>
               <Meta>{row.label}</Meta>
               {row.jobId && undoable.has(row.jobId) ? (
@@ -179,7 +179,7 @@ export default function RecentScreen() {
                   disabled={undo.isPending}
                   onPress={() => row.jobId && undo.mutate(row.jobId)}
                 >
-                  <Meta color={Ghost.accent}>{undo.isPending ? "Undoing…" : "Undo"}</Meta>
+                  <Meta color={Ghost.accent}>{undo.isPending ? 'Undoing…' : 'Undo'}</Meta>
                 </Pressable>
               ) : null}
             </View>
@@ -191,9 +191,9 @@ export default function RecentScreen() {
       {best ? (
         <View style={{ paddingBottom: bottomInset + 16, paddingTop: 8 }}>
           <Nudge
-            text={`${best.name ?? "A new drop"} beats what you have on in that slot.`}
+            text={`${best.name ?? 'A new drop'} beats what you have on in that slot.`}
             action="SWAP"
-            prompt={`Equip my new ${best.name ?? "upgrade"} if it's really better than what I have on`}
+            prompt={`Equip my new ${best.name ?? 'upgrade'} if it's really better than what I have on`}
           />
         </View>
       ) : (
@@ -205,14 +205,14 @@ export default function RecentScreen() {
 
 const styles = StyleSheet.create({
   group: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     paddingTop: 14,
     paddingBottom: 6,
   },
   row: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
     paddingVertical: 9,
     borderTopWidth: 1,
@@ -224,8 +224,8 @@ const styles = StyleSheet.create({
     height: 36,
     borderWidth: 1,
     borderColor: Ghost.ruleStrong,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   check: {
     width: 10,
@@ -234,6 +234,6 @@ const styles = StyleSheet.create({
     borderLeftWidth: 1.5,
     borderBottomWidth: 1.5,
     borderColor: Ghost.good,
-    transform: [{ rotate: "-45deg" }],
+    transform: [{ rotate: '-45deg' }],
   },
 })

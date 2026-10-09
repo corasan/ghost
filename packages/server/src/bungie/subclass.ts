@@ -1,4 +1,4 @@
-import { Schema } from "effect"
+import { Schema } from 'effect'
 import {
   ABILITY_KINDS,
   isEmptyPlug,
@@ -7,8 +7,8 @@ import {
   type SubclassPart,
   type SubclassPlug,
   subclassPart,
-} from "./inventory.ts"
-import type { ManifestItem } from "./manifest.ts"
+} from './inventory.ts'
+import type { ManifestItem } from './manifest.ts'
 
 const PlugSetEntries = Schema.Record(
   Schema.String,
@@ -71,7 +71,7 @@ export const subclassSockets = ({
   unlocked,
   defs,
 }: {
-  readonly subclass: Pick<OwnedSubclass, "sockets">
+  readonly subclass: Pick<OwnedSubclass, 'sockets'>
   readonly plugSets: ReadonlyArray<number | null>
   readonly unlocked: (setHash: number) => ReadonlyArray<number>
   readonly defs: ReadonlyMap<number, ManifestItem>
@@ -115,14 +115,14 @@ export interface PlugSwap {
   readonly previous: SubclassPlug | null
 }
 
-type SinglePick = Exclude<keyof SubclassRequest, "aspects" | "fragments">
+type SinglePick = Exclude<keyof SubclassRequest, 'aspects' | 'fragments'>
 
 const SINGLE: ReadonlyArray<readonly [SubclassPart, SinglePick, string]> = [
-  ["super", "super", "super"],
-  ["class", "classAbility", "class ability"],
-  ["jump", "jump", "jump"],
-  ["melee", "melee", "melee"],
-  ["grenade", "grenade", "grenade"],
+  ['super', 'super', 'super'],
+  ['class', 'classAbility', 'class ability'],
+  ['jump', 'jump', 'jump'],
+  ['melee', 'melee', 'melee'],
+  ['grenade', 'grenade', 'grenade'],
 ]
 
 const RANK: Record<SubclassPart, number> = {
@@ -172,7 +172,7 @@ export const planSubclass = ({
     const hit = pool.find((plug) => same(plug.name, wanted))
     if (hit === undefined) {
       errors.push(
-        `"${wanted}" is not a ${label} unlocked on ${name}; pick from ${pool.map((plug) => plug.name).join(", ")}`,
+        `"${wanted}" is not a ${label} unlocked on ${name}; pick from ${pool.map((plug) => plug.name).join(', ')}`,
       )
     }
     return hit?.hash
@@ -201,7 +201,7 @@ export const planSubclass = ({
     const repeats = (wanted ?? []).filter(
       (each, i, all) => all.findIndex((other) => same(other, each)) !== i,
     )
-    if (repeats.length > 0) errors.push(`${repeats.join(", ")} picked twice`)
+    if (repeats.length > 0) errors.push(`${repeats.join(', ')} picked twice`)
     const hashes =
       wanted === undefined
         ? slotted.flatMap((socket) =>
@@ -223,8 +223,8 @@ export const planSubclass = ({
     return hashes.length
   }
 
-  const aspectSockets = of("aspect")
-  const aspectCount = fill("aspect", request.aspects, aspectSockets, aspectSockets)
+  const aspectSockets = of('aspect')
+  const aspectCount = fill('aspect', request.aspects, aspectSockets, aspectSockets)
   if (aspectCount > aspectSockets.length) {
     errors.push(`${name} takes ${aspectSockets.length} aspects, not ${aspectCount}`)
   }
@@ -232,9 +232,9 @@ export const planSubclass = ({
     (sum, socket) => sum + fragmentSlots(final.get(socket.index) ?? socket.current),
     0,
   )
-  const fragmentSockets = of("fragment")
+  const fragmentSockets = of('fragment')
   const open = fragmentSockets.slice(0, slots)
-  const fragmentCount = fill("fragment", request.fragments, fragmentSockets, open)
+  const fragmentCount = fill('fragment', request.fragments, fragmentSockets, open)
   if (fragmentCount > open.length) {
     errors.push(
       request.fragments === undefined
@@ -245,11 +245,11 @@ export const planSubclass = ({
   if (errors.length > 0) return { errors }
   const empty = (part: SubclassPart, within = of(part)) =>
     within.filter((socket) => plugOf(final.get(socket.index) ?? socket.current) === null).length
-  if (empty("super") > 0) errors.push(`${name} would have no super; name one in super`)
-  const noAspect = empty("aspect")
+  if (empty('super') > 0) errors.push(`${name} would have no super; name one in super`)
+  const noAspect = empty('aspect')
   if (noAspect > 0)
     errors.push(`${noAspect} aspect sockets on ${name} would be empty; name the aspects`)
-  const noFragment = empty("fragment", open)
+  const noFragment = empty('fragment', open)
   if (noFragment > 0) {
     errors.push(
       `${noFragment} of ${open.length} fragment slots on ${name} would be empty; name the fragments`,
@@ -278,7 +278,7 @@ export const planSubclass = ({
     list.flatMap((socket) => plugOf(final.get(socket.index) ?? socket.current) ?? [])
   return {
     loadout: {
-      super: finalOf(of("super"))[0] ?? null,
+      super: finalOf(of('super'))[0] ?? null,
       abilities: ABILITY_KINDS.flatMap((kind) => {
         const plug = finalOf(of(kind))[0]
         return plug === undefined ? [] : [{ ...plug, kind }]

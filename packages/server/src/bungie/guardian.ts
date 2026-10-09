@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto"
+import { createHash } from 'node:crypto'
 import {
   type BungieNotLinked,
   ChargeEffect,
@@ -9,17 +9,17 @@ import {
   SlottedMod,
   Source,
   VaultSnapshot,
-} from "@ghost/contract"
-import { Clock, Context, Effect, Layer, Option, Schema, Semaphore } from "effect"
-import { SituationalWriter } from "../agent/situational.ts"
-import { ChargeEffects } from "../db/charge.ts"
-import { Settings } from "../db/settings.ts"
-import type { BungieError } from "./client.ts"
-import { isArmor, isPerk, isWeapon, type OwnedItem } from "./inventory.ts"
-import { describeLoadout, loadoutPlugHashes } from "./loadout.ts"
-import { Manifest, type ManifestItem } from "./manifest.ts"
-import { describeArmorMods, socketsNow, withChargeEffects } from "./mods.ts"
-import { ProfileStore } from "./profile.ts"
+} from '@ghost/contract'
+import { Clock, Context, Effect, Layer, Option, Schema, Semaphore } from 'effect'
+import { SituationalWriter } from '../agent/situational.ts'
+import { ChargeEffects } from '../db/charge.ts'
+import { Settings } from '../db/settings.ts'
+import type { BungieError } from './client.ts'
+import { isArmor, isPerk, isWeapon, type OwnedItem } from './inventory.ts'
+import { describeLoadout, loadoutPlugHashes } from './loadout.ts'
+import { Manifest, type ManifestItem } from './manifest.ts'
+import { describeArmorMods, socketsNow, withChargeEffects } from './mods.ts'
+import { ProfileStore } from './profile.ts'
 
 // The two read-only shapes the app renders, both cut from the cached
 // inventory: a per-character summary and the vault.
@@ -32,9 +32,9 @@ export interface GuardianService {
   ) => Effect.Effect<GuardianSituational, BungieError | BungieNotLinked>
 }
 
-export class Guardian extends Context.Service<Guardian, GuardianService>()("Guardian") {}
+export class Guardian extends Context.Service<Guardian, GuardianService>()('Guardian') {}
 
-const SUMMARIES_KEY = "situational.summaries"
+const SUMMARIES_KEY = 'situational.summaries'
 const MAX_SUMMARIES = 50
 const RETRY_FAILED_MS = 60 * 60 * 1000
 
@@ -92,7 +92,7 @@ export const GuardianLive = Layer.effect(
       const capacities = yield* manifest.capacities
       const facts = yield* manifest.statFacts
       const plugs = yield* manifest.plugFacts(inv.characters.flatMap(loadoutPlugHashes))
-      const onCharacters = inv.items.filter((i) => i.location === "character" && i.slot !== "other")
+      const onCharacters = inv.items.filter((i) => i.location === 'character' && i.slot !== 'other')
       const modDefs = yield* manifest
         .lookup(
           onCharacters.flatMap((i) => [
@@ -165,7 +165,7 @@ export const GuardianLive = Layer.effect(
         count: inv.vaultCount,
         capacity: capacities.vault,
         items: inv.items
-          .filter((i) => i.location === "vault")
+          .filter((i) => i.location === 'vault')
           .sort((a, b) => (b.power ?? 0) - (a.power ?? 0))
           .map((i) => new ItemSummary(i)),
       })
@@ -203,7 +203,7 @@ export const GuardianLive = Layer.effect(
         const copies = new Map<string, number>()
         for (const mod of charged) copies.set(mod.name, (copies.get(mod.name) ?? 0) + 1)
         const conditions = [...loadout.aspects, ...loadout.fragments]
-        const key = `situational.${createHash("sha1")
+        const key = `situational.${createHash('sha1')
           .update(
             JSON.stringify([
               loadout.subclass,
@@ -211,7 +211,7 @@ export const GuardianLive = Layer.effect(
               [...copies].sort(),
             ]),
           )
-          .digest("hex")}`
+          .digest('hex')}`
 
         const read = Effect.gen(function* () {
           const effects = yield* chargeEffects.forMods([...copies.keys()]).pipe(Effect.orDie)
@@ -228,12 +228,12 @@ export const GuardianLive = Layer.effect(
           writing.add(key)
           yield* writer
             .write({
-              subclass: [loadout.subclass, loadout.element].filter(Boolean).join(", "),
+              subclass: [loadout.subclass, loadout.element].filter(Boolean).join(', '),
               conditions: conditions.map((c) => ({ name: c.name, description: c.description })),
               mods: [...copies].map(([name, count]) => ({
                 name,
                 copies: count,
-                description: charged.find((mod) => mod.name === name)?.description ?? "",
+                description: charged.find((mod) => mod.name === name)?.description ?? '',
                 known: stored.effects.get(name.toLowerCase())?.effect ?? null,
               })),
             })
@@ -258,7 +258,7 @@ export const GuardianLive = Layer.effect(
               Effect.catchCause((cause) =>
                 Effect.andThen(
                   Effect.sync(() => failedAt.set(key, now)),
-                  Effect.logWarning("situational: not written", cause),
+                  Effect.logWarning('situational: not written', cause),
                 ),
               ),
               Effect.ensuring(Effect.sync(() => writing.delete(key))),

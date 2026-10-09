@@ -14,20 +14,20 @@ import {
   PlanRow,
   type SetBonus,
   type WeaponSheet,
-} from "@ghost/contract"
-import { Context, Effect, Layer } from "effect"
-import type { BungieError } from "../bungie/client.ts"
-import { type CharacterInfo, isPerk, isWeapon, type OwnedItem } from "../bungie/inventory.ts"
-import { Manifest, type ManifestItem } from "../bungie/manifest.ts"
-import { armorStats } from "../bungie/masterwork.ts"
-import { ProfileStore } from "../bungie/profile.ts"
-import { everySetBonus } from "../bungie/sets.ts"
-import { JobsRepo } from "../db/jobs.ts"
-import { JunkJudge } from "../junk/service.ts"
-import { judgeWeapons } from "../plans/compose.ts"
-import { Plans } from "../plans/executor.ts"
-import { Wishlist, type WishlistError } from "../wishlist/wishlist.ts"
-import { poolColumns, weaponSheet } from "./sheet.ts"
+} from '@ghost/contract'
+import { Context, Effect, Layer } from 'effect'
+import type { BungieError } from '../bungie/client.ts'
+import { type CharacterInfo, isPerk, isWeapon, type OwnedItem } from '../bungie/inventory.ts'
+import { Manifest, type ManifestItem } from '../bungie/manifest.ts'
+import { armorStats } from '../bungie/masterwork.ts'
+import { ProfileStore } from '../bungie/profile.ts'
+import { everySetBonus } from '../bungie/sets.ts'
+import { JobsRepo } from '../db/jobs.ts'
+import { JunkJudge } from '../junk/service.ts'
+import { judgeWeapons } from '../plans/compose.ts'
+import { Plans } from '../plans/executor.ts'
+import { Wishlist, type WishlistError } from '../wishlist/wishlist.ts'
+import { poolColumns, weaponSheet } from './sheet.ts'
 
 type ReadErrors = ItemNotFound | BungieError | BungieNotLinked
 
@@ -46,7 +46,7 @@ export interface ItemsService {
   ) => Effect.Effect<Job, ReadErrors | JobNotFound | PlanNotApplicable>
 }
 
-export class Items extends Context.Service<Items, ItemsService>()("Items") {}
+export class Items extends Context.Service<Items, ItemsService>()('Items') {}
 
 export const perksFrom = (
   plugHashes: ReadonlyArray<number>,
@@ -60,8 +60,8 @@ export const perksFrom = (
         name: plug.name,
         description: plug.description,
         icon: plug.icon,
-        trait: plug.typeName.includes("Trait"),
-        enhanced: plug.typeName.startsWith("Enhanced "),
+        trait: plug.typeName.includes('Trait'),
+        enhanced: plug.typeName.startsWith('Enhanced '),
       }),
     ]
   })
@@ -74,7 +74,7 @@ export const pieceSetBonuses = (
   if (item.set === null) return undefined
   const members = new Set(item.set.items)
   const worn =
-    item.location === "character"
+    item.location === 'character'
       ? items.filter(
           (each) =>
             each.equipped && each.characterId === item.characterId && members.has(each.itemHash),
@@ -86,30 +86,30 @@ export const pieceSetBonuses = (
 export const title = (word: string) => word.charAt(0).toUpperCase() + word.slice(1)
 
 export const describeAction = (
-  item: Pick<OwnedItem, "name">,
-  action: ItemAction["action"],
-  target: Pick<CharacterInfo, "classType"> | undefined,
+  item: Pick<OwnedItem, 'name'>,
+  action: ItemAction['action'],
+  target: Pick<CharacterInfo, 'classType'> | undefined,
 ) => {
-  const who = target === undefined ? "character" : title(target.classType)
+  const who = target === undefined ? 'character' : title(target.classType)
   switch (action) {
-    case "to_vault":
+    case 'to_vault':
       return {
         prompt: `Send ${item.name} to the vault`,
-        title: "TRANSFER",
-        meta: "TO VAULT",
-        confirmLabel: "SEND TO VAULT",
+        title: 'TRANSFER',
+        meta: 'TO VAULT',
+        confirmLabel: 'SEND TO VAULT',
       }
-    case "to_character":
+    case 'to_character':
       return {
         prompt: `Send ${item.name} to ${who}`,
-        title: "TRANSFER",
+        title: 'TRANSFER',
         meta: `TO ${who.toUpperCase()}`,
         confirmLabel: `SEND TO ${who.toUpperCase()}`,
       }
-    case "equip":
+    case 'equip':
       return {
         prompt: `Equip ${item.name} on ${who}`,
-        title: "EQUIP",
+        title: 'EQUIP',
         meta: `EQUIP ON ${who.toUpperCase()}`,
         confirmLabel: `EQUIP ON ${who.toUpperCase()}`,
       }
@@ -150,16 +150,16 @@ export const ItemsLive = Layer.effect(
     const runRow = (
       item: OwnedItem,
       words: { prompt: string; title: string; meta: string; confirmLabel: string },
-      row: Pick<PlanRow, "action" | "characterId" | "armorMods">,
+      row: Pick<PlanRow, 'action' | 'characterId' | 'armorMods'>,
     ) =>
       Effect.gen(function* () {
         const job = yield* jobs
           .createManual({
-            kind: "item_action",
+            kind: 'item_action',
             prompt: words.prompt,
             characterId: row.characterId,
             plan: new Plan({
-              kind: "transfer",
+              kind: 'transfer',
               title: words.title,
               subtitle: null,
               stats: [],
@@ -182,7 +182,7 @@ export const ItemsLive = Layer.effect(
               ],
               note: null,
               confirmLabel: words.confirmLabel,
-              status: "proposed",
+              status: 'proposed',
             }),
           })
           .pipe(Effect.orDie)
@@ -192,7 +192,7 @@ export const ItemsLive = Layer.effect(
     const act = (id: string, input: ItemAction) =>
       Effect.gen(function* () {
         const { inv, item } = yield* find(id)
-        const characterId = input.action === "to_vault" ? null : (input.characterId ?? null)
+        const characterId = input.action === 'to_vault' ? null : (input.characterId ?? null)
         const target = inv.characters.find((each) => each.characterId === characterId)
         return yield* runRow(item, describeAction(item, input.action, target), {
           action: input.action,
@@ -239,7 +239,7 @@ export const ItemsLive = Layer.effect(
           const plug = defs.get(plugHash)
           if (socket === undefined || plug === undefined || !socket.rolled.includes(plugHash)) {
             return yield* new PlanNotApplicable({
-              reason: `${plug?.name ?? "That perk"} can't be applied to this copy`,
+              reason: `${plug?.name ?? 'That perk'} can't be applied to this copy`,
             })
           }
           if (socket.plugHash === plugHash) continue
@@ -259,22 +259,22 @@ export const ItemsLive = Layer.effect(
           )
         }
         if (swaps.length === 0) {
-          return yield* new PlanNotApplicable({ reason: "Those perks are already on this copy" })
+          return yield* new PlanNotApplicable({ reason: 'Those perks are already on this copy' })
         }
-        const carried = item.location === "character" && item.characterId !== null
+        const carried = item.location === 'character' && item.characterId !== null
         const characterId = carried ? item.characterId : input.characterId
         const target = inv.characters.find((each) => each.characterId === characterId)
-        const who = target === undefined ? "CHARACTER" : title(target.classType).toUpperCase()
-        const count = `${swaps.length} PERK${swaps.length === 1 ? "" : "S"}`
+        const who = target === undefined ? 'CHARACTER' : title(target.classType).toUpperCase()
+        const count = `${swaps.length} PERK${swaps.length === 1 ? '' : 'S'}`
         return yield* runRow(
           item,
           {
-            prompt: `Apply ${swaps.map((swap) => swap.name).join(" and ")} to ${item.name}`,
-            title: "APPLY PERKS",
+            prompt: `Apply ${swaps.map((swap) => swap.name).join(' and ')} to ${item.name}`,
+            title: 'APPLY PERKS',
             meta: carried ? count : `${count} · MOVES TO ${who} FIRST`,
             confirmLabel: `APPLY ${count}`,
           },
-          { action: carried ? "none" : "to_character", characterId, armorMods: swaps },
+          { action: carried ? 'none' : 'to_character', characterId, armorMods: swaps },
         )
       })
 

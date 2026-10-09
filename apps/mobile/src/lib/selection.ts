@@ -1,5 +1,5 @@
-import type { Plan } from "@ghost/contract"
-import { useSyncExternalStore } from "react"
+import type { Plan } from '@ghost/contract'
+import { useSyncExternalStore } from 'react'
 
 // Which plan rows (and subclass change) the player has left ticked, per job. It lives outside the
 // components because the same plan renders in two places (the chat and the
@@ -14,7 +14,7 @@ const actionable = (plan: Plan) => {
   return [
     ...(change === undefined ? [] : [{ id: change.itemInstanceId, selected: change.selected }]),
     ...plan.rows
-      .filter((row) => row.action !== "none" || row.armorMods?.some((mod) => mod.swap))
+      .filter((row) => row.action !== 'none' || row.armorMods?.some((mod) => mod.swap))
       .map((row) => ({ id: row.itemInstanceId, selected: row.selected })),
   ]
 }

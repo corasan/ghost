@@ -1,28 +1,28 @@
-import type { AbilityKind, Keyword, LoadoutPlug, SubclassLoadout } from "@ghost/contract"
-import { Image } from "expo-image"
-import { router } from "expo-router"
-import { createContext, use, useRef, useState } from "react"
-import { type HostInstance, ScrollView, StyleSheet, Text, View } from "react-native"
+import type { AbilityKind, Keyword, LoadoutPlug, SubclassLoadout } from '@ghost/contract'
+import { Image } from 'expo-image'
+import { router } from 'expo-router'
+import { createContext, use, useRef, useState } from 'react'
+import { type HostInstance, ScrollView, StyleSheet, Text, View } from 'react-native'
 
-import { PlugIcon } from "@/components/ghost/plug-icon"
-import { SubclassMark } from "@/components/ghost/subclass-mark"
-import { Tooltip, TooltipLayer } from "@/components/ghost/tooltip"
-import { Body, Button, Cond, Cut, Meta, Mono } from "@/components/ghost/ui"
-import { ELEMENT_TONE, Ghost, Gutter, Type } from "@/constants/theme"
-import { useCharacter } from "@/lib/character"
-import { firstParagraph, plain } from "@/lib/effect-text"
-import { keywordRuns, loadoutKeywords } from "@/lib/keywords"
-import type { Rect } from "@/lib/tooltip"
-import { useFooterHeight } from "@/lib/footer"
-import { sentence, upper } from "@/lib/format"
-import { signed } from "@/lib/plan-card"
-import { useBottomInset } from "@/lib/insets"
+import { PlugIcon } from '@/components/ghost/plug-icon'
+import { SubclassMark } from '@/components/ghost/subclass-mark'
+import { Tooltip, TooltipLayer } from '@/components/ghost/tooltip'
+import { Body, Button, Cond, Cut, Meta, Mono } from '@/components/ghost/ui'
+import { ELEMENT_TONE, Ghost, Gutter, Type } from '@/constants/theme'
+import { useCharacter } from '@/lib/character'
+import { firstParagraph, plain } from '@/lib/effect-text'
+import { keywordRuns, loadoutKeywords } from '@/lib/keywords'
+import type { Rect } from '@/lib/tooltip'
+import { useFooterHeight } from '@/lib/footer'
+import { sentence, upper } from '@/lib/format'
+import { signed } from '@/lib/plan-card'
+import { useBottomInset } from '@/lib/insets'
 
 const ABILITY_LABEL: Record<AbilityKind, string> = {
-  class: "Class",
-  jump: "Jump",
-  melee: "Melee",
-  grenade: "Grenade",
+  class: 'Class',
+  jump: 'Jump',
+  melee: 'Melee',
+  grenade: 'Grenade',
 }
 
 function Ability({
@@ -95,7 +95,7 @@ function Effect({ text, size }: { text: string; size: number }) {
 
 function KeywordName({ keyword, tone, size }: { keyword: Keyword; tone: string; size: number }) {
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
       <PlugIcon icon={keyword.icon} size={size + 4} />
       <Cond size={size} color={tone} style={{ letterSpacing: 0.8 }}>
         {upper(keyword.name)}
@@ -130,7 +130,7 @@ function Aspect({ aspect, tone }: { aspect: LoadoutPlug; tone: string }) {
       </View>
       {aspect.fragmentSlots ? (
         <Meta color={tone} style={{ marginTop: 2 }}>
-          +{aspect.fragmentSlots} {aspect.fragmentSlots === 1 ? "slot" : "slots"}
+          +{aspect.fragmentSlots} {aspect.fragmentSlots === 1 ? 'slot' : 'slots'}
         </Meta>
       ) : null}
     </View>
@@ -148,7 +148,7 @@ function Fragment({ fragment }: { fragment: LoadoutPlug }) {
         </Body>
         {effect ? <Effect text={effect} size={14} /> : null}
       </View>
-      <View style={{ alignItems: "flex-end", gap: 3, marginTop: 3 }}>
+      <View style={{ alignItems: 'flex-end', gap: 3, marginTop: 3 }}>
         {fragment.mods.map((mod) => (
           <Meta key={mod.label} color={mod.delta > 0 ? Ghost.good : Ghost.danger}>
             {signed(mod.delta)} {sentence(mod.label)}
@@ -180,7 +180,7 @@ function Subclass() {
   if (!loadout) return null
 
   const tone = ELEMENT_TONE[loadout.element]
-  const name = loadout.subclass ?? "Subclass"
+  const name = loadout.subclass ?? 'Subclass'
   const capacity = fragmentCapacity(loadout)
   const keywords = loadoutKeywords([...loadout.aspects, ...loadout.fragments])
 
@@ -188,20 +188,20 @@ function Subclass() {
     <KeywordContext value={{ keywords, tone, open: setOpen }}>
       <View collapsable={false} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={[styles.content, { paddingBottom: footer.height + 24 }]}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <SubclassMark loadout={loadout} size={22} />
             <Meta color={tone}>
-              {[loadout.element === "none" ? null : loadout.element, loadout.classType]
+              {[loadout.element === 'none' ? null : loadout.element, loadout.classType]
                 .filter(Boolean)
                 .map((part) => sentence(String(part)))
-                .join(" · ")}
+                .join(' · ')}
             </Meta>
           </View>
           <Cond size={44} style={{ letterSpacing: 0.9, lineHeight: 44, marginTop: 8 }}>
             {upper(name)}
           </Cond>
 
-          <View style={{ flexDirection: "row", gap: 8, marginTop: 20 }}>
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 20 }}>
             {loadout.super ? (
               <Ability
                 slot="Super"
@@ -234,7 +234,7 @@ function Subclass() {
             <>
               <Mono style={[styles.label, { marginTop: 14 }]}>
                 FRAGMENTS · {loadout.fragments.length}
-                {capacity > 0 ? ` / ${capacity}` : ""}
+                {capacity > 0 ? ` / ${capacity}` : ''}
               </Mono>
               {loadout.fragments.map((fragment) => (
                 <Fragment key={fragment.name} fragment={fragment} />
@@ -261,7 +261,7 @@ function Subclass() {
             onPress={() => {
               router.back()
               router.navigate({
-                pathname: "/",
+                pathname: '/',
                 params: { draft: `Review my ${name} setup. What would you change?` },
               })
             }}
@@ -287,27 +287,27 @@ function Subclass() {
 
 const styles = StyleSheet.create({
   content: { paddingHorizontal: Gutter, paddingTop: 30 },
-  ability: { height: 44, alignItems: "center", justifyContent: "center" },
+  ability: { height: 44, alignItems: 'center', justifyContent: 'center' },
   label: { letterSpacing: 1.3, paddingBottom: 8 },
   keyword: {
     color: Ghost.soft,
-    textDecorationLine: "underline",
-    textDecorationStyle: "solid",
+    textDecorationLine: 'underline',
+    textDecorationStyle: 'solid',
   },
   entry: {
-    flexDirection: "row",
-    alignItems: "flex-start",
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: 12,
     paddingVertical: 10,
     borderTopWidth: 1,
     borderTopColor: Ghost.rule,
   },
   footer: {
-    position: "absolute",
+    position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    flexDirection: "row",
+    flexDirection: 'row',
     paddingHorizontal: Gutter,
     paddingTop: 12,
     borderTopWidth: 1,

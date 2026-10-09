@@ -1,9 +1,9 @@
-import * as WebBrowser from "expo-web-browser"
-import { View } from "react-native"
-import { EnrichedMarkdownText, type MarkdownStyle } from "react-native-enriched-markdown"
+import * as WebBrowser from 'expo-web-browser'
+import { View } from 'react-native'
+import { EnrichedMarkdownText, type MarkdownStyle } from 'react-native-enriched-markdown'
 
-import { Ghost, Type } from "@/constants/theme"
-import { webUrl } from "@/lib/links"
+import { Ghost, Type } from '@/constants/theme'
+import { webUrl } from '@/lib/links'
 
 const text = { fontFamily: Type.body, color: Ghost.soft }
 
@@ -88,7 +88,7 @@ const style: MarkdownStyle = {
 /** Ghost's voice for a full answer: the blue rule beside formatted Markdown. */
 export function SaidMarkdown({ children }: { children: string }) {
   return (
-    <View style={{ flexDirection: "row", gap: 12 }}>
+    <View style={{ flexDirection: 'row', gap: 12 }}>
       <View style={{ width: 2, backgroundColor: Ghost.accent }} />
       <EnrichedMarkdownText
         flavor="github"

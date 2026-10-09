@@ -1,5 +1,5 @@
-import { Effect, Option, Schema } from "effect"
-import { findTailscale, run } from "./shell.ts"
+import { Effect, Option, Schema } from 'effect'
+import { findTailscale, run } from './shell.ts'
 
 const Status = Schema.Struct({
   BackendState: Schema.String,
@@ -13,10 +13,10 @@ const Status = Schema.Struct({
 })
 
 export type Tailnet =
-  | { readonly _tag: "Missing" }
-  | { readonly _tag: "Stopped"; readonly binary: string; readonly state: string }
+  | { readonly _tag: 'Missing' }
+  | { readonly _tag: 'Stopped'; readonly binary: string; readonly state: string }
   | {
-      readonly _tag: "Connected"
+      readonly _tag: 'Connected'
       readonly binary: string
       readonly host: string
       readonly https: boolean
@@ -26,19 +26,19 @@ export type Tailnet =
 
 export const tailnet = Effect.gen(function* () {
   const binary = findTailscale()
-  if (binary === null) return { _tag: "Missing" } satisfies Tailnet
-  const output = yield* run([binary, "status", "--json"])
+  if (binary === null) return { _tag: 'Missing' } satisfies Tailnet
+  const output = yield* run([binary, 'status', '--json'])
   const status = Option.getOrNull(
     Schema.decodeUnknownOption(Schema.fromJsonString(Status))(output.stdout),
   )
-  const host = status?.Self?.DNSName.replace(/\.$/, "") ?? ""
-  if (status === null || status.BackendState !== "Running" || host === "") {
-    return { _tag: "Stopped", binary, state: status?.BackendState ?? "unknown" } satisfies Tailnet
+  const host = status?.Self?.DNSName.replace(/\.$/, '') ?? ''
+  if (status === null || status.BackendState !== 'Running' || host === '') {
+    return { _tag: 'Stopped', binary, state: status?.BackendState ?? 'unknown' } satisfies Tailnet
   }
   const https = (status.CertDomains ?? []).length > 0
   const owner = status.Self?.UserID
   const login = owner === undefined ? null : (status.User?.[String(owner)]?.LoginName ?? null)
-  return { _tag: "Connected", binary, host, https, login } satisfies Tailnet
+  return { _tag: 'Connected', binary, host, https, login } satisfies Tailnet
 })
 
 export const tailnetUrl = (host: string, port: number) => `https://${host}:${port}`
@@ -49,10 +49,10 @@ export const pairingLink = (url: string, token: string) =>
 
 /** Serves the loopback-only server on the tailnet over https. Safe to repeat. */
 export const expose = (binary: string, port: number) =>
-  run([binary, "serve", "--bg", `--https=${port}`, `http://127.0.0.1:${port}`])
+  run([binary, 'serve', '--bg', `--https=${port}`, `http://127.0.0.1:${port}`])
 
 export const unexpose = (binary: string, port: number) =>
-  run([binary, "serve", `--https=${port}`, "off"])
+  run([binary, 'serve', `--https=${port}`, 'off'])
 
 const ServeStatus = Schema.Struct({
   Web: Schema.optional(
@@ -77,13 +77,13 @@ const ServeStatus = Schema.Struct({
 /** Ports `tailscale serve` publishes in the shape `expose` sets up: https on a port to that port on loopback. */
 export const servedPorts = (binary: string) =>
   Effect.gen(function* () {
-    const output = yield* run([binary, "serve", "status", "--json"])
+    const output = yield* run([binary, 'serve', 'status', '--json'])
     const status = Option.getOrNull(
       Schema.decodeUnknownOption(Schema.fromJsonString(ServeStatus))(output.stdout),
     )
     const ports = new Set<number>()
     for (const [hostPort, web] of Object.entries(status?.Web ?? {})) {
-      const port = Number(hostPort.slice(hostPort.lastIndexOf(":") + 1))
+      const port = Number(hostPort.slice(hostPort.lastIndexOf(':') + 1))
       const handlers = Object.values(web.Handlers ?? {})
       if (handlers.some((handler) => handler.Proxy === `http://127.0.0.1:${port}`)) ports.add(port)
     }

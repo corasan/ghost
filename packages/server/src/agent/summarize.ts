@@ -1,7 +1,7 @@
-import { Context, Effect, Layer, Schema } from "effect"
-import { AppConfig } from "../config.ts"
-import { extractJsonText, SummaryOutput } from "../creators/parse.ts"
-import { abortOn, AgentFailed, runClaude, within } from "./claude.ts"
+import { Context, Effect, Layer, Schema } from 'effect'
+import { AppConfig } from '../config.ts'
+import { extractJsonText, SummaryOutput } from '../creators/parse.ts'
+import { abortOn, AgentFailed, runClaude, within } from './claude.ts'
 
 export interface VideoToSummarize {
   readonly channelTitle: string
@@ -16,7 +16,7 @@ export interface SummarizerService {
   readonly summarize: (video: VideoToSummarize) => Effect.Effect<SummaryOutput, AgentFailed>
 }
 
-export class Summarizer extends Context.Service<Summarizer, SummarizerService>()("Summarizer") {}
+export class Summarizer extends Context.Service<Summarizer, SummarizerService>()('Summarizer') {}
 
 const SYSTEM_PROMPT = `You turn a Destiny 2 creator's video into short notes for a companion app that advises players.
 
@@ -45,9 +45,9 @@ export const SummarizerLive = Layer.effect(
             `Channel: ${video.channelTitle}`,
             `Video: ${video.title}`,
             `Published: ${video.publishedAt}`,
-            video.timed ? "Transcript:" : "No captions were available; title and description:",
+            video.timed ? 'Transcript:' : 'No captions were available; title and description:',
             video.text,
-          ].join("\n")
+          ].join('\n')
           for await (const message of runClaude(config.claudePath, prompt, {
             model: config.model,
             systemPrompt: SYSTEM_PROMPT,
@@ -55,16 +55,16 @@ export const SummarizerLive = Layer.effect(
             maxTurns: 1,
             abortController: abortOn(signal),
           })) {
-            if (message.type === "result") {
-              if (message.subtype === "success") return message.result
+            if (message.type === 'result') {
+              if (message.subtype === 'success') return message.result
               throw new Error(`summary ended with ${message.subtype}`)
             }
           }
-          throw new Error("summary returned nothing")
+          throw new Error('summary returned nothing')
         },
         catch: (error) => new AgentFailed({ message: String(error) }),
       }).pipe(
-        within("3 minutes", "The summary"),
+        within('3 minutes', 'The summary'),
         Effect.flatMap((text) =>
           Effect.try({
             try: () => extractJsonText(text),

@@ -1,5 +1,5 @@
-import type { QueryObserverResult } from "@tanstack/react-query"
-import { useCallback, useState } from "react"
+import type { QueryObserverResult } from '@tanstack/react-query'
+import { useCallback, useState } from 'react'
 
 /**
  * Pull-to-refresh state that is true only while a pull the player started

@@ -1,26 +1,26 @@
-import { Barlow_400Regular } from "@expo-google-fonts/barlow/400Regular"
-import { Barlow_500Medium } from "@expo-google-fonts/barlow/500Medium"
-import { Barlow_600SemiBold } from "@expo-google-fonts/barlow/600SemiBold"
-import { BarlowCondensed_500Medium } from "@expo-google-fonts/barlow-condensed/500Medium"
-import { BarlowCondensed_600SemiBold } from "@expo-google-fonts/barlow-condensed/600SemiBold"
-import { JetBrainsMono_400Regular } from "@expo-google-fonts/jetbrains-mono/400Regular"
-import { JetBrainsMono_500Medium } from "@expo-google-fonts/jetbrains-mono/500Medium"
-import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client"
-import { useFonts } from "expo-font"
-import { DarkTheme, Stack, ThemeProvider } from "expo-router"
-import { KeyboardProvider } from "react-native-keyboard-controller"
-import { PortalProvider } from "react-native-teleport"
-import * as SecureStore from "expo-secure-store"
-import * as SplashScreen from "expo-splash-screen"
-import { StatusBar } from "expo-status-bar"
-import { useEffect } from "react"
-import { Platform } from "react-native"
+import { Barlow_400Regular } from '@expo-google-fonts/barlow/400Regular'
+import { Barlow_500Medium } from '@expo-google-fonts/barlow/500Medium'
+import { Barlow_600SemiBold } from '@expo-google-fonts/barlow/600SemiBold'
+import { BarlowCondensed_500Medium } from '@expo-google-fonts/barlow-condensed/500Medium'
+import { BarlowCondensed_600SemiBold } from '@expo-google-fonts/barlow-condensed/600SemiBold'
+import { JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono/400Regular'
+import { JetBrainsMono_500Medium } from '@expo-google-fonts/jetbrains-mono/500Medium'
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
+import { useFonts } from 'expo-font'
+import { DarkTheme, Stack, ThemeProvider } from 'expo-router'
+import { KeyboardProvider } from 'react-native-keyboard-controller'
+import { PortalProvider } from 'react-native-teleport'
+import * as SecureStore from 'expo-secure-store'
+import * as SplashScreen from 'expo-splash-screen'
+import { StatusBar } from 'expo-status-bar'
+import { useEffect } from 'react'
+import { Platform } from 'react-native'
 
-import { AnimatedSplashOverlay } from "@/components/splash-overlay"
-import { TooltipLayer } from "@/components/ghost/tooltip"
-import { Ghost } from "@/constants/theme"
-import { useHealth } from "@/lib/api"
-import { persistOptions, queryClient } from "@/lib/query"
+import { AnimatedSplashOverlay } from '@/components/splash-overlay'
+import { TooltipLayer } from '@/components/ghost/tooltip'
+import { Ghost } from '@/constants/theme'
+import { useHealth } from '@/lib/api'
+import { persistOptions, queryClient } from '@/lib/query'
 
 SplashScreen.preventAutoHideAsync()
 
@@ -29,16 +29,16 @@ const theme = {
   colors: { ...DarkTheme.colors, background: Ghost.bg, card: Ghost.bg, primary: Ghost.accent },
 }
 
-const LINKED_KEY = "ghost.linked"
+const LINKED_KEY = 'ghost.linked'
 
-const presentation = Platform.OS === "ios" ? "formSheet" : "modal"
+const presentation = Platform.OS === 'ios' ? 'formSheet' : 'modal'
 
 function RootStack() {
   const sheet = {
     presentation,
     sheetGrabberVisible: true,
-    headerShown: Platform.OS === "android",
-    title: "",
+    headerShown: Platform.OS === 'android',
+    title: '',
     headerStyle: { backgroundColor: Ghost.panel },
     headerShadowVisible: false,
     headerTintColor: Ghost.ink,
@@ -56,7 +56,7 @@ function RootStack() {
   }, [known])
   // Until the server answers, trust what it said last time, so a slow or
   // unreachable server never leaves the app on a blank screen.
-  const linked = known ?? SecureStore.getItem(LINKED_KEY) === "true"
+  const linked = known ?? SecureStore.getItem(LINKED_KEY) === 'true'
 
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Ghost.bg } }}>
@@ -82,7 +82,7 @@ function RootStack() {
         name="settings"
         options={{
           headerShown: true,
-          title: "Settings",
+          title: 'Settings',
           presentation,
           sheetAllowedDetents: [0.6, 1],
           sheetGrabberVisible: true,

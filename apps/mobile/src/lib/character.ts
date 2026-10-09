@@ -1,13 +1,13 @@
-import type { GuardianClass } from "@ghost/contract"
-import * as SecureStore from "expo-secure-store"
-import { useSyncExternalStore } from "react"
+import type { GuardianClass } from '@ghost/contract'
+import * as SecureStore from 'expo-secure-store'
+import { useSyncExternalStore } from 'react'
 
-import { useGuardian } from "./api"
+import { useGuardian } from './api'
 
 // Which character the player is "on" in Ghost. It is app state, not game
 // state: switching in the menu changes what the header shows, which
 // character the briefing compares against, and the target of "equip this".
-const KEY = "ghost.characterId"
+const KEY = 'ghost.characterId'
 
 let current = SecureStore.getItem(KEY)
 const listeners = new Set<() => void>()

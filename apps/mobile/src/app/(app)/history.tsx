@@ -1,13 +1,13 @@
-import type { HistoryGroup } from "@ghost/contract"
-import { LegendList } from "@legendapp/list/react-native"
-import { Pressable, StyleSheet, View } from "react-native"
+import type { HistoryGroup } from '@ghost/contract'
+import { LegendList } from '@legendapp/list/react-native'
+import { Pressable, StyleSheet, View } from 'react-native'
 
-import { Body, Cond, Meta, PageHeader } from "@/components/ghost/ui"
-import { usePullRefresh } from "@/lib/refresh"
-import { Ghost, Gutter, Type } from "@/constants/theme"
-import { useHistory, useUndoPlan } from "@/lib/api"
-import { clock, isToday } from "@/lib/format"
-import { useBottomInset } from "@/lib/insets"
+import { Body, Cond, Meta, PageHeader } from '@/components/ghost/ui'
+import { usePullRefresh } from '@/lib/refresh'
+import { Ghost, Gutter, Type } from '@/constants/theme'
+import { useHistory, useUndoPlan } from '@/lib/api'
+import { clock, isToday } from '@/lib/format'
+import { useBottomInset } from '@/lib/insets'
 
 const tone = {
   ok: Ghost.good,
@@ -16,11 +16,11 @@ const tone = {
   undone: Ghost.muted,
 } as const
 
-const statusLabel = { ok: "Done", failed: "Failed", held: "Held", undone: "Undone" } as const
+const statusLabel = { ok: 'Done', failed: 'Failed', held: 'Held', undone: 'Undone' } as const
 
 function Group({ group }: { group: HistoryGroup }) {
   const undo = useUndoPlan()
-  const moves = group.calls.filter((call) => call.status === "ok").length
+  const moves = group.calls.filter((call) => call.status === 'ok').length
   return (
     <View style={{ gap: 10, opacity: group.undone ? 0.55 : 1 }}>
       <View style={styles.between}>
@@ -42,7 +42,7 @@ function Group({ group }: { group: HistoryGroup }) {
           ))}
         </View>
       ) : null}
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         {group.undoable ? (
           <Pressable
             accessibilityRole="button"
@@ -50,15 +50,15 @@ function Group({ group }: { group: HistoryGroup }) {
             onPress={() => undo.mutate(group.jobId)}
             style={styles.undo}
           >
-            <Cond size={13}>{undo.isPending ? "UNDOING…" : "UNDO"}</Cond>
+            <Cond size={13}>{undo.isPending ? 'UNDOING…' : 'UNDO'}</Cond>
           </Pressable>
         ) : null}
         <Meta>
           {group.undone
-            ? "Undone"
+            ? 'Undone'
             : group.calls.length === 0
-              ? "Answer only · nothing moved"
-              : `${moves} ${moves === 1 ? "call" : "calls"} · ${group.undoable ? "reversible" : "nothing to undo"}`}
+              ? 'Answer only · nothing moved'
+              : `${moves} ${moves === 1 ? 'call' : 'calls'} · ${group.undoable ? 'reversible' : 'nothing to undo'}`}
         </Meta>
       </View>
     </View>
@@ -73,7 +73,7 @@ export default function HistoryScreen() {
   const groups = history.data ?? []
   const today = groups
     .filter((group) => isToday(group.at))
-    .reduce((sum, group) => sum + group.calls.filter((call) => call.status === "ok").length, 0)
+    .reduce((sum, group) => sum + group.calls.filter((call) => call.status === 'ok').length, 0)
 
   return (
     <View style={{ flex: 1, backgroundColor: Ghost.bg }}>
@@ -93,10 +93,10 @@ export default function HistoryScreen() {
         ListEmptyComponent={
           <Body color={Ghost.dim} style={{ paddingHorizontal: Gutter }}>
             {history.isPending
-              ? "Loading…"
+              ? 'Loading…'
               : history.isError
                 ? "Can't reach the Ghost server."
-                : "Nothing yet. Everything Ghost does on your account is logged here, and can be undone."}
+                : 'Nothing yet. Everything Ghost does on your account is logged here, and can be undone.'}
           </Body>
         }
         renderItem={({ item }) => (
@@ -110,7 +110,7 @@ export default function HistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  between: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10 },
+  between: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
   calls: {
     borderLeftWidth: 1,
     borderLeftColor: Ghost.ruleStrong,
@@ -119,12 +119,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   dot: {
-    position: "absolute",
+    position: 'absolute',
     left: -19.5,
     top: 5,
     width: 6,
     height: 6,
-    transform: [{ rotate: "45deg" }],
+    transform: [{ rotate: '45deg' }],
   },
   undo: {
     paddingVertical: 8,

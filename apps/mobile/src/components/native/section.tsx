@@ -1,5 +1,5 @@
-import { StyleSheet, Text, View } from "react-native"
-import type { SectionProps } from "./types"
+import { StyleSheet, Text, View } from 'react-native'
+import type { SectionProps } from './types'
 
 export function Section({ title, footer, children }: SectionProps) {
   return (
@@ -13,7 +13,7 @@ export function Section({ title, footer, children }: SectionProps) {
 
 const styles = StyleSheet.create({
   section: { gap: 8 },
-  title: { fontSize: 13, color: "#6b7280", paddingHorizontal: 4 },
-  card: { borderRadius: 12, backgroundColor: "#f3f4f6", overflow: "hidden" },
-  footer: { fontSize: 13, color: "#6b7280", paddingHorizontal: 4 },
+  title: { fontSize: 13, color: '#6b7280', paddingHorizontal: 4 },
+  card: { borderRadius: 12, backgroundColor: '#f3f4f6', overflow: 'hidden' },
+  footer: { fontSize: 13, color: '#6b7280', paddingHorizontal: 4 },
 })

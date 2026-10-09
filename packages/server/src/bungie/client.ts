@@ -1,5 +1,5 @@
-import { randomBytes } from "node:crypto"
-import { BungieNotLinked } from "@ghost/contract"
+import { randomBytes } from 'node:crypto'
+import { BungieNotLinked } from '@ghost/contract'
 import {
   Clock,
   Context,
@@ -12,16 +12,16 @@ import {
   Schedule,
   Schema,
   Semaphore,
-} from "effect"
-import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http"
-import { AppConfig } from "../config.ts"
-import { Settings } from "../db/settings.ts"
+} from 'effect'
+import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http'
+import { AppConfig } from '../config.ts'
+import { Settings } from '../db/settings.ts'
 
-const PLATFORM = "https://www.bungie.net/Platform"
-const OAUTH = "https://www.bungie.net/platform/app/oauth"
+const PLATFORM = 'https://www.bungie.net/Platform'
+const OAUTH = 'https://www.bungie.net/platform/app/oauth'
 
 /** How long one Platform call may take, reading the reply included. */
-export const PLATFORM_TIMEOUT = "30 seconds"
+export const PLATFORM_TIMEOUT = '30 seconds'
 
 // Every Bungie response is an envelope. ErrorCode 1 means success; anything
 // else is a Bungie-side failure with a human message, which we surface as a
@@ -49,7 +49,7 @@ const TokenFailure = Schema.Struct({
   error_description: Schema.optionalKey(Schema.String),
 })
 
-export class BungieError extends Schema.TaggedError<BungieError>()("BungieError", {
+export class BungieError extends Schema.TaggedError<BungieError>()('BungieError', {
   status: Schema.String,
   message: Schema.String,
   /** Bungie's PlatformErrorCode; absent when no envelope came back. */
@@ -110,7 +110,7 @@ const hasCode = (codes: ReadonlySet<number>, error: BungieError) =>
 
 /** No reply, or one that was not an envelope (a proxy error page, a cut-off body). */
 const isTransport = (error: BungieError) =>
-  error.status === "Transport" || error.status === "Timeout"
+  error.status === 'Transport' || error.status === 'Timeout'
 
 /**
  * Whether a failed call can be sent again. Reads can always be repeated;
@@ -129,12 +129,12 @@ const MAX_WAIT_MS = 30_000
  * exponentially from a second, and never sooner than Bungie's ThrottleSeconds.
  */
 export const retryPolicy = (idempotent: boolean) =>
-  Schedule.exponential("1 second").pipe(
+  Schedule.exponential('1 second').pipe(
     Schedule.setInputType<BungieError | BungieNotLinked>(),
     Schedule.while(
       ({ input, attempt }) =>
         attempt <= MAX_RETRIES &&
-        input._tag === "BungieError" &&
+        input._tag === 'BungieError' &&
         isRetryable(input, idempotent) &&
         (input.throttleSeconds ?? 0) * 1000 <= MAX_WAIT_MS,
     ),
@@ -142,7 +142,7 @@ export const retryPolicy = (idempotent: boolean) =>
       Effect.succeed(
         Math.max(
           Duration.toMillis(duration),
-          input._tag === "BungieError" ? (input.throttleSeconds ?? 0) * 1000 : 0,
+          input._tag === 'BungieError' ? (input.throttleSeconds ?? 0) * 1000 : 0,
         ),
       ),
     ),
@@ -157,14 +157,14 @@ export const timeoutAfter =
       orElse: () =>
         Effect.fail(
           new BungieError({
-            status: "Timeout",
+            status: 'Timeout',
             message: `no reply from Bungie within ${Duration.format(Duration.fromInputUnsafe(duration))}`,
           }),
         ),
     })
 
 const toBungieError = (cause: unknown) =>
-  new BungieError({ status: "Transport", message: String(cause) })
+  new BungieError({ status: 'Transport', message: String(cause) })
 
 export const envelopeError = (envelope: typeof Envelope.Type) =>
   new BungieError({
@@ -236,7 +236,7 @@ export interface BungieClientService {
     input: TransferItemInput,
   ) => Effect.Effect<unknown, BungieError | BungieNotLinked>
   readonly pullFromPostmaster: (
-    input: Omit<TransferItemInput, "transferToVault">,
+    input: Omit<TransferItemInput, 'transferToVault'>,
   ) => Effect.Effect<unknown, BungieError | BungieNotLinked>
   /** The item must already be on that character. */
   readonly equipItem: (input: ItemAction) => Effect.Effect<unknown, BungieError | BungieNotLinked>
@@ -250,12 +250,12 @@ export interface BungieClientService {
 }
 
 export class BungieClient extends Context.Service<BungieClient, BungieClientService>()(
-  "BungieClient",
+  'BungieClient',
 ) {}
 
-const TOKENS_KEY = "bungie.tokens"
+const TOKENS_KEY = 'bungie.tokens'
 /** The Destiny membership the stored tokens act on (see profile.ts); forgotten whenever the tokens change. */
-export const MEMBERSHIP_KEY = "bungie.membership"
+export const MEMBERSHIP_KEY = 'bungie.membership'
 const STATE_TTL_MS = 10 * 60 * 1000
 
 const millisOf = (iso: string) => DateTime.toEpochMillis(DateTime.makeUnsafe(iso))
@@ -267,7 +267,7 @@ export const BungieClientLive = Layer.effect(
     const settings = yield* Settings
     const http = (yield* HttpClient.HttpClient).pipe(
       HttpClient.mapRequest(
-        HttpClientRequest.setHeader("X-API-Key", Redacted.value(config.bungie.apiKey)),
+        HttpClientRequest.setHeader('X-API-Key', Redacted.value(config.bungie.apiKey)),
       ),
     )
     // Sign-ins started with authorizeUrl and not finished yet: state to when it lapses.
@@ -309,9 +309,9 @@ export const BungieClientLive = Layer.effect(
       Effect.gen(function* () {
         const basic = Buffer.from(
           `${config.bungie.clientId}:${Redacted.value(config.bungie.clientSecret)}`,
-        ).toString("base64")
+        ).toString('base64')
         const request = HttpClientRequest.post(`${OAUTH}/token/`).pipe(
-          HttpClientRequest.setHeader("Authorization", `Basic ${basic}`),
+          HttpClientRequest.setHeader('Authorization', `Basic ${basic}`),
           HttpClientRequest.bodyUrlParams(form),
         )
         const response = yield* http.execute(request).pipe(Effect.mapError(toBungieError))
@@ -323,7 +323,7 @@ export const BungieClientLive = Layer.effect(
           )
           return yield* Option.match(failure, {
             onNone: () =>
-              new BungieError({ status: "Transport", message: `token: HTTP ${response.status}` }),
+              new BungieError({ status: 'Transport', message: `token: HTTP ${response.status}` }),
             onSome: (body) =>
               new BungieError({
                 status: body.error,
@@ -365,14 +365,14 @@ export const BungieClientLive = Layer.effect(
         const now = yield* Clock.currentTimeMillis
         if (tokens.accessToken !== rejected && usable(tokens, now)) return tokens
         if (tokens.refreshExpiresAt !== undefined && millisOf(tokens.refreshExpiresAt) <= now) {
-          return yield* signOut("refresh token expired")
+          return yield* signOut('refresh token expired')
         }
         return yield* tokenRequest({
-          grant_type: "refresh_token",
+          grant_type: 'refresh_token',
           refresh_token: tokens.refreshToken,
         }).pipe(
           Effect.catchIf(
-            (error) => error.status === "invalid_grant" || hasCode(SIGNED_OUT, error),
+            (error) => error.status === 'invalid_grant' || hasCode(SIGNED_OUT, error),
             (error) => signOut(`refresh refused: ${error.message}`),
           ),
         )
@@ -406,7 +406,7 @@ export const BungieClientLive = Layer.effect(
         const tokens = yield* freshTokens
         return yield* send(request, tokens.accessToken).pipe(
           Effect.catchIf(
-            (error) => error._tag === "BungieError" && hasCode(EXPIRED_ACCESS, error),
+            (error) => error._tag === 'BungieError' && hasCode(EXPIRED_ACCESS, error),
             () =>
               Effect.flatMap(refresh(tokens.accessToken), (next) =>
                 send(request, next.accessToken),
@@ -426,11 +426,11 @@ export const BungieClientLive = Layer.effect(
     const authorizeUrl = Effect.gen(function* () {
       const now = yield* Clock.currentTimeMillis
       for (const [state, lapses] of pendingStates) if (lapses <= now) pendingStates.delete(state)
-      const state = randomBytes(16).toString("hex")
+      const state = randomBytes(16).toString('hex')
       pendingStates.set(state, now + STATE_TTL_MS)
       const query = new URLSearchParams({
         client_id: config.bungie.clientId,
-        response_type: "code",
+        response_type: 'code',
         state,
       })
       return `https://www.bungie.net/en/OAuth/Authorize?${query}`
@@ -442,11 +442,11 @@ export const BungieClientLive = Layer.effect(
         pendingStates.delete(state)
         if (lapses === undefined || lapses <= (yield* Clock.currentTimeMillis)) {
           return yield* new BungieError({
-            status: "State",
-            message: "this sign-in was not started by Ghost, or took too long; start it again",
+            status: 'State',
+            message: 'this sign-in was not started by Ghost, or took too long; start it again',
           })
         }
-        const tokens = yield* tokenRequest({ grant_type: "authorization_code", code })
+        const tokens = yield* tokenRequest({ grant_type: 'authorization_code', code })
         // The new tokens may belong to another account.
         yield* settings.remove(MEMBERSHIP_KEY).pipe(Effect.orDie)
         return tokens
@@ -458,16 +458,16 @@ export const BungieClientLive = Layer.effect(
       exchangeCode,
       get,
       transferItem: (input) =>
-        post("/Destiny2/Actions/Items/TransferItem/", { stackSize: 1, ...input }),
+        post('/Destiny2/Actions/Items/TransferItem/', { stackSize: 1, ...input }),
       pullFromPostmaster: (input) =>
-        post("/Destiny2/Actions/Items/PullFromPostmaster/", { stackSize: 1, ...input }),
-      equipItem: (input) => post("/Destiny2/Actions/Items/EquipItem/", input),
+        post('/Destiny2/Actions/Items/PullFromPostmaster/', { stackSize: 1, ...input }),
+      equipItem: (input) => post('/Destiny2/Actions/Items/EquipItem/', input),
       insertPlug: ({ socketIndex, plugHash, ...item }) =>
-        post("/Destiny2/Actions/Items/InsertSocketPlugFree/", {
+        post('/Destiny2/Actions/Items/InsertSocketPlugFree/', {
           ...item,
           plug: { socketIndex, socketArrayType: 0, plugItemHash: plugHash },
         }),
-      snapshotLoadout: (input) => post("/Destiny2/Actions/Loadouts/SnapshotLoadout/", input),
+      snapshotLoadout: (input) => post('/Destiny2/Actions/Loadouts/SnapshotLoadout/', input),
     }
   }),
 ).pipe(Layer.provide(FetchHttpClient.layer))

@@ -1,5 +1,5 @@
-import { StyleSheet, Text, View } from "react-native"
-import type { EmptyProps } from "./types"
+import { StyleSheet, Text, View } from 'react-native'
+import type { EmptyProps } from './types'
 
 export function Empty({ title, description }: EmptyProps) {
   return (
@@ -11,7 +11,7 @@ export function Empty({ title, description }: EmptyProps) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { padding: 24, alignItems: "center", gap: 4 },
-  title: { fontSize: 16, fontWeight: "600" },
-  description: { color: "#6b7280", textAlign: "center" },
+  wrap: { padding: 24, alignItems: 'center', gap: 4 },
+  title: { fontSize: 16, fontWeight: '600' },
+  description: { color: '#6b7280', textAlign: 'center' },
 })

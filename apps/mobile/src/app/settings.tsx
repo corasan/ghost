@@ -1,32 +1,32 @@
-import { useQueryClient } from "@tanstack/react-query"
-import * as WebBrowser from "expo-web-browser"
-import { useState } from "react"
+import { useQueryClient } from '@tanstack/react-query'
+import * as WebBrowser from 'expo-web-browser'
+import { useState } from 'react'
 
-import type { AgentEffort } from "@ghost/contract"
+import type { AgentEffort } from '@ghost/contract'
 
-import { Button, Row, Screen, Section, Segmented, TextField } from "@/components/native"
+import { Button, Row, Screen, Section, Segmented, TextField } from '@/components/native'
 import {
   errorMessage,
   useAgentSettings,
   useBungieAuthStart,
   useHealth,
   useSetAgentEffort,
-} from "@/lib/api"
-import { setServerToken, setServerUrl, useServerToken, useServerUrl } from "@/lib/server-url"
+} from '@/lib/api'
+import { setServerToken, setServerUrl, useServerToken, useServerUrl } from '@/lib/server-url'
 
 const EFFORTS: readonly { readonly value: AgentEffort; readonly label: string }[] = [
-  { value: "low", label: "Low" },
-  { value: "medium", label: "Med" },
-  { value: "high", label: "High" },
-  { value: "xhigh", label: "X-High" },
-  { value: "max", label: "Max" },
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Med' },
+  { value: 'high', label: 'High' },
+  { value: 'xhigh', label: 'X-High' },
+  { value: 'max', label: 'Max' },
 ]
 
 export default function SettingsScreen() {
   const serverUrl = useServerUrl()
   const [draft, setDraft] = useState(serverUrl)
   const serverToken = useServerToken()
-  const [tokenDraft, setTokenDraft] = useState("")
+  const [tokenDraft, setTokenDraft] = useState('')
   const queryClient = useQueryClient()
   const health = useHealth()
   const authStart = useBungieAuthStart()
@@ -63,7 +63,7 @@ export default function SettingsScreen() {
       >
         <TextField
           placeholder={
-            serverToken === "" ? "Not paired" : "Paired; paste a new token to replace it"
+            serverToken === '' ? 'Not paired' : 'Paired; paste a new token to replace it'
           }
           onChange={setTokenDraft}
         />
@@ -73,7 +73,7 @@ export default function SettingsScreen() {
             setServerToken(tokenDraft)
             void queryClient.invalidateQueries()
           }}
-          disabled={tokenDraft.trim() === "" || tokenDraft.trim() === serverToken}
+          disabled={tokenDraft.trim() === '' || tokenDraft.trim() === serverToken}
         />
       </Section>
 
@@ -89,7 +89,7 @@ export default function SettingsScreen() {
               ? `Couldn't save: ${errorMessage(setEffort.error)}`
               : agent.data
                 ? undefined
-                : "Connect to the server first"
+                : 'Connect to the server first'
           }
         />
         {agent.data ? (
@@ -106,11 +106,11 @@ export default function SettingsScreen() {
         footer="Sign in with Bungie in the browser. The server keeps the tokens; the app never sees them."
       >
         <Row
-          title={health.data?.bungieLinked ? "Linked" : "Not linked"}
-          subtitle={health.data ? undefined : "Connect to the server first"}
+          title={health.data?.bungieLinked ? 'Linked' : 'Not linked'}
+          subtitle={health.data ? undefined : 'Connect to the server first'}
         />
         <Button
-          label={health.data?.bungieLinked ? "Re-link account" : "Link account"}
+          label={health.data?.bungieLinked ? 'Re-link account' : 'Link account'}
           onPress={link}
           disabled={!health.data || authStart.isPending}
         />

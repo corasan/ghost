@@ -1,4 +1,4 @@
-import type { ArmorMod } from "@ghost/contract"
+import type { ArmorMod } from '@ghost/contract'
 
 export interface ChargedMod {
   readonly mod: ArmorMod

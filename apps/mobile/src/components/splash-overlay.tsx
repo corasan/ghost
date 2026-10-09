@@ -1,9 +1,9 @@
-import { Image } from "expo-image"
-import * as SplashScreen from "expo-splash-screen"
-import { useState } from "react"
-import { StyleSheet, View } from "react-native"
-import Animated, { Easing, Keyframe } from "react-native-reanimated"
-import { scheduleOnRN } from "react-native-worklets"
+import { Image } from 'expo-image'
+import * as SplashScreen from 'expo-splash-screen'
+import { useState } from 'react'
+import { StyleSheet, View } from 'react-native'
+import Animated, { Easing, Keyframe } from 'react-native-reanimated'
+import { scheduleOnRN } from 'react-native-worklets'
 
 const DURATION = 600
 
@@ -32,12 +32,12 @@ export function AnimatedSplashOverlay() {
     },
   })
 
-  const image = <Image style={styles.image} source={require("@/assets/images/splash-icon.png")} />
+  const image = <Image style={styles.image} source={require('@/assets/images/splash-icon.png')} />
 
   return animate ? (
     <Animated.View
       entering={splashKeyframe.duration(DURATION).withCallback((finished) => {
-        "worklet"
+        'worklet'
         if (finished) {
           scheduleOnRN(setVisible, false)
         }
@@ -67,9 +67,9 @@ const styles = StyleSheet.create({
   },
   splashOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: "#070a10",
-    alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: '#070a10',
+    alignItems: 'center',
+    justifyContent: 'center',
     zIndex: 1000,
   },
 })

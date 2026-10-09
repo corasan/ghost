@@ -1,29 +1,29 @@
-import type { SavedBuild } from "@ghost/contract"
-import { router, useLocalSearchParams } from "expo-router"
-import { useState } from "react"
-import { Alert, ScrollView, StyleSheet, TextInput, View } from "react-native"
+import type { SavedBuild } from '@ghost/contract'
+import { router, useLocalSearchParams } from 'expo-router'
+import { useState } from 'react'
+import { Alert, ScrollView, StyleSheet, TextInput, View } from 'react-native'
 
-import { BuildBadges } from "@/components/plan/build-badges"
-import { BuildSections } from "@/components/plan/build-sections"
-import { Body, Button, Cut, Meta } from "@/components/ghost/ui"
-import { Ghost, Gutter, Type } from "@/constants/theme"
+import { BuildBadges } from '@/components/plan/build-badges'
+import { BuildSections } from '@/components/plan/build-sections'
+import { Body, Button, Cut, Meta } from '@/components/ghost/ui'
+import { Ghost, Gutter, Type } from '@/constants/theme'
 import {
   errorMessage,
   useDeleteBuild,
   useEquipBuild,
   useRenameBuild,
   useSavedBuilds,
-} from "@/lib/api"
-import { useWearer } from "@/lib/character"
-import { sentence } from "@/lib/format"
-import { useFooterHeight } from "@/lib/footer"
-import { useBottomInset } from "@/lib/insets"
+} from '@/lib/api'
+import { useWearer } from '@/lib/character'
+import { sentence } from '@/lib/format'
+import { useFooterHeight } from '@/lib/footer'
+import { useBottomInset } from '@/lib/insets'
 
 function Readiness({ build }: { build: SavedBuild }) {
   const readiness = build.readiness
   const lines = [
     readiness && readiness.missing.length > 0
-      ? { text: `No longer owned: ${readiness.missing.join(", ")}.`, color: Ghost.danger }
+      ? { text: `No longer owned: ${readiness.missing.join(', ')}.`, color: Ghost.danger }
       : null,
     readiness?.pastArtifact
       ? {
@@ -31,11 +31,11 @@ function Readiness({ build }: { build: SavedBuild }) {
           color: Ghost.gold,
         }
       : null,
-    readiness?.inGame === "changed"
-      ? { text: "Its in-game slot has been changed since Ghost saved it.", color: Ghost.gold }
+    readiness?.inGame === 'changed'
+      ? { text: 'Its in-game slot has been changed since Ghost saved it.', color: Ghost.gold }
       : null,
-    readiness?.inGame === "cleared"
-      ? { text: "Its in-game slot has been cleared.", color: Ghost.gold }
+    readiness?.inGame === 'cleared'
+      ? { text: 'Its in-game slot has been cleared.', color: Ghost.gold }
       : null,
     readiness === null
       ? { text: "Couldn't check it against your items right now.", color: Ghost.dim }
@@ -79,7 +79,7 @@ function Rename({ build, onDone }: { build: SavedBuild; onDone: () => void }) {
       <View style={styles.buttons}>
         <Button label="CANCEL" flex={0.6} under={Ghost.panel} onPress={onDone} />
         <Button
-          label={rename.isPending ? "RENAMING…" : "RENAME"}
+          label={rename.isPending ? 'RENAMING…' : 'RENAME'}
           tone="solid"
           under={Ghost.panel}
           disabled={trimmed.length === 0 || trimmed === build.name || rename.isPending}
@@ -102,12 +102,12 @@ function Actions({ build }: { build: SavedBuild }) {
       `Delete ${build.name}?`,
       build.inGame
         ? `Ghost forgets it. Its in-game slot ${build.inGame.index + 1} is kept as it is.`
-        : "Ghost forgets it. Nothing changes in game.",
+        : 'Ghost forgets it. Nothing changes in game.',
       [
-        { text: "Cancel", style: "cancel" },
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: "Delete",
-          style: "destructive",
+          text: 'Delete',
+          style: 'destructive',
           onPress: () => remove.mutate(build.id, { onSuccess: () => router.back() }),
         },
       ],
@@ -125,7 +125,7 @@ function Actions({ build }: { build: SavedBuild }) {
       )}
       <View style={styles.buttons}>
         <Button
-          label={equip.isPending ? "WORKING…" : "EQUIP"}
+          label={equip.isPending ? 'WORKING…' : 'EQUIP'}
           tone="solid"
           under={Ghost.panel}
           disabled={wearer === undefined || equip.isPending}
@@ -136,10 +136,10 @@ function Actions({ build }: { build: SavedBuild }) {
               {
                 onSuccess: ({ job, substituted }) =>
                   router.push({
-                    pathname: "/plan/[id]",
+                    pathname: '/plan/[id]',
                     params:
                       substituted.length > 0
-                        ? { id: job.id, substituted: substituted.join("\n") }
+                        ? { id: job.id, substituted: substituted.join('\n') }
                         : { id: job.id },
                   }),
               },
@@ -153,7 +153,7 @@ function Actions({ build }: { build: SavedBuild }) {
           compact
           under={Ghost.panel}
           disabled={wearer === undefined}
-          onPress={() => router.push({ pathname: "/save-build", params: { buildId: build.id } })}
+          onPress={() => router.push({ pathname: '/save-build', params: { buildId: build.id } })}
         />
         <Button
           label="RENAME"
@@ -163,7 +163,7 @@ function Actions({ build }: { build: SavedBuild }) {
           onPress={() => setRenaming(true)}
         />
         <Button
-          label={remove.isPending ? "DELETING…" : "DELETE"}
+          label={remove.isPending ? 'DELETING…' : 'DELETE'}
           compact
           flex={0.7}
           tone="danger"
@@ -192,8 +192,8 @@ export default function SavedBuildScreen() {
         {builds.isError
           ? `Couldn't load this build: ${errorMessage(builds.error)}`
           : builds.isPending
-            ? "Loading…"
-            : "This build is no longer saved."}
+            ? 'Loading…'
+            : 'This build is no longer saved.'}
       </Body>
     )
   }
@@ -223,9 +223,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: Ghost.ink,
   },
-  buttons: { flexDirection: "row", gap: 8 },
+  buttons: { flexDirection: 'row', gap: 8 },
   footer: {
-    position: "absolute",
+    position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,

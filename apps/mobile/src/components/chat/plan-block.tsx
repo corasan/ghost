@@ -1,8 +1,8 @@
-import type { Job, Plan, PlanPerk, PlanRow } from "@ghost/contract"
-import { router } from "expo-router"
-import { Alert, Pressable, StyleSheet, View } from "react-native"
+import type { Job, Plan, PlanPerk, PlanRow } from '@ghost/contract'
+import { router } from 'expo-router'
+import { Alert, Pressable, StyleSheet, View } from 'react-native'
 
-import { ItemIcon } from "@/components/ghost/item-icon"
+import { ItemIcon } from '@/components/ghost/item-icon'
 import {
   Body,
   Button,
@@ -14,12 +14,12 @@ import {
   StatLabel,
   TierStats,
   Tick,
-} from "@/components/ghost/ui"
-import { Ghost, Rarity, Type } from "@/constants/theme"
-import { errorMessage, useApplyPlan, useUndoPlan } from "@/lib/api"
-import { liveLabel } from "@/lib/plan-card"
-import { usePlanSelection } from "@/lib/selection"
-import { BuildCard } from "./build-card"
+} from '@/components/ghost/ui'
+import { Ghost, Rarity, Type } from '@/constants/theme'
+import { errorMessage, useApplyPlan, useUndoPlan } from '@/lib/api'
+import { liveLabel } from '@/lib/plan-card'
+import { usePlanSelection } from '@/lib/selection'
+import { BuildCard } from './build-card'
 
 // A plan is a block in the conversation, not a modal: the resulting stats,
 // one row per change that can be unticked, and one confirm. After it runs,
@@ -28,7 +28,7 @@ import { BuildCard } from "./build-card"
 const COLLAPSED_ROWS = 4
 const COLLAPSE_OVER = 6
 
-const openItem = (id: string) => router.push({ pathname: "/item/[id]", params: { id } })
+const openItem = (id: string) => router.push({ pathname: '/item/[id]', params: { id } })
 
 const outcomeTone = { ok: Ghost.good, failed: Ghost.danger, skipped: Ghost.dim } as const
 
@@ -48,14 +48,14 @@ export function RowRight({
   if (applied && row.outcome) {
     return (
       <Meta color={outcomeTone[row.outcome]}>
-        {row.outcome === "ok" ? "Done" : row.outcome === "failed" ? "Failed" : "Held"}
+        {row.outcome === 'ok' ? 'Done' : row.outcome === 'failed' ? 'Failed' : 'Held'}
       </Meta>
     )
   }
   if (roll && row.score !== null) {
     const color = rollTone(row.score)
     return (
-      <View style={{ alignItems: "flex-end" }}>
+      <View style={{ alignItems: 'flex-end' }}>
         <Cond size={20} color={color} style={{ letterSpacing: 0, lineHeight: 20 }}>
           {row.score}
         </Cond>
@@ -69,7 +69,7 @@ export function RowRight({
       color={row.power === null ? Ghost.dim : Ghost.gold}
       style={{ letterSpacing: 0 }}
     >
-      {row.power ?? "—"}
+      {row.power ?? '—'}
     </Cond>
   )
 }
@@ -92,7 +92,7 @@ export function PlanRowView({
   /** 0 shows the whole line. */
   metaLines?: number
 }) {
-  const actionable = row.action !== "none"
+  const actionable = row.action !== 'none'
   const tickable = actionable && !applied && onToggle !== undefined
   return (
     <View
@@ -108,7 +108,7 @@ export function PlanRowView({
           accessibilityLabel={row.name}
           accessibilityState={{ checked: ticked }}
           onPress={onToggle}
-          style={{ alignSelf: "stretch", justifyContent: "center", paddingHorizontal: inset }}
+          style={{ alignSelf: 'stretch', justifyContent: 'center', paddingHorizontal: inset }}
         >
           <Tick on={ticked} under={under} />
         </Pressable>
@@ -174,7 +174,7 @@ function Featured({ plan, row }: { plan: Plan; row: PlanRow }) {
         accessibilityHint="Opens item details"
         onPress={() => openItem(row.itemInstanceId)}
         style={({ pressed }) => [
-          { flexDirection: "row", gap: 14, padding: 14 },
+          { flexDirection: 'row', gap: 14, padding: 14 },
           pressed && { opacity: 0.6 },
         ]}
       >
@@ -205,7 +205,7 @@ function Featured({ plan, row }: { plan: Plan; row: PlanRow }) {
       {featured.stats.length > 0 ? (
         <View style={{ paddingHorizontal: 14, paddingBottom: 14, gap: 7 }}>
           {featured.stats.map((stat, i) => (
-            <View key={stat.label} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <View key={stat.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <StatLabel label={stat.label} size={13} style={{ width: 84 }} />
               <View style={{ flex: 1, height: 3, backgroundColor: Ghost.rule }}>
                 <View
@@ -216,7 +216,7 @@ function Featured({ plan, row }: { plan: Plan; row: PlanRow }) {
                   }}
                 />
               </View>
-              <Mono size={13} color={Ghost.ink} style={{ width: 32, textAlign: "right" }}>
+              <Mono size={13} color={Ghost.ink} style={{ width: 32, textAlign: 'right' }}>
                 {stat.value}
               </Mono>
             </View>
@@ -236,14 +236,14 @@ export function PlanBlock({
   plan: Plan
   onAsk: (prompt: string) => void
 }) {
-  return plan.kind === "build" ? (
+  return plan.kind === 'build' ? (
     <BuildCard job={job} plan={plan} />
   ) : (
     <ItemPlan job={job} plan={plan} onAsk={onAsk} />
   )
 }
 
-export const openPlan = (id: string) => router.push({ pathname: "/plan/[id]", params: { id } })
+export const openPlan = (id: string) => router.push({ pathname: '/plan/[id]', params: { id } })
 
 /** Applies the ticked rows, asking first when the batch is big. */
 export function useConfirmPlan(job: Job, plan: Plan, onDone?: () => void) {
@@ -257,8 +257,8 @@ export function useConfirmPlan(job: Job, plan: Plan, onDone?: () => void) {
   const confirm = () =>
     ticked >= 15
       ? Alert.alert(liveLabel(plan.confirmLabel, ticked), `Ghost will act on ${ticked} items.`, [
-          { text: "Cancel", style: "cancel" },
-          { text: "Go", onPress: run },
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Go', onPress: run },
         ])
       : run()
   return { selection, apply, ticked, confirm }
@@ -268,7 +268,7 @@ function ItemPlan({ job, plan, onAsk }: { job: Job; plan: Plan; onAsk: (prompt: 
   const { selection, apply, ticked, confirm } = useConfirmPlan(job, plan)
   const undo = useUndoPlan()
 
-  const applied = plan.status !== "proposed"
+  const applied = plan.status !== 'proposed'
   const featuredRow = plan.featured
     ? plan.rows.find((row) => row.itemInstanceId === plan.featured?.itemInstanceId)
     : undefined
@@ -279,14 +279,14 @@ function ItemPlan({ job, plan, onAsk }: { job: Job; plan: Plan; onAsk: (prompt: 
   const hiddenTicked = hidden.filter((row) => selection.selected.has(row.itemInstanceId)).length
 
   const held = selection.actionableCount - ticked
-  const failed = plan.rows.filter((row) => row.outcome === "failed").length
+  const failed = plan.rows.filter((row) => row.outcome === 'failed').length
 
   const right = applied
-    ? plan.status === "undone"
-      ? "Undone"
+    ? plan.status === 'undone'
+      ? 'Undone'
       : failed > 0
         ? `Applied · ${failed} failed`
-        : "Applied"
+        : 'Applied'
     : (plan.subtitle ?? (selection.actionableCount > 0 ? `${ticked} moving · ${held} held` : null))
 
   return (
@@ -327,11 +327,11 @@ function ItemPlan({ job, plan, onAsk }: { job: Job; plan: Plan; onAsk: (prompt: 
           style={({ pressed }) => [styles.more, styles.between, pressed && { opacity: 0.6 }]}
         >
           <Meta>
-            {hidden.length} more ·{" "}
+            {hidden.length} more ·{' '}
             {applied
-              ? "tap to review"
+              ? 'tap to review'
               : hiddenTicked === hidden.length
-                ? "all moving"
+                ? 'all moving'
                 : `${hiddenTicked} moving`}
           </Meta>
           <Chevron />
@@ -355,9 +355,9 @@ function ItemPlan({ job, plan, onAsk }: { job: Job; plan: Plan; onAsk: (prompt: 
       ) : null}
 
       <View style={styles.buttons}>
-        {plan.status === "proposed" ? (
+        {plan.status === 'proposed' ? (
           <>
-            {plan.kind === "weapon" ? (
+            {plan.kind === 'weapon' ? (
               <Button
                 label={`COMPARE ${plan.rows.length}`}
                 under={Ghost.panel}
@@ -365,23 +365,23 @@ function ItemPlan({ job, plan, onAsk }: { job: Job; plan: Plan; onAsk: (prompt: 
               />
             ) : selection.actionableCount > 1 ? (
               <Button
-                label={held === selection.actionableCount ? "SELECT ALL" : "HOLD ALL"}
+                label={held === selection.actionableCount ? 'SELECT ALL' : 'HOLD ALL'}
                 under={Ghost.panel}
                 onPress={() => selection.setAll(held === selection.actionableCount)}
               />
             ) : null}
             <Button
-              label={apply.isPending ? "WORKING…" : liveLabel(plan.confirmLabel, ticked)}
-              tone={plan.kind === "cleanup" ? "danger" : "solid"}
+              label={apply.isPending ? 'WORKING…' : liveLabel(plan.confirmLabel, ticked)}
+              tone={plan.kind === 'cleanup' ? 'danger' : 'solid'}
               flex={1.4}
               under={Ghost.panel}
               disabled={ticked === 0 || apply.isPending}
               onPress={confirm}
             />
           </>
-        ) : plan.status === "applied" ? (
+        ) : plan.status === 'applied' ? (
           <Button
-            label={undo.isPending ? "UNDOING…" : "UNDO"}
+            label={undo.isPending ? 'UNDOING…' : 'UNDO'}
             under={Ghost.panel}
             disabled={undo.isPending}
             onPress={() => undo.mutate(job.id)}
@@ -393,15 +393,15 @@ function ItemPlan({ job, plan, onAsk }: { job: Job; plan: Plan; onAsk: (prompt: 
 }
 
 const styles = StyleSheet.create({
-  between: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
+  between: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   row: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     borderTopWidth: 1,
     borderTopColor: Ghost.rule,
   },
   rowBody: { flex: 1, gap: 9, paddingVertical: 10 },
-  rowHead: { flexDirection: "row", alignItems: "center", gap: 12 },
+  rowHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   more: {
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -415,12 +415,12 @@ const styles = StyleSheet.create({
     borderTopColor: Ghost.rule,
   },
   buttons: {
-    flexDirection: "row",
+    flexDirection: 'row',
     gap: 8,
     paddingHorizontal: 14,
     paddingBottom: 14,
     paddingTop: 4,
   },
-  perks: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 10 },
+  perks: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
   perk: { paddingVertical: 4, paddingHorizontal: 8, borderWidth: 1 },
 })

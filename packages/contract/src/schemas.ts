@@ -1,4 +1,4 @@
-import { Schema } from "effect"
+import { Schema } from 'effect'
 
 // Shared wire types. Both the server (to validate and encode) and the app
 // (to decode) derive their TypeScript types from these, so a field rename
@@ -6,43 +6,43 @@ import { Schema } from "effect"
 
 // ---- Item vocabulary ----
 
-export const ItemLocation = Schema.Literals(["postmaster", "character", "vault"])
+export const ItemLocation = Schema.Literals(['postmaster', 'character', 'vault'])
 export type ItemLocation = typeof ItemLocation.Type
 
-export const ItemTier = Schema.Literals(["exotic", "legendary", "rare", "common", "unknown"])
+export const ItemTier = Schema.Literals(['exotic', 'legendary', 'rare', 'common', 'unknown'])
 export type ItemTier = typeof ItemTier.Type
 
 export const DamageType = Schema.Literals([
-  "kinetic",
-  "arc",
-  "solar",
-  "void",
-  "stasis",
-  "strand",
-  "none",
+  'kinetic',
+  'arc',
+  'solar',
+  'void',
+  'stasis',
+  'strand',
+  'none',
 ])
 export type DamageType = typeof DamageType.Type
 
 export const ItemSlot = Schema.Literals([
-  "kinetic",
-  "energy",
-  "power",
-  "helmet",
-  "arms",
-  "chest",
-  "legs",
-  "class",
-  "other",
+  'kinetic',
+  'energy',
+  'power',
+  'helmet',
+  'arms',
+  'chest',
+  'legs',
+  'class',
+  'other',
 ])
 export type ItemSlot = typeof ItemSlot.Type
 
-export const WeaponSlot = Schema.Literals(["kinetic", "energy", "power"])
+export const WeaponSlot = Schema.Literals(['kinetic', 'energy', 'power'])
 export type WeaponSlot = typeof WeaponSlot.Type
 
-export const GuardianClass = Schema.Literals(["titan", "hunter", "warlock"])
+export const GuardianClass = Schema.Literals(['titan', 'hunter', 'warlock'])
 export type GuardianClass = typeof GuardianClass.Type
 
-export const ItemDecision = Schema.Literals(["keep", "junk"])
+export const ItemDecision = Schema.Literals(['keep', 'junk'])
 export type ItemDecision = typeof ItemDecision.Type
 
 /**
@@ -51,12 +51,12 @@ export type ItemDecision = typeof ItemDecision.Type
  * asking the server again.
  */
 /** A mod slotted in a piece of armor, as the inventory shows it. */
-export class SlottedMod extends Schema.Class<SlottedMod>("SlottedMod")({
+export class SlottedMod extends Schema.Class<SlottedMod>('SlottedMod')({
   name: Schema.String,
   icon: Schema.NullOr(Schema.String),
 }) {}
 
-export class ItemSummary extends Schema.Class<ItemSummary>("ItemSummary")({
+export class ItemSummary extends Schema.Class<ItemSummary>('ItemSummary')({
   itemInstanceId: Schema.NullOr(Schema.String),
   itemHash: Schema.Number,
   name: Schema.String,
@@ -98,19 +98,19 @@ export class ItemSummary extends Schema.Class<ItemSummary>("ItemSummary")({
  * player confirms, so the agent never moves an item on its own.
  */
 export const PlanAction = Schema.Literals([
-  "to_vault",
-  "to_character",
-  "pull_postmaster",
-  "equip",
-  "tag_junk",
-  "none",
+  'to_vault',
+  'to_character',
+  'pull_postmaster',
+  'equip',
+  'tag_junk',
+  'none',
 ])
 export type PlanAction = typeof PlanAction.Type
 
-export const RowOutcome = Schema.Literals(["ok", "failed", "skipped"])
+export const RowOutcome = Schema.Literals(['ok', 'failed', 'skipped'])
 export type RowOutcome = typeof RowOutcome.Type
 
-export class PlanStat extends Schema.Class<PlanStat>("PlanStat")({
+export class PlanStat extends Schema.Class<PlanStat>('PlanStat')({
   /** Short label, for example "RES". */
   label: Schema.String,
   value: Schema.Number,
@@ -123,7 +123,7 @@ export class PlanStat extends Schema.Class<PlanStat>("PlanStat")({
 }) {}
 
 /** How far one plug (a fragment or an armor mod) moves one stat. */
-export class StatMod extends Schema.Class<StatMod>("StatMod")({
+export class StatMod extends Schema.Class<StatMod>('StatMod')({
   /** The stat's label as it appears in the plan's stats. */
   label: Schema.String,
   delta: Schema.Number,
@@ -134,7 +134,7 @@ export class StatMod extends Schema.Class<StatMod>("StatMod")({
  * in data it fetched for this answer (the current manifest, community
  * wishlists, recent articles), never in model memory, and show it.
  */
-export class Source extends Schema.Class<Source>("Source")({
+export class Source extends Schema.Class<Source>('Source')({
   /** For example "DIM wishlist (voltron)" or "Bungie manifest". */
   label: Schema.String,
   url: Schema.NullOr(Schema.String),
@@ -143,14 +143,14 @@ export class Source extends Schema.Class<Source>("Source")({
 }) {}
 
 /** What a mod adds while its wearer holds Armor Charge, in numbers Ghost looked up. */
-export class ChargeEffect extends Schema.Class<ChargeEffect>("ChargeEffect")({
+export class ChargeEffect extends Schema.Class<ChargeEffect>('ChargeEffect')({
   /** For example "+10% Arc weapon damage; 17% with two copies, 22% with three". */
   effect: Schema.String,
   source: Source,
 }) {}
 
 /** One mod slotted in an armor piece, read from the game. */
-export class ArmorMod extends Schema.Class<ArmorMod>("ArmorMod")({
+export class ArmorMod extends Schema.Class<ArmorMod>('ArmorMod')({
   name: Schema.String,
   icon: Schema.optional(Schema.NullOr(Schema.String)),
   /** Effect text from the current patch's manifest. */
@@ -172,7 +172,7 @@ export class ArmorMod extends Schema.Class<ArmorMod>("ArmorMod")({
   previousPlugHash: Schema.optional(Schema.Number),
 }) {}
 
-export class PlanPerk extends Schema.Class<PlanPerk>("PlanPerk")({
+export class PlanPerk extends Schema.Class<PlanPerk>('PlanPerk')({
   name: Schema.String,
   /** Highlighted as part of what makes the roll good. */
   good: Schema.Boolean,
@@ -180,7 +180,7 @@ export class PlanPerk extends Schema.Class<PlanPerk>("PlanPerk")({
   icon: Schema.optional(Schema.NullOr(Schema.String)),
 }) {}
 
-export class PlanRow extends Schema.Class<PlanRow>("PlanRow")({
+export class PlanRow extends Schema.Class<PlanRow>('PlanRow')({
   itemInstanceId: Schema.String,
   itemHash: Schema.Number,
   name: Schema.String,
@@ -217,20 +217,20 @@ export class PlanRow extends Schema.Class<PlanRow>("PlanRow")({
 }) {}
 
 /** The winner of a "best weapon" answer, shown large above the runners-up. */
-export class PlanFeatured extends Schema.Class<PlanFeatured>("PlanFeatured")({
+export class PlanFeatured extends Schema.Class<PlanFeatured>('PlanFeatured')({
   itemInstanceId: Schema.String,
   perks: Schema.Array(PlanPerk),
   stats: Schema.Array(PlanStat),
 }) {}
 
 /** A game term such as Weaken or Volatile, as the game defines it in tooltips. */
-export class Keyword extends Schema.Class<Keyword>("Keyword")({
+export class Keyword extends Schema.Class<Keyword>('Keyword')({
   name: Schema.String,
   description: Schema.String,
   icon: Schema.NullOr(Schema.String),
 }) {}
 
-export class LoadoutPlug extends Schema.Class<LoadoutPlug>("LoadoutPlug")({
+export class LoadoutPlug extends Schema.Class<LoadoutPlug>('LoadoutPlug')({
   name: Schema.String,
   /** Effect text from the current patch's manifest. */
   description: Schema.String,
@@ -246,10 +246,10 @@ export class LoadoutPlug extends Schema.Class<LoadoutPlug>("LoadoutPlug")({
   keywords: Schema.optional(Schema.Array(Keyword)),
 }) {}
 
-export const AbilityKind = Schema.Literals(["class", "jump", "melee", "grenade"])
+export const AbilityKind = Schema.Literals(['class', 'jump', 'melee', 'grenade'])
 export type AbilityKind = typeof AbilityKind.Type
 
-export class LoadoutAbility extends Schema.Class<LoadoutAbility>("LoadoutAbility")({
+export class LoadoutAbility extends Schema.Class<LoadoutAbility>('LoadoutAbility')({
   kind: AbilityKind,
   name: Schema.String,
   icon: Schema.NullOr(Schema.String),
@@ -258,7 +258,7 @@ export class LoadoutAbility extends Schema.Class<LoadoutAbility>("LoadoutAbility
 }) {}
 
 /** A subclass plug the plan puts in, with what the server needs to insert it and to undo it. */
-export class SubclassSwap extends Schema.Class<SubclassSwap>("SubclassSwap")({
+export class SubclassSwap extends Schema.Class<SubclassSwap>('SubclassSwap')({
   name: Schema.String,
   socketIndex: Schema.Number,
   plugHash: Schema.Number,
@@ -270,7 +270,7 @@ export class SubclassSwap extends Schema.Class<SubclassSwap>("SubclassSwap")({
  * one on, then slot its plugs. It runs only when its item id is among the
  * selected ids, the same way a row does.
  */
-export class SubclassChange extends Schema.Class<SubclassChange>("SubclassChange")({
+export class SubclassChange extends Schema.Class<SubclassChange>('SubclassChange')({
   itemInstanceId: Schema.String,
   itemHash: Schema.Number,
   characterId: Schema.String,
@@ -285,7 +285,7 @@ export class SubclassChange extends Schema.Class<SubclassChange>("SubclassChange
 }) {}
 
 /** A character's subclass: what it has slotted, or what a build slots. */
-export class SubclassLoadout extends Schema.Class<SubclassLoadout>("SubclassLoadout")({
+export class SubclassLoadout extends Schema.Class<SubclassLoadout>('SubclassLoadout')({
   classType: GuardianClass,
   subclass: Schema.NullOr(Schema.String),
   /** The subclass's own emblem; missing from plans made before it was recorded. */
@@ -304,7 +304,7 @@ export class SubclassLoadout extends Schema.Class<SubclassLoadout>("SubclassLoad
  * pieces worn reach the pieces it needs; below that it is one the build or
  * piece is short of.
  */
-export class SetBonus extends Schema.Class<SetBonus>("SetBonus")({
+export class SetBonus extends Schema.Class<SetBonus>('SetBonus')({
   name: Schema.String,
   description: Schema.String,
   icon: Schema.NullOr(Schema.String),
@@ -322,7 +322,7 @@ export class SetBonus extends Schema.Class<SetBonus>("SetBonus")({
 export const OFF_BUILD_FIT = 0.2
 
 /** How each part of a build feeds the rest, in Ghost's words; a part the build lacks is left out. */
-export class Synergy extends Schema.Class<Synergy>("Synergy")({
+export class Synergy extends Schema.Class<Synergy>('Synergy')({
   exotic: Schema.optional(Schema.String),
   setBonuses: Schema.optional(Schema.String),
   mods: Schema.optional(Schema.String),
@@ -331,10 +331,10 @@ export class Synergy extends Schema.Class<Synergy>("Synergy")({
 }) {}
 
 /** The API cannot select artifact perks: one not already active is picked in game. */
-export const ArtifactPickState = Schema.Literals(["active", "select_in_game"])
+export const ArtifactPickState = Schema.Literals(['active', 'select_in_game'])
 export type ArtifactPickState = typeof ArtifactPickState.Type
 
-export class ArtifactPick extends Schema.Class<ArtifactPick>("ArtifactPick")({
+export class ArtifactPick extends Schema.Class<ArtifactPick>('ArtifactPick')({
   hash: Schema.Number,
   name: Schema.String,
   description: Schema.String,
@@ -344,7 +344,7 @@ export class ArtifactPick extends Schema.Class<ArtifactPick>("ArtifactPick")({
   state: ArtifactPickState,
 }) {}
 
-export class ArtifactPlan extends Schema.Class<ArtifactPlan>("ArtifactPlan")({
+export class ArtifactPlan extends Schema.Class<ArtifactPlan>('ArtifactPlan')({
   artifactHash: Schema.Number,
   name: Schema.String,
   picks: Schema.Array(ArtifactPick),
@@ -353,7 +353,7 @@ export class ArtifactPlan extends Schema.Class<ArtifactPlan>("ArtifactPlan")({
   reset: Schema.Boolean,
 }) {}
 
-export const LoadoutSaveOutcome = Schema.Literals(["ok", "skipped", "failed"])
+export const LoadoutSaveOutcome = Schema.Literals(['ok', 'skipped', 'failed'])
 export type LoadoutSaveOutcome = typeof LoadoutSaveOutcome.Type
 
 /**
@@ -361,7 +361,7 @@ export type LoadoutSaveOutcome = typeof LoadoutSaveOutcome.Type
  * its in-game loadout slots. It runs only when the build ended up equipped
  * as planned.
  */
-export class LoadoutSaveTo extends Schema.Class<LoadoutSaveTo>("LoadoutSaveTo")({
+export class LoadoutSaveTo extends Schema.Class<LoadoutSaveTo>('LoadoutSaveTo')({
   buildId: Schema.String,
   characterId: Schema.String,
   index: Schema.Number,
@@ -374,13 +374,13 @@ export class LoadoutSaveTo extends Schema.Class<LoadoutSaveTo>("LoadoutSaveTo")(
   error: Schema.NullOr(Schema.String),
 }) {}
 
-export const PlanKind = Schema.Literals(["build", "weapon", "postmaster", "cleanup", "transfer"])
+export const PlanKind = Schema.Literals(['build', 'weapon', 'postmaster', 'cleanup', 'transfer'])
 export type PlanKind = typeof PlanKind.Type
 
-export const PlanStatus = Schema.Literals(["proposed", "applied", "undone"])
+export const PlanStatus = Schema.Literals(['proposed', 'applied', 'undone'])
 export type PlanStatus = typeof PlanStatus.Type
 
-export class Plan extends Schema.Class<Plan>("Plan")({
+export class Plan extends Schema.Class<Plan>('Plan')({
   kind: PlanKind,
   /** Left side of the plan header, for example "BUILD PLAN". */
   title: Schema.String,
@@ -411,23 +411,23 @@ export class Plan extends Schema.Class<Plan>("Plan")({
 // ---- Jobs: one request to Ghost ----
 
 export const JobKind = Schema.Literals([
-  "chat",
-  "build_suggestion",
-  "weapon_rolls",
-  "vault_cleanup",
-  "postmaster_to_vault",
+  'chat',
+  'build_suggestion',
+  'weapon_rolls',
+  'vault_cleanup',
+  'postmaster_to_vault',
   /** A move the player made by hand from an item's actions; Ghost never ran. */
-  "item_action",
+  'item_action',
   /** Equipping a saved build, which the player started from Builds. */
-  "saved_build",
+  'saved_build',
 ])
 export type JobKind = typeof JobKind.Type
 
-export const JobStatus = Schema.Literals(["queued", "running", "done", "failed"])
+export const JobStatus = Schema.Literals(['queued', 'running', 'done', 'failed'])
 export type JobStatus = typeof JobStatus.Type
 
 /** One tool call Ghost made while answering, in the order it happened. */
-export class JobStep extends Schema.Class<JobStep>("JobStep")({
+export class JobStep extends Schema.Class<JobStep>('JobStep')({
   /** For example "Searching your items". */
   label: Schema.String,
   /** What it was looking for, for example the search text or a site name. */
@@ -435,10 +435,10 @@ export class JobStep extends Schema.Class<JobStep>("JobStep")({
 }) {}
 
 /** Something Ghost offered under its answer, drawn as a card the player can act on. */
-export const JobOffer = Schema.Literals(["cleanup_mode"])
+export const JobOffer = Schema.Literals(['cleanup_mode'])
 export type JobOffer = typeof JobOffer.Type
 
-export class Job extends Schema.Class<Job>("Job")({
+export class Job extends Schema.Class<Job>('Job')({
   id: Schema.String,
   /** The conversation this request belongs to; null for item actions. */
   sessionId: Schema.NullOr(Schema.String),
@@ -467,7 +467,7 @@ export const CreateJob = Schema.Struct({
 export type CreateJob = typeof CreateJob.Type
 
 /** One conversation with Ghost, named after its first request. */
-export class ChatSession extends Schema.Class<ChatSession>("ChatSession")({
+export class ChatSession extends Schema.Class<ChatSession>('ChatSession')({
   id: Schema.String,
   title: Schema.String,
   startedAt: Schema.String,
@@ -481,16 +481,16 @@ export const ApplyPlan = Schema.Struct({
 })
 export type ApplyPlan = typeof ApplyPlan.Type
 
-export class JobNotFound extends Schema.TaggedError<JobNotFound>()("JobNotFound", {
+export class JobNotFound extends Schema.TaggedError<JobNotFound>()('JobNotFound', {
   id: Schema.String,
 }) {}
 
 export class PlanNotApplicable extends Schema.TaggedError<PlanNotApplicable>()(
-  "PlanNotApplicable",
+  'PlanNotApplicable',
   { reason: Schema.String },
 ) {}
 
-export class BuildFacets extends Schema.Class<BuildFacets>("BuildFacets")({
+export class BuildFacets extends Schema.Class<BuildFacets>('BuildFacets')({
   classType: GuardianClass,
   element: DamageType,
   subclass: Schema.NullOr(Schema.String),
@@ -500,10 +500,10 @@ export class BuildFacets extends Schema.Class<BuildFacets>("BuildFacets")({
 }) {}
 
 /** How the in-game slot a build was saved to compares with the build now. */
-export const InGameState = Schema.Literals(["matches", "changed", "cleared"])
+export const InGameState = Schema.Literals(['matches', 'changed', 'cleared'])
 export type InGameState = typeof InGameState.Type
 
-export class BuildReadiness extends Schema.Class<BuildReadiness>("BuildReadiness")({
+export class BuildReadiness extends Schema.Class<BuildReadiness>('BuildReadiness')({
   /** Names of the build's items the player no longer owns. */
   missing: Schema.Array(Schema.String),
   /** The build's artifact picks belong to an artifact that is no longer the current one. */
@@ -512,13 +512,13 @@ export class BuildReadiness extends Schema.Class<BuildReadiness>("BuildReadiness
   inGame: Schema.NullOr(InGameState),
 }) {}
 
-export class InGameSlotRef extends Schema.Class<InGameSlotRef>("InGameSlotRef")({
+export class InGameSlotRef extends Schema.Class<InGameSlotRef>('InGameSlotRef')({
   characterId: Schema.String,
   index: Schema.Number,
   savedAt: Schema.String,
 }) {}
 
-export class SavedBuild extends Schema.Class<SavedBuild>("SavedBuild")({
+export class SavedBuild extends Schema.Class<SavedBuild>('SavedBuild')({
   id: Schema.String,
   name: Schema.String,
   plan: Plan,
@@ -550,7 +550,7 @@ export const SaveBuild = Schema.Struct({
 })
 export type SaveBuild = typeof SaveBuild.Type
 
-export class SaveBuildResult extends Schema.Class<SaveBuildResult>("SaveBuildResult")({
+export class SaveBuildResult extends Schema.Class<SaveBuildResult>('SaveBuildResult')({
   build: SavedBuild,
   /** The proposed equip-and-snapshot job when saving in game, else null. */
   confirm: Schema.NullOr(Job),
@@ -562,7 +562,7 @@ export const EquipBuild = Schema.Struct({
 })
 export type EquipBuild = typeof EquipBuild.Type
 
-export class EquipBuildResult extends Schema.Class<EquipBuildResult>("EquipBuildResult")({
+export class EquipBuildResult extends Schema.Class<EquipBuildResult>('EquipBuildResult')({
   /** A proposed job; nothing moves until the player confirms it. */
   job: Job,
   /** Items swapped for another owned copy of the same item because the saved one is gone. */
@@ -572,13 +572,13 @@ export class EquipBuildResult extends Schema.Class<EquipBuildResult>("EquipBuild
 export const RenameBuild = Schema.Struct({ name: Schema.String })
 export type RenameBuild = typeof RenameBuild.Type
 
-export class LoadoutIdentity extends Schema.Class<LoadoutIdentity>("LoadoutIdentity")({
+export class LoadoutIdentity extends Schema.Class<LoadoutIdentity>('LoadoutIdentity')({
   hash: Schema.Number,
   name: Schema.String,
   icon: Schema.NullOr(Schema.String),
 }) {}
 
-export class InGameSlot extends Schema.Class<InGameSlot>("InGameSlot")({
+export class InGameSlot extends Schema.Class<InGameSlot>('InGameSlot')({
   index: Schema.Number,
   empty: Schema.Boolean,
   name: Schema.NullOr(LoadoutIdentity),
@@ -587,25 +587,25 @@ export class InGameSlot extends Schema.Class<InGameSlot>("InGameSlot")({
   savedBuildId: Schema.NullOr(Schema.String),
 }) {}
 
-export class LoadoutSlots extends Schema.Class<LoadoutSlots>("LoadoutSlots")({
+export class LoadoutSlots extends Schema.Class<LoadoutSlots>('LoadoutSlots')({
   slots: Schema.Array(InGameSlot),
   names: Schema.Array(LoadoutIdentity),
   colors: Schema.Array(LoadoutIdentity),
   icons: Schema.Array(LoadoutIdentity),
 }) {}
 
-export class BuildNotFound extends Schema.TaggedError<BuildNotFound>()("BuildNotFound", {
+export class BuildNotFound extends Schema.TaggedError<BuildNotFound>()('BuildNotFound', {
   id: Schema.String,
 }) {}
 
 export class LoadoutSlotInvalid extends Schema.TaggedError<LoadoutSlotInvalid>()(
-  "LoadoutSlotInvalid",
+  'LoadoutSlotInvalid',
   { reason: Schema.String },
 ) {}
 
 // ---- Recent acquisitions ----
 
-export class RecentItem extends Schema.Class<RecentItem>("RecentItem")({
+export class RecentItem extends Schema.Class<RecentItem>('RecentItem')({
   itemInstanceId: Schema.String,
   itemHash: Schema.Number,
   name: Schema.NullOr(Schema.String),
@@ -634,7 +634,7 @@ export const SetDecision = Schema.Struct({
 })
 export type SetDecision = typeof SetDecision.Type
 
-export class ItemPerk extends Schema.Class<ItemPerk>("ItemPerk")({
+export class ItemPerk extends Schema.Class<ItemPerk>('ItemPerk')({
   name: Schema.String,
   /** Effect text from the current patch's manifest. */
   description: Schema.String,
@@ -645,7 +645,7 @@ export class ItemPerk extends Schema.Class<ItemPerk>("ItemPerk")({
   enhanced: Schema.optional(Schema.Boolean),
 }) {}
 
-export class ItemDetail extends Schema.Class<ItemDetail>("ItemDetail")({
+export class ItemDetail extends Schema.Class<ItemDetail>('ItemDetail')({
   item: ItemSummary,
   /** Every plug in a weapon's sockets, in socket order. */
   perks: Schema.Array(ItemPerk),
@@ -657,13 +657,13 @@ export class ItemDetail extends Schema.Class<ItemDetail>("ItemDetail")({
   exoticPerk: Schema.optional(ItemPerk),
 }) {}
 
-export class ItemNotFound extends Schema.TaggedError<ItemNotFound>()("ItemNotFound", {
+export class ItemNotFound extends Schema.TaggedError<ItemNotFound>()('ItemNotFound', {
   id: Schema.String,
 }) {}
 
 /** A move the player asks for directly; it runs at once and can be undone from History. */
 export const ItemAction = Schema.Struct({
-  action: Schema.Literals(["to_vault", "to_character", "equip"]),
+  action: Schema.Literals(['to_vault', 'to_character', 'equip']),
   /** Target character for to_character and equip. */
   characterId: Schema.optional(Schema.NullOr(Schema.String)),
 })
@@ -671,11 +671,11 @@ export type ItemAction = typeof ItemAction.Type
 
 // ---- Health and Bungie auth ----
 
-export const AgentEffort = Schema.Literals(["low", "medium", "high", "xhigh", "max"])
+export const AgentEffort = Schema.Literals(['low', 'medium', 'high', 'xhigh', 'max'])
 export type AgentEffort = typeof AgentEffort.Type
 
 /** How Ghost's agent is set up to answer. */
-export class AgentSettings extends Schema.Class<AgentSettings>("AgentSettings")({
+export class AgentSettings extends Schema.Class<AgentSettings>('AgentSettings')({
   model: Schema.String,
   /** How hard Ghost thinks before answering; higher is slower and more thorough. */
   effort: AgentEffort,
@@ -684,34 +684,34 @@ export class AgentSettings extends Schema.Class<AgentSettings>("AgentSettings")(
 export const SetAgentSettings = Schema.Struct({ effort: AgentEffort })
 export type SetAgentSettings = typeof SetAgentSettings.Type
 
-export class Health extends Schema.Class<Health>("Health")({
+export class Health extends Schema.Class<Health>('Health')({
   ok: Schema.Boolean,
   version: Schema.String,
   bungieLinked: Schema.Boolean,
 }) {}
 
-export class BungieAuthStart extends Schema.Class<BungieAuthStart>("BungieAuthStart")({
+export class BungieAuthStart extends Schema.Class<BungieAuthStart>('BungieAuthStart')({
   url: Schema.String,
 }) {}
 
-export class BungieAuthResult extends Schema.Class<BungieAuthResult>("BungieAuthResult")({
+export class BungieAuthResult extends Schema.Class<BungieAuthResult>('BungieAuthResult')({
   membershipId: Schema.String,
   displayName: Schema.String,
 }) {}
 
-export class BungieAuthFailed extends Schema.TaggedError<BungieAuthFailed>()("BungieAuthFailed", {
+export class BungieAuthFailed extends Schema.TaggedError<BungieAuthFailed>()('BungieAuthFailed', {
   reason: Schema.String,
 }) {}
 
-export class BungieNotLinked extends Schema.TaggedError<BungieNotLinked>()("BungieNotLinked", {}) {}
+export class BungieNotLinked extends Schema.TaggedError<BungieNotLinked>()('BungieNotLinked', {}) {}
 
-export class BungieFailed extends Schema.TaggedError<BungieFailed>()("BungieFailed", {
+export class BungieFailed extends Schema.TaggedError<BungieFailed>()('BungieFailed', {
   message: Schema.String,
 }) {}
 
 // ---- Guardian and vault ----
 
-export class CharacterStats extends Schema.Class<CharacterStats>("CharacterStats")({
+export class CharacterStats extends Schema.Class<CharacterStats>('CharacterStats')({
   mobility: Schema.Number,
   resilience: Schema.Number,
   recovery: Schema.Number,
@@ -720,7 +720,7 @@ export class CharacterStats extends Schema.Class<CharacterStats>("CharacterStats
   strength: Schema.Number,
 }) {}
 
-export class GuardianCharacter extends Schema.Class<GuardianCharacter>("GuardianCharacter")({
+export class GuardianCharacter extends Schema.Class<GuardianCharacter>('GuardianCharacter')({
   characterId: Schema.String,
   classType: GuardianClass,
   light: Schema.Number,
@@ -739,7 +739,7 @@ export class GuardianCharacter extends Schema.Class<GuardianCharacter>("Guardian
 }) {}
 
 /** The armor charge mods a character has on, and Ghost's read on what its conditional bonuses add. */
-export class GuardianSituational extends Schema.Class<GuardianSituational>("GuardianSituational")({
+export class GuardianSituational extends Schema.Class<GuardianSituational>('GuardianSituational')({
   mods: Schema.Array(ArmorMod),
   /** Null when the character runs no charge mods, Ghost could not write it, or it is still being written. */
   summary: Schema.NullOr(Schema.String),
@@ -747,7 +747,7 @@ export class GuardianSituational extends Schema.Class<GuardianSituational>("Guar
   pending: Schema.Boolean,
 }) {}
 
-export class GuardianSnapshot extends Schema.Class<GuardianSnapshot>("GuardianSnapshot")({
+export class GuardianSnapshot extends Schema.Class<GuardianSnapshot>('GuardianSnapshot')({
   characters: Schema.Array(GuardianCharacter),
   vaultCount: Schema.Number,
   vaultCapacity: Schema.Number,
@@ -758,7 +758,7 @@ export class GuardianSnapshot extends Schema.Class<GuardianSnapshot>("GuardianSn
   statIcons: Schema.optional(Schema.Record(Schema.String, Schema.String)),
 }) {}
 
-export class VaultSnapshot extends Schema.Class<VaultSnapshot>("VaultSnapshot")({
+export class VaultSnapshot extends Schema.Class<VaultSnapshot>('VaultSnapshot')({
   count: Schema.Number,
   capacity: Schema.Number,
   items: Schema.Array(ItemSummary),
@@ -771,7 +771,7 @@ export class VaultSnapshot extends Schema.Class<VaultSnapshot>("VaultSnapshot")(
  * a new session starts (a long enough gap since the last request), so the
  * numbers stay stable while the app is open and refetching.
  */
-export class Briefing extends Schema.Class<Briefing>("Briefing")({
+export class Briefing extends Schema.Class<Briefing>('Briefing')({
   /** Start of the comparison window; null on the very first sync. */
   since: Schema.NullOr(Schema.String),
   newCount: Schema.Number,
@@ -790,16 +790,16 @@ export class Briefing extends Schema.Class<Briefing>("Briefing")({
 
 // ---- History: every call Ghost made, grouped by request ----
 
-export const ActionStatus = Schema.Literals(["ok", "failed", "held", "undone"])
+export const ActionStatus = Schema.Literals(['ok', 'failed', 'held', 'undone'])
 export type ActionStatus = typeof ActionStatus.Type
 
-export class HistoryCall extends Schema.Class<HistoryCall>("HistoryCall")({
+export class HistoryCall extends Schema.Class<HistoryCall>('HistoryCall')({
   /** For example "transferItem → vault ×7". */
   label: Schema.String,
   status: ActionStatus,
 }) {}
 
-export class HistoryGroup extends Schema.Class<HistoryGroup>("HistoryGroup")({
+export class HistoryGroup extends Schema.Class<HistoryGroup>('HistoryGroup')({
   jobId: Schema.String,
   prompt: Schema.String,
   at: Schema.String,
@@ -811,14 +811,14 @@ export class HistoryGroup extends Schema.Class<HistoryGroup>("HistoryGroup")({
 // ---- Cleanup mode: Ghost hands junk over in batches, the player deletes in game ----
 
 export const GearSlot = Schema.Literals([
-  "kinetic",
-  "energy",
-  "power",
-  "helmet",
-  "arms",
-  "chest",
-  "legs",
-  "class",
+  'kinetic',
+  'energy',
+  'power',
+  'helmet',
+  'arms',
+  'chest',
+  'legs',
+  'class',
 ])
 export type GearSlot = typeof GearSlot.Type
 
@@ -827,30 +827,30 @@ export type GearSlot = typeof GearSlot.Type
  * their gear or leave it in the vault.
  */
 export const CleanupStage = Schema.Literals([
-  "stashing",
-  "delivering",
-  "paused",
-  "finished",
-  "returning",
-  "closed",
-  "stopped",
+  'stashing',
+  'delivering',
+  'paused',
+  'finished',
+  'returning',
+  'closed',
+  'stopped',
 ])
 export type CleanupStage = typeof CleanupStage.Type
 
-export const StashState = Schema.Literals(["queued", "moving", "in_vault", "returned", "failed"])
+export const StashState = Schema.Literals(['queued', 'moving', 'in_vault', 'returned', 'failed'])
 export type StashState = typeof StashState.Type
 
 /** keeping and skipping are on their way back to the vault; kept and skipped are there. */
 export const JunkState = Schema.Literals([
-  "waiting",
-  "moving",
-  "in_hand",
-  "keeping",
-  "kept",
-  "skipping",
-  "skipped",
-  "deleted",
-  "failed",
+  'waiting',
+  'moving',
+  'in_hand',
+  'keeping',
+  'kept',
+  'skipping',
+  'skipped',
+  'deleted',
+  'failed',
 ])
 export type JunkState = typeof JunkState.Type
 
@@ -867,19 +867,19 @@ const cleanupItemFields = {
   meta: Schema.String,
 }
 
-export class StashEntry extends Schema.Class<StashEntry>("StashEntry")({
+export class StashEntry extends Schema.Class<StashEntry>('StashEntry')({
   ...cleanupItemFields,
   junk: Schema.Boolean,
   state: StashState,
 }) {}
 
-export class JunkEntry extends Schema.Class<JunkEntry>("JunkEntry")({
+export class JunkEntry extends Schema.Class<JunkEntry>('JunkEntry')({
   ...cleanupItemFields,
   batch: Schema.Number,
   state: JunkState,
 }) {}
 
-export class CleanupSession extends Schema.Class<CleanupSession>("CleanupSession")({
+export class CleanupSession extends Schema.Class<CleanupSession>('CleanupSession')({
   id: Schema.String,
   characterId: Schema.String,
   stage: CleanupStage,
@@ -897,7 +897,7 @@ export class CleanupSession extends Schema.Class<CleanupSession>("CleanupSession
   error: Schema.NullOr(Schema.String),
 }) {}
 
-export class CleanupPreview extends Schema.Class<CleanupPreview>("CleanupPreview")({
+export class CleanupPreview extends Schema.Class<CleanupPreview>('CleanupPreview')({
   characterId: Schema.String,
   junk: Schema.Number,
   batches: Schema.Number,
@@ -913,22 +913,22 @@ export const StartCleanup = Schema.Struct({ characterId: Schema.String })
 export type StartCleanup = typeof StartCleanup.Type
 
 /** Flagged as junk, but something argues for keeping it, so the player decides. */
-export class ReviewItem extends Schema.Class<ReviewItem>("ReviewItem")({
+export class ReviewItem extends Schema.Class<ReviewItem>('ReviewItem')({
   ...cleanupItemFields,
   reason: Schema.String,
 }) {}
 
-export const PerkRating = Schema.Literals(["good", "ok", "junk"])
+export const PerkRating = Schema.Literals(['good', 'ok', 'junk'])
 export type PerkRating = typeof PerkRating.Type
 
 /** Who rated a perk, strongest first. */
-export const PerkRatingSource = Schema.Literals(["player", "claude", "wishlist", "community"])
+export const PerkRatingSource = Schema.Literals(['player', 'claude', 'wishlist', 'community'])
 export type PerkRatingSource = typeof PerkRatingSource.Type
 
-export const Purpose = Schema.Literals(["pve", "pvp"])
+export const Purpose = Schema.Literals(['pve', 'pvp'])
 export type Purpose = typeof Purpose.Type
 
-export class RatedPerk extends Schema.Class<RatedPerk>("RatedPerk")({
+export class RatedPerk extends Schema.Class<RatedPerk>('RatedPerk')({
   name: Schema.String,
   /** The best it rates for any purpose. */
   rating: PerkRating,
@@ -938,7 +938,7 @@ export class RatedPerk extends Schema.Class<RatedPerk>("RatedPerk")({
 }) {}
 
 /** A weapon's trait columns, every perk each can slot, rated the way junk judging rates them. */
-export class WeaponPerks extends Schema.Class<WeaponPerks>("WeaponPerks")({
+export class WeaponPerks extends Schema.Class<WeaponPerks>('WeaponPerks')({
   weapon: Schema.String,
   columns: Schema.Array(Schema.Array(RatedPerk)),
 }) {}
@@ -946,18 +946,18 @@ export class WeaponPerks extends Schema.Class<WeaponPerks>("WeaponPerks")({
 /** null drops the player's rating, leaving Claude's or the wishlist's. "any" rates it for PvE and PvP alike. */
 export const SetPerkRating = Schema.Struct({
   perk: Schema.String,
-  purpose: Schema.Literals(["pve", "pvp", "any"]),
+  purpose: Schema.Literals(['pve', 'pvp', 'any']),
   rating: Schema.NullOr(PerkRating),
 })
 export type SetPerkRating = typeof SetPerkRating.Type
 
 /** What a perk adds to or takes from one weapon stat. */
-export class StatChange extends Schema.Class<StatChange>("StatChange")({
+export class StatChange extends Schema.Class<StatChange>('StatChange')({
   stat: Schema.String,
   value: Schema.Number,
 }) {}
 
-export class WeaponPerk extends Schema.Class<WeaponPerk>("WeaponPerk")({
+export class WeaponPerk extends Schema.Class<WeaponPerk>('WeaponPerk')({
   name: Schema.String,
   /** Effect text from the current patch's manifest. */
   description: Schema.String,
@@ -975,14 +975,14 @@ export class WeaponPerk extends Schema.Class<WeaponPerk>("WeaponPerk")({
 }) {}
 
 /** One perk socket with every perk the weapon can roll there, the active one first among equals in pool order. */
-export class PerkColumn extends Schema.Class<PerkColumn>("PerkColumn")({
+export class PerkColumn extends Schema.Class<PerkColumn>('PerkColumn')({
   /** Short, for example "BARREL", "MAG", "TRAIT 1" or "ORIGIN". */
   label: Schema.String,
   socketIndex: Schema.Number,
   perks: Schema.Array(WeaponPerk),
 }) {}
 
-export class WeaponStat extends Schema.Class<WeaponStat>("WeaponStat")({
+export class WeaponStat extends Schema.Class<WeaponStat>('WeaponStat')({
   name: Schema.String,
   value: Schema.Number,
   /** How much of the value the active perks bring. */
@@ -992,7 +992,7 @@ export class WeaponStat extends Schema.Class<WeaponStat>("WeaponStat")({
 }) {}
 
 /** A weapon's perks socket by socket, rated, with its stats. */
-export class WeaponSheet extends Schema.Class<WeaponSheet>("WeaponSheet")({
+export class WeaponSheet extends Schema.Class<WeaponSheet>('WeaponSheet')({
   columns: Schema.Array(PerkColumn),
   stats: Schema.Array(WeaponStat),
   /** How the roll on this copy compares with the wishlist, 0 to 100; null when the wishlist has no entries for it. */
@@ -1008,17 +1008,17 @@ export const ApplyPerks = Schema.Struct({
 })
 export type ApplyPerks = typeof ApplyPerks.Type
 
-export class JudgeUnavailable extends Schema.TaggedError<JudgeUnavailable>()("JudgeUnavailable", {
+export class JudgeUnavailable extends Schema.TaggedError<JudgeUnavailable>()('JudgeUnavailable', {
   reason: Schema.String,
 }) {}
 
 export const CleanupItems = Schema.Struct({ itemIds: Schema.NonEmptyArray(Schema.String) })
 export type CleanupItems = typeof CleanupItems.Type
 
-export class CleanupNotFound extends Schema.TaggedError<CleanupNotFound>()("CleanupNotFound", {
+export class CleanupNotFound extends Schema.TaggedError<CleanupNotFound>()('CleanupNotFound', {
   id: Schema.String,
 }) {}
 
-export class CleanupRefused extends Schema.TaggedError<CleanupRefused>()("CleanupRefused", {
+export class CleanupRefused extends Schema.TaggedError<CleanupRefused>()('CleanupRefused', {
   reason: Schema.String,
 }) {}

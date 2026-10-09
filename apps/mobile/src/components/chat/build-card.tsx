@@ -1,16 +1,16 @@
-import type { GuardianClass, Job, Plan, PlanRow } from "@ghost/contract"
-import { router } from "expo-router"
-import { Pressable, StyleSheet, Text, View } from "react-native"
+import type { GuardianClass, Job, Plan, PlanRow } from '@ghost/contract'
+import { router } from 'expo-router'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 
-import { ItemIcon } from "@/components/ghost/item-icon"
-import { SetBonusIcons } from "@/components/ghost/set-bonus"
-import { SubclassMark } from "@/components/ghost/subclass-mark"
-import { offersSave, SaveButton } from "@/components/plan/save-button"
-import { Body, Button, Cond, Cut, Meta, Mono, StatIcon } from "@/components/ghost/ui"
-import { Ghost } from "@/constants/theme"
-import { errorMessage, useApplyPlan, useUndoPlan } from "@/lib/api"
-import { orderBuildStats } from "@/lib/build-order"
-import { sentence } from "@/lib/format"
+import { ItemIcon } from '@/components/ghost/item-icon'
+import { SetBonusIcons } from '@/components/ghost/set-bonus'
+import { SubclassMark } from '@/components/ghost/subclass-mark'
+import { offersSave, SaveButton } from '@/components/plan/save-button'
+import { Body, Button, Cond, Cut, Meta, Mono, StatIcon } from '@/components/ghost/ui'
+import { Ghost } from '@/constants/theme'
+import { errorMessage, useApplyPlan, useUndoPlan } from '@/lib/api'
+import { orderBuildStats } from '@/lib/build-order'
+import { sentence } from '@/lib/format'
 import {
   appliedTotals,
   failures,
@@ -22,15 +22,15 @@ import {
   splitRows,
   statTicks,
   tallies,
-} from "@/lib/plan-card"
-import { usePlanSelection } from "@/lib/selection"
+} from '@/lib/plan-card'
+import { usePlanSelection } from '@/lib/selection'
 
 const TILES_PER_ROW = 5
 
 const upper = (parts: ReadonlyArray<string | null | undefined>) =>
   parts
     .filter((part) => part)
-    .join(" · ")
+    .join(' · ')
     .toUpperCase()
 
 export function BuildHeader({
@@ -61,7 +61,7 @@ export function BuildHeader({
 
 function Swatch({ color, label }: { color: string; label: string }) {
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
       <View style={{ width: 8, height: 3, backgroundColor: color }} />
       <Meta size={12} color={Ghost.dim}>
         {label}
@@ -81,7 +81,7 @@ function Stats({ plan }: { plan: Plan }) {
           const delta = added.get(stat.label) ?? 0
           return (
             <View key={stat.label} style={styles.stat}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <StatIcon
                   label={stat.label}
                   size={22}
@@ -91,7 +91,7 @@ function Stats({ plan }: { plan: Plan }) {
                   {sentence(stat.label)}
                 </Meta>
               </View>
-              <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
                 <Cond size={22} color={tone} style={{ letterSpacing: 0, lineHeight: 22 }}>
                   {stat.value}
                 </Cond>
@@ -101,7 +101,7 @@ function Stats({ plan }: { plan: Plan }) {
                   </Mono>
                 ) : null}
               </View>
-              <View style={{ flexDirection: "row", gap: 2 }}>
+              <View style={{ flexDirection: 'row', gap: 2 }}>
                 {statTicks(stat.value, delta).map((tick, i) => (
                   <View key={i} style={styles.tick}>
                     <View style={{ flex: tick.base, backgroundColor: tone }} />
@@ -117,7 +117,7 @@ function Stats({ plan }: { plan: Plan }) {
       <View style={styles.legend}>
         <Swatch color={Ghost.ink} label="Base" />
         {applied.length > 0 ? (
-          <Swatch color={Ghost.good} label={hasStatMods(plan) ? "Fragments + mods" : "Fragments"} />
+          <Swatch color={Ghost.good} label={hasStatMods(plan) ? 'Fragments + mods' : 'Fragments'} />
         ) : null}
         {plan.stats.some((stat) => stat.target) ? (
           <Swatch color={Ghost.accent} label="Asked for" />
@@ -127,12 +127,12 @@ function Stats({ plan }: { plan: Plan }) {
   )
 }
 
-const PIP_OTHER = "#7b828d"
+const PIP_OTHER = '#7b828d'
 
 /** A piece's mod sockets at a glance: blue for a mod the plan puts in, white for a stat mod, grey for any other, hollow for a free slot. */
 export function ModPips({ pips, fill = false }: { pips: readonly ModPip[]; fill?: boolean }) {
   return (
-    <View style={{ flexDirection: "row", gap: 2 }}>
+    <View style={{ flexDirection: 'row', gap: 2 }}>
       {pips.map((pip, i) => {
         const tone = {
           swap: Ghost.accent,
@@ -149,7 +149,7 @@ export function ModPips({ pips, fill = false }: { pips: readonly ModPip[]; fill?
               height: 5,
               borderWidth: 1,
               borderColor: tone,
-              backgroundColor: pip === "free" ? undefined : tone,
+              backgroundColor: pip === 'free' ? undefined : tone,
             }}
           />
         )
@@ -159,9 +159,9 @@ export function ModPips({ pips, fill = false }: { pips: readonly ModPip[]; fill?
 }
 
 const originTag = (origin: string | undefined) =>
-  origin?.toLowerCase() === "inventory" ? "INV" : origin?.toUpperCase()
+  origin?.toLowerCase() === 'inventory' ? 'INV' : origin?.toUpperCase()
 
-const outcomeLabel = { ok: null, failed: "FAILED", skipped: "HELD" } as const
+const outcomeLabel = { ok: null, failed: 'FAILED', skipped: 'HELD' } as const
 
 function Tile({
   row,
@@ -172,14 +172,14 @@ function Tile({
   applied: boolean
   classType: GuardianClass | undefined
 }) {
-  const arriving = !applied && row.origin !== undefined && row.action !== "none"
+  const arriving = !applied && row.origin !== undefined && row.action !== 'none'
   const result = applied && row.outcome ? outcomeLabel[row.outcome] : null
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={arriving ? `${row.name}, from ${row.origin}` : row.name}
       accessibilityHint="Opens item details"
-      onPress={() => router.push({ pathname: "/item/[id]", params: { id: row.itemInstanceId } })}
+      onPress={() => router.push({ pathname: '/item/[id]', params: { id: row.itemInstanceId } })}
       style={({ pressed }) => [{ flex: 1 }, pressed && { opacity: 0.6 }]}
     >
       <ItemIcon
@@ -214,7 +214,7 @@ function Tiles({
   return (
     <View style={[styles.band, { gap: 12 }]}>
       {lines.map((line, i) => (
-        <View key={i} style={{ flexDirection: "row", gap: 8 }}>
+        <View key={i} style={{ flexDirection: 'row', gap: 8 }}>
           {line.map((row) => (
             <Tile key={row.itemInstanceId} row={row} applied={applied} classType={classType} />
           ))}
@@ -229,11 +229,11 @@ function Tiles({
 
 function Verdict({ plan }: { plan: Plan }) {
   const failed = failures(plan)
-  if (plan.status !== "proposed") {
+  if (plan.status !== 'proposed') {
     return (
       <Body size={14} color={Ghost.soft}>
-        {plan.status === "undone" ? "Undone" : "Applied"}
-        {plan.status === "applied" && failed > 0 ? (
+        {plan.status === 'undone' ? 'Undone' : 'Applied'}
+        {plan.status === 'applied' && failed > 0 ? (
           <Text style={{ color: Ghost.danger }}> · {failed} failed</Text>
         ) : null}
       </Body>
@@ -277,8 +277,8 @@ export function BuildCard({ job, plan }: { job: Job; plan: Plan }) {
   const apply = useApplyPlan()
   const undo = useUndoPlan()
   const selected = [...selection.selected]
-  const applied = plan.status !== "proposed"
-  const confirmable = plan.status === "proposed" && selection.actionableCount > 0
+  const applied = plan.status !== 'proposed'
+  const confirmable = plan.status === 'proposed' && selection.actionableCount > 0
   const saveable = offersSave(job, plan)
   const { pieces, weapons } = splitRows(plan.rows)
 
@@ -286,7 +286,7 @@ export function BuildCard({ job, plan }: { job: Job; plan: Plan }) {
     <Cut cut={10} fill={Ghost.panel} border={Ghost.line} style={styles.card}>
       <BuildHeader
         plan={plan}
-        eyebrow={upper(["Build plan", plan.loadout?.classType, plan.loadout?.subclass])}
+        eyebrow={upper(['Build plan', plan.loadout?.classType, plan.loadout?.subclass])}
       />
       <Stats plan={plan} />
       {plan.rows.length > 0 ? (
@@ -310,7 +310,7 @@ export function BuildCard({ job, plan }: { job: Job; plan: Plan }) {
           accessibilityRole="button"
           accessibilityLabel="Build details"
           hitSlop={10}
-          onPress={() => router.push({ pathname: "/plan/[id]", params: { id: job.id } })}
+          onPress={() => router.push({ pathname: '/plan/[id]', params: { id: job.id } })}
           style={({ pressed }) => pressed && { opacity: 0.6 }}
         >
           <Cond size={14} color={Ghost.accent}>
@@ -325,20 +325,20 @@ export function BuildCard({ job, plan }: { job: Job; plan: Plan }) {
         </Body>
       ) : null}
 
-      {saveable || confirmable || plan.status === "applied" ? (
+      {saveable || confirmable || plan.status === 'applied' ? (
         <View style={styles.action}>
           {saveable ? <SaveButton job={job} /> : null}
           {confirmable ? (
             <Button
-              label={apply.isPending ? "WORKING…" : plan.confirmLabel.toUpperCase()}
+              label={apply.isPending ? 'WORKING…' : plan.confirmLabel.toUpperCase()}
               tone="solid"
               under={Ghost.panel}
               disabled={selected.length === 0 || apply.isPending}
               onPress={() => apply.mutate({ jobId: job.id, selected })}
             />
-          ) : plan.status === "applied" ? (
+          ) : plan.status === 'applied' ? (
             <Button
-              label={undo.isPending ? "UNDOING…" : "UNDO"}
+              label={undo.isPending ? 'UNDOING…' : 'UNDO'}
               under={Ghost.panel}
               disabled={undo.isPending}
               onPress={() => undo.mutate(job.id)}
@@ -352,21 +352,21 @@ export function BuildCard({ job, plan }: { job: Job; plan: Plan }) {
 
 const styles = StyleSheet.create({
   card: { marginLeft: 14, padding: 16, paddingTop: 14 },
-  header: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
   band: { marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: Ghost.rule },
-  statGrid: { flexDirection: "row", flexWrap: "wrap", columnGap: 14, rowGap: 18 },
-  stat: { width: "29%", flexGrow: 1, gap: 6 },
-  tick: { flex: 1, height: 4, flexDirection: "row", backgroundColor: Ghost.line },
+  statGrid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 14, rowGap: 18 },
+  stat: { width: '29%', flexGrow: 1, gap: 6 },
+  tick: { flex: 1, height: 4, flexDirection: 'row', backgroundColor: Ghost.line },
   legend: {
-    flexDirection: "row",
+    flexDirection: 'row',
     gap: 14,
     marginTop: 16,
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: Ghost.rule,
   },
-  tallies: { flexDirection: "row", flexWrap: "wrap", columnGap: 14, rowGap: 6 },
-  tally: { flexDirection: "row", alignItems: "baseline", gap: 4 },
-  verdict: { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 12 },
-  action: { flexDirection: "row", gap: 8, marginTop: 12 },
+  tallies: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 14, rowGap: 6 },
+  tally: { flexDirection: 'row', alignItems: 'baseline', gap: 4 },
+  verdict: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 12 },
+  action: { flexDirection: 'row', gap: 8, marginTop: 12 },
 })

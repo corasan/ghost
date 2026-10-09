@@ -1,4 +1,4 @@
-import { PerkColumn, type Purpose, type WeaponPerk, WeaponSheet } from "@ghost/contract"
+import { PerkColumn, type Purpose, type WeaponPerk, WeaponSheet } from '@ghost/contract'
 
 /** A perk by position: the column it sits in and its place in that column. */
 export type PerkRef = { readonly column: number; readonly perk: number }
@@ -7,13 +7,13 @@ export type PerkRef = { readonly column: number; readonly perk: number }
 export type Staged = ReadonlyMap<number, number>
 
 export type SheetMode =
-  | { readonly kind: "view"; readonly inspected: PerkRef | null }
-  | { readonly kind: "apply"; readonly staged: Staged }
+  | { readonly kind: 'view'; readonly inspected: PerkRef | null }
+  | { readonly kind: 'apply'; readonly staged: Staged }
 
-export const VIEWING: SheetMode = { kind: "view", inspected: null }
+export const VIEWING: SheetMode = { kind: 'view', inspected: null }
 
-export const isRound = (column: Pick<PerkColumn, "label">) =>
-  column.label.startsWith("TRAIT") || column.label === "ORIGIN"
+export const isRound = (column: Pick<PerkColumn, 'label'>) =>
+  column.label.startsWith('TRAIT') || column.label === 'ORIGIN'
 
 export const activeOf = (column: PerkColumn) => column.perks.find((perk) => perk.active)
 
@@ -125,4 +125,4 @@ export const poolSize = (sheet: WeaponSheet) =>
 export const canSwap = (sheet: WeaponSheet) =>
   sheet.columns.some((column) => column.perks.some((perk) => perk.rolled && !perk.active))
 
-export const signed = (value: number) => `${value > 0 ? "+" : "−"}${Math.abs(value)}`
+export const signed = (value: number) => `${value > 0 ? '+' : '−'}${Math.abs(value)}`

@@ -1,8 +1,8 @@
-import { ArtifactPick, ArtifactPlan, type BungieNotLinked } from "@ghost/contract"
-import { Context, Effect, Layer, Schema } from "effect"
-import { BungieClient, type BungieError } from "./client.ts"
-import { Manifest } from "./manifest.ts"
-import { Membership } from "./membership.ts"
+import { ArtifactPick, ArtifactPlan, type BungieNotLinked } from '@ghost/contract'
+import { Context, Effect, Layer, Schema } from 'effect'
+import { BungieClient, type BungieError } from './client.ts'
+import { Manifest } from './manifest.ts'
+import { Membership } from './membership.ts'
 
 export const ARTIFACT_COMPONENTS = [104, 202]
 
@@ -87,7 +87,7 @@ export interface CharacterArtifact {
   readonly tiers: ReadonlyArray<ArtifactColumn>
 }
 
-export type PerkFacts = Pick<ArtifactPerk, "name" | "description" | "icon">
+export type PerkFacts = Pick<ArtifactPerk, 'name' | 'description' | 'icon'>
 
 /**
  * Bungie's own pointsToUnlock counts down as points are spent, so when a
@@ -110,7 +110,7 @@ export const parseArtifact = (
   )
   return {
     artifactHash: scoped.artifactHash,
-    name: definition.displayProperties?.name ?? "Seasonal Artifact",
+    name: definition.displayProperties?.name ?? 'Seasonal Artifact',
     pointsAvailable: Math.max(account?.pointsAcquired ?? 0, account?.pointProgression?.level ?? 0),
     pointsUsed: scoped.pointsUsed,
     tiers: scoped.tiers.map((tier, column) => ({
@@ -178,7 +178,7 @@ export const planArtifact = (
           description: perk.description,
           icon: perk.icon,
           column: perk.column,
-          state: perk.active ? "active" : "select_in_game",
+          state: perk.active ? 'active' : 'select_in_game',
         }),
     ),
     pointsAvailable: artifact.pointsAvailable,
@@ -192,7 +192,7 @@ export interface ArtifactsService {
   ) => Effect.Effect<CharacterArtifact | null, BungieError | BungieNotLinked>
 }
 
-export class Artifacts extends Context.Service<Artifacts, ArtifactsService>()("Artifacts") {}
+export class Artifacts extends Context.Service<Artifacts, ArtifactsService>()('Artifacts') {}
 
 export const ArtifactsLive = Layer.effect(
   Artifacts,
@@ -208,14 +208,14 @@ export const ArtifactsLive = Layer.effect(
     const load = Effect.gen(function* () {
       const { membershipType, membershipId } = yield* membership
       const raw = yield* bungie.get(
-        `/Destiny2/${membershipType}/Profile/${membershipId}/?components=${ARTIFACT_COMPONENTS.join(",")}`,
+        `/Destiny2/${membershipType}/Profile/${membershipId}/?components=${ARTIFACT_COMPONENTS.join(',')}`,
       )
       return yield* Schema.decodeUnknownEffect(ArtifactProfile)(raw).pipe(
         Effect.catch(decodeFailure),
       )
     })
 
-    const [cached, invalidate] = yield* Effect.cachedInvalidateWithTTL(load, "30 seconds")
+    const [cached, invalidate] = yield* Effect.cachedInvalidateWithTTL(load, '30 seconds')
     const loaded = cached.pipe(Effect.tapError(() => invalidate))
 
     const definition = (hash: number) =>

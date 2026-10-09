@@ -1,10 +1,10 @@
-import type { PlanStat } from "@ghost/contract"
-import { StyleSheet, View } from "react-native"
+import type { PlanStat } from '@ghost/contract'
+import { StyleSheet, View } from 'react-native'
 
-import { Body, Cond, Meta, Mono, StatIcon } from "@/components/ghost/ui"
-import { Ghost } from "@/constants/theme"
-import { orderBuildStats } from "@/lib/build-order"
-import { sentence } from "@/lib/format"
+import { Body, Cond, Meta, Mono, StatIcon } from '@/components/ghost/ui'
+import { Ghost } from '@/constants/theme'
+import { orderBuildStats } from '@/lib/build-order'
+import { sentence } from '@/lib/format'
 
 /**
  * The six stats as a table: with the build on, and with every piece
@@ -22,7 +22,7 @@ export function BuildStats({ stats }: { stats: readonly PlanStat[] }) {
         const tone = stat.target ? Ghost.good : Ghost.ink
         return (
           <View key={stat.label} style={[styles.line, styles.row]}>
-            <View style={[styles.name, { flexDirection: "row", alignItems: "center", gap: 9 }]}>
+            <View style={[styles.name, { flexDirection: 'row', alignItems: 'center', gap: 9 }]}>
               <StatIcon
                 label={stat.label}
                 size={16}
@@ -40,7 +40,7 @@ export function BuildStats({ stats }: { stats: readonly PlanStat[] }) {
               color={stat.masterworked === undefined ? Ghost.dim : Ghost.gold}
               style={[styles.cell, { letterSpacing: 0 }]}
             >
-              {stat.masterworked ?? "—"}
+              {stat.masterworked ?? '—'}
             </Mono>
           </View>
         )
@@ -50,8 +50,8 @@ export function BuildStats({ stats }: { stats: readonly PlanStat[] }) {
 }
 
 const styles = StyleSheet.create({
-  line: { flexDirection: "row", alignItems: "center", gap: 8 },
+  line: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   row: { paddingVertical: 5, borderTopWidth: 1, borderTopColor: Ghost.rule },
   name: { flex: 1 },
-  cell: { width: 92, textAlign: "right" },
+  cell: { width: 92, textAlign: 'right' },
 })

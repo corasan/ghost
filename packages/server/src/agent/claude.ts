@@ -1,13 +1,13 @@
-import { query, type Options } from "@anthropic-ai/claude-agent-sdk"
-import type { AgentEffort, JobKind, JobStep } from "@ghost/contract"
-import { Context, Duration, Effect, Layer, Redacted, Schema } from "effect"
-import { Access } from "../access.ts"
-import { AppConfig } from "../config.ts"
-import { MCP_PATH } from "../mcp/path.ts"
-import { AgentConfig } from "./settings.ts"
-import { decodeToolInput, describeStep } from "./steps.ts"
+import { query, type Options } from '@anthropic-ai/claude-agent-sdk'
+import type { AgentEffort, JobKind, JobStep } from '@ghost/contract'
+import { Context, Duration, Effect, Layer, Redacted, Schema } from 'effect'
+import { Access } from '../access.ts'
+import { AppConfig } from '../config.ts'
+import { MCP_PATH } from '../mcp/path.ts'
+import { AgentConfig } from './settings.ts'
+import { decodeToolInput, describeStep } from './steps.ts'
 
-export class AgentFailed extends Schema.TaggedError<AgentFailed>()("AgentFailed", {
+export class AgentFailed extends Schema.TaggedError<AgentFailed>()('AgentFailed', {
   message: Schema.String,
 }) {}
 
@@ -19,7 +19,7 @@ export class AgentFailed extends Schema.TaggedError<AgentFailed>()("AgentFailed"
 export const abortOn = (signal: AbortSignal) => {
   const controller = new AbortController()
   if (signal.aborted) controller.abort(signal.reason)
-  else signal.addEventListener("abort", () => controller.abort(signal.reason), { once: true })
+  else signal.addEventListener('abort', () => controller.abort(signal.reason), { once: true })
   return controller
 }
 
@@ -32,7 +32,7 @@ export const abortOn = (signal: AbortSignal) => {
 export const runClaude = (claudePath: string, prompt: string, options: Options) =>
   query({
     prompt,
-    options: claudePath === "" ? options : { ...options, pathToClaudeCodeExecutable: claudePath },
+    options: claudePath === '' ? options : { ...options, pathToClaudeCodeExecutable: claudePath },
   })
 
 /** Fails a model call that runs past `limit`. The timeout interrupts it, which aborts the subprocess. */
@@ -68,7 +68,7 @@ export interface ClaudeAgentService {
 }
 
 export class ClaudeAgent extends Context.Service<ClaudeAgent, ClaudeAgentService>()(
-  "ClaudeAgent",
+  'ClaudeAgent',
 ) {}
 
 const SYSTEM_PROMPT = `You are Ghost, a Destiny 2 companion inside a phone app. You answer the way a veteran player who knows this account would: someone with thousands of hours in endgame PvE and PvP who is asked by a friend and gives the call, not a lecture.
@@ -113,17 +113,17 @@ The length of a good answer, to copy:
 Before you send, count: if a card is attached and your text is more than two sentences, cut it to two. If you wrote what you checked, searched or ruled out, delete that sentence. Without a card, stop after the second bullet: no third bullet, no closing paragraph, and never a Sources line, because the app lists sources itself.`
 
 const KIND_PROMPTS: Record<JobKind, string> = {
-  chat: "",
+  chat: '',
   build_suggestion:
-    "Goal: propose a build (plan kind build) for the requested stats or activity using gear the player owns, on the subclass that fits it, with its three weapons, the armor mods to slot and the artifact perks to run. Check current meta on the web and cite it.",
+    'Goal: propose a build (plan kind build) for the requested stats or activity using gear the player owns, on the subclass that fits it, with its three weapons, the armor mods to slot and the artifact perks to run. Check current meta on the web and cite it.',
   weapon_rolls:
     "Goal: find the requested weapon, rank the player's copies with check_rolls, and propose equipping the best (plan kind weapon).",
   vault_cleanup:
-    "Goal: call find_junk. If it lists needsRatings, rate up to five of them, most copies first: look each up on light.gg (its PvE and PvP god roll picks per trait column), then call rate_perks with the picks as good, the also-good perks as ok and the page url, and call find_junk again. Then call present_plan kind cleanup with its junk and review rows, each with action tag_junk. The server decides what is junk; never add an item find_junk did not return. In one or two sentences say how many are junk and ticked, and how many are left unticked for the player to review.",
+    'Goal: call find_junk. If it lists needsRatings, rate up to five of them, most copies first: look each up on light.gg (its PvE and PvP god roll picks per trait column), then call rate_perks with the picks as good, the also-good perks as ok and the page url, and call find_junk again. Then call present_plan kind cleanup with its junk and review rows, each with action tag_junk. The server decides what is junk; never add an item find_junk did not return. In one or two sentences say how many are junk and ticked, and how many are left unticked for the player to review.',
   postmaster_to_vault:
-    "Goal: propose moving every postmaster item to the vault (plan kind postmaster, action to_vault).",
-  item_action: "",
-  saved_build: "",
+    'Goal: propose moving every postmaster item to the vault (plan kind postmaster, action to_vault).',
+  item_action: '',
+  saved_build: '',
 }
 
 // The Agent SDK runs Claude Code headless and authenticates with the Claude
@@ -146,43 +146,43 @@ export const ClaudeAgentLive = Layer.effect(
         try: async (signal) => {
           const selected =
             characterId === null
-              ? "No character is selected; default to the highest light one."
+              ? 'No character is selected; default to the highest light one.'
               : `The player has character ${characterId} selected in the app; plans target it unless they say otherwise.`
           const fullPrompt = [KIND_PROMPTS[kind], selected, prompt]
-            .filter((part) => part !== "")
-            .join("\n\n")
+            .filter((part) => part !== '')
+            .join('\n\n')
           const options: Options = {
             model: config.model,
             effort,
             systemPrompt: SYSTEM_PROMPT,
             mcpServers: {
               ghost: {
-                type: "http",
+                type: 'http',
                 url: mcpUrl,
                 headers: { Authorization: `Bearer ${Redacted.value(mcpToken)}` },
               },
             },
-            tools: ["WebSearch", "WebFetch"],
-            allowedTools: ["mcp__ghost__*", "WebSearch", "WebFetch"],
-            permissionMode: "bypassPermissions",
+            tools: ['WebSearch', 'WebFetch'],
+            allowedTools: ['mcp__ghost__*', 'WebSearch', 'WebFetch'],
+            permissionMode: 'bypassPermissions',
             allowDangerouslySkipPermissions: true,
             maxTurns: 40,
             abortController: abortOn(signal),
           }
           if (resume !== null) options.resume = resume
-          let lastText = ""
+          let lastText = ''
           let conversation: string | null = null
           for await (const message of runClaude(config.claudePath, fullPrompt, options)) {
-            if (message.type === "assistant") {
+            if (message.type === 'assistant') {
               conversation = message.session_id
               for (const block of message.message.content) {
-                if (block.type === "text") lastText = block.text
-                if (block.type === "tool_use")
+                if (block.type === 'text') lastText = block.text
+                if (block.type === 'tool_use')
                   onStep(describeStep(block.name, decodeToolInput(block.input)))
               }
             }
-            if (message.type === "result") {
-              if (message.subtype === "success") {
+            if (message.type === 'result') {
+              if (message.subtype === 'success') {
                 return { text: message.result || lastText, conversation: message.session_id }
               }
               throw new Error(`agent ended with ${message.subtype}`)
@@ -191,7 +191,7 @@ export const ClaudeAgentLive = Layer.effect(
           return { text: lastText, conversation }
         },
         catch: (error) => new AgentFailed({ message: String(error) }),
-      }).pipe(within("10 minutes", "The agent"))
+      }).pipe(within('10 minutes', 'The agent'))
 
     const run = (request: AgentRequest) =>
       Effect.flatMap(agentConfig.current, ({ effort }) => ask(request, effort))

@@ -1,6 +1,6 @@
-import { chmodSync, mkdirSync } from "node:fs"
-import { homedir } from "node:os"
-import { join } from "node:path"
+import { chmodSync, mkdirSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 
 /** Everything the CLI keeps on this machine lives under one directory. */
 export interface GhostHome {
@@ -12,13 +12,13 @@ export interface GhostHome {
 }
 
 export const ghostHome = (): GhostHome => {
-  const root = process.env.GHOST_HOME ?? join(homedir(), ".ghost")
+  const root = process.env.GHOST_HOME ?? join(homedir(), '.ghost')
   return {
     root,
-    config: join(root, "config.env"),
-    data: join(root, "data"),
-    pid: join(root, "ghost.pid"),
-    log: join(root, "ghost.log"),
+    config: join(root, 'config.env'),
+    data: join(root, 'data'),
+    pid: join(root, 'ghost.pid'),
+    log: join(root, 'ghost.log'),
   }
 }
 

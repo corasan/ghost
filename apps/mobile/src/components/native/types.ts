@@ -1,4 +1,4 @@
-import type { ReactNode } from "react"
+import type { ReactNode } from 'react'
 
 // Screens are written once against these props. Each primitive has an
 // .ios.tsx file built on SwiftUI (@expo/ui/swift-ui), an .android.tsx file
@@ -34,7 +34,7 @@ export interface TextFieldProps {
   readonly placeholder: string
   readonly initialValue?: string
   readonly onChange: (value: string) => void
-  readonly keyboard?: "default" | "url" | "numeric"
+  readonly keyboard?: 'default' | 'url' | 'numeric'
   readonly multiline?: boolean
 }
 

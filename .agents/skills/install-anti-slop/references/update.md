@@ -43,15 +43,15 @@ Compare rule behavior, diagnostics, tests, helpers, exports, and configuration�
 
 Compare both `base → local` and `base → incoming`:
 
-| Change | Action |
-| --- | --- |
-| Incoming unchanged | Preserve local, including local deletions. |
-| Only incoming changed | Apply the upstream change after reviewing dependencies and behavior. |
-| Only local changed | Preserve local. |
-| Both changed identically | Keep one copy. |
-| Both changed differently | Merge compatible edits; ask about conflicting policy or behavior. |
-| Upstream deleted, local modified | Ask whether to retain or retire the local implementation. |
-| Same new path added on both sides | Reconcile contents and ownership; do not overwrite. |
+| Change                            | Action                                                               |
+| --------------------------------- | -------------------------------------------------------------------- |
+| Incoming unchanged                | Preserve local, including local deletions.                           |
+| Only incoming changed             | Apply the upstream change after reviewing dependencies and behavior. |
+| Only local changed                | Preserve local.                                                      |
+| Both changed identically          | Keep one copy.                                                       |
+| Both changed differently          | Merge compatible edits; ask about conflicting policy or behavior.    |
+| Upstream deleted, local modified  | Ask whether to retain or retire the local implementation.            |
+| Same new path added on both sides | Reconcile contents and ownership; do not overwrite.                  |
 
 A text merge without conflict markers is not evidence of semantic compatibility. Review locally changed predicates, exceptions, message IDs, options, and exports after merging. Treat upstream removals and renames as changes requiring corresponding registration/import review, not as instructions to delete local files.
 

@@ -6,7 +6,7 @@ export type TooltipPlacement = {
   width: number
   /** The caret's centre, from the tip's left edge. */
   caret: number
-  side: "below" | "above"
+  side: 'below' | 'above'
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
@@ -38,10 +38,10 @@ export const placeTooltip = ({
   const below = anchor.y + anchor.height + gap
   const above = anchor.y - gap - height
   const fitsBelow = below + height <= host.height - margin
-  const side = fitsBelow || above < margin ? "below" : "above"
+  const side = fitsBelow || above < margin ? 'below' : 'above'
   return {
     left,
-    top: side === "below" ? below : above,
+    top: side === 'below' ? below : above,
     width,
     caret: clamp(centre - left, caretInset, width - caretInset),
     side,

@@ -1,15 +1,15 @@
-import type { Keyword, LoadoutPlug } from "@ghost/contract"
+import type { Keyword, LoadoutPlug } from '@ghost/contract'
 
 export type KeywordRun = { text: string; keyword?: Keyword }
 
-const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 const stems = (name: string) => {
   const lower = name.toLowerCase()
-  return [lower, lower.replace(/(ility|ion|ed|e)$/, "")]
+  return [lower, lower.replace(/(ility|ion|ed|e)$/, '')]
 }
 
-const ENDINGS = "(?:s|es|d|ed|ing|en|ened|ens|ion|ions|ility|le|e)?"
+const ENDINGS = '(?:s|es|d|ed|ing|en|ened|ens|ion|ions|ility|le|e)?'
 
 /** Every keyword the plugs use, once each, in the order they first appear. */
 export const loadoutKeywords = (plugs: readonly LoadoutPlug[]): Keyword[] => [
@@ -28,11 +28,11 @@ export const keywordRuns = (text: string, keywords: readonly Keyword[]): Keyword
   )
   if (byStem.size === 0) return [{ text }]
   const alternatives = [...byStem.keys()].sort((a, b) => b.length - a.length).map(escape)
-  const pattern = new RegExp(`\\b(${alternatives.join("|")})${ENDINGS}\\b`, "gi")
+  const pattern = new RegExp(`\\b(${alternatives.join('|')})${ENDINGS}\\b`, 'gi')
   const runs: KeywordRun[] = []
   let at = 0
   for (const match of text.matchAll(pattern)) {
-    const keyword = byStem.get((match[1] ?? "").toLowerCase())
+    const keyword = byStem.get((match[1] ?? '').toLowerCase())
     if (keyword === undefined) continue
     if (match.index > at) runs.push({ text: text.slice(at, match.index) })
     runs.push({ text: match[0], keyword })

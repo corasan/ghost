@@ -1,12 +1,12 @@
-import type { SetBonus } from "@ghost/contract"
-import { useRef, useState } from "react"
-import { type HostInstance, Pressable, StyleSheet, View } from "react-native"
+import type { SetBonus } from '@ghost/contract'
+import { useRef, useState } from 'react'
+import { type HostInstance, Pressable, StyleSheet, View } from 'react-native'
 
-import { PlugIcon } from "@/components/ghost/plug-icon"
-import { Tooltip } from "@/components/ghost/tooltip"
-import { Body, Meta } from "@/components/ghost/ui"
-import { Ghost, Type } from "@/constants/theme"
-import { setBonusLine, splitSetBonuses } from "@/lib/plan-card"
+import { PlugIcon } from '@/components/ghost/plug-icon'
+import { Tooltip } from '@/components/ghost/tooltip'
+import { Body, Meta } from '@/components/ghost/ui'
+import { Ghost, Type } from '@/constants/theme'
+import { setBonusLine, splitSetBonuses } from '@/lib/plan-card'
 
 const ICON = 24
 const ICON_GAP = 8
@@ -85,14 +85,14 @@ export function SetBonusIcons({ bonuses }: { bonuses: readonly SetBonus[] }) {
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", gap: ICON_GAP },
+  row: { flexDirection: 'row', alignItems: 'center', gap: ICON_GAP },
   label: { width: LABEL_WIDTH, marginRight: LABEL_GAP - ICON_GAP },
   short: {
     opacity: 0.45,
     padding: 1,
     margin: -2,
     borderWidth: 1,
-    borderStyle: "dashed",
+    borderStyle: 'dashed',
     borderColor: Ghost.muted,
   },
 })

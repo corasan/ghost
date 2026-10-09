@@ -1,6 +1,6 @@
-import { ChargeEffect, Source } from "@ghost/contract"
-import { Context, Effect, Layer } from "effect"
-import { SqlClient, type SqlError } from "effect/sql"
+import { ChargeEffect, Source } from '@ghost/contract'
+import { Context, Effect, Layer } from 'effect'
+import { SqlClient, type SqlError } from 'effect/sql'
 
 export interface ChargeEffectsService {
   /** Keyed by lowercased mod name. */
@@ -13,7 +13,7 @@ export interface ChargeEffectsService {
 }
 
 export class ChargeEffects extends Context.Service<ChargeEffects, ChargeEffectsService>()(
-  "ChargeEffects",
+  'ChargeEffects',
 ) {}
 
 interface Row {

@@ -5,7 +5,7 @@ import {
   CleanupRefused,
   CleanupSession,
   type ItemLocation,
-} from "@ghost/contract"
+} from '@ghost/contract'
 import {
   Context,
   DateTime,
@@ -16,15 +16,15 @@ import {
   Result,
   Schema,
   Semaphore,
-} from "effect"
-import { BungieClient, type BungieError } from "../bungie/client.ts"
-import type { Inventory } from "../bungie/inventory.ts"
-import { Loadouts } from "../bungie/loadouts.ts"
-import { Manifest } from "../bungie/manifest.ts"
-import { ProfileStore } from "../bungie/profile.ts"
-import { BuildsRepo } from "../db/builds.ts"
-import { ItemsRepo } from "../db/items.ts"
-import { inUse } from "../junk/judge.ts"
+} from 'effect'
+import { BungieClient, type BungieError } from '../bungie/client.ts'
+import type { Inventory } from '../bungie/inventory.ts'
+import { Loadouts } from '../bungie/loadouts.ts'
+import { Manifest } from '../bungie/manifest.ts'
+import { ProfileStore } from '../bungie/profile.ts'
+import { BuildsRepo } from '../db/builds.ts'
+import { ItemsRepo } from '../db/items.ts'
+import { inUse } from '../junk/judge.ts'
 import {
   begin,
   type CleanupCommand,
@@ -41,8 +41,8 @@ import {
   skip,
   start,
   vaultRead,
-} from "./engine.ts"
-import { CleanupRepo } from "./repo.ts"
+} from './engine.ts'
+import { CleanupRepo } from './repo.ts'
 
 type CommandErrors = CleanupNotFound | CleanupRefused
 type BungieErrors = BungieError | BungieNotLinked
@@ -71,13 +71,13 @@ export interface CleanupService {
   readonly tick: Effect.Effect<void, BungieErrors>
 }
 
-export class Cleanup extends Context.Service<Cleanup, CleanupService>()("Cleanup") {}
+export class Cleanup extends Context.Service<Cleanup, CleanupService>()('Cleanup') {}
 
-class MoveFailed extends Schema.TaggedError<MoveFailed>()("MoveFailed", {
+class MoveFailed extends Schema.TaggedError<MoveFailed>()('MoveFailed', {
   message: Schema.String,
 }) {}
 
-class ItemGone extends Schema.TaggedError<ItemGone>()("ItemGone", {}) {}
+class ItemGone extends Schema.TaggedError<ItemGone>()('ItemGone', {}) {}
 
 interface Where {
   readonly location: ItemLocation
@@ -85,19 +85,19 @@ interface Where {
   readonly equipped: boolean
 }
 
-const INTERVAL = "3 seconds"
+const INTERVAL = '3 seconds'
 
-const POLLING = new Set<CleanupSession["stage"]>(["stashing", "delivering", "returning"])
+const POLLING = new Set<CleanupSession['stage']>(['stashing', 'delivering', 'returning'])
 
 // Not about the item: the same move can work later, so it stays pending.
 const isOutage = (error: BungieErrors) =>
-  error._tag === "BungieNotLinked" ||
-  error.status === "Transport" ||
-  error.status === "SystemDisabled" ||
-  error.status.startsWith("Throttle")
+  error._tag === 'BungieNotLinked' ||
+  error.status === 'Transport' ||
+  error.status === 'SystemDisabled' ||
+  error.status.startsWith('Throttle')
 
 const describe = (error: BungieErrors | MoveFailed) =>
-  error._tag === "BungieNotLinked" ? "Bungie account is not linked" : error.message
+  error._tag === 'BungieNotLinked' ? 'Bungie account is not linked' : error.message
 
 /** `spacing` is the pause between transfers, which Bungie throttles. */
 export const cleanupLayer = (spacing: Duration.Input) =>
@@ -125,12 +125,12 @@ export const cleanupLayer = (spacing: Duration.Input) =>
           if (Result.isFailure(next)) return yield* new CleanupRefused({ reason: next.failure })
           yield* repo.save(next.success)
           return next.success
-        }).pipe(lock.withPermits(1), Effect.catchTag("SqlError", Effect.die))
+        }).pipe(lock.withPermits(1), Effect.catchTag('SqlError', Effect.die))
 
       const planFor = (inv: Inventory, characterId: string) =>
         Effect.gen(function* () {
           if (!inv.characters.some((c) => c.characterId === characterId)) {
-            return yield* new CleanupRefused({ reason: "That character is not on this account." })
+            return yield* new CleanupRefused({ reason: 'That character is not on this account.' })
           }
           const capacities = yield* manifest.capacities
           const saved = yield* builds.list.pipe(Effect.orDie)
@@ -148,11 +148,11 @@ export const cleanupLayer = (spacing: Duration.Input) =>
       const begun = (characterId: string) =>
         Effect.gen(function* () {
           if (Option.isSome(yield* repo.active.pipe(Effect.orDie))) {
-            return yield* new CleanupRefused({ reason: "A cleanup is already running." })
+            return yield* new CleanupRefused({ reason: 'A cleanup is already running.' })
           }
           const planned = yield* planFor(yield* freshInventory, characterId)
           const { junk, fits, stash, vault } = planned.preview
-          if (junk === 0) return yield* new CleanupRefused({ reason: "Nothing is tagged junk." })
+          if (junk === 0) return yield* new CleanupRefused({ reason: 'Nothing is tagged junk.' })
           if (!fits) {
             return yield* new CleanupRefused({
               reason: `The vault has room for ${vault.capacity - vault.count} and the stash needs ${stash}.`,
@@ -171,7 +171,7 @@ export const cleanupLayer = (spacing: Duration.Input) =>
       const keepItems = (id: string, itemInstanceIds: ReadonlyArray<string>) =>
         update(id, (session) => keep(session, itemInstanceIds)).pipe(
           Effect.tap(() =>
-            Effect.forEach(itemInstanceIds, (itemId) => items.setDecision(itemId, "keep"), {
+            Effect.forEach(itemInstanceIds, (itemId) => items.setDecision(itemId, 'keep'), {
               discard: true,
             }).pipe(Effect.orDie),
           ),
@@ -202,7 +202,7 @@ export const cleanupLayer = (spacing: Duration.Input) =>
                 Effect.tap(() =>
                   Effect.sync(() =>
                     located.set(id, {
-                      location: transferToVault ? "vault" : "character",
+                      location: transferToVault ? 'vault' : 'character',
                       characterId: transferToVault ? null : characterId,
                       equipped: false,
                     }),
@@ -212,28 +212,28 @@ export const cleanupLayer = (spacing: Duration.Input) =>
           const at = located.get(id)
           if (at === undefined) return yield* new ItemGone()
           if (
-            at.location === "postmaster" ||
-            (at.location === "character" && at.characterId === null)
+            at.location === 'postmaster' ||
+            (at.location === 'character' && at.characterId === null)
           ) {
-            return yield* new MoveFailed({ message: "It is in the postmaster." })
+            return yield* new MoveFailed({ message: 'It is in the postmaster.' })
           }
           const target = destination(move.kind)
-          if (target === "character" && at.characterId === session.characterId) return
-          if (at.location === "vault") {
-            if (target === "character") yield* transfer(session.characterId, false)
+          if (target === 'character' && at.characterId === session.characterId) return
+          if (at.location === 'vault') {
+            if (target === 'character') yield* transfer(session.characterId, false)
             return
           }
-          if (at.equipped) return yield* new MoveFailed({ message: "It is equipped." })
+          if (at.equipped) return yield* new MoveFailed({ message: 'It is equipped.' })
           yield* transfer(at.characterId ?? session.characterId, true).pipe(
             Effect.catchIf(
               (error) =>
-                move.kind === "stow" &&
-                error._tag === "BungieError" &&
-                error.status === "DestinyItemNotFound",
+                move.kind === 'stow' &&
+                error._tag === 'BungieError' &&
+                error.status === 'DestinyItemNotFound',
               () => new ItemGone(),
             ),
           )
-          if (target === "character") yield* transfer(session.characterId, false)
+          if (target === 'character') yield* transfer(session.characterId, false)
         })
 
       const claim = (id: string) =>
@@ -259,7 +259,7 @@ export const cleanupLayer = (spacing: Duration.Input) =>
         if (!polling && nextMoves(session).length === 0) return
         const inv = yield* freshInventory
         if (!vaultRead(session, inv)) {
-          const reason = "Bungie did not return the vault; trying again."
+          const reason = 'Bungie did not return the vault; trying again.'
           yield* record(session.id, (s) => new CleanupSession({ ...s, error: reason }))
           return
         }
@@ -283,16 +283,16 @@ export const cleanupLayer = (spacing: Duration.Input) =>
           )
           if (Result.isFailure(outcome)) {
             const failure = outcome.failure
-            if (failure._tag !== "MoveFailed" && failure._tag !== "ItemGone" && isOutage(failure)) {
+            if (failure._tag !== 'MoveFailed' && failure._tag !== 'ItemGone' && isOutage(failure)) {
               const reason = describe(failure)
               yield* record(session.id, (s) => new CleanupSession({ ...s, error: reason }))
               break
             }
           }
           const settled: Outcome = Result.isSuccess(outcome)
-            ? "landed"
-            : outcome.failure._tag === "ItemGone"
-              ? "gone"
+            ? 'landed'
+            : outcome.failure._tag === 'ItemGone'
+              ? 'gone'
               : { failed: describe(outcome.failure) }
           yield* record(session.id, (s, at) => settle(s, move, settled, at))
           yield* Effect.sleep(spacing)
@@ -313,10 +313,10 @@ export const cleanupLayer = (spacing: Duration.Input) =>
     }),
   )
 
-export const CleanupLive = cleanupLayer("150 millis")
+export const CleanupLive = cleanupLayer('150 millis')
 
 const watch = Effect.flatMap(Cleanup, (cleanup) => cleanup.tick).pipe(
-  Effect.catchCause((cause) => Effect.logWarning("cleanup watcher tick failed", cause)),
+  Effect.catchCause((cause) => Effect.logWarning('cleanup watcher tick failed', cause)),
   Effect.delay(INTERVAL),
   Effect.forever,
 )

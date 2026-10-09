@@ -1,6 +1,6 @@
-import { Button, HStack, Spacer, Text, VStack } from "@expo/ui/swift-ui"
-import { buttonStyle, font, foregroundStyle } from "@expo/ui/swift-ui/modifiers"
-import type { RowProps } from "./types"
+import { Button, HStack, Spacer, Text, VStack } from '@expo/ui/swift-ui'
+import { buttonStyle, font, foregroundStyle } from '@expo/ui/swift-ui/modifiers'
+import type { RowProps } from './types'
 
 function Content({ title, subtitle, detail }: RowProps) {
   return (
@@ -8,13 +8,13 @@ function Content({ title, subtitle, detail }: RowProps) {
       <VStack alignment="leading" spacing={2}>
         <Text>{title}</Text>
         {subtitle ? (
-          <Text modifiers={[font({ textStyle: "footnote" }), foregroundStyle("secondary")]}>
+          <Text modifiers={[font({ textStyle: 'footnote' }), foregroundStyle('secondary')]}>
             {subtitle}
           </Text>
         ) : null}
       </VStack>
       <Spacer />
-      {detail ? <Text modifiers={[foregroundStyle("secondary")]}>{detail}</Text> : null}
+      {detail ? <Text modifiers={[foregroundStyle('secondary')]}>{detail}</Text> : null}
     </HStack>
   )
 }
@@ -22,7 +22,7 @@ function Content({ title, subtitle, detail }: RowProps) {
 export function Row(props: RowProps) {
   if (!props.onPress) return <Content {...props} />
   return (
-    <Button onPress={props.onPress} modifiers={[buttonStyle("plain")]}>
+    <Button onPress={props.onPress} modifiers={[buttonStyle('plain')]}>
       <Content {...props} />
     </Button>
   )

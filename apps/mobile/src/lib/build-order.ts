@@ -1,4 +1,4 @@
-import type { PlanStat } from "@ghost/contract"
+import type { PlanStat } from '@ghost/contract'
 
 /** Asked-for stats first, then the rest from highest to lowest. */
 export const orderBuildStats = (stats: readonly PlanStat[]): PlanStat[] =>

@@ -6,15 +6,15 @@ import {
   StatMod,
   type SubclassChange,
   SubclassLoadout,
-} from "@ghost/contract"
-import { type CharacterInfo, STAT, type SlottedPlugs, type SubclassPlug } from "./inventory.ts"
-import type { PlugFacts, StatFacts, StatMods } from "./manifest.ts"
-import { ARMOR_STATS, statLabel } from "./masterwork.ts"
+} from '@ghost/contract'
+import { type CharacterInfo, STAT, type SlottedPlugs, type SubclassPlug } from './inventory.ts'
+import type { PlugFacts, StatFacts, StatMods } from './manifest.ts'
+import { ARMOR_STATS, statLabel } from './masterwork.ts'
 
 const CLASS_STAT: Record<GuardianClass, keyof typeof STAT> = {
-  titan: "resilience",
-  hunter: "mobility",
-  warlock: "recovery",
+  titan: 'resilience',
+  hunter: 'mobility',
+  warlock: 'recovery',
 }
 
 /** What a plug does to each armor stat on this class: of its conditional changes, only the one to the class's own stat applies. */
@@ -66,7 +66,7 @@ export const describeLoadout = ({
 }: {
   readonly character: Pick<
     CharacterInfo,
-    "classType" | "subclass" | "subclassIcon" | "element" | "loadout"
+    'classType' | 'subclass' | 'subclassIcon' | 'element' | 'loadout'
   >
   readonly plugs: ReadonlyMap<number, PlugFacts>
   readonly facts: StatFacts
@@ -79,7 +79,7 @@ export const describeLoadout = ({
     const replaces = swapped.get(from.hash)
     return new LoadoutPlug({
       name: from.name,
-      description: from.description || (known?.description ?? ""),
+      description: from.description || (known?.description ?? ''),
       icon: from.icon,
       mods: ARMOR_STATS.flatMap(([key, label]) => {
         const delta = mods[STAT[key]]

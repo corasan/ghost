@@ -1,11 +1,11 @@
-import { SetBonus } from "@ghost/contract"
-import type { ArmorSet } from "./manifest.ts"
+import { SetBonus } from '@ghost/contract'
+import type { ArmorSet } from './manifest.ts'
 
 /** The set each armor item hash belongs to. */
 export const setsByItem = (sets: ReadonlyArray<ArmorSet>): ReadonlyMap<number, ArmorSet> =>
   new Map(sets.flatMap((set) => set.items.map((hash): [number, ArmorSet] => [hash, set])))
 
-export const isActive = (bonus: Pick<SetBonus, "required" | "worn">) => bonus.worn >= bonus.required
+export const isActive = (bonus: Pick<SetBonus, 'required' | 'worn'>) => bonus.worn >= bonus.required
 
 const fewestPiecesFirst = (a: SetBonus, b: SetBonus) =>
   a.required - b.required || a.set.localeCompare(b.set)

@@ -1,20 +1,20 @@
-import { describe, expect, test } from "bun:test"
-import { Deferred, Effect, Fiber, Layer } from "effect"
-import { ItemsRepo } from "../db/items.ts"
-import { BungieClient } from "./client.ts"
-import { Manifest } from "./manifest.ts"
-import { Membership } from "./membership.ts"
-import { ProfileStore, ProfileStoreLive } from "./profile.ts"
-import { unlockedPlugs } from "./subclass.ts"
+import { describe, expect, test } from 'bun:test'
+import { Deferred, Effect, Fiber, Layer } from 'effect'
+import { ItemsRepo } from '../db/items.ts'
+import { BungieClient } from './client.ts'
+import { Manifest } from './manifest.ts'
+import { Membership } from './membership.ts'
+import { ProfileStore, ProfileStoreLive } from './profile.ts'
+import { unlockedPlugs } from './subclass.ts'
 
-const CHARACTER = "2305843009309769093"
+const CHARACTER = '2305843009309769093'
 const SENTINEL_ASPECTS = 1369926501
 const unlocked = (plugItemHash: number) => ({ plugItemHash, canInsert: true, enabled: true })
 
 const sections = new Map(
   Object.entries({
     100: {
-      profile: { data: { userInfo: { membershipType: 3, membershipId: "4611686018467260757" } } },
+      profile: { data: { userInfo: { membershipType: 3, membershipId: '4611686018467260757' } } },
     },
     104: { profileProgression: { data: { checklists: {} }, privacy: 1 } },
     305: {
@@ -36,15 +36,15 @@ const sections = new Map(
 )
 
 const membership = Layer.mock(Membership, {
-  current: Effect.succeed({ membershipId: "4611686018467260757", membershipType: 3 }),
+  current: Effect.succeed({ membershipId: '4611686018467260757', membershipType: 3 }),
 })
 
 const answer = (path: string) => {
-  const components = new URL(path, "https://www.bungie.net").searchParams.get("components") ?? ""
+  const components = new URL(path, 'https://www.bungie.net').searchParams.get('components') ?? ''
   return Effect.succeed(
     Object.assign(
-      { responseMintedTimestamp: "2026-10-05T21:30:34.085Z" },
-      ...components.split(",").map((component) => sections.get(component) ?? {}),
+      { responseMintedTimestamp: '2026-10-05T21:30:34.085Z' },
+      ...components.split(',').map((component) => sections.get(component) ?? {}),
     ),
   )
 }
@@ -65,8 +65,8 @@ const store = ProfileStoreLive.pipe(
   Layer.provide(Layer.mergeAll(bungie, manifest, items, membership)),
 )
 
-describe("ProfileStore.plugSets", () => {
-  test("reads the plug sets Bungie sends with the item sockets component", async () => {
+describe('ProfileStore.plugSets', () => {
+  test('reads the plug sets Bungie sends with the item sockets component', async () => {
     const sets = await Effect.runPromise(
       Effect.flatMap(ProfileStore, (profile) => profile.plugSets).pipe(Effect.provide(store)),
     )
@@ -77,8 +77,8 @@ describe("ProfileStore.plugSets", () => {
   })
 })
 
-describe("ProfileStore.invalidate", () => {
-  test("drops a load that was in flight when it ran, instead of caching it", async () => {
+describe('ProfileStore.invalidate', () => {
+  test('drops a load that was in flight when it ran, instead of caching it', async () => {
     let loads = 0
     let gate: Deferred.Deferred<void> | undefined
     const counting = Layer.mock(BungieClient, {

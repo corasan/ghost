@@ -8,26 +8,26 @@ import type {
   PlanRow,
   SetBonus,
   SubclassLoadout,
-} from "@ghost/contract"
-import { Image } from "expo-image"
-import { router } from "expo-router"
-import { type ReactNode, useState } from "react"
-import { Pressable, StyleSheet, View } from "react-native"
+} from '@ghost/contract'
+import { Image } from 'expo-image'
+import { router } from 'expo-router'
+import { type ReactNode, useState } from 'react'
+import { Pressable, StyleSheet, View } from 'react-native'
 
-import { BuildHeader } from "@/components/chat/build-card"
-import { BuildStats } from "@/components/chat/build-stats"
-import { Perks, RowRight } from "@/components/chat/plan-block"
-import { ChargeNote, ChargeTag, Situational } from "@/components/ghost/charge"
-import { ItemIcon } from "@/components/ghost/item-icon"
-import { ModStrip } from "@/components/ghost/mod-strip"
-import { PlugIcon } from "@/components/ghost/plug-icon"
-import { SetBonusText } from "@/components/ghost/set-bonus"
-import { SubclassBanner } from "@/components/ghost/subclass-banner"
-import { Body, Chevron, Meta, Mono, StatIcon } from "@/components/ghost/ui"
-import { Ghost, Type } from "@/constants/theme"
-import { chargedMods } from "@/lib/charge"
-import { firstSentence } from "@/lib/effect-text"
-import { sentence } from "@/lib/format"
+import { BuildHeader } from '@/components/chat/build-card'
+import { BuildStats } from '@/components/chat/build-stats'
+import { Perks, RowRight } from '@/components/chat/plan-block'
+import { ChargeNote, ChargeTag, Situational } from '@/components/ghost/charge'
+import { ItemIcon } from '@/components/ghost/item-icon'
+import { ModStrip } from '@/components/ghost/mod-strip'
+import { PlugIcon } from '@/components/ghost/plug-icon'
+import { SetBonusText } from '@/components/ghost/set-bonus'
+import { SubclassBanner } from '@/components/ghost/subclass-banner'
+import { Body, Chevron, Meta, Mono, StatIcon } from '@/components/ghost/ui'
+import { Ghost, Type } from '@/constants/theme'
+import { chargedMods } from '@/lib/charge'
+import { firstSentence } from '@/lib/effect-text'
+import { sentence } from '@/lib/format'
 import {
   pendingMasterwork,
   type SaveToLine,
@@ -36,15 +36,15 @@ import {
   splitRows,
   type SynergyPart,
   synergyParts,
-} from "@/lib/plan-card"
+} from '@/lib/plan-card'
 
 const replacing = (plug: LoadoutPlug) =>
   plug.swap && plug.replaces ? `Replaces ${plug.replaces}` : null
 
 function Described({ plug, kind }: { plug: LoadoutPlug; kind?: string }) {
-  const line = [kind, replacing(plug), firstSentence(plug.description)].filter(Boolean).join(" · ")
+  const line = [kind, replacing(plug), firstSentence(plug.description)].filter(Boolean).join(' · ')
   return (
-    <View style={[styles.entry, styles.plug, { alignItems: "flex-start" }]}>
+    <View style={[styles.entry, styles.plug, { alignItems: 'flex-start' }]}>
       <PlugIcon icon={plug.icon} size={28} />
       <View style={{ flex: 1, minWidth: 0 }}>
         <Body
@@ -66,10 +66,10 @@ function Described({ plug, kind }: { plug: LoadoutPlug; kind?: string }) {
 }
 
 const ABILITY_LABEL: Record<AbilityKind, string> = {
-  class: "Class",
-  jump: "Jump",
-  melee: "Melee",
-  grenade: "Grenade",
+  class: 'Class',
+  jump: 'Jump',
+  melee: 'Melee',
+  grenade: 'Grenade',
 }
 
 function Loadout({ loadout }: { loadout: SubclassLoadout }) {
@@ -77,7 +77,7 @@ function Loadout({ loadout }: { loadout: SubclassLoadout }) {
   return (
     <SubclassBanner
       loadout={loadout}
-      chevron={open ? "up" : "down"}
+      chevron={open ? 'up' : 'down'}
       hint="Shows the super, abilities, aspects and fragments"
       expanded={open}
       onPress={() => setOpen((was) => !was)}
@@ -139,7 +139,7 @@ function ModLine({ mod, copies }: { mod: ArmorMod; copies: number }) {
     firstSentence(mod.description),
   ]
     .filter(Boolean)
-    .join(" · ")
+    .join(' · ')
   const body = (
     <>
       {mod.icon ? <Image source={mod.icon} style={styles.modIcon} transition={120} /> : null}
@@ -153,7 +153,7 @@ function ModLine({ mod, copies }: { mod: ArmorMod; copies: number }) {
         </Body>
         {effect ? <Meta style={{ marginTop: 1 }}>{effect}</Meta> : null}
       </View>
-      <View style={{ alignItems: "flex-end", gap: 4 }}>
+      <View style={{ alignItems: 'flex-end', gap: 4 }}>
         <Meta color={mod.swap ? Ghost.accent : Ghost.dim}>
           {mod.swap ? `Swap · ${mod.cost}` : mod.cost}
         </Meta>
@@ -198,7 +198,7 @@ function Mods({ row, copies }: { row: PlanRow; copies: ReadonlyMap<string, numbe
       {free > 0 ? (
         <View style={[styles.mod, styles.modHead]}>
           <Body size={13} color={Ghost.dim} style={{ lineHeight: 16 }}>
-            {free} {free === 1 ? "slot free" : "slots free"}
+            {free} {free === 1 ? 'slot free' : 'slots free'}
           </Body>
         </View>
       ) : null}
@@ -261,15 +261,15 @@ function Piece({
           ) : null}
         </View>
         <RowRight row={row} applied={applied} roll={false} />
-        <Chevron direction={open ? "up" : "down"} size={6} />
+        <Chevron direction={open ? 'up' : 'down'} size={6} />
       </Pressable>
       {open ? (
         <View style={styles.pieceBody}>
           {stats.length > 0 ? (
-            <View style={{ flexDirection: "row", gap: 6 }}>
+            <View style={{ flexDirection: 'row', gap: 6 }}>
               {stats.map((stat) => (
                 <View key={stat.label} style={{ flex: 1 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
                     <StatIcon label={stat.label} size={12} />
                     <Mono
                       size={14}
@@ -304,7 +304,7 @@ function Weapon({ row, applied }: { row: PlanRow; applied: boolean }) {
     <Pressable
       accessibilityRole="button"
       accessibilityHint="Opens item details"
-      onPress={() => router.push({ pathname: "/item/[id]", params: { id: row.itemInstanceId } })}
+      onPress={() => router.push({ pathname: '/item/[id]', params: { id: row.itemInstanceId } })}
       style={({ pressed }) => [styles.piece, styles.weapon, pressed && { opacity: 0.6 }]}
     >
       <ItemIcon
@@ -342,9 +342,9 @@ function Artifact({ artifact }: { artifact: ArtifactPlan }) {
         <Meta lines={1}>{artifact.name}</Meta>
       </View>
       {artifact.picks.map((pick) => {
-        const select = pick.state === "select_in_game"
+        const select = pick.state === 'select_in_game'
         return (
-          <View key={pick.hash} style={[styles.entry, styles.plug, { alignItems: "flex-start" }]}>
+          <View key={pick.hash} style={[styles.entry, styles.plug, { alignItems: 'flex-start' }]}>
             <PlugIcon icon={pick.icon} size={28} />
             <View style={{ flex: 1, minWidth: 0 }}>
               <Body size={14} style={{ fontFamily: Type.bodyMedium, lineHeight: 18 }}>
@@ -357,7 +357,7 @@ function Artifact({ artifact }: { artifact: ArtifactPlan }) {
               ) : null}
             </View>
             <Meta color={select ? Ghost.accent : Ghost.dim}>
-              {select ? "Select in game" : "Active"}
+              {select ? 'Select in game' : 'Active'}
             </Meta>
           </View>
         )
@@ -371,7 +371,7 @@ function Artifact({ artifact }: { artifact: ArtifactPlan }) {
   )
 }
 
-const SAVE_TONE: Record<SaveToLine["tone"], string> = {
+const SAVE_TONE: Record<SaveToLine['tone'], string> = {
   plan: Ghost.accent,
   ok: Ghost.good,
   held: Ghost.gold,
@@ -383,19 +383,19 @@ function SaveTo({ saveTo }: { saveTo: LoadoutSaveTo }) {
   return (
     <View style={[styles.entry, styles.between, { paddingVertical: 10 }]}>
       <Mono>IN GAME</Mono>
-      <Meta color={SAVE_TONE[line.tone]} style={{ flex: 1, textAlign: "right" }}>
+      <Meta color={SAVE_TONE[line.tone]} style={{ flex: 1, textAlign: 'right' }}>
         {line.text}
       </Meta>
     </View>
   )
 }
 
-const SYNERGY_LABEL: Record<SynergyPart["kind"], string> = {
-  exotic: "Exotic",
-  setBonuses: "Set bonuses",
-  mods: "Mods",
-  weapons: "Weapons",
-  artifact: "Artifact",
+const SYNERGY_LABEL: Record<SynergyPart['kind'], string> = {
+  exotic: 'Exotic',
+  setBonuses: 'Set bonuses',
+  mods: 'Mods',
+  weapons: 'Weapons',
+  artifact: 'Artifact',
 }
 
 function Prose({ text }: { text: string | undefined }) {
@@ -436,21 +436,21 @@ function Named({ row }: { row: PlanRow }) {
 
 function SynergyPartView({ part }: { part: SynergyPart }) {
   switch (part.kind) {
-    case "exotic":
+    case 'exotic':
       return (
         <>
           <Named row={part.row} />
           <Prose text={part.text} />
         </>
       )
-    case "weapons":
+    case 'weapons':
       return (
         <>
           {part.exotic ? <Named row={part.exotic} /> : null}
           <Prose text={part.text} />
         </>
       )
-    case "setBonuses":
+    case 'setBonuses':
       return (
         <>
           {part.on.map(({ bonus, offBuild }) => (
@@ -467,8 +467,8 @@ function SynergyPartView({ part }: { part: SynergyPart }) {
           <Prose text={part.text} />
         </>
       )
-    case "mods":
-    case "artifact":
+    case 'mods':
+    case 'artifact':
       return <Prose text={part.text} />
   }
 }
@@ -491,8 +491,8 @@ function Synergy({ parts }: { parts: readonly SynergyPart[] }) {
 
 const eyebrow = (loadout: SubclassLoadout | undefined) =>
   [loadout?.classType, loadout?.subclass, loadout?.element]
-    .filter((part) => part && part !== "none")
-    .join(" · ")
+    .filter((part) => part && part !== 'none')
+    .join(' · ')
     .toUpperCase()
 
 export function BuildSections({
@@ -505,7 +505,7 @@ export function BuildSections({
   lead?: ReactNode
 }) {
   const [openId, setOpenId] = useState<string>()
-  const applied = plan.status !== "proposed"
+  const applied = plan.status !== 'proposed'
   const pending = pendingMasterwork(plan)
   const { pieces, weapons } = splitRows(plan.rows)
   const charged = chargedMods(plan.rows.flatMap((row) => row.armorMods ?? []))
@@ -580,20 +580,20 @@ export function BuildSections({
 const styles = StyleSheet.create({
   section: { marginTop: 18 },
   label: { paddingBottom: 6 },
-  between: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 },
+  between: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
   after: { marginTop: 8 },
   entry: { paddingVertical: 6, borderTopWidth: 1, borderTopColor: Ghost.rule },
-  plug: { flexDirection: "row", alignItems: "center", gap: 10 },
+  plug: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   loadoutBody: { paddingHorizontal: 14, paddingBottom: 8 },
   piece: { borderTopWidth: 1, borderTopColor: Ghost.rule },
-  pieceHead: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 },
+  pieceHead: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
   pieceBody: { paddingLeft: 60, paddingTop: 2, paddingBottom: 12, gap: 10 },
-  weapon: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingVertical: 8 },
-  modsHead: { flexDirection: "row", justifyContent: "space-between", paddingBottom: 4 },
+  weapon: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 8 },
+  modsHead: { flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 4 },
   modIcon: { width: 28, height: 28, backgroundColor: Ghost.swatch },
   synergyPart: { borderTopWidth: 1, borderTopColor: Ghost.rule, paddingVertical: 10, gap: 8 },
-  bonus: { alignItems: "flex-start" },
+  bonus: { alignItems: 'flex-start' },
   short: { opacity: 0.5, gap: 8 },
   mod: { paddingVertical: 5, borderTopWidth: 1, borderTopColor: Ghost.rule },
-  modHead: { flexDirection: "row", alignItems: "center", gap: 10 },
+  modHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
 })

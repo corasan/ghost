@@ -1,9 +1,9 @@
-import { Source } from "@ghost/contract"
-import { Context, DateTime, Effect, Layer, Option, Schema, Semaphore } from "effect"
-import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http"
-import { SqlClient } from "effect/sql"
-import { Settings } from "../db/settings.ts"
-import { parseWishlist, type StoredRoll, WILDCARD_ITEM, type WishlistBlock } from "./parse.ts"
+import { Source } from '@ghost/contract'
+import { Context, DateTime, Effect, Layer, Option, Schema, Semaphore } from 'effect'
+import { FetchHttpClient, HttpClient, HttpClientRequest } from 'effect/http'
+import { SqlClient } from 'effect/sql'
+import { Settings } from '../db/settings.ts'
+import { parseWishlist, type StoredRoll, WILDCARD_ITEM, type WishlistBlock } from './parse.ts'
 
 const decodeTags = Schema.decodeSync(Schema.fromJsonString(Schema.Array(Schema.String)))
 const decodePerkHashes = Schema.decodeSync(Schema.fromJsonString(Schema.Array(Schema.Number)))
@@ -15,18 +15,18 @@ const decodePerkHashes = Schema.decodeSync(Schema.fromJsonString(Schema.Array(Sc
 // is when we first saw the current ETag.
 
 export const WISHLIST_URL =
-  "https://raw.githubusercontent.com/48klocs/dim-wish-list-sources/master/voltron.txt"
+  'https://raw.githubusercontent.com/48klocs/dim-wish-list-sources/master/voltron.txt'
 const REFRESH_MS = 12 * 60 * 60 * 1000
-const DOWNLOAD_TIMEOUT = "2 minutes"
+const DOWNLOAD_TIMEOUT = '2 minutes'
 const BATCH = 500
 
 const KEYS = {
-  etag: "wishlist.etag",
-  fetchedAt: "wishlist.fetchedAt",
-  changedAt: "wishlist.changedAt",
+  etag: 'wishlist.etag',
+  fetchedAt: 'wishlist.fetchedAt',
+  changedAt: 'wishlist.changedAt',
 } as const
 
-export class WishlistError extends Schema.TaggedError<WishlistError>()("WishlistError", {
+export class WishlistError extends Schema.TaggedError<WishlistError>()('WishlistError', {
   message: Schema.String,
 }) {}
 
@@ -48,7 +48,7 @@ export interface WishlistService {
   readonly source: Effect.Effect<Source>
 }
 
-export class Wishlist extends Context.Service<Wishlist, WishlistService>()("Wishlist") {}
+export class Wishlist extends Context.Service<Wishlist, WishlistService>()('Wishlist') {}
 
 interface JoinedRow {
   readonly item_hash: number
@@ -120,7 +120,7 @@ export const WishlistLive = Layer.effect(
       // the ETag is only sent when there is a copy it describes.
       const etag = (yield* populated) ? yield* setting(KEYS.etag) : null
       const request = HttpClientRequest.get(WISHLIST_URL).pipe(
-        etag === null ? (r) => r : HttpClientRequest.setHeader("If-None-Match", etag),
+        etag === null ? (r) => r : HttpClientRequest.setHeader('If-None-Match', etag),
       )
       const response = yield* http.execute(request).pipe(Effect.mapError(fail))
       const now = DateTime.formatIso(yield* DateTime.now)
@@ -133,7 +133,7 @@ export const WishlistLive = Layer.effect(
       }
       const text = yield* response.text.pipe(Effect.mapError(fail))
       const count = yield* store(text)
-      const newTag = response.headers["etag"]
+      const newTag = response.headers['etag']
       if (newTag !== undefined) yield* settings.set(KEYS.etag, newTag).pipe(Effect.orDie)
       yield* settings.set(KEYS.fetchedAt, now).pipe(Effect.orDie)
       yield* settings.set(KEYS.changedAt, now).pipe(Effect.orDie)
@@ -143,7 +143,7 @@ export const WishlistLive = Layer.effect(
       // every judgment that reads rolls.
       Effect.timeoutOrElse({
         duration: DOWNLOAD_TIMEOUT,
-        orElse: () => Effect.fail(new WishlistError({ message: "wishlist download timed out" })),
+        orElse: () => Effect.fail(new WishlistError({ message: 'wishlist download timed out' })),
       }),
     )
 
@@ -231,7 +231,7 @@ export const WishlistLive = Layer.effect(
       source: Effect.map(
         asOf,
         (at) =>
-          new Source({ label: "DIM community wishlist (voltron)", url: WISHLIST_URL, asOf: at }),
+          new Source({ label: 'DIM community wishlist (voltron)', url: WISHLIST_URL, asOf: at }),
       ),
     }
   }),

@@ -1,14 +1,14 @@
-import type { GuardianCharacter } from "@ghost/contract"
-import { Image } from "expo-image"
-import { Pressable, View } from "react-native"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
+import type { GuardianCharacter } from '@ghost/contract'
+import { Image } from 'expo-image'
+import { Pressable, View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
-import { Bars, Cond, Cut, Diamond, useOpenDrawer } from "@/components/ghost/ui"
-import { Ghost } from "@/constants/theme"
+import { Bars, Cond, Cut, Diamond, useOpenDrawer } from '@/components/ghost/ui'
+import { Ghost } from '@/constants/theme'
 
 // Colour of the header glow behind the controls, so their cut corners blend
 // in (see Cut).
-const UNDER_GLOW = "#111418"
+const UNDER_GLOW = '#111418'
 
 /** The chat's only chrome: the drawer, the Ghost mark, a fresh chat, and your power. */
 export function ChatHeader({
@@ -30,9 +30,9 @@ export function ChatHeader({
         paddingBottom: 12,
         paddingLeft: 20,
         paddingRight: 16,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
         borderBottomWidth: ruled ? 1 : 0,
         borderBottomColor: Ghost.headerRule,
       }}
@@ -42,10 +42,10 @@ export function ChatHeader({
         accessibilityLabel="Open menu"
         hitSlop={12}
         onPress={openDrawer}
-        style={{ flexDirection: "row", alignItems: "center", gap: 14 }}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}
       >
         <Bars />
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           {character?.ghostIcon ? (
             <Image
               source={character.ghostIcon}
@@ -60,7 +60,7 @@ export function ChatHeader({
           </Cond>
         </View>
       </Pressable>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         {onNewChat ? (
           <Pressable
             accessibilityRole="button"
@@ -90,8 +90,8 @@ export function ChatHeader({
             border={Ghost.line}
             under={under}
             style={{
-              flexDirection: "row",
-              alignItems: "center",
+              flexDirection: 'row',
+              alignItems: 'center',
               gap: 10,
               paddingVertical: 6,
               paddingHorizontal: 10,
@@ -99,7 +99,7 @@ export function ChatHeader({
           >
             <Diamond size={12} color={Ghost.ink} outline />
             <Cond size={18} color={Ghost.gold} style={{ letterSpacing: 0.7, lineHeight: 20 }}>
-              {character?.light ?? "—"}
+              {character?.light ?? '—'}
             </Cond>
           </Cut>
         </Pressable>

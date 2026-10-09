@@ -1,4 +1,4 @@
-import qrcode from "qrcode-terminal"
+import qrcode from 'qrcode-terminal'
 
 const color = process.stdout.isTTY === true && process.env.NO_COLOR === undefined
 const paint = (code: number) => (text: string) => (color ? `\x1b[${code}m${text}\x1b[0m` : text)

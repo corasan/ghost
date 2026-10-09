@@ -1,27 +1,27 @@
-import type { Job, Source } from "@ghost/contract"
-import * as WebBrowser from "expo-web-browser"
-import { memo } from "react"
-import { Pressable, View } from "react-native"
+import type { Job, Source } from '@ghost/contract'
+import * as WebBrowser from 'expo-web-browser'
+import { memo } from 'react'
+import { Pressable, View } from 'react-native'
 
-import { Body, Meta, Mono, Said } from "@/components/ghost/ui"
-import { Ghost } from "@/constants/theme"
-import { age, clock } from "@/lib/format"
-import { webUrl } from "@/lib/links"
-import { CleanupOffer } from "./cleanup-offer"
-import { SaidMarkdown } from "./markdown"
-import { PlanBlock } from "./plan-block"
-import { StepsSummary, Working } from "./steps"
+import { Body, Meta, Mono, Said } from '@/components/ghost/ui'
+import { Ghost } from '@/constants/theme'
+import { age, clock } from '@/lib/format'
+import { webUrl } from '@/lib/links'
+import { CleanupOffer } from './cleanup-offer'
+import { SaidMarkdown } from './markdown'
+import { PlanBlock } from './plan-block'
+import { StepsSummary, Working } from './steps'
 
 // Roll, build and meta calls are only as good as the data behind them, so
 // every answer lists what it was based on and how old that data is.
 function Sources({ sources }: { sources: readonly Source[] }) {
   return (
     <View
-      style={{ marginLeft: 14, flexDirection: "row", flexWrap: "wrap", columnGap: 12, rowGap: 6 }}
+      style={{ marginLeft: 14, flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, rowGap: 6 }}
     >
       <Mono>SOURCES</Mono>
       {sources.map((source) => {
-        const label = `${source.label}${source.asOf ? ` · ${age(source.asOf)}` : ""}`
+        const label = `${source.label}${source.asOf ? ` · ${age(source.asOf)}` : ''}`
         const link = source.url ? webUrl(source.url) : null
         return link !== null ? (
           <Pressable
@@ -41,12 +41,12 @@ function Sources({ sources }: { sources: readonly Source[] }) {
 }
 
 function Message({ job, onAsk }: { job: Job; onAsk: (prompt: string) => void }) {
-  const working = job.status === "queued" || job.status === "running"
+  const working = job.status === 'queued' || job.status === 'running'
   return (
     <View style={{ gap: 20 }}>
-      <View style={{ alignSelf: "flex-end", maxWidth: "84%", alignItems: "flex-end" }}>
+      <View style={{ alignSelf: 'flex-end', maxWidth: '84%', alignItems: 'flex-end' }}>
         <Meta style={{ marginBottom: 4 }}>You · {clock(job.createdAt)}</Meta>
-        <Body size={16} style={{ textAlign: "right" }}>
+        <Body size={16} style={{ textAlign: 'right' }}>
           {job.prompt}
         </Body>
       </View>
@@ -62,7 +62,7 @@ function Message({ job, onAsk }: { job: Job; onAsk: (prompt: string) => void }) 
         <SaidMarkdown>{job.result}</SaidMarkdown>
       ) : null}
       {job.plan ? <PlanBlock job={job} plan={job.plan} onAsk={onAsk} /> : null}
-      {job.offer === "cleanup_mode" && !working ? (
+      {job.offer === 'cleanup_mode' && !working ? (
         <CleanupOffer characterId={job.characterId} />
       ) : null}
       {working ? null : <StepsSummary steps={job.steps} />}

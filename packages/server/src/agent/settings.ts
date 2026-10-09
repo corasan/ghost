@@ -1,10 +1,10 @@
-import { AgentEffort, AgentSettings } from "@ghost/contract"
-import { Context, Effect, Layer, Option, Schema } from "effect"
-import { AppConfig } from "../config.ts"
-import { Settings } from "../db/settings.ts"
+import { AgentEffort, AgentSettings } from '@ghost/contract'
+import { Context, Effect, Layer, Option, Schema } from 'effect'
+import { AppConfig } from '../config.ts'
+import { Settings } from '../db/settings.ts'
 
-const KEY = "agent.effort"
-const DEFAULT_EFFORT: AgentEffort = "high"
+const KEY = 'agent.effort'
+const DEFAULT_EFFORT: AgentEffort = 'high'
 
 const decode = Schema.decodeUnknownOption(AgentEffort)
 
@@ -18,7 +18,7 @@ export interface AgentConfigService {
 }
 
 export class AgentConfig extends Context.Service<AgentConfig, AgentConfigService>()(
-  "AgentConfig",
+  'AgentConfig',
 ) {}
 
 export const AgentConfigLive = Layer.effect(

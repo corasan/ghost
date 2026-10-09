@@ -1,10 +1,10 @@
-import type { DamageType, GuardianClass, SavedBuild } from "@ghost/contract"
+import type { DamageType, GuardianClass, SavedBuild } from '@ghost/contract'
 
-import type { ActiveFilter } from "./vault-filter"
+import type { ActiveFilter } from './vault-filter'
 
-export type BuildWhere = "all" | "in_game" | "ghost_only"
-export type BuildState = "all" | "ready" | "missing_items" | "past_artifact"
-export type BuildSort = "newest" | "name" | "class"
+export type BuildWhere = 'all' | 'in_game' | 'ghost_only'
+export type BuildState = 'all' | 'ready' | 'missing_items' | 'past_artifact'
+export type BuildSort = 'newest' | 'name' | 'class'
 
 export interface BuildFilter {
   readonly query: string
@@ -18,14 +18,14 @@ export interface BuildFilter {
 }
 
 export const emptyBuildFilter: BuildFilter = {
-  query: "",
+  query: '',
   classes: new Set(),
   elements: new Set(),
   exotics: new Set(),
   weaponTypes: new Set(),
-  where: "all",
-  state: "all",
-  sort: "newest",
+  where: 'all',
+  state: 'all',
+  sort: 'newest',
 }
 
 const exoticsOf = (build: SavedBuild) =>
@@ -47,7 +47,7 @@ const haystack = (build: SavedBuild) => {
       ...facets.weaponTypes,
     ]
       .filter((part) => part)
-      .join(" ")
+      .join(' ')
       .toLowerCase()
     haystacks.set(build, text)
   }
@@ -55,18 +55,18 @@ const haystack = (build: SavedBuild) => {
 }
 
 const matchesWhere = (build: SavedBuild, where: BuildWhere) =>
-  where === "all" || (where === "in_game") === (build.inGame !== null)
+  where === 'all' || (where === 'in_game') === (build.inGame !== null)
 
 const matchesState = (build: SavedBuild, state: BuildState) => {
   const readiness = build.readiness
   switch (state) {
-    case "all":
+    case 'all':
       return true
-    case "ready":
+    case 'ready':
       return readiness !== null && readiness.missing.length === 0 && !readiness.pastArtifact
-    case "missing_items":
+    case 'missing_items':
       return readiness !== null && readiness.missing.length > 0
-    case "past_artifact":
+    case 'past_artifact':
       return readiness?.pastArtifact === true
   }
 }
@@ -98,38 +98,38 @@ export function filterBuilds(builds: readonly SavedBuild[], filter: BuildFilter)
 }
 
 export const BUILD_SORT_LABEL: Record<BuildSort, string> = {
-  newest: "NEWEST",
-  name: "A–Z",
-  class: "CLASS",
+  newest: 'NEWEST',
+  name: 'A–Z',
+  class: 'CLASS',
 }
 
 export const WHERE_LABEL: Record<BuildWhere, string> = {
-  all: "ANYWHERE",
-  in_game: "IN GAME",
-  ghost_only: "GHOST ONLY",
+  all: 'ANYWHERE',
+  in_game: 'IN GAME',
+  ghost_only: 'GHOST ONLY',
 }
 
 export const STATE_LABEL: Record<BuildState, string> = {
-  all: "ANY",
-  ready: "READY",
-  missing_items: "MISSING ITEMS",
-  past_artifact: "PAST ARTIFACT",
+  all: 'ANY',
+  ready: 'READY',
+  missing_items: 'MISSING ITEMS',
+  past_artifact: 'PAST ARTIFACT',
 }
 
-type Facet = "classes" | "elements" | "exotics" | "weaponTypes"
-const FACETS: readonly Facet[] = ["classes", "elements", "exotics", "weaponTypes"]
+type Facet = 'classes' | 'elements' | 'exotics' | 'weaponTypes'
+const FACETS: readonly Facet[] = ['classes', 'elements', 'exotics', 'weaponTypes']
 
 export const activeFilters = (filter: BuildFilter): ActiveFilter[] => [
-  ...(filter.where === "all" ? [] : [{ id: "where", label: WHERE_LABEL[filter.where] }]),
-  ...(filter.state === "all" ? [] : [{ id: "state", label: STATE_LABEL[filter.state] }]),
+  ...(filter.where === 'all' ? [] : [{ id: 'where', label: WHERE_LABEL[filter.where] }]),
+  ...(filter.state === 'all' ? [] : [{ id: 'state', label: STATE_LABEL[filter.state] }]),
   ...FACETS.flatMap((facet) =>
     [...filter[facet]].map((value) => ({ id: `${facet}:${value}`, label: value.toUpperCase() })),
   ),
 ]
 
 export const removeFilter = (filter: BuildFilter, id: string): BuildFilter => {
-  if (id === "where") return { ...filter, where: "all" }
-  if (id === "state") return { ...filter, state: "all" }
+  if (id === 'where') return { ...filter, where: 'all' }
+  if (id === 'state') return { ...filter, state: 'all' }
   const facet = FACETS.find((each) => id.startsWith(`${each}:`))
   if (facet === undefined) return filter
   const value = id.slice(facet.length + 1)
@@ -148,15 +148,15 @@ export interface FacetOptions {
   readonly weaponTypes: readonly FacetOption<string>[]
 }
 
-const CLASS_ORDER: readonly GuardianClass[] = ["hunter", "titan", "warlock"]
+const CLASS_ORDER: readonly GuardianClass[] = ['hunter', 'titan', 'warlock']
 const ELEMENT_ORDER: readonly DamageType[] = [
-  "kinetic",
-  "arc",
-  "solar",
-  "void",
-  "stasis",
-  "strand",
-  "none",
+  'kinetic',
+  'arc',
+  'solar',
+  'void',
+  'stasis',
+  'strand',
+  'none',
 ]
 
 const tally = <T>(values: readonly (readonly T[])[]) => {

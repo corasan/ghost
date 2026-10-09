@@ -1,12 +1,12 @@
-import type { DamageType, GuardianClass, ItemTier } from "@ghost/contract"
-import { router } from "expo-router"
-import { useMemo } from "react"
-import { ScrollView, StyleSheet, View } from "react-native"
+import type { DamageType, GuardianClass, ItemTier } from '@ghost/contract'
+import { router } from 'expo-router'
+import { useMemo } from 'react'
+import { ScrollView, StyleSheet, View } from 'react-native'
 
-import { Button, Chip, Cond, Mono } from "@/components/ghost/ui"
-import { ELEMENT_TONE, Ghost, Rarity } from "@/constants/theme"
-import { useVault } from "@/lib/api"
-import { upper } from "@/lib/format"
+import { Button, Chip, Cond, Mono } from '@/components/ghost/ui'
+import { ELEMENT_TONE, Ghost, Rarity } from '@/constants/theme'
+import { useVault } from '@/lib/api'
+import { upper } from '@/lib/format'
 import {
   activeFilters,
   type Category,
@@ -16,16 +16,16 @@ import {
   SORT_LABEL,
   type Sort,
   toggle,
-} from "@/lib/vault-filter"
-import { resetVaultFilter, setVaultFilter, useVaultFilter } from "@/lib/vault-store"
-import { useBottomInset } from "@/lib/insets"
+} from '@/lib/vault-filter'
+import { resetVaultFilter, setVaultFilter, useVaultFilter } from '@/lib/vault-store'
+import { useBottomInset } from '@/lib/insets'
 
-const CATEGORIES: readonly Category[] = ["all", "weapons", "armor"]
-const SORTS: readonly Sort[] = ["power", "newest", "stats", "name"]
-const TIERS: readonly ItemTier[] = ["exotic", "legendary", "rare"]
-const ELEMENTS: readonly DamageType[] = ["kinetic", "arc", "solar", "void", "stasis", "strand"]
-const CLASSES: readonly GuardianClass[] = ["hunter", "titan", "warlock"]
-const FLAGS: readonly Flag[] = ["dupes", "junk", "new", "unlocked"]
+const CATEGORIES: readonly Category[] = ['all', 'weapons', 'armor']
+const SORTS: readonly Sort[] = ['power', 'newest', 'stats', 'name']
+const TIERS: readonly ItemTier[] = ['exotic', 'legendary', 'rare']
+const ELEMENTS: readonly DamageType[] = ['kinetic', 'arc', 'solar', 'void', 'stasis', 'strand']
+const CLASSES: readonly GuardianClass[] = ['hunter', 'titan', 'warlock']
+const FLAGS: readonly Flag[] = ['dupes', 'junk', 'new', 'unlocked']
 
 function Group({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -134,9 +134,9 @@ export default function VaultFilterScreen() {
 }
 
 const styles = StyleSheet.create({
-  wrap: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   footer: {
-    flexDirection: "row",
+    flexDirection: 'row',
     gap: 8,
     paddingHorizontal: 20,
     paddingTop: 12,

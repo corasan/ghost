@@ -1,6 +1,6 @@
-import { ListItem, Text } from "@expo/ui/jetpack-compose"
-import { clickable } from "@expo/ui/jetpack-compose/modifiers"
-import type { RowProps } from "./types"
+import { ListItem, Text } from '@expo/ui/jetpack-compose'
+import { clickable } from '@expo/ui/jetpack-compose/modifiers'
+import type { RowProps } from './types'
 
 export function Row({ title, subtitle, detail, onPress }: RowProps) {
   return (

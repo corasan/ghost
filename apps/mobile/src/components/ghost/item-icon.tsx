@@ -1,17 +1,17 @@
-import type { DamageType } from "@ghost/contract"
-import { Image } from "expo-image"
-import { View } from "react-native"
+import type { DamageType } from '@ghost/contract'
+import { Image } from 'expo-image'
+import { View } from 'react-native'
 
-import { Cond, Mono } from "@/components/ghost/ui"
-import { Ghost } from "@/constants/theme"
-import { useGuardian } from "@/lib/api"
+import { Cond, Mono } from '@/components/ghost/ui'
+import { Ghost } from '@/constants/theme'
+import { useGuardian } from '@/lib/api'
 
-const MARK_SURFACE = "rgba(10,11,13,0.88)"
-const ELEMENT_HALO = "rgba(10,11,13,0.8)"
+const MARK_SURFACE = 'rgba(10,11,13,0.88)'
+const ELEMENT_HALO = 'rgba(10,11,13,0.8)'
 const MAX_TIER = 5
 const TIER_TONE = new Map([
   [5, Ghost.gold],
-  [4, "#a365d6"],
+  [4, '#a365d6'],
 ])
 
 /** Sizes of the marks for an icon drawn at `size` points; they scale with it. */
@@ -41,13 +41,13 @@ const marks = (size: number, hasPower: boolean) => {
 function Pip({ size, color }: { size: number; color: string }) {
   const side = size / Math.SQRT2
   return (
-    <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
       <View
         style={{
           width: side,
           height: side,
           backgroundColor: color,
-          transform: [{ rotate: "45deg" }],
+          transform: [{ rotate: '45deg' }],
         }}
       />
     </View>
@@ -64,7 +64,7 @@ export function ItemIcon({
   icon,
   size,
   fill = false,
-  element = "none",
+  element = 'none',
   gearTier,
   masterwork = false,
   power,
@@ -89,29 +89,29 @@ export function ItemIcon({
   return (
     <View
       style={{
-        width: fill ? "100%" : size,
+        width: fill ? '100%' : size,
         aspectRatio: 1,
         backgroundColor: Ghost.swatch,
-        overflow: "hidden",
+        overflow: 'hidden',
       }}
     >
       <Image source={icon} style={{ flex: 1 }} recyclingKey={icon} transition={120} />
       {tier > 0 ? (
         <View
           style={{
-            position: "absolute",
+            position: 'absolute',
             top: 0,
             bottom: 0,
             left: 0,
             width: m.scrim,
-            backgroundImage: "linear-gradient(to right, rgba(10,11,13,0.8), rgba(10,11,13,0))",
+            backgroundImage: 'linear-gradient(to right, rgba(10,11,13,0.8), rgba(10,11,13,0))',
           }}
         />
       ) : null}
       {elementIcon && !hasPower ? (
         <View
           style={{
-            position: "absolute",
+            position: 'absolute',
             right: m.inset,
             bottom: m.inset,
             borderRadius: m.glyph,
@@ -125,14 +125,14 @@ export function ItemIcon({
       {hasPower ? (
         <View
           style={{
-            position: "absolute",
+            position: 'absolute',
             left: 0,
             right: 0,
             bottom: 0,
             height: m.bar,
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "flex-end",
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
             gap: m.barGap,
             paddingRight: m.inset,
             backgroundColor: MARK_SURFACE,
@@ -156,21 +156,21 @@ export function ItemIcon({
         <View
           pointerEvents="none"
           style={{
-            position: "absolute",
+            position: 'absolute',
             top: 0,
             right: 0,
             bottom: 0,
             left: 0,
             borderWidth: m.frame,
             borderColor: Ghost.gold,
-            boxShadow: "inset 0 0 8px rgba(227,179,65,0.35)",
+            boxShadow: 'inset 0 0 8px rgba(227,179,65,0.35)',
           }}
         />
       ) : null}
       {tag ? (
         <View
           style={{
-            position: "absolute",
+            position: 'absolute',
             top: m.frame,
             right: m.frame,
             paddingHorizontal: 3,
@@ -186,10 +186,10 @@ export function ItemIcon({
       {tier > 0 ? (
         <View
           style={{
-            position: "absolute",
+            position: 'absolute',
             left: m.inset,
             bottom: m.inset + m.bar,
-            flexDirection: "column-reverse",
+            flexDirection: 'column-reverse',
             gap: m.pipGap,
           }}
         >

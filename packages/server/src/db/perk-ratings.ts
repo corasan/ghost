@@ -1,13 +1,13 @@
-import { Context, DateTime, Effect, Layer } from "effect"
-import { SqlClient, type SqlError } from "effect/sql"
-import type { Rating, StoredRating } from "../junk/perks.ts"
-import { perkKey } from "../wishlist/parse.ts"
+import { Context, DateTime, Effect, Layer } from 'effect'
+import { SqlClient, type SqlError } from 'effect/sql'
+import type { Rating, StoredRating } from '../junk/perks.ts'
+import { perkKey } from '../wishlist/parse.ts'
 
 export interface PerkRatingRow {
   readonly weapon: string
   readonly perk: string
-  readonly source: StoredRating["source"]
-  readonly purpose: StoredRating["purpose"]
+  readonly source: StoredRating['source']
+  readonly purpose: StoredRating['purpose']
   readonly rating: Rating
   readonly note: string | null
   readonly url: string | null
@@ -30,20 +30,20 @@ export interface PerkRatingsService {
   readonly clear: (
     weapon: string,
     perk: string,
-    source: StoredRating["source"],
-    purpose: StoredRating["purpose"],
+    source: StoredRating['source'],
+    purpose: StoredRating['purpose'],
   ) => Effect.Effect<void, SqlError.SqlError>
 }
 
 export class PerkRatings extends Context.Service<PerkRatings, PerkRatingsService>()(
-  "PerkRatings",
+  'PerkRatings',
 ) {}
 
 interface Row {
   readonly weapon: string
   readonly perk: string
-  readonly source: StoredRating["source"]
-  readonly purpose: StoredRating["purpose"]
+  readonly source: StoredRating['source']
+  readonly purpose: StoredRating['purpose']
   readonly rating: Rating
   readonly note: string | null
   readonly url: string | null
@@ -114,8 +114,8 @@ export const PerkRatingsLive = Layer.effect(
     const clear = (
       weapon: string,
       perk: string,
-      source: StoredRating["source"],
-      purpose: StoredRating["purpose"],
+      source: StoredRating['source'],
+      purpose: StoredRating['purpose'],
     ) =>
       sql`
         DELETE FROM perk_ratings

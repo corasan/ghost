@@ -1,5 +1,5 @@
-import { SegmentedButton, SingleChoiceSegmentedButtonRow, Text } from "@expo/ui/jetpack-compose"
-import type { SegmentedProps } from "./types"
+import { SegmentedButton, SingleChoiceSegmentedButtonRow, Text } from '@expo/ui/jetpack-compose'
+import type { SegmentedProps } from './types'
 
 export function Segmented<T extends string>({ options, value, onChange }: SegmentedProps<T>) {
   return (

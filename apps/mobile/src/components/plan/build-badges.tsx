@@ -1,8 +1,8 @@
-import type { SavedBuild } from "@ghost/contract"
-import { StyleSheet, View } from "react-native"
+import type { SavedBuild } from '@ghost/contract'
+import { StyleSheet, View } from 'react-native'
 
-import { Meta } from "@/components/ghost/ui"
-import { Ghost } from "@/constants/theme"
+import { Meta } from '@/components/ghost/ui'
+import { Ghost } from '@/constants/theme'
 
 function Badge({ label, color }: { label: string; color: string }) {
   return (
@@ -22,9 +22,9 @@ export function BuildBadges({ build }: { build: SavedBuild }) {
       ? { label: `In game · slot ${build.inGame.index + 1}`, color: Ghost.accent }
       : null,
     missing > 0 ? { label: `${missing} missing`, color: Ghost.danger } : null,
-    readiness?.pastArtifact ? { label: "Past artifact", color: Ghost.gold } : null,
-    readiness?.inGame === "changed" ? { label: "Slot changed", color: Ghost.gold } : null,
-    readiness?.inGame === "cleared" ? { label: "Slot cleared", color: Ghost.gold } : null,
+    readiness?.pastArtifact ? { label: 'Past artifact', color: Ghost.gold } : null,
+    readiness?.inGame === 'changed' ? { label: 'Slot changed', color: Ghost.gold } : null,
+    readiness?.inGame === 'cleared' ? { label: 'Slot cleared', color: Ghost.gold } : null,
   ].filter((badge) => badge !== null)
   if (badges.length === 0) return null
   return (
@@ -38,5 +38,5 @@ export function BuildBadges({ build }: { build: SavedBuild }) {
 
 const styles = StyleSheet.create({
   badge: { borderWidth: 1, paddingHorizontal: 5, paddingVertical: 1 },
-  badges: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 },
+  badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
 })

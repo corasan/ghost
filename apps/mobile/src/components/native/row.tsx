@@ -1,5 +1,5 @@
-import { Pressable, StyleSheet, Text, View } from "react-native"
-import type { RowProps } from "./types"
+import { Pressable, StyleSheet, Text, View } from 'react-native'
+import type { RowProps } from './types'
 
 export function Row({ title, subtitle, detail, onPress }: RowProps) {
   return (
@@ -14,9 +14,9 @@ export function Row({ title, subtitle, detail, onPress }: RowProps) {
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", padding: 14, gap: 12 },
+  row: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
   text: { flex: 1, gap: 2 },
   title: { fontSize: 16 },
-  subtitle: { fontSize: 13, color: "#6b7280" },
-  detail: { fontSize: 15, color: "#6b7280" },
+  subtitle: { fontSize: 13, color: '#6b7280' },
+  detail: { fontSize: 15, color: '#6b7280' },
 })

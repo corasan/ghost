@@ -1,57 +1,57 @@
-import { type GearSlot, type PlanAction, ReviewItem } from "@ghost/contract"
-import type { OwnedItem } from "../bungie/inventory.ts"
-import type { Protection, Signal, Verdict } from "./judge.ts"
-import type { Judgment } from "./service.ts"
+import { type GearSlot, type PlanAction, ReviewItem } from '@ghost/contract'
+import type { OwnedItem } from '../bungie/inventory.ts'
+import type { Protection, Signal, Verdict } from './judge.ts'
+import type { Judgment } from './service.ts'
 
 export const PROTECTED: Record<Protection, string> = {
-  locked: "it is locked",
-  masterworked: "it is masterworked",
-  equipped: "it is equipped",
-  crafted: "it is crafted",
-  marked_keep: "the player marked it keep",
-  in_build: "it is in a saved Ghost build",
-  in_loadout: "it is in an in-game loadout",
-  best_pve: "it is your best PvE roll",
-  best_pvp: "it is your best PvP roll",
-  only_copy: "it is the only copy",
-  best_copy: "it is the best copy",
-  recent: "it was picked up in the last two days",
-  unread_tuning: "its tuned stat could not be read",
+  locked: 'it is locked',
+  masterworked: 'it is masterworked',
+  equipped: 'it is equipped',
+  crafted: 'it is crafted',
+  marked_keep: 'the player marked it keep',
+  in_build: 'it is in a saved Ghost build',
+  in_loadout: 'it is in an in-game loadout',
+  best_pve: 'it is your best PvE roll',
+  best_pvp: 'it is your best PvP roll',
+  only_copy: 'it is the only copy',
+  best_copy: 'it is the best copy',
+  recent: 'it was picked up in the last two days',
+  unread_tuning: 'its tuned stat could not be read',
 }
 
-const signalText = (signal: Signal, item: OwnedItem, items: Judgment["items"]) => {
-  if (signal.kind === "trash_roll") return `Trash roll · ${signal.score}/100`
-  if (signal.kind === "weak_roll") {
+const signalText = (signal: Signal, item: OwnedItem, items: Judgment['items']) => {
+  if (signal.kind === 'trash_roll') return `Trash roll · ${signal.score}/100`
+  if (signal.kind === 'weak_roll') {
     return signal.perks.length === 0
-      ? "No good perks"
-      : `No good perks · ${signal.perks.join(", ")}`
+      ? 'No good perks'
+      : `No good perks · ${signal.perks.join(', ')}`
   }
   const better = items.get(signal.better)
   const stats =
     item.statTotal !== null && better?.statTotal !== null && better !== undefined
       ? ` · total ${item.statTotal} vs ${better.statTotal}`
-      : ""
+      : ''
   const tiers =
     better?.gearTier != null && (item.gearTier ?? 0) < better.gearTier
-      ? ` · tier ${item.gearTier ?? "—"} vs ${better.gearTier}`
-      : ""
-  const shared = signal.shared.length === 0 ? "" : ` · its good perks: ${signal.shared.join(", ")}`
-  return `Duplicate of ${better?.name ?? "a better copy"}${better?.power ? ` ${better.power}` : ""}${tiers}${stats}${shared}`
+      ? ` · tier ${item.gearTier ?? '—'} vs ${better.gearTier}`
+      : ''
+  const shared = signal.shared.length === 0 ? '' : ` · its good perks: ${signal.shared.join(', ')}`
+  return `Duplicate of ${better?.name ?? 'a better copy'}${better?.power ? ` ${better.power}` : ''}${tiers}${stats}${shared}`
 }
 
-export const reason = (item: OwnedItem, verdict: Verdict, items: Judgment["items"]) => {
-  if (verdict.verdict === "keep") {
+export const reason = (item: OwnedItem, verdict: Verdict, items: Judgment['items']) => {
+  if (verdict.verdict === 'keep') {
     return verdict.protections.length === 0
-      ? "Nothing wrong with it"
-      : `Keep: ${verdict.protections.map((p) => PROTECTED[p]).join(", ")}`
+      ? 'Nothing wrong with it'
+      : `Keep: ${verdict.protections.map((p) => PROTECTED[p]).join(', ')}`
   }
-  const signals = verdict.signals.map((signal) => signalText(signal, item, items)).join(" · ")
-  return verdict.verdict === "junk" ? signals : `${signals} · review: ${verdict.why}`
+  const signals = verdict.signals.map((signal) => signalText(signal, item, items)).join(' · ')
+  return verdict.verdict === 'junk' ? signals : `${signals} · review: ${verdict.why}`
 }
 
 export interface Flagged {
   readonly item: OwnedItem
-  readonly verdict: "junk" | "review"
+  readonly verdict: 'junk' | 'review'
   readonly reason: string
 }
 
@@ -59,12 +59,12 @@ export const flagged = (judgment: Judgment): ReadonlyArray<Flagged> =>
   [...judgment.verdicts]
     .flatMap(([id, verdict]) => {
       const item = judgment.items.get(id)
-      if (item === undefined || verdict.verdict === "keep") return []
+      if (item === undefined || verdict.verdict === 'keep') return []
       return [{ item, verdict: verdict.verdict, reason: reason(item, verdict, judgment.items) }]
     })
     .toSorted(
       (a, b) =>
-        (a.verdict === "junk" ? 0 : 1) - (b.verdict === "junk" ? 0 : 1) ||
+        (a.verdict === 'junk' ? 0 : 1) - (b.verdict === 'junk' ? 0 : 1) ||
         a.item.name.localeCompare(b.item.name) ||
         a.item.itemInstanceId.localeCompare(b.item.itemInstanceId),
     )
@@ -76,7 +76,7 @@ export interface RequestedRow {
 
 export interface CleanupRow {
   readonly itemInstanceId: string
-  readonly action: "tag_junk"
+  readonly action: 'tag_junk'
   readonly meta: string
   readonly selected: boolean
 }
@@ -96,22 +96,22 @@ export const cleanupRows = (
     const verdict = judgment.verdicts.get(id)
     if (item === undefined) {
       errors.push(`${id} is not an item the player owns`)
-    } else if (action !== "tag_junk") {
+    } else if (action !== 'tag_junk') {
       errors.push(`${item.name} (${id}) has action ${action}; a cleanup plan only tags junk`)
     } else if (verdict === undefined) {
       errors.push(`${item.name} (${id}) is not weapon or armor, so find_junk does not judge it`)
-    } else if (verdict.verdict === "keep") {
+    } else if (verdict.verdict === 'keep') {
       errors.push(
         verdict.protections.length === 0
           ? `${item.name} (${id}) is not flagged: nothing marks it as junk`
-          : `${item.name} (${id}) cannot be tagged junk: ${verdict.protections.map((p) => PROTECTED[p]).join(", ")}`,
+          : `${item.name} (${id}) cannot be tagged junk: ${verdict.protections.map((p) => PROTECTED[p]).join(', ')}`,
       )
     } else {
       rows.push({
         itemInstanceId: id,
-        action: "tag_junk",
+        action: 'tag_junk',
         meta: reason(item, verdict, judgment.items),
-        selected: verdict.verdict === "junk",
+        selected: verdict.verdict === 'junk',
       })
     }
   }
@@ -119,7 +119,7 @@ export const cleanupRows = (
 }
 
 const isGear = (item: OwnedItem): item is OwnedItem & { readonly slot: GearSlot } =>
-  item.slot !== "other"
+  item.slot !== 'other'
 
 /** The review rows the player has not decided on yet. */
 export const reviewItems = (
@@ -127,7 +127,7 @@ export const reviewItems = (
   decided: (itemInstanceId: string) => boolean,
 ): ReadonlyArray<ReviewItem> =>
   flagged(judgment).flatMap(({ item, verdict, reason }) =>
-    verdict === "review" && isGear(item) && !decided(item.itemInstanceId)
+    verdict === 'review' && isGear(item) && !decided(item.itemInstanceId)
       ? [
           new ReviewItem({
             itemInstanceId: item.itemInstanceId,
@@ -140,7 +140,7 @@ export const reviewItems = (
             masterwork: item.masterwork,
             meta: [item.typeName, item.power === null ? null : String(item.power)]
               .filter((part) => part !== null)
-              .join(" · "),
+              .join(' · '),
             reason,
           }),
         ]
@@ -154,7 +154,7 @@ export interface Unrated {
   readonly columns: ReadonlyArray<ReadonlyArray<string>>
 }
 
-const CURATED = new Set(["player", "claude", "wishlist"])
+const CURATED = new Set(['player', 'claude', 'wishlist'])
 
 /**
  * Weapons with more than one copy that nothing but the community count rates,

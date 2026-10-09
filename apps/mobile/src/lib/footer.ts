@@ -1,5 +1,5 @@
-import { useCallback, useState } from "react"
-import type { LayoutChangeEvent } from "react-native"
+import { useCallback, useState } from 'react'
+import type { LayoutChangeEvent } from 'react-native'
 
 /** A footer floating over a scroll view, and the bottom padding the content needs to clear it. */
 export function useFooterHeight() {

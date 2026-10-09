@@ -6,13 +6,13 @@ import {
   useEffect,
   useRef,
   useState,
-} from "react"
-import { type HostInstance, Pressable, StyleSheet, View } from "react-native"
-import { Portal, PortalHost } from "react-native-teleport"
+} from 'react'
+import { type HostInstance, Pressable, StyleSheet, View } from 'react-native'
+import { Portal, PortalHost } from 'react-native-teleport'
 
-import { Cut } from "@/components/ghost/ui"
-import { Ghost } from "@/constants/theme"
-import { placeTooltip, type Rect } from "@/lib/tooltip"
+import { Cut } from '@/components/ghost/ui'
+import { Ghost } from '@/constants/theme'
+import { placeTooltip, type Rect } from '@/lib/tooltip'
 
 const CARET = 9
 const GAP = 8
@@ -65,7 +65,7 @@ export function Tooltip({
   children: ReactNode
 }) {
   const layer = use(LayerContext)
-  if (!layer) throw new Error("Tooltip needs a TooltipLayer above it")
+  if (!layer) throw new Error('Tooltip needs a TooltipLayer above it')
   const [measured, setMeasured] = useState<Measured>()
   const [height, setHeight] = useState<number>()
 
@@ -127,7 +127,7 @@ export function Tooltip({
               style={[
                 styles.caret,
                 { left: place.caret - CARET / 2 },
-                place.side === "below" ? styles.caretUp : styles.caretDown,
+                place.side === 'below' ? styles.caretUp : styles.caretDown,
               ]}
             />
           </View>
@@ -138,16 +138,16 @@ export function Tooltip({
 }
 
 const styles = StyleSheet.create({
-  source: { position: "absolute" },
-  tip: { position: "absolute" },
+  source: { position: 'absolute' },
+  tip: { position: 'absolute' },
   body: { paddingVertical: 10, paddingHorizontal: 12 },
   caret: {
-    position: "absolute",
+    position: 'absolute',
     width: CARET,
     height: CARET,
     backgroundColor: Ghost.swatch,
     borderColor: Ghost.ruleStrong,
-    transform: [{ rotate: "45deg" }],
+    transform: [{ rotate: '45deg' }],
   },
   caretUp: { top: -CARET / 2 + 0.5, borderTopWidth: 1, borderLeftWidth: 1 },
   caretDown: { bottom: -CARET / 2 + 0.5, borderBottomWidth: 1, borderRightWidth: 1 },

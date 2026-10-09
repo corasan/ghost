@@ -1,11 +1,11 @@
-import { mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs"
-import { join } from "node:path"
-import { Context, DateTime, Effect, Layer, Schema, Semaphore } from "effect"
-import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http"
-import { SqlClient } from "effect/sql"
-import { Summarizer } from "../agent/summarize.ts"
-import { Manifest } from "../bungie/manifest.ts"
-import { AppConfig } from "../config.ts"
+import { mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
+import { Context, DateTime, Effect, Layer, Schema, Semaphore } from 'effect'
+import { FetchHttpClient, HttpClient, HttpClientRequest } from 'effect/http'
+import { SqlClient } from 'effect/sql'
+import { Summarizer } from '../agent/summarize.ts'
+import { Manifest } from '../bungie/manifest.ts'
+import { AppConfig } from '../config.ts'
 import {
   type ChannelRef,
   type CaptionLine,
@@ -20,7 +20,7 @@ import {
   transcriptText,
   VIDEO_ID,
   videoUrl,
-} from "./parse.ts"
+} from './parse.ts'
 
 const decodeNames = Schema.decodeSync(Schema.fromJsonString(Schema.Array(Schema.String)))
 
@@ -31,12 +31,12 @@ const decodeNames = Schema.decodeSync(Schema.fromJsonString(Schema.Array(Schema.
 // the note says so. Each video is summarized once, every gear name is checked
 // against the Bungie manifest, and notes older than 60 days are deleted.
 
-const REFRESH_EVERY = "6 hours"
+const REFRESH_EVERY = '6 hours'
 /** Summaries cost a model call each, so a run handles at most this many. */
 const VIDEOS_PER_RUN = 10
 const MAX_TRANSCRIPT_CHARS = 60_000
 const DAY_MS = 86_400_000
-const FETCH_TIMEOUT = "30 seconds"
+const FETCH_TIMEOUT = '30 seconds'
 
 export interface CreatorNote {
   readonly claim: string
@@ -48,7 +48,7 @@ export interface CreatorNote {
   readonly publishedAt: string
   readonly url: string
   /** captions: from what was said; description: from the video description only. */
-  readonly basis: "captions" | "description"
+  readonly basis: 'captions' | 'description'
 }
 
 export interface CreatorChannel {
@@ -72,7 +72,7 @@ export interface CreatorNotesService {
 }
 
 export class CreatorNotes extends Context.Service<CreatorNotes, CreatorNotesService>()(
-  "CreatorNotes",
+  'CreatorNotes',
 ) {}
 
 interface NoteRow {
@@ -101,47 +101,47 @@ const refKey = (ref: ChannelRef) => ref.value
 // Consent cookies skip the EU cookie wall, which otherwise replaces the page.
 const page = (url: string) =>
   HttpClientRequest.get(url).pipe(
-    HttpClientRequest.setHeader("User-Agent", "Mozilla/5.0 (compatible; Ghost/0.0)"),
-    HttpClientRequest.setHeader("Accept-Language", "en-US,en;q=0.9"),
-    HttpClientRequest.setHeader("Cookie", "CONSENT=YES+1; SOCS=CAI"),
+    HttpClientRequest.setHeader('User-Agent', 'Mozilla/5.0 (compatible; Ghost/0.0)'),
+    HttpClientRequest.setHeader('Accept-Language', 'en-US,en;q=0.9'),
+    HttpClientRequest.setHeader('Cookie', 'CONSENT=YES+1; SOCS=CAI'),
   )
 
-const ytDlp = Bun.which("yt-dlp")
+const ytDlp = Bun.which('yt-dlp')
 
 /** English captions through yt-dlp, or null when it is missing or finds none. */
 const captionsFor = (videoId: string, dataDir: string) =>
   Effect.tryPromise(async (): Promise<ReadonlyArray<CaptionLine> | null> => {
     // The id becomes a folder that is deleted afterwards.
     if (ytDlp === null || !VIDEO_ID.test(videoId)) return null
-    const dir = join(dataDir, "captions", videoId)
+    const dir = join(dataDir, 'captions', videoId)
     mkdirSync(dir, { recursive: true })
     try {
       const proc = Bun.spawn(
         [
           ytDlp,
-          "--skip-download",
-          "--write-subs",
-          "--write-auto-subs",
-          "--sub-langs",
-          "en.*,en",
-          "--sub-format",
-          "json3",
-          "--no-warnings",
-          "--quiet",
-          "-o",
-          join(dir, "%(id)s.%(ext)s"),
+          '--skip-download',
+          '--write-subs',
+          '--write-auto-subs',
+          '--sub-langs',
+          'en.*,en',
+          '--sub-format',
+          'json3',
+          '--no-warnings',
+          '--quiet',
+          '-o',
+          join(dir, '%(id)s.%(ext)s'),
           videoUrl(videoId, null),
         ],
-        { stdout: "ignore", stderr: "pipe", timeout: 120_000 },
+        { stdout: 'ignore', stderr: 'pipe', timeout: 120_000 },
       )
       await proc.exited
       // Uploaded captions are named "<id>.en.json3", auto ones "<id>.en-orig.json3"
       // or similar; the shortest name is the uploaded track when both exist.
       const file = readdirSync(dir)
-        .filter((f) => f.endsWith(".json3"))
+        .filter((f) => f.endsWith('.json3'))
         .sort((a, b) => a.length - b.length)[0]
       if (file === undefined) return null
-      const lines = parseJson3(readFileSync(join(dir, file), "utf8"))
+      const lines = parseJson3(readFileSync(join(dir, file), 'utf8'))
       return lines.length > 0 ? lines : null
     } finally {
       rmSync(dir, { recursive: true, force: true })
@@ -189,14 +189,14 @@ export const CreatorNotesLive = Layer.effect(
     // A handle or a name is resolved to a channel id once and remembered.
     const resolve = (ref: ChannelRef) =>
       Effect.gen(function* () {
-        if (ref.kind === "id") return ref.value
+        if (ref.kind === 'id') return ref.value
         const rows = yield* sql<{ channel_id: string | null }>`
           SELECT channel_id FROM creator_channels WHERE ref = ${refKey(ref)}
         `.pipe(Effect.orDie)
         const known = rows[0]?.channel_id
         if (known !== null && known !== undefined) return known
         const url =
-          ref.kind === "handle"
+          ref.kind === 'handle'
             ? `https://www.youtube.com/${ref.value}`
             : // sp=EgIQAg== limits search results to channels.
               `https://www.youtube.com/results?search_query=${encodeURIComponent(ref.value)}&sp=EgIQAg%253D%253D`
@@ -206,7 +206,7 @@ export const CreatorNotesLive = Layer.effect(
       })
 
     const knownNames = (names: ReadonlyArray<string>) =>
-      Effect.map(manifest.findByName(names, "any"), (defs) => {
+      Effect.map(manifest.findByName(names, 'any'), (defs) => {
         const map = new Map<string, string>()
         for (const def of defs) map.set(def.name.toLowerCase(), def.name)
         return map
@@ -219,7 +219,7 @@ export const CreatorNotesLive = Layer.effect(
           captions !== null
             ? transcriptText(captions).slice(0, MAX_TRANSCRIPT_CHARS)
             : `${video.title}\n\n${video.description}`
-        const basis = captions !== null ? "captions" : "description"
+        const basis = captions !== null ? 'captions' : 'description'
         const now = DateTime.formatIso(yield* DateTime.now)
         const insertVideo = (status: string) =>
           sql`
@@ -231,7 +231,7 @@ export const CreatorNotesLive = Layer.effect(
         // A description this short has no advice in it; remember the video
         // so it is not retried every run.
         if (captions === null && video.description.trim().length < 200) {
-          yield* insertVideo("no_text").pipe(Effect.orDie)
+          yield* insertVideo('no_text').pipe(Effect.orDie)
           return
         }
         const summary = yield* summarizer.summarize({
@@ -250,7 +250,7 @@ export const CreatorNotesLive = Layer.effect(
         )
         yield* Effect.gen(function* () {
           yield* sql`DELETE FROM creator_notes WHERE video_id = ${video.videoId}`
-          yield* insertVideo("done")
+          yield* insertVideo('done')
           if (notes.length === 0) return
           yield* sql`INSERT INTO creator_notes ${sql.insert(
             notes.map((note) => ({
@@ -357,7 +357,7 @@ export const CreatorNotesLive = Layer.effect(
         )
       }
     }).pipe(
-      Effect.catchCause((cause) => Effect.logWarning("creator refresh failed", cause)),
+      Effect.catchCause((cause) => Effect.logWarning('creator refresh failed', cause)),
       lock.withPermits(1),
     )
 
@@ -393,7 +393,7 @@ export const CreatorNotesLive = Layer.effect(
             video: row.title,
             publishedAt: row.published_at,
             url: videoUrl(row.video_id, row.start_sec),
-            basis: row.basis === "captions" ? "captions" : "description",
+            basis: row.basis === 'captions' ? 'captions' : 'description',
           })),
           channels: channels
             .filter((c) => active.has(c.ref))

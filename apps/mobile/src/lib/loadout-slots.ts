@@ -1,4 +1,4 @@
-import type { LoadoutSlots } from "@ghost/contract"
+import type { LoadoutSlots } from '@ghost/contract'
 
 export interface SlotChoice {
   readonly index: number

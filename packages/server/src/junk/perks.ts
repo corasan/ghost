@@ -1,13 +1,13 @@
-import { perkKey } from "../wishlist/parse.ts"
+import { perkKey } from '../wishlist/parse.ts'
 
-export type Rating = "good" | "ok" | "junk"
+export type Rating = 'good' | 'ok' | 'junk'
 
-export type Purpose = "pve" | "pvp"
+export type Purpose = 'pve' | 'pvp'
 
-export const PURPOSES: ReadonlyArray<Purpose> = ["pve", "pvp"]
+export const PURPOSES: ReadonlyArray<Purpose> = ['pve', 'pvp']
 
 /** Who rated a perk, strongest first: a player's rating beats Claude's, which beats the wishlist's. */
-export type RatingSource = "player" | "claude" | "wishlist" | "community"
+export type RatingSource = 'player' | 'claude' | 'wishlist' | 'community'
 
 export interface RatedPerk {
   readonly name: string
@@ -21,9 +21,9 @@ export interface RatedPerk {
 
 export interface StoredRating {
   readonly rating: Rating
-  readonly source: "player" | "claude"
+  readonly source: 'player' | 'claude'
   /** "any" rates the perk for PvE and PvP alike. */
-  readonly purpose: Purpose | "any"
+  readonly purpose: Purpose | 'any'
 }
 
 /** What is known about one weapon's perks, keyed by perkKey. */
@@ -50,7 +50,7 @@ export const WISHLIST_GOOD = 0.6
 const RANK: Record<Rating, number> = { junk: 0, ok: 1, good: 2 }
 
 const communityRating = (count: number): Rating =>
-  count >= COMMUNITY.good ? "good" : count >= COMMUNITY.ok ? "ok" : "junk"
+  count >= COMMUNITY.good ? 'good' : count >= COMMUNITY.ok ? 'ok' : 'junk'
 
 interface Judged {
   readonly rating: Rating
@@ -61,9 +61,9 @@ const storedFor = (rows: ReadonlyArray<StoredRating>, purpose: Purpose) => {
   // The player's rating wins over Claude's, and one for this purpose over
   // one for any, whatever order the rows came back in.
   const rank = (row: StoredRating) =>
-    (row.source === "player" ? 0 : 2) + (row.purpose === "any" ? 1 : 0)
+    (row.source === 'player' ? 0 : 2) + (row.purpose === 'any' ? 1 : 0)
   return rows
-    .filter((row) => row.purpose === purpose || row.purpose === "any")
+    .filter((row) => row.purpose === purpose || row.purpose === 'any')
     .toSorted((a, b) => rank(a) - rank(b))[0]
 }
 
@@ -78,18 +78,18 @@ const rateFor = (
 ): Judged => {
   const stored = storedFor(known.stored.get(key) ?? [], purpose)
   if (stored !== undefined) return { rating: stored.rating, source: stored.source }
-  if (known.trashed.has(key)) return { rating: "junk", source: "wishlist" }
+  if (known.trashed.has(key)) return { rating: 'junk', source: 'wishlist' }
   const curated = known.stored.size > 0
   const wishlisted = known.wishlisted[purpose]
   const named = wishlisted.get(key) ?? 0
   if (named > 0) {
     const good = !curated && named >= WISHLIST_GOOD * columnTop
-    return { rating: good ? "good" : "ok", source: "wishlist" }
+    return { rating: good ? 'good' : 'ok', source: 'wishlist' }
   }
   const community = communityRating(known.community.get(key) ?? 0)
-  if (community === "junk") return { rating: "junk", source: null }
+  if (community === 'junk') return { rating: 'junk', source: null }
   const ownList = known.wishlisted.pve.size > 0 || known.wishlisted.pvp.size > 0
-  return { rating: curated || ownList ? "ok" : community, source: "community" }
+  return { rating: curated || ownList ? 'ok' : community, source: 'community' }
 }
 
 /** `columnTops` is, per purpose, how many rolls name the column's most named perk on this weapon. */
@@ -107,7 +107,7 @@ export const ratePerk = (
   return {
     name,
     rating: best.rating,
-    good: judged.filter((each) => each.rating === "good").map((each) => each.purpose),
+    good: judged.filter((each) => each.rating === 'good').map((each) => each.purpose),
     source: best.source,
   }
 }
@@ -116,8 +116,8 @@ export type RatedColumns = ReadonlyArray<ReadonlyArray<RatedPerk>>
 
 /** A roll is worth keeping with a good perk in some column, or ok perks in two. */
 export const keepable = (columns: RatedColumns) =>
-  columns.some((column) => column.some((perk) => perk.rating === "good")) ||
-  columns.filter((column) => column.some((perk) => perk.rating !== "junk")).length >= 2
+  columns.some((column) => column.some((perk) => perk.rating === 'good')) ||
+  columns.filter((column) => column.some((perk) => perk.rating !== 'junk')).length >= 2
 
 /** How many columns can slot a perk that is good for `purpose`. */
 export const goodColumns = (columns: RatedColumns, purpose: Purpose) =>

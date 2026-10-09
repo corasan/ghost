@@ -1,23 +1,23 @@
-import type { SavedBuild } from "@ghost/contract"
-import { LegendList } from "@legendapp/list/react-native"
-import { router } from "expo-router"
-import { useMemo } from "react"
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native"
+import type { SavedBuild } from '@ghost/contract'
+import { LegendList } from '@legendapp/list/react-native'
+import { router } from 'expo-router'
+import { useMemo } from 'react'
+import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native'
 
-import { BuildBadges } from "@/components/plan/build-badges"
-import { ItemIcon } from "@/components/ghost/item-icon"
-import { SubclassMark } from "@/components/ghost/subclass-mark"
-import { Body, Chip, Cond, Cut, Meta, PageHeader } from "@/components/ghost/ui"
-import { Ghost, Gutter, Type } from "@/constants/theme"
-import { errorMessage, useSavedBuilds } from "@/lib/api"
-import { activeFilters, BUILD_SORT_LABEL, filterBuilds, removeFilter } from "@/lib/build-filter"
-import { replaceBuildFilter, setBuildFilter, useBuildFilter } from "@/lib/build-store"
-import { sentence } from "@/lib/format"
-import { useBottomInset } from "@/lib/insets"
-import { usePullRefresh } from "@/lib/refresh"
+import { BuildBadges } from '@/components/plan/build-badges'
+import { ItemIcon } from '@/components/ghost/item-icon'
+import { SubclassMark } from '@/components/ghost/subclass-mark'
+import { Body, Chip, Cond, Cut, Meta, PageHeader } from '@/components/ghost/ui'
+import { Ghost, Gutter, Type } from '@/constants/theme'
+import { errorMessage, useSavedBuilds } from '@/lib/api'
+import { activeFilters, BUILD_SORT_LABEL, filterBuilds, removeFilter } from '@/lib/build-filter'
+import { replaceBuildFilter, setBuildFilter, useBuildFilter } from '@/lib/build-store'
+import { sentence } from '@/lib/format'
+import { useBottomInset } from '@/lib/insets'
+import { usePullRefresh } from '@/lib/refresh'
 
 const exoticArmorRow = (build: SavedBuild) =>
-  build.plan.rows.find((row) => row.tier === "exotic" && row.name === build.facets.exoticArmor)
+  build.plan.rows.find((row) => row.tier === 'exotic' && row.name === build.facets.exoticArmor)
 
 function BuildRow({ build }: { build: SavedBuild }) {
   const { facets } = build
@@ -27,7 +27,7 @@ function BuildRow({ build }: { build: SavedBuild }) {
     <Pressable
       accessibilityRole="button"
       accessibilityHint="Opens the saved build"
-      onPress={() => router.push({ pathname: "/build/[id]", params: { id: build.id } })}
+      onPress={() => router.push({ pathname: '/build/[id]', params: { id: build.id } })}
       style={({ pressed }) => [styles.row, pressed && { backgroundColor: Ghost.panel }]}
     >
       {armor ? (
@@ -45,11 +45,11 @@ function BuildRow({ build }: { build: SavedBuild }) {
           {build.name}
         </Body>
         <Meta lines={1}>
-          {[sentence(facets.classType), facets.subclass ?? sentence(facets.element)].join(" · ")}
+          {[sentence(facets.classType), facets.subclass ?? sentence(facets.element)].join(' · ')}
         </Meta>
         {exotics.length > 0 ? (
           <Meta color={Ghost.gold} lines={1}>
-            {exotics.join(" · ")}
+            {exotics.join(' · ')}
           </Meta>
         ) : null}
         <BuildBadges build={build} />
@@ -64,7 +64,7 @@ function Filters({ shown }: { shown: number }) {
   const active = activeFilters(filter)
   return (
     <View style={{ paddingTop: 16, gap: 10 }}>
-      <View style={{ flexDirection: "row", gap: 8, paddingHorizontal: Gutter }}>
+      <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: Gutter }}>
         <Cut fill={Ghost.panel} border={Ghost.line} style={{ flex: 1 }}>
           <TextInput
             value={filter.query}
@@ -80,11 +80,11 @@ function Filters({ shown }: { shown: number }) {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Filter and sort, ${active.length} filters on, sorted by ${BUILD_SORT_LABEL[filter.sort]}`}
-          onPress={() => router.push("/build-filter")}
+          onPress={() => router.push('/build-filter')}
           style={[styles.filter, active.length > 0 && { borderColor: Ghost.accent }]}
         >
           <Meta size={12} color={active.length > 0 ? Ghost.accent : Ghost.muted}>
-            {active.length > 0 ? `Filter · ${active.length}` : "Filter"}
+            {active.length > 0 ? `Filter · ${active.length}` : 'Filter'}
           </Meta>
           <Cond size={13}>{BUILD_SORT_LABEL[filter.sort]}</Cond>
         </Pressable>
@@ -93,7 +93,7 @@ function Filters({ shown }: { shown: number }) {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: 6, paddingHorizontal: Gutter, alignItems: "center" }}
+          contentContainerStyle={{ gap: 6, paddingHorizontal: Gutter, alignItems: 'center' }}
         >
           {active.map((each) => (
             <Chip
@@ -123,16 +123,16 @@ export default function BuildsScreen() {
     <View style={{ flex: 1, backgroundColor: Ghost.bg }}>
       <PageHeader
         title="BUILDS"
-        subtitle={builds.data ? `${shown.length} shown` : "Saved builds"}
-        figure={builds.data ? all.length : "—"}
-        caption={builds.data ? `${inGame} in game` : "Saved"}
+        subtitle={builds.data ? `${shown.length} shown` : 'Saved builds'}
+        figure={builds.data ? all.length : '—'}
+        caption={builds.data ? `${inGame} in game` : 'Saved'}
       />
       {!builds.data ? (
         <Body
           color={builds.isError ? Ghost.danger : Ghost.dim}
           style={{ paddingHorizontal: Gutter, paddingTop: 32 }}
         >
-          {builds.isError ? `Couldn't load your builds: ${errorMessage(builds.error)}` : "Loading…"}
+          {builds.isError ? `Couldn't load your builds: ${errorMessage(builds.error)}` : 'Loading…'}
         </Body>
       ) : all.length === 0 ? (
         <Body color={Ghost.dim} style={{ paddingHorizontal: Gutter, paddingTop: 32 }}>
@@ -180,16 +180,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Ghost.ruleStrong,
     paddingHorizontal: 10,
-    justifyContent: "center",
+    justifyContent: 'center',
     minWidth: 92,
   },
   row: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: Ghost.rule,
   },
-  mark: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
+  mark: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
 })

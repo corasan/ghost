@@ -16,12 +16,12 @@ import {
   type ApplyPerks,
   type SetPerkRating,
   VaultSnapshot,
-} from "@ghost/contract"
-import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Effect } from "effect"
-import { FetchHttpClient, HttpClient, HttpClientError, HttpClientRequest } from "effect/http"
-import { HttpApiClient } from "effect/http-api"
-import { getServerToken, getServerUrl, useServerUrl } from "./server-url"
+} from '@ghost/contract'
+import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Effect } from 'effect'
+import { FetchHttpClient, HttpClient, HttpClientError, HttpClientRequest } from 'effect/http'
+import { HttpApiClient } from 'effect/http-api'
+import { getServerToken, getServerUrl, useServerUrl } from './server-url'
 
 // HttpApiClient reads the same contract the server implements, so every
 // call below is typed end to end: params, payload, success and error
@@ -52,40 +52,40 @@ const run = async <A, E>(f: (api: Api) => Effect.Effect<A, E>) =>
 // Every key starts with the server URL so pointing the app at another
 // server never shows the old server's cached data.
 export const queryKeys = {
-  health: (url: string) => [url, "health"] as const,
-  jobs: (url: string, sessionId?: string | null) => [url, "jobs", sessionId ?? "all"] as const,
-  sessions: (url: string) => [url, "sessions"] as const,
-  item: (url: string, id: string) => [url, "item", id] as const,
-  weaponSheet: (url: string, id: string) => [url, "weaponSheet", id] as const,
-  agent: (url: string) => [url, "agent"] as const,
-  recent: (url: string, characterId: string | undefined) => [url, "recent", characterId] as const,
-  guardian: (url: string) => [url, "guardian"] as const,
-  vault: (url: string) => [url, "vault"] as const,
+  health: (url: string) => [url, 'health'] as const,
+  jobs: (url: string, sessionId?: string | null) => [url, 'jobs', sessionId ?? 'all'] as const,
+  sessions: (url: string) => [url, 'sessions'] as const,
+  item: (url: string, id: string) => [url, 'item', id] as const,
+  weaponSheet: (url: string, id: string) => [url, 'weaponSheet', id] as const,
+  agent: (url: string) => [url, 'agent'] as const,
+  recent: (url: string, characterId: string | undefined) => [url, 'recent', characterId] as const,
+  guardian: (url: string) => [url, 'guardian'] as const,
+  vault: (url: string) => [url, 'vault'] as const,
   briefing: (url: string, characterId: string | undefined) =>
-    [url, "briefing", characterId] as const,
-  history: (url: string) => [url, "history"] as const,
+    [url, 'briefing', characterId] as const,
+  history: (url: string) => [url, 'history'] as const,
   situational: (url: string, characterId: string | undefined) =>
-    [url, "situational", characterId] as const,
-  job: (url: string, id: string) => [url, "job", id] as const,
-  builds: (url: string) => [url, "builds"] as const,
+    [url, 'situational', characterId] as const,
+  job: (url: string, id: string) => [url, 'job', id] as const,
+  builds: (url: string) => [url, 'builds'] as const,
   loadoutSlots: (url: string, characterId: string | undefined) =>
-    [url, "loadoutSlots", characterId] as const,
-  cleanup: (url: string) => [url, "cleanup"] as const,
+    [url, 'loadoutSlots', characterId] as const,
+  cleanup: (url: string) => [url, 'cleanup'] as const,
   cleanupPreview: (url: string, characterId: string | undefined) =>
-    [url, "cleanupPreview", characterId] as const,
-  junkReview: (url: string) => [url, "junkReview"] as const,
+    [url, 'cleanupPreview', characterId] as const,
+  junkReview: (url: string) => [url, 'junkReview'] as const,
 }
 
 /** Queries worth keeping on disk so the app opens on real data, not spinners. */
 export const PERSISTED = new Set([
-  "jobs",
-  "sessions",
-  "recent",
-  "guardian",
-  "vault",
-  "briefing",
-  "history",
-  "builds",
+  'jobs',
+  'sessions',
+  'recent',
+  'guardian',
+  'vault',
+  'briefing',
+  'history',
+  'builds',
 ])
 
 // The server counts "actions today" from midnight where the player is.
@@ -106,7 +106,7 @@ export function useHealth() {
       const health = await Promise.race([
         run((api) => api.health.status()),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("Health check timed out")), HEALTH_TIMEOUT_MS),
+          setTimeout(() => reject(new Error('Health check timed out')), HEALTH_TIMEOUT_MS),
         ),
       ])
       lastLatencyMs = Date.now() - started
@@ -118,7 +118,7 @@ export function useHealth() {
 }
 
 const busy = (jobs: readonly Job[] | undefined) =>
-  jobs?.some((job) => job.status === "queued" || job.status === "running") ?? false
+  jobs?.some((job) => job.status === 'queued' || job.status === 'running') ?? false
 
 const NO_JOBS: readonly Job[] = []
 
@@ -145,7 +145,7 @@ export function useJob(id: string) {
     queryFn: () => run((api) => api.jobs.get({ params: { id } })),
     initialData: () =>
       queryClient
-        .getQueriesData<readonly Job[]>({ queryKey: [url, "jobs"] })
+        .getQueriesData<readonly Job[]>({ queryKey: [url, 'jobs'] })
         .flatMap(([, jobs]) => jobs ?? [])
         .find((job) => job.id === id),
     staleTime: 5_000,
@@ -188,7 +188,7 @@ export function useRatePerk(id: string) {
       run((api) => api.items.ratePerk({ params: { id }, payload: input })),
     onSuccess: () =>
       Promise.all(
-        ["weaponSheet", "junkReview", "cleanupPreview"].map((key) =>
+        ['weaponSheet', 'junkReview', 'cleanupPreview'].map((key) =>
           queryClient.invalidateQueries({ queryKey: [getServerUrl(), key] }),
         ),
       ),
@@ -203,8 +203,8 @@ export function useApplyPerks(id: string) {
     onSuccess: () =>
       Promise.all([
         invalidateInventory(queryClient),
-        queryClient.invalidateQueries({ queryKey: [getServerUrl(), "item"] }),
-        queryClient.invalidateQueries({ queryKey: [getServerUrl(), "weaponSheet"] }),
+        queryClient.invalidateQueries({ queryKey: [getServerUrl(), 'item'] }),
+        queryClient.invalidateQueries({ queryKey: [getServerUrl(), 'weaponSheet'] }),
       ]),
   })
 }
@@ -267,7 +267,7 @@ export function useSituational(characterId: string | undefined) {
   return useQuery({
     queryKey: queryKeys.situational(url, characterId),
     queryFn: () =>
-      run((api) => api.guardian.situational({ query: { characterId: characterId ?? "" } })),
+      run((api) => api.guardian.situational({ query: { characterId: characterId ?? '' } })),
     enabled: characterId !== undefined,
     staleTime: 60_000,
     refetchInterval: (query) => (query.state.data?.pending ? SITUATIONAL_POLL : false),
@@ -288,15 +288,15 @@ export function useHistory() {
 export const invalidateInventory = (queryClient: QueryClient) =>
   Promise.all(
     [
-      "jobs",
-      "recent",
-      "guardian",
-      "vault",
-      "briefing",
-      "history",
-      "builds",
-      "cleanupPreview",
-      "junkReview",
+      'jobs',
+      'recent',
+      'guardian',
+      'vault',
+      'briefing',
+      'history',
+      'builds',
+      'cleanupPreview',
+      'junkReview',
     ].map((key) => queryClient.invalidateQueries({ queryKey: [getServerUrl(), key] })),
   )
 
@@ -311,7 +311,7 @@ export function useSetDecision() {
     // the refetch confirm it.
     onMutate: (input) => {
       queryClient.setQueriesData<readonly RecentItem[]>(
-        { queryKey: [getServerUrl(), "recent"] },
+        { queryKey: [getServerUrl(), 'recent'] },
         (items) =>
           items?.map((item) =>
             item.itemInstanceId === input.id
@@ -319,7 +319,7 @@ export function useSetDecision() {
               : item,
           ),
       )
-      queryClient.setQueriesData<VaultSnapshot>({ queryKey: [getServerUrl(), "vault"] }, (vault) =>
+      queryClient.setQueriesData<VaultSnapshot>({ queryKey: [getServerUrl(), 'vault'] }, (vault) =>
         vault
           ? new VaultSnapshot({
               ...vault,
@@ -332,13 +332,13 @@ export function useSetDecision() {
           : vault,
       )
       queryClient.setQueriesData<readonly ReviewItem[]>(
-        { queryKey: [getServerUrl(), "junkReview"] },
+        { queryKey: [getServerUrl(), 'junkReview'] },
         (items) => items?.filter((item) => item.itemInstanceId !== input.id),
       )
     },
     onSettled: () =>
       Promise.all(
-        ["recent", "vault", "briefing", "item", "junkReview", "cleanupPreview"].map((key) =>
+        ['recent', 'vault', 'briefing', 'item', 'junkReview', 'cleanupPreview'].map((key) =>
           queryClient.invalidateQueries({ queryKey: [getServerUrl(), key] }),
         ),
       ),
@@ -356,7 +356,7 @@ export function useCreateJob() {
         ...(jobs ?? []),
       ])
       return Promise.all([
-        queryClient.invalidateQueries({ queryKey: [url, "jobs"] }),
+        queryClient.invalidateQueries({ queryKey: [url, 'jobs'] }),
         queryClient.invalidateQueries({ queryKey: queryKeys.sessions(url) }),
       ])
     },
@@ -364,7 +364,7 @@ export function useCreateJob() {
 }
 
 const replaceJob = (queryClient: QueryClient, job: Job) =>
-  queryClient.setQueriesData<readonly Job[]>({ queryKey: [getServerUrl(), "jobs"] }, (jobs) =>
+  queryClient.setQueriesData<readonly Job[]>({ queryKey: [getServerUrl(), 'jobs'] }, (jobs) =>
     jobs?.map((each) => (each.id === job.id ? job : each)),
   )
 
@@ -406,7 +406,7 @@ export function useItemAction() {
     onSuccess: () =>
       Promise.all([
         invalidateInventory(queryClient),
-        queryClient.invalidateQueries({ queryKey: [getServerUrl(), "item"] }),
+        queryClient.invalidateQueries({ queryKey: [getServerUrl(), 'item'] }),
       ]),
   })
 }
@@ -464,7 +464,7 @@ export function useSaveBuild() {
       if (result.confirm) seedJob(queryClient, result.confirm)
       return Promise.all([
         refreshBuilds(queryClient),
-        queryClient.invalidateQueries({ queryKey: [getServerUrl(), "jobs"] }),
+        queryClient.invalidateQueries({ queryKey: [getServerUrl(), 'jobs'] }),
       ])
     },
   })
@@ -502,7 +502,7 @@ export function useEquipBuild() {
       run((api) => api.builds.equip({ params: { id }, payload })),
     onSuccess: (result) => {
       seedJob(queryClient, result.job)
-      return queryClient.invalidateQueries({ queryKey: [getServerUrl(), "jobs"] })
+      return queryClient.invalidateQueries({ queryKey: [getServerUrl(), 'jobs'] })
     },
   })
 }
@@ -511,14 +511,14 @@ export function useLoadoutSlots(characterId: string | undefined) {
   const url = useServerUrl()
   return useQuery({
     queryKey: queryKeys.loadoutSlots(url, characterId),
-    queryFn: () => run((api) => api.builds.slots({ query: { characterId: characterId ?? "" } })),
+    queryFn: () => run((api) => api.builds.slots({ query: { characterId: characterId ?? '' } })),
     enabled: characterId !== undefined,
     staleTime: 30_000,
     retry: false,
   })
 }
 
-const WATCHED = new Set<CleanupStage>(["stashing", "delivering", "returning"])
+const WATCHED = new Set<CleanupStage>(['stashing', 'delivering', 'returning'])
 
 export function useCleanup() {
   const url = useServerUrl()
@@ -546,34 +546,34 @@ export function useCleanupPreview(characterId: string | undefined) {
   const url = useServerUrl()
   return useQuery({
     queryKey: queryKeys.cleanupPreview(url, characterId),
-    queryFn: () => run((api) => api.cleanup.preview({ query: { characterId: characterId ?? "" } })),
+    queryFn: () => run((api) => api.cleanup.preview({ query: { characterId: characterId ?? '' } })),
     enabled: characterId !== undefined,
     staleTime: 10_000,
     retry: false,
   })
 }
 
-export type CleanupAction = "pause" | "resume" | "stop" | "skip" | "return" | "close"
+export type CleanupAction = 'pause' | 'resume' | 'stop' | 'skip' | 'return' | 'close'
 
 const cleanupAction = (api: Api, id: string, action: CleanupAction) => {
   const request = { params: { id } }
   switch (action) {
-    case "pause":
+    case 'pause':
       return api.cleanup.pause(request)
-    case "resume":
+    case 'resume':
       return api.cleanup.resume(request)
-    case "stop":
+    case 'stop':
       return api.cleanup.stop(request)
-    case "skip":
+    case 'skip':
       return api.cleanup.skip(request)
-    case "return":
+    case 'return':
       return api.cleanup.return(request)
-    case "close":
+    case 'close':
       return api.cleanup.close(request)
   }
 }
 
-const ENDED = new Set<CleanupStage>(["stopped", "closed"])
+const ENDED = new Set<CleanupStage>(['stopped', 'closed'])
 
 const settleCleanup = (queryClient: QueryClient, session: CleanupSession) => {
   queryClient.setQueryData(
@@ -601,7 +601,7 @@ export function useCleanupAction() {
   })
 }
 
-export type CleanupMark = "keep" | "deleted"
+export type CleanupMark = 'keep' | 'deleted'
 
 export function useMarkCleanupItems() {
   const queryClient = useQueryClient()
@@ -626,7 +626,7 @@ export const errorMessage = (error: Error | null) =>
   error === null
     ? String(error)
     : unpaired(error)
-      ? "Not paired with this server. Run `ghost pair` on it and scan the QR code."
-      : "reason" in error
+      ? 'Not paired with this server. Run `ghost pair` on it and scan the QR code.'
+      : 'reason' in error
         ? String(error.reason)
         : error.message
