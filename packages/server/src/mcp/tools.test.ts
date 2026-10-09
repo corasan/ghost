@@ -90,7 +90,37 @@ describe('topPerSlot', () => {
   })
 })
 
+describe('searchItems', () => {
+  const inventory: Inventory = {
+    membershipType: 3,
+    membershipId: '1',
+    characters: [],
+    items: [
+      owned('t2', 'helmet', { gearTier: 2 }),
+      owned('t3', 'helmet', { gearTier: 3 }),
+      owned('t5', 'chest', { gearTier: 5 }),
+      owned('none', 'chest', { gearTier: null }),
+    ],
+    vaultCount: 4,
+  }
+
+  test('keeps only items at or above minGearTier', () => {
+    expect(ids(searchItems(inventory, { minGearTier: 3 }).items)).toEqual(['t3', 't5'])
+  })
+
+  test("reports each row's gear tier apart from its rarity", () => {
+    const [row] = searchItems(inventory, { text: 'Item t5' }).items
+    expect(row).toMatchObject({ tier: 'legendary', gearTier: 5 })
+  })
+})
+
 describe('rankingText', () => {
+  test('names the gear tier', () => {
+    expect(rankingText(owned('g0', 'helmet', { gearTier: 4 }))).toStartWith(
+      'Item g0; legendary titan Helmet; gear tier 4; helmet slot',
+    )
+  })
+
   test('describes an armor piece on one line with its stats highest first', () => {
     expect(
       rankingText(owned('h0', 'helmet', { masterwork: true, perks: ['Spirit of Synthoceps'] })),
