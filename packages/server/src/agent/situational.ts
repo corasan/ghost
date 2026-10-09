@@ -1,8 +1,7 @@
-import { query } from "@anthropic-ai/claude-agent-sdk"
 import { Context, Effect, Layer, Schema } from "effect"
 import { AppConfig } from "../config.ts"
 import { extractJsonText } from "../creators/parse.ts"
-import { abortOn, AgentFailed, within } from "./claude.ts"
+import { abortOn, AgentFailed, runClaude, within } from "./claude.ts"
 
 export interface SituationalInput {
   readonly subclass: string
@@ -67,18 +66,15 @@ export const SituationalWriterLive = Layer.effect(
               (m) => `- ${m.name} ×${m.copies}: ${m.description} Known value: ${m.known ?? "null"}`,
             ),
           ].join("\n")
-          for await (const message of query({
-            prompt,
-            options: {
-              model: config.model,
-              systemPrompt: SYSTEM_PROMPT,
-              tools: ["WebSearch", "WebFetch"],
-              allowedTools: ["WebSearch", "WebFetch"],
-              permissionMode: "bypassPermissions",
-              allowDangerouslySkipPermissions: true,
-              maxTurns: 20,
-              abortController: abortOn(signal),
-            },
+          for await (const message of runClaude(config.claudePath, prompt, {
+            model: config.model,
+            systemPrompt: SYSTEM_PROMPT,
+            tools: ["WebSearch", "WebFetch"],
+            allowedTools: ["WebSearch", "WebFetch"],
+            permissionMode: "bypassPermissions",
+            allowDangerouslySkipPermissions: true,
+            maxTurns: 20,
+            abortController: abortOn(signal),
           })) {
             if (message.type === "result") {
               if (message.subtype === "success") return message.result
