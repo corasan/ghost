@@ -1,8 +1,8 @@
-import { Drawer } from "expo-router/drawer"
-import { GestureHandlerRootView } from "react-native-gesture-handler"
+import { Drawer } from 'expo-router/drawer'
+import { GestureHandlerRootView } from 'react-native-gesture-handler'
 
-import { GhostDrawer } from "@/components/drawer"
-import { Ghost } from "@/constants/theme"
+import { GhostDrawer } from '@/components/drawer'
+import { Ghost } from '@/constants/theme'
 
 export default function AppLayout() {
   return (
@@ -11,7 +11,7 @@ export default function AppLayout() {
         drawerContent={(props) => <GhostDrawer {...props} />}
         screenOptions={{
           headerShown: false,
-          drawerType: "front",
+          drawerType: 'front',
           drawerStyle: { width: 304, backgroundColor: Ghost.panel },
           overlayColor: Ghost.scrim,
           sceneStyle: { backgroundColor: Ghost.bg },

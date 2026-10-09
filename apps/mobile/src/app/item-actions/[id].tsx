@@ -1,12 +1,12 @@
-import { useLocalSearchParams } from "expo-router"
-import { ScrollView } from "react-native"
+import { useLocalSearchParams } from 'expo-router'
+import { ScrollView } from 'react-native'
 
-import { Body } from "@/components/ghost/ui"
-import { ItemActions } from "@/components/item/actions"
-import { ItemHeader } from "@/components/item/header"
-import { Ghost } from "@/constants/theme"
-import { errorMessage, useItemDetail } from "@/lib/api"
-import { useBottomInset } from "@/lib/insets"
+import { Body } from '@/components/ghost/ui'
+import { ItemActions } from '@/components/item/actions'
+import { ItemHeader } from '@/components/item/header'
+import { Ghost } from '@/constants/theme'
+import { errorMessage, useItemDetail } from '@/lib/api'
+import { useBottomInset } from '@/lib/insets'
 
 export default function ItemActionsScreen() {
   const { id, select } = useLocalSearchParams<{ id: string; select?: string }>()
@@ -19,7 +19,7 @@ export default function ItemActionsScreen() {
         color={detail.isError ? Ghost.danger : Ghost.dim}
         style={{ padding: 20, paddingTop: 32 }}
       >
-        {detail.isError ? `Couldn't load this item: ${errorMessage(detail.error)}` : "Loading…"}
+        {detail.isError ? `Couldn't load this item: ${errorMessage(detail.error)}` : 'Loading…'}
       </Body>
     )
   }
@@ -29,7 +29,7 @@ export default function ItemActionsScreen() {
       contentContainerStyle={{ paddingTop: 28, paddingBottom: bottomInset + 20, gap: 18 }}
     >
       <ItemHeader item={detail.data.item} size={48} />
-      <ItemActions item={detail.data.item} selectable={select === "1"} />
+      <ItemActions item={detail.data.item} selectable={select === '1'} />
     </ScrollView>
   )
 }

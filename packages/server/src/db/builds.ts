@@ -1,7 +1,7 @@
-import { BuildNotFound, InGameSlotRef, Plan } from "@ghost/contract"
-import { Context, DateTime, Effect, Layer, Option, Schema } from "effect"
-import { SqlClient, type SqlError } from "effect/sql"
-import { BuildRecipe } from "../plans/recipe.ts"
+import { BuildNotFound, InGameSlotRef, Plan } from '@ghost/contract'
+import { Context, DateTime, Effect, Layer, Option, Schema } from 'effect'
+import { SqlClient, type SqlError } from 'effect/sql'
+import { BuildRecipe } from '../plans/recipe.ts'
 
 interface BuildRow {
   readonly id: string
@@ -84,11 +84,11 @@ export interface BuildsRepoService {
   readonly remove: (id: string) => Effect.Effect<void, BuildNotFound | SqlError.SqlError>
   readonly claimInGameSlot: (
     id: string,
-    slot: Pick<InGameSlotRef, "characterId" | "index">,
+    slot: Pick<InGameSlotRef, 'characterId' | 'index'>,
   ) => Effect.Effect<void, BuildNotFound | SqlError.SqlError>
 }
 
-export class BuildsRepo extends Context.Service<BuildsRepo, BuildsRepoService>()("BuildsRepo") {}
+export class BuildsRepo extends Context.Service<BuildsRepo, BuildsRepoService>()('BuildsRepo') {}
 
 export const BuildsRepoLive = Layer.effect(
   BuildsRepo,
@@ -148,7 +148,7 @@ export const BuildsRepoLive = Layer.effect(
         yield* sql`DELETE FROM saved_builds WHERE id = ${id}`
       })
 
-    const claimInGameSlot = (id: string, slot: Pick<InGameSlotRef, "characterId" | "index">) =>
+    const claimInGameSlot = (id: string, slot: Pick<InGameSlotRef, 'characterId' | 'index'>) =>
       Effect.gen(function* () {
         yield* get(id)
         const now = DateTime.formatIso(yield* DateTime.now)

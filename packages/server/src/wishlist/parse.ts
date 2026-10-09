@@ -39,34 +39,34 @@ export interface ParsedWishlist {
 }
 
 const MONTHS = [
-  "january",
-  "february",
-  "march",
-  "april",
-  "may",
-  "june",
-  "july",
-  "august",
-  "september",
-  "october",
-  "november",
-  "december",
+  'january',
+  'february',
+  'march',
+  'april',
+  'may',
+  'june',
+  'july',
+  'august',
+  'september',
+  'october',
+  'november',
+  'december',
 ]
 
-const pad = (n: number) => String(n).padStart(2, "0")
+const pad = (n: number) => String(n).padStart(2, '0')
 
 /** "7 July 2026" or "July 7, 2026" → "2026-07-07"; the last date mentioned wins. */
 export const dateIn = (text: string): string | null => {
-  const months = MONTHS.join("|")
+  const months = MONTHS.join('|')
   const patterns = [
-    new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)? (${months}),? (\\d{4})\\b`, "gi"),
-    new RegExp(`\\b(${months}) (\\d{1,2})(?:st|nd|rd|th)?,? (\\d{4})\\b`, "gi"),
+    new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)? (${months}),? (\\d{4})\\b`, 'gi'),
+    new RegExp(`\\b(${months}) (\\d{1,2})(?:st|nd|rd|th)?,? (\\d{4})\\b`, 'gi'),
   ]
   let found: { index: number; iso: string } | null = null
   for (const [i, pattern] of patterns.entries()) {
     for (const m of text.matchAll(pattern)) {
       const [day, month, year] = i === 0 ? [m[1], m[2], m[3]] : [m[2], m[1], m[3]]
-      const monthIndex = MONTHS.indexOf((month ?? "").toLowerCase())
+      const monthIndex = MONTHS.indexOf((month ?? '').toLowerCase())
       if (monthIndex < 0 || day === undefined || year === undefined) continue
       if (found === null || m.index > found.index) {
         found = { index: m.index, iso: `${year}-${pad(monthIndex + 1)}-${pad(Number(day))}` }
@@ -78,7 +78,7 @@ export const dateIn = (text: string): string | null => {
 
 /** Splits "text|tags:PvE M+KB,controller" into the text and its tags. */
 export const splitNotes = (raw: string) => {
-  const at = raw.indexOf("|tags:")
+  const at = raw.indexOf('|tags:')
   const text = (at < 0 ? raw : raw.slice(0, at)).trim()
   const tags =
     at < 0
@@ -86,18 +86,18 @@ export const splitNotes = (raw: string) => {
       : raw
           .slice(at + 6)
           .split(/[\s,]+/)
-          .filter((t) => t !== "")
-  return { notes: text === "" ? null : text, tags }
+          .filter((t) => t !== '')
+  return { notes: text === '' ? null : text, tags }
 }
 
 const parseRoll = (line: string) => {
-  const hashAt = line.indexOf("#notes:")
+  const hashAt = line.indexOf('#notes:')
   const body = hashAt < 0 ? line : line.slice(0, hashAt)
-  const params = new URLSearchParams(body.slice("dimwishlist:".length))
-  const item = Number(params.get("item"))
+  const params = new URLSearchParams(body.slice('dimwishlist:'.length))
+  const item = Number(params.get('item'))
   if (!Number.isInteger(item) || item === 0) return undefined
-  const perkHashes = (params.get("perks") ?? "")
-    .split(",")
+  const perkHashes = (params.get('perks') ?? '')
+    .split(',')
     .map((p) => Number(p.trim()))
     .filter((n) => Number.isInteger(n) && n > 0)
   const trash = item < 0 && item !== WILDCARD_ITEM
@@ -105,7 +105,7 @@ const parseRoll = (line: string) => {
     itemHash: trash ? -item : item,
     perkHashes,
     trash,
-    inlineNotes: hashAt < 0 ? undefined : line.slice(hashAt + "#notes:".length),
+    inlineNotes: hashAt < 0 ? undefined : line.slice(hashAt + '#notes:'.length),
   }
 }
 
@@ -127,7 +127,7 @@ export const parseWishlist = (text: string): ParsedWishlist => {
 
   const blockFor = (rawNotes: string | null) => {
     const { notes, tags } = rawNotes === null ? { notes: null, tags: [] } : splitNotes(rawNotes)
-    const key = `${section.title}\u0000${section.url}\u0000${notes}\u0000${tags.join(" ")}`
+    const key = `${section.title}\u0000${section.url}\u0000${notes}\u0000${tags.join(' ')}`
     const existing = blockIds.get(key)
     if (existing !== undefined) return existing
     blocks.push({
@@ -142,26 +142,26 @@ export const parseWishlist = (text: string): ParsedWishlist => {
     return blocks.length - 1
   }
 
-  for (const raw of text.split("\n")) {
+  for (const raw of text.split('\n')) {
     const line = raw.trim()
-    if (line.startsWith("dimwishlist:")) {
+    if (line.startsWith('dimwishlist:')) {
       const roll = parseRoll(line)
       if (roll === undefined) continue
       const block = blockFor(roll.inlineNotes ?? blockNotes)
       rolls.push({ itemHash: roll.itemHash, perkHashes: roll.perkHashes, trash: roll.trash, block })
       continue
     }
-    if (line.startsWith("//notes:")) {
-      blockNotes = line.slice("//notes:".length)
+    if (line.startsWith('//notes:')) {
+      blockNotes = line.slice('//notes:'.length)
       continue
     }
     blockNotes = null
-    if (line.startsWith("// taken from ")) {
-      pendingUrl = line.slice("// taken from ".length).trim()
-    } else if (line.startsWith("title:")) {
+    if (line.startsWith('// taken from ')) {
+      pendingUrl = line.slice('// taken from '.length).trim()
+    } else if (line.startsWith('title:')) {
       section = { title: line.slice(6).trim(), description: null, url: pendingUrl, date: null }
       pendingUrl = null
-    } else if (line.startsWith("description:")) {
+    } else if (line.startsWith('description:')) {
       const description = line.slice(12).trim()
       section = { ...section, description, date: dateIn(description) }
     }
@@ -175,7 +175,7 @@ export const parseWishlist = (text: string): ParsedWishlist => {
 export const perkKey = (name: string) =>
   name
     .toLowerCase()
-    .replace(/^enhanced /, "")
+    .replace(/^enhanced /, '')
     .trim()
 
 export interface StoredRoll {
@@ -291,12 +291,12 @@ export const scoreFor = (
   partial: ReadonlyArray<RollMatch>,
   rolls: number,
 ) => {
-  if (full.some((m) => m.roll.trash)) return { score: 10, basis: "matches a wishlist trash roll" }
+  if (full.some((m) => m.roll.trash)) return { score: 10, basis: 'matches a wishlist trash roll' }
   const keepers = full.filter((m) => !m.roll.trash)
   if (keepers.some((m) => m.roll.block.tags.some((t) => /god/i.test(t)))) {
-    return { score: 95, basis: "fully matches a wishlist roll tagged god" }
+    return { score: 95, basis: 'fully matches a wishlist roll tagged god' }
   }
-  if (keepers.length > 0) return { score: 85, basis: "fully matches a wishlist roll" }
+  if (keepers.length > 0) return { score: 85, basis: 'fully matches a wishlist roll' }
   const best = partial[0]
   if (best !== undefined) {
     return {
@@ -305,7 +305,7 @@ export const scoreFor = (
     }
   }
   if (rolls > 0) return { score: 30, basis: "has none of the wishlist's recommended perks" }
-  return { score: null, basis: "the wishlist has no entries for this weapon" }
+  return { score: null, basis: 'the wishlist has no entries for this weapon' }
 }
 
 export const judgeWeapon = (

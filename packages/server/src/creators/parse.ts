@@ -1,4 +1,4 @@
-import { Schema } from "effect"
+import { Schema } from 'effect'
 
 // Pure helpers for the creator-notes source: reading YouTube's channel
 // feeds, turning yt-dlp caption files into timestamped text, checking what
@@ -10,9 +10,9 @@ export const NOTE_MAX_AGE_DAYS = 60
 
 /** A configured channel: an @handle, a UC… channel id, or a name to search for. */
 export type ChannelRef =
-  | { readonly kind: "id"; readonly value: string }
-  | { readonly kind: "handle"; readonly value: string }
-  | { readonly kind: "search"; readonly value: string }
+  | { readonly kind: 'id'; readonly value: string }
+  | { readonly kind: 'handle'; readonly value: string }
+  | { readonly kind: 'search'; readonly value: string }
 
 const CHANNEL_ID = /^UC[\w-]{22}$/
 /** YouTube video ids are 11 characters from the URL-safe base64 alphabet. */
@@ -20,14 +20,14 @@ export const VIDEO_ID = /^[\w-]{11}$/
 
 export const parseChannelRef = (raw: string): ChannelRef | null => {
   const entry = raw.trim()
-  if (entry === "") return null
-  if (CHANNEL_ID.test(entry)) return { kind: "id", value: entry }
-  if (entry.startsWith("@")) return { kind: "handle", value: entry }
-  return { kind: "search", value: entry }
+  if (entry === '') return null
+  if (CHANNEL_ID.test(entry)) return { kind: 'id', value: entry }
+  if (entry.startsWith('@')) return { kind: 'handle', value: entry }
+  return { kind: 'search', value: entry }
 }
 
 export const parseChannelList = (raw: string): ReadonlyArray<ChannelRef> =>
-  raw.split(",").flatMap((part) => {
+  raw.split(',').flatMap((part) => {
     const ref = parseChannelRef(part)
     return ref === null ? [] : [ref]
   })
@@ -60,18 +60,18 @@ export interface FeedVideo {
 }
 
 const ENTITIES = new Map([
-  ["amp", "&"],
-  ["lt", "<"],
-  ["gt", ">"],
-  ["quot", '"'],
-  ["apos", "'"],
+  ['amp', '&'],
+  ['lt', '<'],
+  ['gt', '>'],
+  ['quot', '"'],
+  ['apos', "'"],
 ])
 
 export const decodeXml = (text: string) =>
   text.replace(/&(#x?[\da-f]+|\w+);/gi, (whole, code: string) => {
-    if (code.startsWith("#x") || code.startsWith("#X"))
+    if (code.startsWith('#x') || code.startsWith('#X'))
       return String.fromCodePoint(parseInt(code.slice(2), 16))
-    if (code.startsWith("#")) return String.fromCodePoint(parseInt(code.slice(1), 10))
+    if (code.startsWith('#')) return String.fromCodePoint(parseInt(code.slice(1), 10))
     return ENTITIES.get(code) ?? whole
   })
 
@@ -87,12 +87,12 @@ const tag = (xml: string, name: string) => {
  * captions can be read.
  */
 export const parseFeed = (xml: string): ReadonlyArray<FeedVideo> => {
-  const channelTitle = tag(xml.split("<entry>")[0] ?? "", "title") ?? ""
+  const channelTitle = tag(xml.split('<entry>')[0] ?? '', 'title') ?? ''
   const entries = xml.match(/<entry>[\s\S]*?<\/entry>/g) ?? []
   return entries.flatMap((entry) => {
-    const videoId = tag(entry, "yt:videoId")
-    const channelId = tag(entry, "yt:channelId")
-    const published = Date.parse(tag(entry, "published") ?? "")
+    const videoId = tag(entry, 'yt:videoId')
+    const channelId = tag(entry, 'yt:channelId')
+    const published = Date.parse(tag(entry, 'published') ?? '')
     // The id names a scratch folder for captions, and one bad entry must not
     // sink the rest of the feed.
     if (videoId === null || !VIDEO_ID.test(videoId) || channelId === null) return []
@@ -101,10 +101,10 @@ export const parseFeed = (xml: string): ReadonlyArray<FeedVideo> => {
       {
         videoId,
         channelId,
-        channelTitle: tag(entry, "name") ?? channelTitle,
-        title: tag(entry, "title") ?? "",
+        channelTitle: tag(entry, 'name') ?? channelTitle,
+        title: tag(entry, 'title') ?? '',
         publishedAt: new Date(published).toISOString(),
-        description: tag(entry, "media:description") ?? "",
+        description: tag(entry, 'media:description') ?? '',
       },
     ]
   })
@@ -137,16 +137,16 @@ export const parseJson3 = (raw: string): ReadonlyArray<CaptionLine> => {
   const data = decodeJson3(raw)
   return (data.events ?? []).flatMap((event) => {
     const text = (event.segs ?? [])
-      .map((s) => s.utf8 ?? "")
-      .join("")
-      .replace(/\s+/g, " ")
+      .map((s) => s.utf8 ?? '')
+      .join('')
+      .replace(/\s+/g, ' ')
       .trim()
-    if (text === "" || event.tStartMs === undefined) return []
+    if (text === '' || event.tStartMs === undefined) return []
     return [{ startSec: Math.floor(event.tStartMs / 1000), text }]
   })
 }
 
-const clock = (sec: number) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`
+const clock = (sec: number) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`
 
 /**
  * Caption lines merged into one paragraph per window, each prefixed with its
@@ -157,9 +157,9 @@ export const transcriptText = (lines: ReadonlyArray<CaptionLine>, windowSec = 60
   const out: Array<string> = []
   let start = -1
   let parts: Array<string> = []
-  let last = ""
+  let last = ''
   const flush = () => {
-    if (parts.length > 0) out.push(`[${clock(start)}] ${parts.join(" ")}`)
+    if (parts.length > 0) out.push(`[${clock(start)}] ${parts.join(' ')}`)
     parts = []
   }
   for (const line of lines) {
@@ -172,22 +172,22 @@ export const transcriptText = (lines: ReadonlyArray<CaptionLine>, windowSec = 60
     parts.push(line.text)
   }
   flush()
-  return out.join("\n")
+  return out.join('\n')
 }
 
 export const videoUrl = (videoId: string, startSec: number | null) =>
-  `https://www.youtube.com/watch?v=${videoId}${startSec !== null && startSec > 0 ? `&t=${startSec}s` : ""}`
+  `https://www.youtube.com/watch?v=${videoId}${startSec !== null && startSec > 0 ? `&t=${startSec}s` : ''}`
 
 export const NoteTopic = Schema.Literals([
-  "build",
-  "weapon",
-  "perk",
-  "mod",
-  "exotic",
-  "subclass",
-  "activity",
-  "patch",
-  "meta",
+  'build',
+  'weapon',
+  'perk',
+  'mod',
+  'exotic',
+  'subclass',
+  'activity',
+  'patch',
+  'meta',
 ])
 
 /** What the summarizer must return for one video. */
@@ -207,9 +207,9 @@ export type SummaryOutput = typeof SummaryOutput.Type
 export const extractJsonText = (text: string) => {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/)
   const body = fenced?.[1] ?? text
-  const start = body.indexOf("{")
-  const end = body.lastIndexOf("}")
-  if (start < 0 || end <= start) throw new Error("no JSON object in summary")
+  const start = body.indexOf('{')
+  const end = body.lastIndexOf('}')
+  if (start < 0 || end <= start) throw new Error('no JSON object in summary')
   return body.slice(start, end + 1)
 }
 
@@ -229,20 +229,20 @@ export interface CheckedNote {
  * manifest's own spelling.
  */
 export const checkNotes = (
-  notes: SummaryOutput["notes"],
+  notes: SummaryOutput['notes'],
   known: ReadonlyMap<string, string>,
   durationSec: number | null,
 ): ReadonlyArray<CheckedNote> =>
   notes.flatMap((note) => {
     const claim = note.claim.trim()
-    if (claim === "") return []
+    if (claim === '') return []
     const names: Array<string> = []
     const unverified: Array<string> = []
     for (const name of note.names) {
       const canonical = known.get(name.trim().toLowerCase())
       if (canonical !== undefined) {
         if (!names.includes(canonical)) names.push(canonical)
-      } else if (name.trim() !== "") unverified.push(name.trim())
+      } else if (name.trim() !== '') unverified.push(name.trim())
     }
     if (note.names.length > 0 && names.length === 0) return []
     const start =
@@ -280,7 +280,7 @@ export const rankNotes = <N extends StoredNote>(
   const wanted = terms(query)
   const scored = notes.map((note) => {
     if (wanted.length === 0) return { note, score: 1 }
-    const names = note.names.join(" ").toLowerCase()
+    const names = note.names.join(' ').toLowerCase()
     const claim = note.claim.toLowerCase()
     let score = 0
     for (const term of wanted) {

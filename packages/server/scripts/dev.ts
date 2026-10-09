@@ -1,24 +1,24 @@
-import { type FSWatcher, watch } from "node:fs"
-import { type Subprocess, spawn } from "bun"
+import { type FSWatcher, watch } from 'node:fs'
+import { type Subprocess, spawn } from 'bun'
 
-const WATCHED = ["src", "../contract/src"]
+const WATCHED = ['src', '../contract/src']
 const SETTLE_MS = 150
 
 let child: Subprocess | null = null
 let timer: ReturnType<typeof setTimeout> | undefined
 
 const start = () => {
-  child = spawn(["bun", "src/main.ts"], { stdio: ["inherit", "inherit", "inherit"] })
+  child = spawn(['bun', 'src/main.ts'], { stdio: ['inherit', 'inherit', 'inherit'] })
 }
 
 const restart = async () => {
   const running = child
   child = null
   if (running !== null) {
-    running.kill("SIGTERM")
+    running.kill('SIGTERM')
     await running.exited
   }
-  console.log("\n[dev] restarting\n")
+  console.log('\n[dev] restarting\n')
   start()
 }
 
@@ -32,12 +32,12 @@ const watchers: FSWatcher[] = WATCHED.map((dir) =>
 
 const stop = async () => {
   for (const watcher of watchers) watcher.close()
-  child?.kill("SIGTERM")
+  child?.kill('SIGTERM')
   await child?.exited
   process.exit(0)
 }
 
-process.on("SIGINT", () => void stop())
-process.on("SIGTERM", () => void stop())
+process.on('SIGINT', () => void stop())
+process.on('SIGTERM', () => void stop())
 
 start()

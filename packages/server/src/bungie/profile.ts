@@ -1,19 +1,19 @@
-import type { BungieNotLinked } from "@ghost/contract"
-import { Context, Effect, Layer, Schema } from "effect"
-import { ItemsRepo } from "../db/items.ts"
-import { Wishlist } from "../wishlist/wishlist.ts"
-import { BungieClient, type BungieError } from "./client.ts"
+import type { BungieNotLinked } from '@ghost/contract'
+import { Context, Effect, Layer, Schema } from 'effect'
+import { ItemsRepo } from '../db/items.ts'
+import { Wishlist } from '../wishlist/wishlist.ts'
+import { BungieClient, type BungieError } from './client.ts'
 import {
   buildInventory,
   type Inventory,
   PROFILE_COMPONENTS,
   Profile,
   profileHashes,
-} from "./inventory.ts"
-import { Manifest } from "./manifest.ts"
-import { Membership } from "./membership.ts"
-import { setsByItem } from "./sets.ts"
-import { PlugSets } from "./subclass.ts"
+} from './inventory.ts'
+import { Manifest } from './manifest.ts'
+import { Membership } from './membership.ts'
+import { setsByItem } from './sets.ts'
+import { PlugSets } from './subclass.ts'
 
 // One GetProfile call feeds every screen and agent tool. It is cached for 30
 // seconds so a burst of requests (the app refetching, the agent searching)
@@ -27,7 +27,7 @@ export interface ProfileStoreService {
 }
 
 export class ProfileStore extends Context.Service<ProfileStore, ProfileStoreService>()(
-  "ProfileStore",
+  'ProfileStore',
 ) {}
 
 export const ProfileStoreLive = Layer.effect(
@@ -44,7 +44,7 @@ export const ProfileStoreLive = Layer.effect(
     const load = Effect.gen(function* () {
       const m = yield* membership
       const raw = yield* bungie.get(
-        `/Destiny2/${m.membershipType}/Profile/${m.membershipId}/?components=${PROFILE_COMPONENTS.join(",")}`,
+        `/Destiny2/${m.membershipType}/Profile/${m.membershipId}/?components=${PROFILE_COMPONENTS.join(',')}`,
       )
       const profile = yield* Schema.decodeUnknownEffect(Profile)(raw).pipe(
         Effect.catch(decodeFailure),
@@ -77,7 +77,7 @@ export const ProfileStoreLive = Layer.effect(
       const started = generation
       return Effect.map(load, (profile) => ({ ...profile, generation: started }))
     })
-    const [cached, forget] = yield* Effect.cachedInvalidateWithTTL(tagged, "30 seconds")
+    const [cached, forget] = yield* Effect.cachedInvalidateWithTTL(tagged, '30 seconds')
     const invalidate = Effect.sync(() => {
       generation += 1
     }).pipe(Effect.andThen(forget))
@@ -116,8 +116,8 @@ const refreshLoop = Effect.gen(function* () {
     Effect.catch((e) => Effect.logWarning(`background profile refresh failed: ${e._tag}`)),
   )
 }).pipe(
-  Effect.catchCause((cause) => Effect.logDebug("background refresh failed", cause)),
-  Effect.andThen(Effect.sleep("10 minutes")),
+  Effect.catchCause((cause) => Effect.logDebug('background refresh failed', cause)),
+  Effect.andThen(Effect.sleep('10 minutes')),
   Effect.forever,
 )
 

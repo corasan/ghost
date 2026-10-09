@@ -1,16 +1,16 @@
-import { Pressable, TextInput, View } from "react-native"
-import { useReanimatedKeyboardAnimation } from "react-native-keyboard-controller"
-import Animated, { interpolate, useAnimatedStyle } from "react-native-reanimated"
+import { Pressable, TextInput, View } from 'react-native'
+import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller'
+import Animated, { interpolate, useAnimatedStyle } from 'react-native-reanimated'
 
-import { Body, Chevron, Cut, Mono } from "@/components/ghost/ui"
-import { Ghost, Type } from "@/constants/theme"
-import { useBottomInset } from "@/lib/insets"
+import { Body, Chevron, Cut, Mono } from '@/components/ghost/ui'
+import { Ghost, Type } from '@/constants/theme'
+import { useBottomInset } from '@/lib/insets'
 
 export const STARTERS = [
-  "Best hand cannon for Trials",
-  "Void build, 100 Resilience, 100 Recovery",
-  "Clean up my vault",
-  "What did I get yesterday?",
+  'Best hand cannon for Trials',
+  'Void build, 100 Resilience, 100 Recovery',
+  'Clean up my vault',
+  'What did I get yesterday?',
 ]
 
 /** Starter prompts as a plain list above the composer, shown until you've asked something. */
@@ -24,9 +24,9 @@ export function Starters({ onAsk }: { onAsk: (prompt: string) => void }) {
           accessibilityRole="button"
           onPress={() => onAsk(prompt)}
           style={({ pressed }) => ({
-            flexDirection: "row",
-            justifyContent: "space-between",
-            alignItems: "center",
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
             paddingVertical: 12,
             borderTopWidth: 1,
             borderTopColor: Ghost.rule,
@@ -55,7 +55,7 @@ export function Composer({
   sending: boolean
 }) {
   const bottomInset = useBottomInset()
-  const ready = value.trim() !== "" && !sending
+  const ready = value.trim() !== '' && !sending
   const { progress } = useReanimatedKeyboardAnimation()
   const resting = Math.max(bottomInset, 12)
   const lift = useAnimatedStyle(() => ({
@@ -65,8 +65,8 @@ export function Composer({
     <Animated.View
       style={[
         {
-          flexDirection: "row",
-          alignItems: "flex-start",
+          flexDirection: 'row',
+          alignItems: 'flex-start',
           gap: 8,
           paddingTop: 12,
           paddingHorizontal: 16,
@@ -105,7 +105,7 @@ export function Composer({
         <Cut
           fill={ready ? Ghost.ink : Ghost.panel}
           border={ready ? undefined : Ghost.line}
-          style={{ width: 46, height: 46, alignItems: "center", justifyContent: "center" }}
+          style={{ width: 46, height: 46, alignItems: 'center', justifyContent: 'center' }}
         >
           <View style={{ marginLeft: -3 }}>
             <Chevron size={9} color={ready ? Ghost.bg : Ghost.ink} />

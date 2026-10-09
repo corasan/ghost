@@ -1,5 +1,5 @@
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
-import { dirname } from "node:path"
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname } from 'node:path'
 
 export type Settings = ReadonlyMap<string, string>
 
@@ -18,14 +18,14 @@ const unquote = (raw: string) => {
       return double.slice(1, -1)
     }
   }
-  return SINGLE.exec(raw)?.[1] ?? raw.replace(/\s+#.*$/, "")
+  return SINGLE.exec(raw)?.[1] ?? raw.replace(/\s+#.*$/, '')
 }
 
 const quote = (value: string) => (/[\s#"']/.test(value) ? JSON.stringify(value) : value)
 
 export const parseSettings = (text: string): Settings => {
   const settings = new Map<string, string>()
-  for (const line of text.split("\n")) {
+  for (const line of text.split('\n')) {
     const match = LINE.exec(line)
     if (match?.[1] !== undefined && match[2] !== undefined)
       settings.set(match[1], unquote(match[2]))
@@ -39,7 +39,7 @@ export const parseSettings = (text: string): Settings => {
  */
 export const updateSettings = (text: string, updates: Settings): string => {
   const pending = new Map(updates)
-  const lines = text === "" ? [] : text.replace(/\n$/, "").split("\n")
+  const lines = text === '' ? [] : text.replace(/\n$/, '').split('\n')
   const rewritten = lines.map((line) => {
     const key = LINE.exec(line)?.[1]
     const value = key === undefined ? undefined : pending.get(key)
@@ -48,15 +48,15 @@ export const updateSettings = (text: string, updates: Settings): string => {
     return `${key}=${quote(value)}`
   })
   for (const [key, value] of pending) rewritten.push(`${key}=${quote(value)}`)
-  return `${rewritten.join("\n")}\n`
+  return `${rewritten.join('\n')}\n`
 }
 
 export const readSettings = (path: string): Settings =>
-  existsSync(path) ? parseSettings(readFileSync(path, "utf8")) : new Map()
+  existsSync(path) ? parseSettings(readFileSync(path, 'utf8')) : new Map()
 
 export const writeSettings = (path: string, updates: Settings) => {
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 })
-  const current = existsSync(path) ? readFileSync(path, "utf8") : ""
+  const current = existsSync(path) ? readFileSync(path, 'utf8') : ''
   writeFileSync(path, updateSettings(current, updates), { mode: 0o600 })
   chmodSync(path, 0o600)
 }

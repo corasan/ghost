@@ -1,19 +1,19 @@
-import type { ItemDetail, ItemPerk } from "@ghost/contract"
-import { useLocalSearchParams } from "expo-router"
-import { ScrollView, View } from "react-native"
+import type { ItemDetail, ItemPerk } from '@ghost/contract'
+import { useLocalSearchParams } from 'expo-router'
+import { ScrollView, View } from 'react-native'
 
-import { PlugIcon } from "@/components/ghost/plug-icon"
-import { SetBonusText } from "@/components/ghost/set-bonus"
-import { ArmorStatLine, Body, Meta, Mono } from "@/components/ghost/ui"
-import { ItemActions } from "@/components/item/actions"
-import { ItemHeader } from "@/components/item/header"
-import { WeaponScreen } from "@/components/item/weapon-sheet"
-import { Ghost, Type } from "@/constants/theme"
-import { errorMessage, useItemDetail } from "@/lib/api"
-import { useBottomInset } from "@/lib/insets"
-import { type ArmorSet, armorSet } from "@/lib/plan-card"
+import { PlugIcon } from '@/components/ghost/plug-icon'
+import { SetBonusText } from '@/components/ghost/set-bonus'
+import { ArmorStatLine, Body, Meta, Mono } from '@/components/ghost/ui'
+import { ItemActions } from '@/components/item/actions'
+import { ItemHeader } from '@/components/item/header'
+import { WeaponScreen } from '@/components/item/weapon-sheet'
+import { Ghost, Type } from '@/constants/theme'
+import { errorMessage, useItemDetail } from '@/lib/api'
+import { useBottomInset } from '@/lib/insets'
+import { type ArmorSet, armorSet } from '@/lib/plan-card'
 
-function Stats({ stats }: { stats: ItemDetail["stats"] }) {
+function Stats({ stats }: { stats: ItemDetail['stats'] }) {
   return (
     <View style={{ paddingHorizontal: 20, gap: 10 }}>
       <Mono>STATS</Mono>
@@ -25,7 +25,7 @@ function Stats({ stats }: { stats: ItemDetail["stats"] }) {
 function ArmorSetSection({ set }: { set: ArmorSet }) {
   return (
     <View style={{ paddingHorizontal: 20, gap: 12 }}>
-      <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
         <Mono>ARMOR SET</Mono>
         <Meta>
           {set.worn} of {set.of} worn
@@ -37,7 +37,7 @@ function ArmorSetSection({ set }: { set: ArmorSet }) {
       {set.bonuses.map(({ bonus, on }) => (
         <View
           key={bonus.name}
-          style={[{ flexDirection: "row", gap: 12 }, !on && { opacity: 0.45 }]}
+          style={[{ flexDirection: 'row', gap: 12 }, !on && { opacity: 0.45 }]}
         >
           <PlugIcon icon={bonus.icon} size={28} />
           <View style={{ flex: 1, minWidth: 0 }}>
@@ -56,13 +56,13 @@ function ArmorSetSection({ set }: { set: ArmorSet }) {
 
 const PERK_ICON = 36
 
-const WEAPON_SLOTS = new Set(["kinetic", "energy", "power"])
+const WEAPON_SLOTS = new Set(['kinetic', 'energy', 'power'])
 
 function ExoticPerk({ perk }: { perk: ItemPerk }) {
   return (
     <View style={{ paddingHorizontal: 20, gap: 12 }}>
       <Mono>EXOTIC PERK</Mono>
-      <View style={{ flexDirection: "row", gap: 12 }}>
+      <View style={{ flexDirection: 'row', gap: 12 }}>
         <View style={{ width: 2, backgroundColor: Ghost.gold }} />
         <PlugIcon icon={perk.icon} size={PERK_ICON} />
         <View style={{ flex: 1 }}>
@@ -89,7 +89,7 @@ export default function ItemScreen() {
         color={detail.isError ? Ghost.danger : Ghost.dim}
         style={{ padding: 20, paddingTop: 32 }}
       >
-        {detail.isError ? `Couldn't load this item: ${errorMessage(detail.error)}` : "Loading…"}
+        {detail.isError ? `Couldn't load this item: ${errorMessage(detail.error)}` : 'Loading…'}
       </Body>
     )
   }

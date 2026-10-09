@@ -1,11 +1,11 @@
-import type { GuardianClass, Job, Plan, SavedBuild } from "@ghost/contract"
-import { router, useLocalSearchParams } from "expo-router"
-import { type ReactNode, useState } from "react"
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native"
+import type { GuardianClass, Job, Plan, SavedBuild } from '@ghost/contract'
+import { router, useLocalSearchParams } from 'expo-router'
+import { type ReactNode, useState } from 'react'
+import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native'
 
-import { SlotPicker } from "@/components/plan/slot-picker"
-import { Body, Button, Cond, Cut, Meta, Mono, Tick } from "@/components/ghost/ui"
-import { Ghost, Type } from "@/constants/theme"
+import { SlotPicker } from '@/components/plan/slot-picker'
+import { Body, Button, Cond, Cut, Meta, Mono, Tick } from '@/components/ghost/ui'
+import { Ghost, Type } from '@/constants/theme'
 import {
   errorMessage,
   useEquipBuild,
@@ -13,18 +13,18 @@ import {
   useLoadoutSlots,
   useSaveBuild,
   useSavedBuilds,
-} from "@/lib/api"
-import { useCharacter, useWearer } from "@/lib/character"
-import { sentence } from "@/lib/format"
-import { useFooterHeight } from "@/lib/footer"
-import { useBottomInset } from "@/lib/insets"
-import { type SlotChoice, slotChoice } from "@/lib/loadout-slots"
+} from '@/lib/api'
+import { useCharacter, useWearer } from '@/lib/character'
+import { sentence } from '@/lib/format'
+import { useFooterHeight } from '@/lib/footer'
+import { useBottomInset } from '@/lib/insets'
+import { type SlotChoice, slotChoice } from '@/lib/loadout-slots'
 
 const openPlan = (job: Job, substituted: readonly string[] = []) =>
   router.replace({
-    pathname: "/plan/[id]",
+    pathname: '/plan/[id]',
     params:
-      substituted.length > 0 ? { id: job.id, substituted: substituted.join("\n") } : { id: job.id },
+      substituted.length > 0 ? { id: job.id, substituted: substituted.join('\n') } : { id: job.id },
   })
 
 function Where({
@@ -143,14 +143,14 @@ function Sheet({
             {error}
           </Body>
         ) : null}
-        <View style={{ flexDirection: "row", gap: 8 }}>{footer}</View>
+        <View style={{ flexDirection: 'row', gap: 8 }}>{footer}</View>
       </View>
     </View>
   )
 }
 
 const classLabel = (classType: GuardianClass | undefined) =>
-  classType ? sentence(classType) : "character"
+  classType ? sentence(classType) : 'character'
 
 const planCharacter = (plan: Plan, job: Job) =>
   plan.loadout?.change?.characterId ??
@@ -190,7 +190,7 @@ function SaveProposed({ job, plan }: { job: Job; plan: Plan }) {
         <>
           <Button label="CANCEL" flex={0.6} under={Ghost.panel} onPress={() => router.back()} />
           <Button
-            label={save.isPending ? "SAVING…" : inGame ? "SAVE & REVIEW" : "SAVE"}
+            label={save.isPending ? 'SAVING…' : inGame ? 'SAVE & REVIEW' : 'SAVE'}
             tone="solid"
             under={Ghost.panel}
             disabled={!ready || save.isPending}
@@ -242,7 +242,7 @@ function SaveFromJob({ jobId }: { jobId: string }) {
   if (!job.data || !plan)
     return (
       <Body color={job.isError ? Ghost.danger : Ghost.dim} style={{ padding: 20, paddingTop: 32 }}>
-        {job.isError ? `Couldn't load this build: ${errorMessage(job.error)}` : "Loading…"}
+        {job.isError ? `Couldn't load this build: ${errorMessage(job.error)}` : 'Loading…'}
       </Body>
     )
   return <SaveProposed job={job.data} plan={plan} />
@@ -264,7 +264,7 @@ function SaveSavedInGame({ build }: { build: SavedBuild }) {
         <>
           <Button label="CANCEL" flex={0.6} under={Ghost.panel} onPress={() => router.back()} />
           <Button
-            label={equip.isPending ? "WORKING…" : "REVIEW"}
+            label={equip.isPending ? 'WORKING…' : 'REVIEW'}
             tone="solid"
             under={Ghost.panel}
             disabled={slots.choice === undefined || characterId === undefined || equip.isPending}
@@ -293,7 +293,7 @@ function SaveFromBuild({ buildId }: { buildId: string }) {
   if (!build)
     return (
       <Body color={Ghost.dim} style={{ padding: 20, paddingTop: 32 }}>
-        {builds.isPending ? "Loading…" : "This build is no longer saved."}
+        {builds.isPending ? 'Loading…' : 'This build is no longer saved.'}
       </Body>
     )
   return <SaveSavedInGame build={build} />
@@ -314,9 +314,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: Ghost.ink,
   },
-  where: { flexDirection: "row", gap: 12, paddingVertical: 10 },
+  where: { flexDirection: 'row', gap: 12, paddingVertical: 10 },
   footer: {
-    position: "absolute",
+    position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,

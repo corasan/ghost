@@ -5,14 +5,14 @@ import {
   type LoadoutSlotChoice,
   LoadoutSlotInvalid,
   LoadoutSlots,
-} from "@ghost/contract"
-import { Context, Effect, Layer, Redacted, Schema } from "effect"
-import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http"
-import { AppConfig } from "../config.ts"
-import { BungieClient, BungieError, PLATFORM_TIMEOUT, retryPolicy, timeoutAfter } from "./client.ts"
-import { Membership } from "./membership.ts"
+} from '@ghost/contract'
+import { Context, Effect, Layer, Redacted, Schema } from 'effect'
+import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http'
+import { AppConfig } from '../config.ts'
+import { BungieClient, BungieError, PLATFORM_TIMEOUT, retryPolicy, timeoutAfter } from './client.ts'
+import { Membership } from './membership.ts'
 
-const EMPTY_ID = "0"
+const EMPTY_ID = '0'
 
 const component = <S extends Schema.Top>(data: S) =>
   Schema.optional(Schema.Struct({ data: Schema.optional(data) }))
@@ -130,12 +130,12 @@ export const catalogFrom = (definitions: LoadoutDefinitions): LoadoutCatalog => 
     definitions.constants.loadoutColorHashes,
     definitions.colors,
     (color) =>
-      new LoadoutIdentity({ hash: color.hash, name: "", icon: image(color.colorImagePath) }),
+      new LoadoutIdentity({ hash: color.hash, name: '', icon: image(color.colorImagePath) }),
   ),
   icons: inOrder(
     definitions.constants.loadoutIconHashes,
     definitions.icons,
-    (icon) => new LoadoutIdentity({ hash: icon.hash, name: "", icon: image(icon.iconImagePath) }),
+    (icon) => new LoadoutIdentity({ hash: icon.hash, name: '', icon: image(icon.iconImagePath) }),
   ),
 })
 
@@ -204,7 +204,7 @@ export interface LoadoutsService {
   readonly catalog: Effect.Effect<LoadoutCatalog, BungieError>
 }
 
-export class Loadouts extends Context.Service<Loadouts, LoadoutsService>()("Loadouts") {}
+export class Loadouts extends Context.Service<Loadouts, LoadoutsService>()('Loadouts') {}
 
 export const LoadoutsLive = Layer.effect(
   Loadouts,
@@ -214,11 +214,11 @@ export const LoadoutsLive = Layer.effect(
     const membership = (yield* Membership).current
     const http = (yield* HttpClient.HttpClient).pipe(
       HttpClient.mapRequest(
-        HttpClientRequest.setHeader("X-API-Key", Redacted.value(config.bungie.apiKey)),
+        HttpClientRequest.setHeader('X-API-Key', Redacted.value(config.bungie.apiKey)),
       ),
     )
     const transport = (cause: unknown) =>
-      new BungieError({ status: "Transport", message: String(cause) })
+      new BungieError({ status: 'Transport', message: String(cause) })
     const fetchJson = <S extends Schema.Constraint>(url: string, schema: S) =>
       http
         .get(url)
@@ -232,7 +232,7 @@ export const LoadoutsLive = Layer.effect(
     const load = Effect.gen(function* () {
       const { membershipType, membershipId } = yield* membership
       const raw = yield* bungie.get(
-        `/Destiny2/${membershipType}/Profile/${membershipId}/?components=${LOADOUT_COMPONENTS.join(",")}`,
+        `/Destiny2/${membershipType}/Profile/${membershipId}/?components=${LOADOUT_COMPONENTS.join(',')}`,
       )
       const response = yield* Schema.decodeUnknownEffect(LoadoutsResponse)(raw).pipe(
         Effect.catch((cause) =>
@@ -243,46 +243,46 @@ export const LoadoutsLive = Layer.effect(
       // to protect loadout gear, so it fails rather than guess.
       if (response.characterLoadouts?.data === undefined) {
         return yield* new BungieError({
-          status: "MissingComponent",
-          message: "Bungie did not return your in-game loadouts; try again in a moment",
+          status: 'MissingComponent',
+          message: 'Bungie did not return your in-game loadouts; try again in a moment',
         })
       }
       return parseLoadouts(response)
     })
-    const [cached, invalidate] = yield* Effect.cachedInvalidateWithTTL(load, "30 seconds")
+    const [cached, invalidate] = yield* Effect.cachedInvalidateWithTTL(load, '30 seconds')
     const current = cached.pipe(Effect.tapError(() => invalidate))
 
     const loadCatalog = Effect.gen(function* () {
       const index = yield* fetchJson(
-        "https://www.bungie.net/Platform/Destiny2/Manifest/",
+        'https://www.bungie.net/Platform/Destiny2/Manifest/',
         ManifestIndex,
       )
       const paths = index.Response.jsonWorldComponentContentPaths.en ?? {}
       const table = <S extends Schema.Codec<unknown, unknown, never, never>>(
         name: string,
         definition: S,
-      ): Effect.Effect<ReadonlyArray<S["Type"]>, BungieError> => {
+      ): Effect.Effect<ReadonlyArray<S['Type']>, BungieError> => {
         const path = paths[name]
         return path === undefined
-          ? Effect.fail(new BungieError({ status: "Manifest", message: `no ${name}` }))
+          ? Effect.fail(new BungieError({ status: 'Manifest', message: `no ${name}` }))
           : fetchJson(image(path), definitionsOf(definition)).pipe(
-              Effect.map((definitions): ReadonlyArray<S["Type"]> => Object.values(definitions)),
+              Effect.map((definitions): ReadonlyArray<S['Type']> => Object.values(definitions)),
             )
       }
-      const [constants] = yield* table("DestinyLoadoutConstantsDefinition", Constants)
+      const [constants] = yield* table('DestinyLoadoutConstantsDefinition', Constants)
       if (constants === undefined) {
-        return yield* new BungieError({ status: "Manifest", message: "no loadout constants" })
+        return yield* new BungieError({ status: 'Manifest', message: 'no loadout constants' })
       }
       return catalogFrom({
         constants,
-        names: yield* table("DestinyLoadoutNameDefinition", NameDefinition),
-        colors: yield* table("DestinyLoadoutColorDefinition", ColorDefinition),
-        icons: yield* table("DestinyLoadoutIconDefinition", IconDefinition),
+        names: yield* table('DestinyLoadoutNameDefinition', NameDefinition),
+        colors: yield* table('DestinyLoadoutColorDefinition', ColorDefinition),
+        icons: yield* table('DestinyLoadoutIconDefinition', IconDefinition),
       })
     })
     const [cachedCatalog, forgetCatalog] = yield* Effect.cachedInvalidateWithTTL(
       loadCatalog,
-      "6 hours",
+      '6 hours',
     )
     const catalog = cachedCatalog.pipe(Effect.tapError(() => forgetCatalog))
 

@@ -1,6 +1,6 @@
-import { LoadingIndicator, Row, Text } from "@expo/ui/jetpack-compose"
-import { paddingAll } from "@expo/ui/jetpack-compose/modifiers"
-import type { SpinnerProps } from "./types"
+import { LoadingIndicator, Row, Text } from '@expo/ui/jetpack-compose'
+import { paddingAll } from '@expo/ui/jetpack-compose/modifiers'
+import type { SpinnerProps } from './types'
 
 export function Spinner({ label }: SpinnerProps) {
   return (

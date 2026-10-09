@@ -1,5 +1,5 @@
-import { PlanAction, PlanKind, Synergy } from "@ghost/contract"
-import { Schema } from "effect"
+import { PlanAction, PlanKind, Synergy } from '@ghost/contract'
+import { Schema } from 'effect'
 
 export const SourceInput = Schema.Struct({
   label: Schema.String,
@@ -74,7 +74,7 @@ export const PlanInput = Schema.Struct({
   artifact: Schema.optional(
     Schema.Array(Schema.String).annotate({
       description:
-        "The Seasonal Artifact perks the build runs, by the names get_artifact gives, including ones already selected. Leave it out only when the character has no artifact or no perks to spend.",
+        'The Seasonal Artifact perks the build runs, by the names get_artifact gives, including ones already selected. Leave it out only when the character has no artifact or no perks to spend.',
     }),
   ),
   shortfall: Schema.optional(Schema.String),

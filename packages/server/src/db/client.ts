@@ -1,15 +1,15 @@
-import { mkdirSync } from "node:fs"
-import { SqliteClient, SqliteMigrator } from "@effect/sql-sqlite-bun"
-import { Effect, Layer } from "effect"
-import { Reactivity } from "effect/reactivity"
-import { SqlClient } from "effect/sql"
-import { AppConfig } from "../config.ts"
+import { mkdirSync } from 'node:fs'
+import { SqliteClient, SqliteMigrator } from '@effect/sql-sqlite-bun'
+import { Effect, Layer } from 'effect'
+import { Reactivity } from 'effect/reactivity'
+import { SqlClient } from 'effect/sql'
+import { AppConfig } from '../config.ts'
 
 // Migrations are plain SQL effects keyed by "<id>_<name>". The migrator keeps
 // a table of applied ids, so restarting the server is safe: already-applied
 // migrations are skipped. New schema changes get a new numbered entry.
 const migrations = {
-  "0001_init": Effect.gen(function* () {
+  '0001_init': Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
     yield* sql`
       CREATE TABLE IF NOT EXISTS jobs (
@@ -44,7 +44,7 @@ const migrations = {
   // unknown) and "decision" is what you told Ghost to do about it. The
   // manifest table is a local cache of Bungie's item definitions so names and
   // tiers resolve without a network call per item.
-  "0002_decisions_and_manifest": Effect.gen(function* () {
+  '0002_decisions_and_manifest': Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
     yield* sql`ALTER TABLE items_seen ADD COLUMN source TEXT NOT NULL DEFAULT 'unknown'`
     yield* sql`ALTER TABLE items_seen ADD COLUMN decision TEXT`
@@ -67,7 +67,7 @@ const migrations = {
   // "new". The manifest gains class_type and descriptions, so stored copies
   // are re-downloaded. wishlist_rolls is the community roll list the agent
   // judges rolls against, and jobs keep the sources an answer relied on.
-  "0003_plans_sync_actions": Effect.gen(function* () {
+  '0003_plans_sync_actions': Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
     yield* sql`ALTER TABLE jobs ADD COLUMN plan TEXT`
     yield* sql`ALTER TABLE jobs ADD COLUMN character_id TEXT`
@@ -121,7 +121,7 @@ const migrations = {
   }),
   // Creator notes: dated, timestamped claims summarized from YouTube videos.
   // A video row is kept even when it yields no notes, so it is summarized once.
-  "0004_creator_notes": Effect.gen(function* () {
+  '0004_creator_notes': Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
     yield* sql`
       CREATE TABLE IF NOT EXISTS creator_channels (
@@ -156,20 +156,20 @@ const migrations = {
     `
     yield* sql`CREATE INDEX IF NOT EXISTS creator_notes_video ON creator_notes (video_id)`
   }),
-  "0005_sessions_and_steps": Effect.gen(function* () {
+  '0005_sessions_and_steps': Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
     yield* sql`ALTER TABLE jobs ADD COLUMN session_id TEXT`
     yield* sql`ALTER TABLE jobs ADD COLUMN steps TEXT NOT NULL DEFAULT '[]'`
     yield* sql`UPDATE jobs SET session_id = 'first'`
     yield* sql`CREATE INDEX IF NOT EXISTS jobs_session ON jobs (session_id, created_at)`
   }),
-  "0006_mod_actions": Effect.gen(function* () {
+  '0006_mod_actions': Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
     yield* sql`ALTER TABLE actions ADD COLUMN socket_index INTEGER`
     yield* sql`ALTER TABLE actions ADD COLUMN plug_hash INTEGER`
     yield* sql`ALTER TABLE actions ADD COLUMN previous_plug_hash INTEGER`
   }),
-  "0007_charge_effects": Effect.gen(function* () {
+  '0007_charge_effects': Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
     yield* sql`
       CREATE TABLE IF NOT EXISTS charge_effects (
@@ -182,7 +182,7 @@ const migrations = {
       )
     `
   }),
-  "0008_saved_builds": Effect.gen(function* () {
+  '0008_saved_builds': Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
     yield* sql`ALTER TABLE jobs ADD COLUMN recipe TEXT`
     yield* sql`
@@ -206,7 +206,7 @@ const migrations = {
   }),
   // A cleanup session is one JSON document; stage is its own column so the
   // active session is found without decoding every past one.
-  "0009_cleanup_sessions": Effect.gen(function* () {
+  '0009_cleanup_sessions': Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
     yield* sql`
       CREATE TABLE IF NOT EXISTS cleanup_sessions (
@@ -218,14 +218,14 @@ const migrations = {
       )
     `
   }),
-  "0010_job_offer": Effect.gen(function* () {
+  '0010_job_offer': Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
     yield* sql`ALTER TABLE jobs ADD COLUMN offer TEXT`
   }),
   // Jev's answer to one question, keyed by a hash of the model, subject,
   // request and item text, so judging the same vault twice gives the same
   // verdicts and asks Jev nothing the second time.
-  "0011_jev_answers": Effect.gen(function* () {
+  '0011_jev_answers': Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
     yield* sql`
       CREATE TABLE IF NOT EXISTS jev_answers (
@@ -237,7 +237,7 @@ const migrations = {
   }),
   // How good each trait perk is on one weapon, as the player or Claude rated
   // it. Junk judging stopped asking Jev, so its answers go.
-  "0012_perk_ratings": Effect.gen(function* () {
+  '0012_perk_ratings': Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
     yield* sql`
       CREATE TABLE IF NOT EXISTS perk_ratings (
@@ -255,7 +255,7 @@ const migrations = {
   }),
   // Ratings follow the weapon's name, since reissues get new item hashes and
   // the player and Claude both name weapons, not hashes.
-  "0013_perk_ratings_by_weapon": Effect.gen(function* () {
+  '0013_perk_ratings_by_weapon': Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
     yield* sql`DROP TABLE IF EXISTS perk_ratings`
     yield* sql`
@@ -272,7 +272,7 @@ const migrations = {
     `
   }),
   // A perk can be good for PvE and not for PvP, so a rating names its purpose.
-  "0014_perk_rating_purpose": Effect.gen(function* () {
+  '0014_perk_rating_purpose': Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
     yield* sql`
       CREATE TABLE perk_ratings_next (
@@ -295,7 +295,7 @@ const migrations = {
     yield* sql`ALTER TABLE perk_ratings_next RENAME TO perk_ratings`
   }),
   // Undoing a junk tag puts back the decision the item had before.
-  "0015_action_previous_decision": Effect.gen(function* () {
+  '0015_action_previous_decision': Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
     yield* sql`ALTER TABLE actions ADD COLUMN previous_decision TEXT`
   }),

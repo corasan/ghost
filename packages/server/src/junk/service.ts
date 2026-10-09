@@ -1,16 +1,16 @@
-import type { BungieNotLinked } from "@ghost/contract"
-import { Context, DateTime, Effect, Layer, Option } from "effect"
-import type { BungieError } from "../bungie/client.ts"
-import { isRolledTrait, isWeapon, type OwnedItem } from "../bungie/inventory.ts"
-import { Loadouts } from "../bungie/loadouts.ts"
-import { Manifest } from "../bungie/manifest.ts"
-import { ProfileStore } from "../bungie/profile.ts"
-import { BuildsRepo } from "../db/builds.ts"
-import { PerkRatings, weaponKey } from "../db/perk-ratings.ts"
-import { checkRoll, perkKey, scoreFor, WILDCARD_ITEM } from "../wishlist/parse.ts"
-import { Wishlist, type WishlistError } from "../wishlist/wishlist.ts"
-import { inUse, judge, type RollStanding, type Verdict } from "./judge.ts"
-import { type PerkKnowledge, type Purpose, PURPOSES, type RatedColumns, ratePerk } from "./perks.ts"
+import type { BungieNotLinked } from '@ghost/contract'
+import { Context, DateTime, Effect, Layer, Option } from 'effect'
+import type { BungieError } from '../bungie/client.ts'
+import { isRolledTrait, isWeapon, type OwnedItem } from '../bungie/inventory.ts'
+import { Loadouts } from '../bungie/loadouts.ts'
+import { Manifest } from '../bungie/manifest.ts'
+import { ProfileStore } from '../bungie/profile.ts'
+import { BuildsRepo } from '../db/builds.ts'
+import { PerkRatings, weaponKey } from '../db/perk-ratings.ts'
+import { checkRoll, perkKey, scoreFor, WILDCARD_ITEM } from '../wishlist/parse.ts'
+import { Wishlist, type WishlistError } from '../wishlist/wishlist.ts'
+import { inUse, judge, type RollStanding, type Verdict } from './judge.ts'
+import { type PerkKnowledge, type Purpose, PURPOSES, type RatedColumns, ratePerk } from './perks.ts'
 
 export interface Judgment {
   readonly items: ReadonlyMap<string, OwnedItem>
@@ -38,7 +38,7 @@ export interface JunkJudgeService {
   ) => Effect.Effect<RatedColumns, JudgeErrors>
 }
 
-export class JunkJudge extends Context.Service<JunkJudge, JunkJudgeService>()("JunkJudge") {}
+export class JunkJudge extends Context.Service<JunkJudge, JunkJudgeService>()('JunkJudge') {}
 
 export const JunkJudgeLive = Layer.effect(
   JunkJudge,
@@ -97,8 +97,8 @@ export const JunkJudgeLive = Layer.effect(
             return counts
           }
           return {
-            stored: stored.get(weaponKey(nameOfWeapon.get(itemHash) ?? "")) ?? new Map(),
-            wishlisted: { pve: named(false, "pve"), pvp: named(false, "pvp") },
+            stored: stored.get(weaponKey(nameOfWeapon.get(itemHash) ?? '')) ?? new Map(),
+            wishlisted: { pve: named(false, 'pve'), pvp: named(false, 'pvp') },
             trashed: new Set(named(true).keys()),
             community,
           }

@@ -8,8 +8,8 @@ import {
   type ItemSlot,
   ItemPerk,
   type ItemSummary,
-} from "@ghost/contract"
-import { Schema } from "effect"
+} from '@ghost/contract'
+import { Schema } from 'effect'
 import {
   type ArmorSet,
   BUCKETS,
@@ -17,7 +17,7 @@ import {
   type ManifestItem,
   slotForBucket,
   type TuningMods,
-} from "./manifest.ts"
+} from './manifest.ts'
 
 // Turns one GetProfile response into the flat list of owned items and the
 // per-character facts every screen and tool reads. Pure on purpose: the
@@ -108,12 +108,12 @@ export const Profile = Schema.Struct({
 export type Profile = typeof Profile.Type
 
 export const STAT = {
-  mobility: "2996146975",
-  resilience: "392767087",
-  recovery: "1943323491",
-  discipline: "1735777505",
-  intellect: "144602215",
-  strength: "4244567218",
+  mobility: '2996146975',
+  resilience: '392767087',
+  recovery: '1943323491',
+  discipline: '1735777505',
+  intellect: '144602215',
+  strength: '4244567218',
 } as const
 
 export type ArmorStats = typeof CharacterStats.Type
@@ -123,7 +123,7 @@ export type ArmorStats = typeof CharacterStats.Type
  * stat at random; tier 5 exotics take any stat; lower tiers only take
  * Balanced Tuning.
  */
-export type Tuning = keyof ArmorStats | "any" | "balanced"
+export type Tuning = keyof ArmorStats | 'any' | 'balanced'
 
 /** Everything the contract's ItemSummary has, plus the six armor stats. */
 export type OwnedItem = Schema.Struct.Type<typeof ItemSummary.fields> & {
@@ -183,19 +183,19 @@ export interface SlottedPlugs {
 const ARMOR_MOD = /\barmor mod$/i
 const EMPTY_SOCKET = /^empty /i
 
-export type SubclassPart = "super" | AbilityKind | "aspect" | "fragment"
+export type SubclassPart = 'super' | AbilityKind | 'aspect' | 'fragment'
 
 const PART_TYPES: ReadonlyArray<readonly [SubclassPart, RegExp]> = [
-  ["super", /\bsuper\b/i],
-  ["class", /\bclass ability\b/i],
-  ["jump", /\bmovement\b/i],
-  ["melee", /\bmelee\b/i],
-  ["grenade", /\bgrenade\b/i],
-  ["aspect", /\baspect\b/i],
-  ["fragment", /\bfragment\b/i],
+  ['super', /\bsuper\b/i],
+  ['class', /\bclass ability\b/i],
+  ['jump', /\bmovement\b/i],
+  ['melee', /\bmelee\b/i],
+  ['grenade', /\bgrenade\b/i],
+  ['aspect', /\baspect\b/i],
+  ['fragment', /\bfragment\b/i],
 ]
 
-export const ABILITY_KINDS: ReadonlyArray<AbilityKind> = ["class", "jump", "melee", "grenade"]
+export const ABILITY_KINDS: ReadonlyArray<AbilityKind> = ['class', 'jump', 'melee', 'grenade']
 
 /** Which part of a subclass a plug fills, read from its type name, such as "Void Fragment". */
 export const subclassPart = (typeName: string): SubclassPart | null =>
@@ -222,13 +222,13 @@ export const slottedPlugs = (
   const of = (part: SubclassPart) =>
     plugs.filter((plug) => subclassPart(plug.typeName) === part).map(toPlug)
   return {
-    super: of("super")[0] ?? null,
+    super: of('super')[0] ?? null,
     abilities: ABILITY_KINDS.flatMap((kind) => {
       const plug = of(kind)[0]
       return plug === undefined ? [] : [{ ...plug, kind }]
     }),
-    aspects: of("aspect"),
-    fragments: of("fragment"),
+    aspects: of('aspect'),
+    fragments: of('fragment'),
   }
 }
 
@@ -275,12 +275,12 @@ export interface SeenInfo {
 }
 
 const STAT_KEYS = new Map<string, keyof ArmorStats>([
-  [STAT.mobility, "mobility"],
-  [STAT.resilience, "resilience"],
-  [STAT.recovery, "recovery"],
-  [STAT.discipline, "discipline"],
-  [STAT.intellect, "intellect"],
-  [STAT.strength, "strength"],
+  [STAT.mobility, 'mobility'],
+  [STAT.resilience, 'resilience'],
+  [STAT.recovery, 'recovery'],
+  [STAT.discipline, 'discipline'],
+  [STAT.intellect, 'intellect'],
+  [STAT.strength, 'strength'],
 ])
 
 /** The tuning a piece accepts, read from the reusable plugs of its tuning socket. */
@@ -292,46 +292,46 @@ export const tuningOf = (
   if (offered === undefined) return null
   const raised = new Set(
     offered.flatMap((hash) => {
-      const key = STAT_KEYS.get(mods.get(hash) ?? "")
+      const key = STAT_KEYS.get(mods.get(hash) ?? '')
       return key === undefined ? [] : [key]
     }),
   )
   const [only] = raised
-  if (raised.size > 1) return "any"
-  return only ?? "balanced"
+  if (raised.size > 1) return 'any'
+  return only ?? 'balanced'
 }
 
 export const classFor = (classType: number): GuardianClass =>
-  classType === 0 ? "titan" : classType === 1 ? "hunter" : "warlock"
+  classType === 0 ? 'titan' : classType === 1 ? 'hunter' : 'warlock'
 
-const ARMOR_SLOTS: ReadonlySet<ItemSlot> = new Set(["helmet", "arms", "chest", "legs", "class"])
-const WEAPON_SLOTS: ReadonlySet<ItemSlot> = new Set(["kinetic", "energy", "power"])
+const ARMOR_SLOTS: ReadonlySet<ItemSlot> = new Set(['helmet', 'arms', 'chest', 'legs', 'class'])
+const WEAPON_SLOTS: ReadonlySet<ItemSlot> = new Set(['kinetic', 'energy', 'power'])
 export const isArmor = (slot: ItemSlot) => ARMOR_SLOTS.has(slot)
 export const isWeapon = (slot: ItemSlot) => WEAPON_SLOTS.has(slot)
 
 // Older subclass definitions carry no damage type; their names do.
 const SUBCLASS_ELEMENTS = new Map<string, DamageType>([
-  ["Arcstrider", "arc"],
-  ["Striker", "arc"],
-  ["Stormcaller", "arc"],
-  ["Gunslinger", "solar"],
-  ["Sunbreaker", "solar"],
-  ["Dawnblade", "solar"],
-  ["Nightstalker", "void"],
-  ["Sentinel", "void"],
-  ["Voidwalker", "void"],
-  ["Revenant", "stasis"],
-  ["Behemoth", "stasis"],
-  ["Shadebinder", "stasis"],
-  ["Threadrunner", "strand"],
-  ["Berserker", "strand"],
-  ["Broodweaver", "strand"],
+  ['Arcstrider', 'arc'],
+  ['Striker', 'arc'],
+  ['Stormcaller', 'arc'],
+  ['Gunslinger', 'solar'],
+  ['Sunbreaker', 'solar'],
+  ['Dawnblade', 'solar'],
+  ['Nightstalker', 'void'],
+  ['Sentinel', 'void'],
+  ['Voidwalker', 'void'],
+  ['Revenant', 'stasis'],
+  ['Behemoth', 'stasis'],
+  ['Shadebinder', 'stasis'],
+  ['Threadrunner', 'strand'],
+  ['Berserker', 'strand'],
+  ['Broodweaver', 'strand'],
 ])
 
 const elementOf = (subclass: ManifestItem): DamageType =>
-  subclass.damageType !== "none"
+  subclass.damageType !== 'none'
     ? subclass.damageType
-    : (SUBCLASS_ELEMENTS.get(subclass.name) ?? "none")
+    : (SUBCLASS_ELEMENTS.get(subclass.name) ?? 'none')
 
 const statsFrom = (stats: Readonly<Record<string, number>>) =>
   new CharacterStats({
@@ -344,17 +344,17 @@ const statsFrom = (stats: Readonly<Record<string, number>>) =>
   })
 
 /** Every hash the profile mentions, plugs included, so one manifest lookup covers it. */
-const isTrait = (plug: ManifestItem) => plug.typeName.includes("Trait")
+const isTrait = (plug: ManifestItem) => plug.typeName.includes('Trait')
 
 const NOT_A_PERK = /shader|ornament|tracker|memento|transmat|emote|^empty |^default /i
 
 /** A plug worth showing as a perk: it has effect text and is not cosmetic or an empty socket. */
 export const isPerk = (plug: ManifestItem) =>
-  plug.description !== "" && !NOT_A_PERK.test(plug.typeName) && !NOT_A_PERK.test(plug.name)
+  plug.description !== '' && !NOT_A_PERK.test(plug.typeName) && !NOT_A_PERK.test(plug.name)
 
 /** A rolled trait perk, as opposed to the origin trait every copy of a weapon shares. */
 export const isRolledTrait = (typeName: string) =>
-  typeName === "Trait" || typeName === "Enhanced Trait"
+  typeName === 'Trait' || typeName === 'Enhanced Trait'
 
 export const profileHashes = (profile: Profile): Set<number> => {
   const hashes = new Set<number>()
@@ -408,7 +408,7 @@ export const buildInventory = (
     if (id === undefined || raw.bucketHash === BUCKETS.subclass) return
     placed.push({ raw: { ...raw, itemInstanceId: id }, location, characterId, equipped })
   }
-  for (const raw of vault) place(raw, "vault", null, false)
+  for (const raw of vault) place(raw, 'vault', null, false)
 
   const characters: Array<CharacterInfo> = []
   for (const c of Object.values(profile.characters?.data ?? {})) {
@@ -417,12 +417,12 @@ export const buildInventory = (
     for (const raw of inventory) {
       place(
         raw,
-        raw.bucketHash === BUCKETS.postmaster ? "postmaster" : "character",
+        raw.bucketHash === BUCKETS.postmaster ? 'postmaster' : 'character',
         c.characterId,
         false,
       )
     }
-    for (const raw of equipment) place(raw, "character", c.characterId, true)
+    for (const raw of equipment) place(raw, 'character', c.characterId, true)
     const subclassItem = equipment.find((i) => i.bucketHash === BUCKETS.subclass)
     const subclass = subclassItem === undefined ? undefined : defs.get(subclassItem.itemHash)
     const subclasses = [...equipment, ...inventory].flatMap((raw): Array<OwnedSubclass> => {
@@ -452,9 +452,9 @@ export const buildInventory = (
       ghostIcon:
         defs.get(equipment.find((i) => i.bucketHash === BUCKETS.ghost)?.itemHash ?? 0)?.icon ??
         null,
-      element: subclass === undefined ? "none" : elementOf(subclass),
+      element: subclass === undefined ? 'none' : elementOf(subclass),
       loadout: slottedPlugs(
-        (sockets[subclassItem?.itemInstanceId ?? ""]?.sockets ?? []).flatMap((socket) =>
+        (sockets[subclassItem?.itemInstanceId ?? '']?.sockets ?? []).flatMap((socket) =>
           socket.plugHash === undefined ? [] : [socket.plugHash],
         ),
         defs,
@@ -502,10 +502,10 @@ export const buildInventory = (
         })
       : []
     const intrinsics =
-      armor && def?.tier === "exotic"
+      armor && def?.tier === 'exotic'
         ? (sockets[id]?.sockets ?? []).flatMap((socket) => {
             const plug = socket.plugHash === undefined ? undefined : defs.get(socket.plugHash)
-            return plug?.typeName === "Intrinsic" && plug.description !== "" ? [plug] : []
+            return plug?.typeName === 'Intrinsic' && plug.description !== '' ? [plug] : []
           })
         : []
     const intrinsic = intrinsics[0]
@@ -555,14 +555,14 @@ export const buildInventory = (
       itemInstanceId: id,
       itemHash: raw.itemHash,
       name: def?.name ?? `#${raw.itemHash}`,
-      typeName: def?.typeName ?? "",
+      typeName: def?.typeName ?? '',
       icon: def?.icon ?? null,
-      tier: def?.tier ?? "unknown",
+      tier: def?.tier ?? 'unknown',
       slot,
       damageType:
         instance?.damageType !== undefined
           ? damageForType(instance.damageType)
-          : (def?.damageType ?? "none"),
+          : (def?.damageType ?? 'none'),
       power: instance?.primaryStat?.value ?? null,
       quantity: raw.quantity,
       location,
@@ -621,7 +621,7 @@ export const buildInventory = (
   const userInfo = profile.profile?.data?.userInfo
   return {
     membershipType: userInfo?.membershipType ?? 0,
-    membershipId: userInfo?.membershipId ?? "",
+    membershipId: userInfo?.membershipId ?? '',
     characters,
     items,
     vaultCount: vault.length,
@@ -655,7 +655,7 @@ export const isUpgrade = (
   if (isWeapon(item.slot)) {
     return item.power !== null && current.power !== null && item.power > current.power
   }
-  if (item.tier === "exotic" && current.tier !== "exotic") return false
+  if (item.tier === 'exotic' && current.tier !== 'exotic') return false
   return (
     item.statTotal !== null && current.statTotal !== null && item.statTotal > current.statTotal + 2
   )

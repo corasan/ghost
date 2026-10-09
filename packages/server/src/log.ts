@@ -10,8 +10,8 @@ import {
   Option,
   Predicate,
   References,
-} from "effect"
-import { HttpServerError, HttpServerRequest, type HttpServerResponse } from "effect/http"
+} from 'effect'
+import { HttpServerError, HttpServerRequest, type HttpServerResponse } from 'effect/http'
 
 const ansi = (code: number) => (text: string) => `\x1b[${code}m${text}\x1b[0m`
 const plain = (text: string) => text
@@ -28,28 +28,28 @@ const magenta = paint(35)
 const cyan = paint(36)
 
 const levelLabels: Record<LogLevel.LogLevel, string> = {
-  All: dim("ALL  "),
-  Trace: dim("TRACE"),
-  Debug: dim("DEBUG"),
-  Info: blue("INFO "),
-  Warn: yellow("WARN "),
-  Error: red("ERROR"),
-  Fatal: bold(red("FATAL")),
-  None: "     ",
+  All: dim('ALL  '),
+  Trace: dim('TRACE'),
+  Debug: dim('DEBUG'),
+  Info: blue('INFO '),
+  Warn: yellow('WARN '),
+  Error: red('ERROR'),
+  Fatal: bold(red('FATAL')),
+  None: '     ',
 }
 
 const clock = (date: Date) =>
   dim(
     [date.getHours(), date.getMinutes(), date.getSeconds()]
-      .map((part) => String(part).padStart(2, "0"))
-      .join(":"),
+      .map((part) => String(part).padStart(2, '0'))
+      .join(':'),
   )
 
 const indent = (text: string) =>
   text
-    .split("\n")
+    .split('\n')
     .map((line) => `    ${line}`)
-    .join("\n")
+    .join('\n')
 
 const line = Logger.make(({ message, logLevel, cause, fiber, date }) => {
   const now = date.getTime()
@@ -66,14 +66,14 @@ const line = Logger.make(({ message, logLevel, cause, fiber, date }) => {
     [message]
       .flat()
       .map((part) => (Predicate.isString(part) ? part : Formatter.format(part)))
-      .join(" "),
+      .join(' '),
   ]
-  if (context.length > 0) head.push(dim(context.join(" ")))
+  if (context.length > 0) head.push(dim(context.join(' ')))
   const output =
     cause.reasons.length === 0
-      ? head.join(" ")
-      : `${head.join(" ")}\n${dim(indent(Cause.pretty(cause)))}`
-  if (LogLevel.isGreaterThanOrEqualTo(logLevel, "Warn")) console.error(output)
+      ? head.join(' ')
+      : `${head.join(' ')}\n${dim(indent(Cause.pretty(cause)))}`
+  if (LogLevel.isGreaterThanOrEqualTo(logLevel, 'Warn')) console.error(output)
   else console.log(output)
 })
 
@@ -81,20 +81,20 @@ export const LoggerLive = Layer.mergeAll(
   Logger.layer([line]),
   Layer.effect(
     References.MinimumLogLevel,
-    Config.LogLevel("GHOST_LOG_LEVEL").pipe(Config.withDefault("Info")),
+    Config.LogLevel('GHOST_LOG_LEVEL').pipe(Config.withDefault('Info')),
   ),
 )
 
 const methodColor = (method: string) => {
   switch (method) {
-    case "GET":
+    case 'GET':
       return cyan
-    case "POST":
+    case 'POST':
       return green
-    case "PUT":
-    case "PATCH":
+    case 'PUT':
+    case 'PATCH':
       return yellow
-    case "DELETE":
+    case 'DELETE':
       return red
     default:
       return magenta
@@ -105,7 +105,7 @@ const statusColor = (status: number) =>
   status >= 500 ? red : status >= 400 ? yellow : status >= 300 ? cyan : green
 
 const levelFor = (method: string, status: number): LogLevel.Severity =>
-  status >= 500 ? "Error" : status >= 400 ? "Warn" : method === "GET" ? "Debug" : "Info"
+  status >= 500 ? 'Error' : status >= 400 ? 'Warn' : method === 'GET' ? 'Debug' : 'Info'
 
 const pathOf = (url: string) => url.split(/[?#]/)[0] ?? url
 
@@ -128,7 +128,7 @@ export const requestLogger = <E, R>(
       pathOf(request.url),
       statusColor(status)(String(status)),
       dim(`${Date.now() - start}ms`),
-    ].join(" ")
+    ].join(' ')
     yield* Effect.logWithLevel(levelFor(request.method, status))(summary, cause)
     return yield* exit
   })

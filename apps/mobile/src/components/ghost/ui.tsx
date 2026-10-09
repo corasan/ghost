@@ -1,7 +1,7 @@
-import { Image } from "expo-image"
-import { router, useNavigation } from "expo-router"
-import type { DrawerNavigationProp } from "expo-router/drawer"
-import type { ReactNode, Ref } from "react"
+import { Image } from 'expo-image'
+import { router, useNavigation } from 'expo-router'
+import type { DrawerNavigationProp } from 'expo-router/drawer'
+import type { ReactNode, Ref } from 'react'
 import {
   type HostInstance,
   Pressable,
@@ -11,12 +11,12 @@ import {
   type TextStyle,
   View,
   type ViewProps,
-} from "react-native"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
+} from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
-import { Ghost, Gutter, Type } from "@/constants/theme"
-import { useGuardian } from "@/lib/api"
-import { sentence } from "@/lib/format"
+import { Ghost, Gutter, Type } from '@/constants/theme'
+import { useGuardian } from '@/lib/api'
+import { sentence } from '@/lib/format'
 
 // The design's three voices: JetBrains Mono for numbers and short section
 // labels, Barlow Condensed for headings and buttons, Barlow for sentences and
@@ -109,10 +109,10 @@ export function StatLabel({
   label: string
   size?: number
   color?: string
-  style?: ViewProps["style"]
+  style?: ViewProps['style']
 }) {
   return (
-    <View style={[{ flexDirection: "row", alignItems: "center", gap: 3 }, style]}>
+    <View style={[{ flexDirection: 'row', alignItems: 'center', gap: 3 }, style]}>
       <StatIcon label={label} size={size + 2} color={color} />
       <Meta size={size} color={color} lines={1} style={{ flexShrink: 1 }}>
         {sentence(label)}
@@ -135,7 +135,7 @@ export function Diamond({
       style={{
         width: size,
         height: size,
-        transform: [{ rotate: "45deg" }],
+        transform: [{ rotate: '45deg' }],
         backgroundColor: outline ? undefined : color,
         borderWidth: outline ? 1.5 : 0,
         borderColor: color,
@@ -154,7 +154,7 @@ export function Check({ size, color = Ghost.good }: { size: number; color?: stri
         borderBottomWidth: 2,
         borderRightWidth: 2,
         borderColor: color,
-        transform: [{ rotate: "45deg" }],
+        transform: [{ rotate: '45deg' }],
       }}
     />
   )
@@ -162,15 +162,15 @@ export function Check({ size, color = Ghost.good }: { size: number; color?: stri
 
 /** The "›" and "⌄" marks in the design are rotated half-borders, not glyphs. */
 export function Chevron({
-  direction = "right",
+  direction = 'right',
   size = 7,
   color = Ghost.dim,
 }: {
-  direction?: "right" | "down" | "left" | "up"
+  direction?: 'right' | 'down' | 'left' | 'up'
   size?: number
   color?: string
 }) {
-  const rotate = { right: "45deg", down: "135deg", left: "225deg", up: "-45deg" }[direction]
+  const rotate = { right: '45deg', down: '135deg', left: '225deg', up: '-45deg' }[direction]
   return (
     <View
       style={{
@@ -218,24 +218,24 @@ export function Cut({
   fill?: string
   border?: string
   under?: string
-  style?: ViewProps["style"]
+  style?: ViewProps['style']
   children?: ReactNode
 }) {
   const inset = border ? 1 : 0
   const side = cut * Math.SQRT2
   const corner = {
-    position: "absolute",
+    position: 'absolute',
     width: side,
     height: side,
     backgroundColor: under,
     borderWidth: inset,
     borderColor: border,
-    transform: [{ rotate: "45deg" }],
+    transform: [{ rotate: '45deg' }],
   } as const
   return (
     <View
       style={[
-        { backgroundColor: fill, borderWidth: inset, borderColor: border, overflow: "hidden" },
+        { backgroundColor: fill, borderWidth: inset, borderColor: border, overflow: 'hidden' },
         style,
       ]}
     >
@@ -255,7 +255,7 @@ export function Cut({
 export function Button({
   label,
   onPress,
-  tone = "outline",
+  tone = 'outline',
   flex = 1,
   disabled,
   under = Ghost.bg,
@@ -263,16 +263,16 @@ export function Button({
 }: {
   label: string
   onPress?: () => void
-  tone?: "outline" | "solid" | "danger" | "accent"
+  tone?: 'outline' | 'solid' | 'danger' | 'accent'
   flex?: number
   disabled?: boolean
   under?: string
   compact?: boolean
 }) {
-  const solid = tone === "solid" || tone === "danger"
-  const fill = tone === "solid" ? Ghost.ink : tone === "danger" ? Ghost.danger : undefined
-  const border = solid ? undefined : tone === "accent" ? Ghost.accent : Ghost.ruleStrong
-  const color = solid ? Ghost.bg : tone === "accent" ? Ghost.accent : Ghost.ink
+  const solid = tone === 'solid' || tone === 'danger'
+  const fill = tone === 'solid' ? Ghost.ink : tone === 'danger' ? Ghost.danger : undefined
+  const border = solid ? undefined : tone === 'accent' ? Ghost.accent : Ghost.ruleStrong
+  const color = solid ? Ghost.bg : tone === 'accent' ? Ghost.accent : Ghost.ink
   return (
     <Pressable
       accessibilityRole="button"
@@ -288,7 +288,7 @@ export function Button({
         style={{
           paddingVertical: compact ? 9 : 12,
           paddingHorizontal: 14,
-          alignItems: "center",
+          alignItems: 'center',
         }}
       >
         <Cond size={compact ? 14 : 15} color={color}>
@@ -363,7 +363,7 @@ export function TierStat({
   const gained = Math.min(10, Math.floor((masterworked ?? value) / 10))
   return (
     <View style={{ flex: 1 }}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
         <StatIcon label={label} color={color} />
         <Cond size={20} color={color} style={{ letterSpacing: 0, lineHeight: 22 }}>
           {value}
@@ -377,7 +377,7 @@ export function TierStat({
       <Meta size={12} style={{ marginTop: 2 }} lines={1}>
         {sentence(label)}
       </Meta>
-      <View style={{ flexDirection: "row", gap: 2, marginTop: 6 }}>
+      <View style={{ flexDirection: 'row', gap: 2, marginTop: 6 }}>
         {Array.from({ length: 10 }, (_, i) => (
           <View
             key={i}
@@ -404,7 +404,7 @@ export function TierStats({
   }[]
 }) {
   return (
-    <View style={{ flexDirection: "row", gap: 8 }}>
+    <View style={{ flexDirection: 'row', gap: 8 }}>
       {stats.map((stat) => (
         <TierStat
           key={stat.label}
@@ -430,10 +430,10 @@ export function ArmorStatLine({ stats }: { stats: readonly ArmorStat[] }) {
   const then = stats.reduce((sum, stat) => sum + (stat.masterworked ?? stat.value), 0)
   return (
     <View style={{ gap: 5 }}>
-      <View style={{ flexDirection: "row" }}>
+      <View style={{ flexDirection: 'row' }}>
         {stats.map((stat) => (
           <View key={stat.label} style={{ flex: 1 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
               <StatIcon label={stat.label} size={12} />
               <Mono size={14} color={stat.value > 0 ? Ghost.ink : Ghost.dim}>
                 {stat.value}
@@ -460,7 +460,7 @@ export function ArmorStatLine({ stats }: { stats: readonly ArmorStat[] }) {
 /** Ghost's voice: a blue rule beside a sentence. */
 export function Said({ children, size = 16 }: { children: ReactNode; size?: number }) {
   return (
-    <View style={{ flexDirection: "row", gap: 12 }}>
+    <View style={{ flexDirection: 'row', gap: 12 }}>
       <View style={{ width: 2, backgroundColor: Ghost.accent }} />
       <Text
         style={{
@@ -482,10 +482,10 @@ export function Nudge({ text, action, prompt }: { text: string; action: string; 
   return (
     <Pressable
       accessibilityRole="button"
-      onPress={() => router.navigate({ pathname: "/", params: { draft: prompt } })}
+      onPress={() => router.navigate({ pathname: '/', params: { draft: prompt } })}
       style={styles.nudge}
     >
-      <View style={{ width: 2, alignSelf: "stretch", backgroundColor: Ghost.accent }} />
+      <View style={{ width: 2, alignSelf: 'stretch', backgroundColor: Ghost.accent }} />
       <Body size={14} color={Ghost.soft} style={{ flex: 1, lineHeight: 19 }}>
         {text}
       </Body>
@@ -528,7 +528,7 @@ export function PageHeader({
         accessibilityLabel="Open menu"
         hitSlop={14}
         onPress={openDrawer}
-        style={{ alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 10 }}
+        style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 10 }}
       >
         <Bars color={Ghost.accent} />
         <Mono size={11} color={Ghost.accent}>
@@ -544,7 +544,7 @@ export function PageHeader({
             {subtitle}
           </Meta>
         </View>
-        <View style={{ alignItems: "flex-end" }}>
+        <View style={{ alignItems: 'flex-end' }}>
           <Cond size={44} color={figureColor} style={styles.headline}>
             {figure}
             {figureSuffix ? <Text style={{ color: Ghost.dim }}>{figureSuffix}</Text> : null}
@@ -557,23 +557,23 @@ export function PageHeader({
   )
 }
 
-export function Rule({ style }: { style?: ViewProps["style"] }) {
+export function Rule({ style }: { style?: ViewProps['style'] }) {
   return <View style={[{ height: 1, backgroundColor: Ghost.rule }, style]} />
 }
 
 const styles = StyleSheet.create({
   chip: { paddingVertical: 6, paddingHorizontal: 12, borderWidth: 1 },
   nudge: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
     marginHorizontal: Gutter,
     paddingVertical: 4,
   },
   headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
     gap: 12,
     marginTop: 14,
   },

@@ -1,5 +1,5 @@
-import * as SecureStore from "expo-secure-store"
-import { useSyncExternalStore } from "react"
+import * as SecureStore from 'expo-secure-store'
+import { useSyncExternalStore } from 'react'
 
 // The server URL and its pairing token are the only config the app owns.
 // The URL is the tailnet address of the machine running packages/server, for
@@ -7,12 +7,12 @@ import { useSyncExternalStore } from "react"
 // server expects in every request's Authorization header. Both come from the
 // QR code `ghost start` shows, so they never change while the app is open
 // and a tiny external store is enough.
-const URL_KEY = "ghost.serverUrl"
-const TOKEN_KEY = "ghost.serverToken"
-const DEFAULT_URL = "http://localhost:4848"
+const URL_KEY = 'ghost.serverUrl'
+const TOKEN_KEY = 'ghost.serverToken'
+const DEFAULT_URL = 'http://localhost:4848'
 
 let current = SecureStore.getItem(URL_KEY) ?? DEFAULT_URL
-let token = SecureStore.getItem(TOKEN_KEY) ?? ""
+let token = SecureStore.getItem(TOKEN_KEY) ?? ''
 const listeners = new Set<() => void>()
 
 const notify = () => {
@@ -28,7 +28,7 @@ export function getServerToken() {
 }
 
 export function setServerUrl(url: string) {
-  current = url.trim().replace(/\/+$/, "") || DEFAULT_URL
+  current = url.trim().replace(/\/+$/, '') || DEFAULT_URL
   SecureStore.setItem(URL_KEY, current)
   notify()
 }

@@ -1,22 +1,22 @@
-import type { Job } from "@ghost/contract"
-import { LegendList, type LegendListRef } from "@legendapp/list/react-native"
-import { router, useLocalSearchParams } from "expo-router"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { View } from "react-native"
-import { KeyboardAvoidingView } from "react-native-keyboard-controller"
+import type { Job } from '@ghost/contract'
+import { LegendList, type LegendListRef } from '@legendapp/list/react-native'
+import { router, useLocalSearchParams } from 'expo-router'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { View } from 'react-native'
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller'
 
-import { BriefingView } from "@/components/chat/briefing"
-import { Composer, Starters } from "@/components/chat/composer"
-import { ChatHeader } from "@/components/chat/header"
-import { MessageView } from "@/components/chat/message"
-import { Body } from "@/components/ghost/ui"
-import { Ghost } from "@/constants/theme"
-import { errorMessage, useBriefing, useCreateJob, useJobs } from "@/lib/api"
-import { useCharacter } from "@/lib/character"
-import { usePullRefresh } from "@/lib/refresh"
-import { continueSession, startFreshSession, useSessionId } from "@/lib/session"
+import { BriefingView } from '@/components/chat/briefing'
+import { Composer, Starters } from '@/components/chat/composer'
+import { ChatHeader } from '@/components/chat/header'
+import { MessageView } from '@/components/chat/message'
+import { Body } from '@/components/ghost/ui'
+import { Ghost } from '@/constants/theme'
+import { errorMessage, useBriefing, useCreateJob, useJobs } from '@/lib/api'
+import { useCharacter } from '@/lib/character'
+import { usePullRefresh } from '@/lib/refresh'
+import { continueSession, startFreshSession, useSessionId } from '@/lib/session'
 
-type Entry = { type: "job"; job: Job } | { type: "briefing" }
+type Entry = { type: 'job'; job: Job } | { type: 'briefing' }
 
 /**
  * Chat is home. It shows one conversation, oldest request at the top, with
@@ -26,7 +26,7 @@ type Entry = { type: "job"; job: Job } | { type: "briefing" }
  */
 export default function ChatScreen() {
   const { draft: queued } = useLocalSearchParams<{ draft?: string }>()
-  const [draft, setDraft] = useState("")
+  const [draft, setDraft] = useState('')
   const list = useRef<LegendListRef>(null)
 
   const { character } = useCharacter()
@@ -50,25 +50,25 @@ export default function ChatScreen() {
     const before = since === null ? [] : ordered.filter((job) => job.createdAt <= since)
     const after = since === null ? ordered : ordered.filter((job) => job.createdAt > since)
     return [
-      ...before.map((job) => ({ type: "job" as const, job })),
-      { type: "briefing" as const },
-      ...after.map((job) => ({ type: "job" as const, job })),
+      ...before.map((job) => ({ type: 'job' as const, job })),
+      { type: 'briefing' as const },
+      ...after.map((job) => ({ type: 'job' as const, job })),
     ]
   }, [jobs.data, since])
 
-  const asked = entries.length > 0 && entries[entries.length - 1]?.type === "job"
+  const asked = entries.length > 0 && entries[entries.length - 1]?.type === 'job'
   const hasHistory = entries.length > 1
 
   const ask = useCallback(
     (prompt: string) => {
       const text = prompt.trim()
-      if (text === "") return
+      if (text === '') return
       createJob.mutate(
-        { kind: "chat", prompt: text, characterId: characterId ?? null, sessionId },
+        { kind: 'chat', prompt: text, characterId: characterId ?? null, sessionId },
         {
           onSuccess: (job) => {
             if (job.sessionId !== null) continueSession(job.sessionId)
-            setDraft("")
+            setDraft('')
             list.current?.scrollToEnd({ animated: true })
           },
         },
@@ -79,7 +79,7 @@ export default function ChatScreen() {
 
   const renderItem = useCallback(
     ({ item }: { item: Entry }) =>
-      item.type === "briefing" ? (
+      item.type === 'briefing' ? (
         <BriefingView
           briefing={briefing.data}
           character={character}
@@ -103,12 +103,12 @@ export default function ChatScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <LegendList
           ref={list}
-          key={sessionId ?? "fresh"}
+          key={sessionId ?? 'fresh'}
           data={entries}
           renderItem={renderItem}
           recycleItems={false}
           extraData={renderItem}
-          keyExtractor={(item) => (item.type === "briefing" ? "briefing" : item.job.id)}
+          keyExtractor={(item) => (item.type === 'briefing' ? 'briefing' : item.job.id)}
           getItemType={(item) => item.type}
           estimatedItemSize={160}
           // Chat semantics: start at the newest message, stay pinned to the

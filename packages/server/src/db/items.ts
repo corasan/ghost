@@ -1,7 +1,7 @@
-import type { ItemDecision, ItemLocation } from "@ghost/contract"
-import { Context, DateTime, Effect, Layer, Option } from "effect"
-import { SqlClient, type SqlError } from "effect/sql"
-import type { SeenInfo } from "../bungie/inventory.ts"
+import type { ItemDecision, ItemLocation } from '@ghost/contract'
+import { Context, DateTime, Effect, Layer, Option } from 'effect'
+import { SqlClient, type SqlError } from 'effect/sql'
+import type { SeenInfo } from '../bungie/inventory.ts'
 
 // items_seen remembers every item instance Ghost has ever seen in the
 // profile: when it first showed up, where it is now, and what the player
@@ -33,10 +33,10 @@ interface ItemRow {
 }
 
 const asLocation = (value: string): ItemLocation =>
-  value === "postmaster" || value === "character" ? value : "vault"
+  value === 'postmaster' || value === 'character' ? value : 'vault'
 
 const asDecision = (value: string | null): ItemDecision | null =>
-  value === "keep" || value === "junk" ? value : null
+  value === 'keep' || value === 'junk' ? value : null
 
 const fromRow = (row: ItemRow): SeenRow => ({
   itemInstanceId: row.item_instance_id,
@@ -77,7 +77,7 @@ export interface ItemsRepoService {
   ) => Effect.Effect<void, SqlError.SqlError>
 }
 
-export class ItemsRepo extends Context.Service<ItemsRepo, ItemsRepoService>()("ItemsRepo") {}
+export class ItemsRepo extends Context.Service<ItemsRepo, ItemsRepoService>()('ItemsRepo') {}
 
 const BATCH = 200
 
@@ -104,7 +104,7 @@ export const ItemsRepoLive = Layer.effect(
             item_hash: item.itemHash,
             name: item.name,
             location: item.location,
-            source: item.location === "postmaster" ? "postmaster" : "drop",
+            source: item.location === 'postmaster' ? 'postmaster' : 'drop',
             first_seen_at: now,
             last_seen_at: now,
             baseline,
@@ -182,7 +182,7 @@ export const ItemsRepoLive = Layer.effect(
         ? Effect.void
         : sql`
             UPDATE items_seen SET job_id = ${jobId}
-            WHERE ${sql.in("item_instance_id", itemInstanceIds)}
+            WHERE ${sql.in('item_instance_id', itemInstanceIds)}
           `.pipe(Effect.asVoid)
 
     return { sync, recent, newSince, get, setDecision, decisions, tagJob }

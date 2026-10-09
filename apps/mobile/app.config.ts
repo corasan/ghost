@@ -1,4 +1,4 @@
-import type { ExpoConfig } from "expo/config"
+import type { ExpoConfig } from 'expo/config'
 
 // Nothing that ties a build to one person's Apple or Expo account lives here.
 // Each value below comes from apps/mobile/.env.local (gitignored, written by
@@ -6,48 +6,51 @@ import type { ExpoConfig } from "expo/config"
 //   GHOST_APP_ID    iOS bundle id and Android package; must be unique per Apple team
 //   APPLE_TEAM_ID   optional; without it `expo run:ios` asks which signing team to use
 //   EAS_PROJECT_ID  only for `eas build`; links the app to your EAS project
-const appId = process.env.GHOST_APP_ID ?? "com.example.ghost"
+const appId = process.env.GHOST_APP_ID ?? 'com.example.ghost'
 const appleTeamId = process.env.APPLE_TEAM_ID
 const easProjectId = process.env.EAS_PROJECT_ID
 
 const config: ExpoConfig = {
-  name: "Ghost",
-  slug: "ghost",
-  version: "1.0.0",
-  orientation: "portrait",
-  icon: "./assets/images/icon.png",
-  scheme: "ghost",
-  userInterfaceStyle: "dark",
+  name: 'Ghost',
+  slug: 'ghost',
+  version: '1.0.0',
+  orientation: 'portrait',
+  icon: './assets/images/icon.png',
+  scheme: 'ghost',
+  userInterfaceStyle: 'dark',
   ios: {
     bundleIdentifier: appId,
     supportsTablet: false,
     appleTeamId,
     infoPlist: {
-      ITSAppUsesNonExemptEncryption: false
-    }
+      ITSAppUsesNonExemptEncryption: false,
+    },
   },
   android: {
     adaptiveIcon: {
-      backgroundColor: "#070a10",
-      foregroundImage: "./assets/images/android-icon-foreground.png",
-      backgroundImage: "./assets/images/android-icon-background.png",
-      monochromeImage: "./assets/images/android-icon-monochrome.png",
+      backgroundColor: '#070a10',
+      foregroundImage: './assets/images/android-icon-foreground.png',
+      backgroundImage: './assets/images/android-icon-background.png',
+      monochromeImage: './assets/images/android-icon-monochrome.png',
     },
     predictiveBackGestureEnabled: false,
     package: appId,
   },
   plugins: [
-    "expo-router",
+    'expo-router',
     [
-      "expo-splash-screen",
+      'expo-splash-screen',
       {
-        backgroundColor: "#070a10",
-        image: "./assets/images/splash-icon.png",
+        backgroundColor: '#070a10',
+        image: './assets/images/splash-icon.png',
         imageWidth: 120,
       },
     ],
-    "expo-secure-store",
+    'expo-secure-store',
   ],
+  runtimeVersion: {
+    policy: 'fingerprint',
+  },
   experiments: {
     typedRoutes: true,
     reactCompiler: true,

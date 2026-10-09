@@ -1,7 +1,7 @@
-import { StyleSheet, View } from "react-native"
+import { StyleSheet, View } from 'react-native'
 
-import { PlugIcon } from "@/components/ghost/plug-icon"
-import { Ghost } from "@/constants/theme"
+import { PlugIcon } from '@/components/ghost/plug-icon'
+import { Ghost } from '@/constants/theme'
 
 export type StripMod = { name: string; icon?: string | null; swap?: boolean; good?: boolean } | null
 
@@ -33,7 +33,7 @@ export function ModStrip({ mods }: { mods: readonly StripMod[] }) {
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: "row", gap: 4, marginTop: 5 },
+  row: { flexDirection: 'row', gap: 4, marginTop: 5 },
   slot: {
     width: 24,
     height: 24,

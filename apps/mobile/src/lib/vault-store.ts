@@ -1,5 +1,5 @@
-import { store } from "./store"
-import { emptyFilter, toggle, type VaultFilter } from "./vault-filter"
+import { store } from './store'
+import { emptyFilter, toggle, type VaultFilter } from './vault-filter'
 
 const filter = store<VaultFilter>(emptyFilter)
 const picked = store<ReadonlySet<string>>(new Set())

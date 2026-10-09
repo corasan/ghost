@@ -1,18 +1,18 @@
-import { LegendList } from "@legendapp/list/react-native"
+import { LegendList } from '@legendapp/list/react-native'
 import type {
   CleanupPreview,
   CleanupSession,
   JunkEntry,
   ReviewItem,
   StashState,
-} from "@ghost/contract"
-import { router } from "expo-router"
-import { type ReactNode, useState } from "react"
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
+} from '@ghost/contract'
+import { router } from 'expo-router'
+import { type ReactNode, useState } from 'react'
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 
-import { ChatHeader } from "@/components/chat/header"
-import { ItemIcon } from "@/components/ghost/item-icon"
-import { Unavailable } from "@/components/ghost/unavailable"
+import { ChatHeader } from '@/components/chat/header'
+import { ItemIcon } from '@/components/ghost/item-icon'
+import { Unavailable } from '@/components/ghost/unavailable'
 import {
   Body,
   Button,
@@ -23,8 +23,8 @@ import {
   Meta,
   Mono,
   Said,
-} from "@/components/ghost/ui"
-import { Ghost, Gutter, Type } from "@/constants/theme"
+} from '@/components/ghost/ui'
+import { Ghost, Gutter, Type } from '@/constants/theme'
 import {
   type CleanupAction,
   type CleanupMark,
@@ -38,8 +38,8 @@ import {
   useSetDecision,
   useStartCleanup,
   useVault,
-} from "@/lib/api"
-import { useCharacter } from "@/lib/character"
+} from '@/lib/api'
+import { useCharacter } from '@/lib/character'
 import {
   batchRows,
   duration,
@@ -56,17 +56,17 @@ import {
   stashSaid,
   tally,
   type Tile,
-} from "@/lib/cleanup"
-import { sentence } from "@/lib/format"
-import { useBottomInset } from "@/lib/insets"
-import { continueSession, useSessionId } from "@/lib/session"
+} from '@/lib/cleanup'
+import { sentence } from '@/lib/format'
+import { useBottomInset } from '@/lib/insets'
+import { continueSession, useSessionId } from '@/lib/session'
 
 const TILE = 37
 
 const TRY_ASKING = [
-  "Tag duplicates that have a better copy",
-  "Tag weapons with a roll under 40",
-  "Tag armor under 60 total",
+  'Tag duplicates that have a better copy',
+  'Tag weapons with a roll under 40',
+  'Tag armor under 60 total',
 ]
 
 const SEGMENT_TONE: Record<SegmentTone, string> = {
@@ -75,12 +75,12 @@ const SEGMENT_TONE: Record<SegmentTone, string> = {
   ahead: Ghost.rule,
 }
 
-const RESOLUTION_TONE: Record<Exclude<Resolution, "deleted" | "kept">, string> = {
+const RESOLUTION_TONE: Record<Exclude<Resolution, 'deleted' | 'kept'>, string> = {
   skipped: Ghost.dim,
   failed: Ghost.danger,
 }
 
-const openItem = (id: string) => router.push({ pathname: "/item/[id]", params: { id } })
+const openItem = (id: string) => router.push({ pathname: '/item/[id]', params: { id } })
 
 const STASH_TONE: Record<StashState, string> = {
   queued: Ghost.dim,
@@ -125,7 +125,7 @@ function Headline({
   figureColor?: string
 }) {
   return (
-    <View style={[styles.between, { alignItems: "flex-end", marginTop: 12 }]}>
+    <View style={[styles.between, { alignItems: 'flex-end', marginTop: 12 }]}>
       <View style={{ flexShrink: 1 }}>
         <Cond size={44} style={styles.headline} lines={1}>
           {title}
@@ -133,7 +133,7 @@ function Headline({
         {subtitle ? <Meta style={{ marginTop: 6 }}>{subtitle}</Meta> : null}
       </View>
       {figure !== undefined ? (
-        <View style={{ alignItems: "flex-end" }}>
+        <View style={{ alignItems: 'flex-end' }}>
           <Cond size={44} color={figureColor} style={styles.headline}>
             {figure}
             {total !== undefined ? <Text style={{ color: Ghost.dim }}>/{total}</Text> : null}
@@ -154,7 +154,7 @@ function Footer({ children, note }: { children: ReactNode; note?: string | null 
           {note}
         </Meta>
       ) : null}
-      <View style={{ flexDirection: "row", gap: 8 }}>{children}</View>
+      <View style={{ flexDirection: 'row', gap: 8 }}>{children}</View>
     </View>
   )
 }
@@ -230,7 +230,7 @@ function Step({
 
 function ReviewRow({ item }: { item: ReviewItem }) {
   const setDecision = useSetDecision()
-  const decide = (decision: "keep" | "junk") =>
+  const decide = (decision: 'keep' | 'junk') =>
     setDecision.mutate({ id: item.itemInstanceId, decision })
   return (
     <View style={styles.review}>
@@ -258,19 +258,19 @@ function ReviewRow({ item }: { item: ReviewItem }) {
         </View>
         <Chevron />
       </Pressable>
-      <View style={{ flexDirection: "row", gap: 8, paddingLeft: 52 }}>
+      <View style={{ flexDirection: 'row', gap: 8, paddingLeft: 52 }}>
         <Button
           label="KEEP"
           compact
           disabled={setDecision.isPending}
-          onPress={() => decide("keep")}
+          onPress={() => decide('keep')}
         />
         <Button
           label="JUNK"
           tone="danger"
           compact
           disabled={setDecision.isPending}
-          onPress={() => decide("junk")}
+          onPress={() => decide('junk')}
         />
       </View>
     </View>
@@ -283,7 +283,7 @@ function ReviewHeading({ review }: { review: ReturnType<typeof useJunkReview> })
   return (
     <View style={{ marginTop: 26 }}>
       <View style={[styles.between, { paddingBottom: 6 }]}>
-        <Mono>REVIEW{review.isSuccess ? ` · ${items.length}` : ""}</Mono>
+        <Mono>REVIEW{review.isSuccess ? ` · ${items.length}` : ''}</Mono>
         {review.isFetching ? <Meta color={Ghost.dim}>Checking…</Meta> : null}
       </View>
       <Meta style={{ paddingBottom: 10, lineHeight: 18 }}>
@@ -326,9 +326,9 @@ function PlanView({ preview, name }: { preview: CleanupPreview; name: string }) 
         <View style={{ marginTop: 18 }}>
           <Said>
             <Text style={{ color: Ghost.danger, fontFamily: Type.bodyMedium }}>
-              {plural(preview.junk, "item")}
-            </Text>{" "}
-            {preview.junk === 1 ? "is" : "are"} tagged junk. I’ll deliver them in batches that fill
+              {plural(preview.junk, 'item')}
+            </Text>{' '}
+            {preview.junk === 1 ? 'is' : 'are'} tagged junk. I’ll deliver them in batches that fill
             every slot, and you delete them in game.
           </Said>
         </View>
@@ -336,13 +336,13 @@ function PlanView({ preview, name }: { preview: CleanupPreview; name: string }) 
           <Step
             index="01"
             title="STASH"
-            figure={`${plural(preview.stash, "item")} → vault`}
+            figure={`${plural(preview.stash, 'item')} → vault`}
             detail="Everything you’re carrying goes to the vault. Equipped gear stays on."
           />
           <Step
             index="02"
             title="DELIVER"
-            figure={`${preview.junk} · ${plural(preview.batches, "batch", "batches")}`}
+            figure={`${preview.junk} · ${plural(preview.batches, 'batch', 'batches')}`}
             detail="Every slot fills to its limit of nine. Delete a batch and the next one follows."
             last={preview.returnable === 0}
           />
@@ -350,7 +350,7 @@ function PlanView({ preview, name }: { preview: CleanupPreview; name: string }) 
             <Step
               index="03"
               title="RETURN"
-              figure={plural(preview.returnable, "item")}
+              figure={plural(preview.returnable, 'item')}
               detail={`Optional. Your keepers go back to ${name} when you’re done.`}
               last
             />
@@ -362,21 +362,21 @@ function PlanView({ preview, name }: { preview: CleanupPreview; name: string }) 
           capacity={vault.capacity}
           note={
             preview.fits
-              ? `The stash fits with ${plural(spare, "slot")} to spare.`
-              : `The stash needs ${plural(preview.stash, "slot")} and the vault has ${vault.capacity - vault.count} free. Make room first.`
+              ? `The stash fits with ${plural(spare, 'slot')} to spare.`
+              : `The stash needs ${plural(preview.stash, 'slot')} and the vault has ${vault.capacity - vault.count} free. Make room first.`
           }
         />
         {preview.equippedJunk.length > 0 ? (
           <Meta color={Ghost.dim} style={{ marginTop: 14 }}>
-            Skipping {plural(preview.equippedJunk.length, "junk item")} you have equipped:{" "}
-            {preview.equippedJunk.join(", ")}.
+            Skipping {plural(preview.equippedJunk.length, 'junk item')} you have equipped:{' '}
+            {preview.equippedJunk.join(', ')}.
           </Meta>
         ) : null}
       </ReviewPage>
       <Footer note={start.isError ? errorMessage(start.error) : null}>
-        <Button label="NOT NOW" onPress={() => router.navigate("/vault")} />
+        <Button label="NOT NOW" onPress={() => router.navigate('/vault')} />
         <Button
-          label={start.isPending ? "STARTING…" : "START CLEANUP"}
+          label={start.isPending ? 'STARTING…' : 'START CLEANUP'}
           tone="solid"
           flex={1.5}
           disabled={!preview.fits || start.isPending}
@@ -391,13 +391,13 @@ function EmptyView({ name, characterId }: { name: string; characterId: string })
   const createJob = useCreateJob()
   const sessionId = useSessionId()
 
-  const ask = (kind: "chat" | "vault_cleanup", prompt: string) =>
+  const ask = (kind: 'chat' | 'vault_cleanup', prompt: string) =>
     createJob.mutate(
       { kind, prompt, characterId, sessionId },
       {
         onSuccess: (job) => {
           if (job.sessionId !== null) continueSession(job.sessionId)
-          router.navigate("/")
+          router.navigate('/')
         },
       },
     )
@@ -408,7 +408,7 @@ function EmptyView({ name, characterId }: { name: string; characterId: string })
         <Crumb label="VAULT › CLEANUP" right={name} />
         <Headline title="CLEAN UP MODE" />
         <View style={styles.empty}>
-          <View style={{ flexDirection: "row", gap: 3 }}>
+          <View style={{ flexDirection: 'row', gap: 3 }}>
             {Array.from({ length: 9 }, (_, i) => (
               <View
                 key={i}
@@ -416,11 +416,11 @@ function EmptyView({ name, characterId }: { name: string; characterId: string })
               />
             ))}
           </View>
-          <View style={{ alignItems: "center", gap: 8 }}>
+          <View style={{ alignItems: 'center', gap: 8 }}>
             <Cond size={24} style={{ letterSpacing: 1.2 }}>
               NOTHING TAGGED AS JUNK
             </Cond>
-            <Meta size={14} style={{ textAlign: "center", maxWidth: 290, lineHeight: 20 }}>
+            <Meta size={14} style={{ textAlign: 'center', maxWidth: 290, lineHeight: 20 }}>
               Cleanup works through items you’ve tagged junk. Ask Ghost to flag duplicates and low
               rolls. You review the list before anything moves.
             </Meta>
@@ -432,7 +432,7 @@ function EmptyView({ name, characterId }: { name: string; characterId: string })
             key={prompt}
             accessibilityRole="button"
             disabled={createJob.isPending}
-            onPress={() => ask("chat", prompt)}
+            onPress={() => ask('chat', prompt)}
             style={({ pressed }) => [styles.ask, pressed && { opacity: 0.6 }]}
           >
             <Body size={15} color={Ghost.soft}>
@@ -452,8 +452,8 @@ function EmptyView({ name, characterId }: { name: string; characterId: string })
           disabled={createJob.isPending}
           onPress={() =>
             ask(
-              "vault_cleanup",
-              "Clean up my vault: flag duplicates with a better copy and low rolls.",
+              'vault_cleanup',
+              'Clean up my vault: flag duplicates with a better copy and low rolls.',
             )
           }
         />
@@ -497,7 +497,7 @@ function StashingView({ session, name }: { session: CleanupSession; name: string
         keyExtractor={(entry) => entry.itemInstanceId}
         recycleItems
         renderItem={({ item: entry }) => (
-          <View style={[styles.carried, { opacity: entry.state === "queued" ? 0.5 : 1 }]}>
+          <View style={[styles.carried, { opacity: entry.state === 'queued' ? 0.5 : 1 }]}>
             <ItemIcon
               icon={entry.icon}
               size={40}
@@ -506,7 +506,7 @@ function StashingView({ session, name }: { session: CleanupSession; name: string
               masterwork={entry.masterwork}
             />
             <View style={{ flex: 1, minWidth: 0 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <Body size={15} lines={1} style={{ fontFamily: Type.bodyMedium, flexShrink: 1 }}>
                   {entry.name}
                 </Body>
@@ -529,9 +529,9 @@ function StashingView({ session, name }: { session: CleanupSession; name: string
           <Button
             label="STOP"
             disabled={act.isPending}
-            onPress={() => act.mutate({ id: session.id, action: "stop" })}
+            onPress={() => act.mutate({ id: session.id, action: 'stop' })}
           />
-          <Meta color={Ghost.dim} style={{ textAlign: "center" }}>
+          <Meta color={Ghost.dim} style={{ textAlign: 'center' }}>
             You can still return what was moved.
           </Meta>
         </View>
@@ -541,7 +541,7 @@ function StashingView({ session, name }: { session: CleanupSession; name: string
 }
 
 function Resolved({ entry, resolution }: { entry: JunkEntry; resolution: Resolution }) {
-  if (resolution === "deleted") {
+  if (resolution === 'deleted') {
     return (
       <View
         accessibilityLabel={`${entry.name} deleted`}
@@ -551,7 +551,7 @@ function Resolved({ entry, resolution }: { entry: JunkEntry; resolution: Resolut
       </View>
     )
   }
-  if (resolution === "kept") {
+  if (resolution === 'kept') {
     return (
       <View accessibilityLabel={`${entry.name} kept`} style={styles.tile}>
         <View style={{ opacity: 0.35 }}>
@@ -587,8 +587,8 @@ function TileView({
   selected: boolean
   onPress: (entry: JunkEntry) => void
 }) {
-  if (tile.kind === "empty") return <View style={[styles.dashed, styles.tile]} />
-  if (tile.kind === "done") return <Resolved entry={tile.entry} resolution={tile.resolution} />
+  if (tile.kind === 'empty') return <View style={[styles.dashed, styles.tile]} />
+  if (tile.kind === 'done') return <Resolved entry={tile.entry} resolution={tile.resolution} />
   const { entry } = tile
   return (
     <Pressable
@@ -644,11 +644,11 @@ function BatchView({ session, name }: { session: CleanupSession; name: string })
   const rows = batchRows(session)
   const items = rows
     .flatMap((row) => row.tiles)
-    .flatMap((tile) => (tile.kind === "item" ? [tile] : []))
+    .flatMap((tile) => (tile.kind === 'item' ? [tile] : []))
   const selected = items.filter((tile) => picked.has(tile.entry.itemInstanceId))
   const arrived = items.filter((tile) => tile.arrived)
   const selectedArrived = selected.every((tile) => tile.arrived)
-  const paused = session.stage === "paused"
+  const paused = session.stage === 'paused'
   const { deleted } = tally(session)
   const busy = act.isPending || mark.isPending
   const failure = act.isError ? act.error : mark.isError ? mark.error : null
@@ -683,7 +683,7 @@ function BatchView({ session, name }: { session: CleanupSession; name: string })
   return (
     <>
       <View style={[styles.page, { paddingBottom: 0 }]}>
-        <View style={[styles.between, { alignItems: "center" }]}>
+        <View style={[styles.between, { alignItems: 'center' }]}>
           <Mono size={11} color={Ghost.accent}>
             CLEANUP › STEP 2 OF 2
           </Mono>
@@ -700,7 +700,7 @@ function BatchView({ session, name }: { session: CleanupSession; name: string })
             ]}
           >
             <Cond size={13} color={selecting ? Ghost.bg : Ghost.accent}>
-              {selecting ? "CANCEL" : "SELECT"}
+              {selecting ? 'CANCEL' : 'SELECT'}
             </Cond>
           </Pressable>
         </View>
@@ -711,7 +711,7 @@ function BatchView({ session, name }: { session: CleanupSession; name: string })
           total={session.junk.length}
           caption="deleted"
         />
-        <View style={{ flexDirection: "row", gap: 3, marginTop: 14 }}>
+        <View style={{ flexDirection: 'row', gap: 3, marginTop: 14 }}>
           {segments(session).map((segment, i) => (
             <View
               key={i}
@@ -728,9 +728,9 @@ function BatchView({ session, name }: { session: CleanupSession; name: string })
         </View>
         <View style={[styles.between, { paddingTop: 16, paddingBottom: 6 }]}>
           <Mono>ON {name.toUpperCase()} NOW</Mono>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
             <Diamond size={6} color={paused ? Ghost.dim : Ghost.good} />
-            <Mono color={paused ? Ghost.dim : Ghost.good}>{paused ? "PAUSED" : "WATCHING"}</Mono>
+            <Mono color={paused ? Ghost.dim : Ghost.good}>{paused ? 'PAUSED' : 'WATCHING'}</Mono>
           </View>
         </View>
       </View>
@@ -747,15 +747,15 @@ function BatchView({ session, name }: { session: CleanupSession; name: string })
                 {row.label}
               </Cond>
               <Meta color={row.left > 0 ? Ghost.muted : Ghost.good}>
-                {row.left > 0 ? `${row.left} left` : "Clear"}
+                {row.left > 0 ? `${row.left} left` : 'Clear'}
               </Meta>
             </View>
             <View style={styles.tiles}>
               {row.tiles.map((tile, i) => (
                 <TileView
-                  key={tile.kind === "empty" ? `empty-${i}` : tile.entry.itemInstanceId}
+                  key={tile.kind === 'empty' ? `empty-${i}` : tile.entry.itemInstanceId}
                   tile={tile}
-                  selected={tile.kind === "item" && picked.has(tile.entry.itemInstanceId)}
+                  selected={tile.kind === 'item' && picked.has(tile.entry.itemInstanceId)}
                   onPress={(entry) => (selecting ? toggle(entry) : openItem(entry.itemInstanceId))}
                 />
               ))}
@@ -767,26 +767,26 @@ function BatchView({ session, name }: { session: CleanupSession; name: string })
         <View style={styles.picked}>
           <Meta color={selected.length > 0 ? Ghost.ink : Ghost.dim} style={{ flex: 1 }}>
             {selected.length > 0
-              ? `${plural(selected.length, "item")} selected`
-              : "Tap items to keep or mark deleted."}
+              ? `${plural(selected.length, 'item')} selected`
+              : 'Tap items to keep or mark deleted.'}
           </Meta>
           <BarAction
-            label={pending === "deleted" ? "MARKING…" : "DELETED"}
-            accessibilityLabel={`Mark ${plural(selected.length, "item")} deleted`}
+            label={pending === 'deleted' ? 'MARKING…' : 'DELETED'}
+            accessibilityLabel={`Mark ${plural(selected.length, 'item')} deleted`}
             disabled={busy || selected.length === 0 || !selectedArrived}
-            onPress={() => markTiles(selected, "deleted")}
+            onPress={() => markTiles(selected, 'deleted')}
           />
           <BarAction
             label={
-              pending === "keep"
-                ? "KEEPING…"
+              pending === 'keep'
+                ? 'KEEPING…'
                 : selected.length > 0
                   ? `KEEP ${selected.length}`
-                  : "KEEP"
+                  : 'KEEP'
             }
-            accessibilityLabel={`Keep ${plural(selected.length, "item")}`}
+            accessibilityLabel={`Keep ${plural(selected.length, 'item')}`}
             disabled={busy || selected.length === 0}
-            onPress={() => markTiles(selected, "keep")}
+            onPress={() => markTiles(selected, 'keep')}
           />
         </View>
       ) : (
@@ -796,26 +796,26 @@ function BatchView({ session, name }: { session: CleanupSession; name: string })
           </Meta>
           {arrived.length > 0 ? (
             <BarAction
-              label={pending === "deleted" ? "MARKING…" : "ALL DELETED"}
-              accessibilityLabel={`Mark all ${plural(arrived.length, "item")} deleted`}
+              label={pending === 'deleted' ? 'MARKING…' : 'ALL DELETED'}
+              accessibilityLabel={`Mark all ${plural(arrived.length, 'item')} deleted`}
               disabled={busy}
-              onPress={() => markTiles(arrived, "deleted")}
+              onPress={() => markTiles(arrived, 'deleted')}
             />
           ) : null}
         </View>
       )}
       <Footer note={failure ? errorMessage(failure) : session.error}>
         <Button
-          label={paused ? "RESUME" : "PAUSE"}
+          label={paused ? 'RESUME' : 'PAUSE'}
           disabled={busy}
-          onPress={() => act.mutate({ id: session.id, action: paused ? "resume" : "pause" })}
+          onPress={() => act.mutate({ id: session.id, action: paused ? 'resume' : 'pause' })}
         />
         <Button
           label={skipLabel(session)}
           tone="accent"
           flex={1.5}
           disabled={busy}
-          onPress={() => act.mutate({ id: session.id, action: "skip" })}
+          onPress={() => act.mutate({ id: session.id, action: 'skip' })}
         />
       </Footer>
     </>
@@ -855,7 +855,7 @@ function DoneView({ session, name }: { session: CleanupSession; name: string }) 
   const vault = useVault().data
   const { deleted, kept, skipped, failed } = tally(session)
   const back = returnable(session)
-  const returning = session.stage === "returning"
+  const returning = session.stage === 'returning'
   const equipped = session.equippedJunk
   const now = vault?.count ?? session.vault.before
   const after = returning ? now : now - back
@@ -868,7 +868,7 @@ function DoneView({ session, name }: { session: CleanupSession; name: string }) 
         <Crumb label="CLEANUP COMPLETE" color={Ghost.good} />
         <Headline
           title="ALL CLEAR"
-          subtitle={`${plural(session.batches, "batch", "batches")} · ${duration(session.startedAt, session.finishedAt ?? session.startedAt)}`}
+          subtitle={`${plural(session.batches, 'batch', 'batches')} · ${duration(session.startedAt, session.finishedAt ?? session.startedAt)}`}
           figure={deleted}
           caption="deleted"
           figureColor={Ghost.good}
@@ -880,12 +880,12 @@ function DoneView({ session, name }: { session: CleanupSession; name: string }) 
             label="Skipped"
             detail={[
               equipped.length > 0
-                ? `${equipped.join(", ")} ${equipped.length === 1 ? "is" : "are"} equipped`
+                ? `${equipped.join(', ')} ${equipped.length === 1 ? 'is' : 'are'} equipped`
                 : null,
               skipped > 0 ? `${skipped} back in the vault, still tagged junk` : null,
             ]
               .filter((part) => part !== null)
-              .join(". ")}
+              .join('. ')}
             value={skipped + equipped.length}
             last={failed === 0}
           />
@@ -905,17 +905,17 @@ function DoneView({ session, name }: { session: CleanupSession; name: string }) 
           capacity={session.vault.capacity}
           note={
             back > 0 && !returning
-              ? `${plural(free, "slot")} free, after your ${plural(back, "item")} return.`
-              : `${plural(free, "slot")} free.`
+              ? `${plural(free, 'slot')} free, after your ${plural(back, 'item')} return.`
+              : `${plural(free, 'slot')} free.`
           }
         />
         <View style={{ marginTop: 22 }}>
           <Said>
             {returning
-              ? `Bringing your ${plural(back, "item")} back to ${name}.`
+              ? `Bringing your ${plural(back, 'item')} back to ${name}.`
               : back > 0
-                ? `Your other ${plural(back, "item")} ${back === 1 ? "is" : "are"} still in the vault. Bring them back to ${name}?`
-                : "Nothing else to bring back."}
+                ? `Your other ${plural(back, 'item')} ${back === 1 ? 'is' : 'are'} still in the vault. Bring them back to ${name}?`
+                : 'Nothing else to bring back.'}
           </Said>
         </View>
       </ScrollView>
@@ -925,14 +925,14 @@ function DoneView({ session, name }: { session: CleanupSession; name: string }) 
             <Button
               label="LEAVE IN VAULT"
               disabled={returning || act.isPending}
-              onPress={() => send("close")}
+              onPress={() => send('close')}
             />
             <Button
-              label={returning ? "RETURNING…" : `RETURN ${plural(back, "ITEM", "ITEMS")}`}
+              label={returning ? 'RETURNING…' : `RETURN ${plural(back, 'ITEM', 'ITEMS')}`}
               tone="solid"
               flex={1.2}
               disabled={returning || act.isPending}
-              onPress={() => send("return")}
+              onPress={() => send('return')}
             />
           </>
         ) : (
@@ -940,7 +940,7 @@ function DoneView({ session, name }: { session: CleanupSession; name: string }) 
             label="DONE"
             tone="solid"
             disabled={act.isPending}
-            onPress={() => send("close")}
+            onPress={() => send('close')}
           />
         )}
       </Footer>
@@ -955,18 +955,18 @@ export default function CleanupScreen() {
   const characterId = session?.characterId ?? character?.characterId
   const owner = characters.find((each) => each.characterId === characterId) ?? character
   const preview = useCleanupPreview(session === null ? characterId : undefined)
-  const name = owner ? sentence(owner.classType) : "your Guardian"
+  const name = owner ? sentence(owner.classType) : 'your Guardian'
 
   const body = (() => {
     if (session !== null) {
       switch (session.stage) {
-        case "stashing":
+        case 'stashing':
           return <StashingView session={session} name={name} />
-        case "delivering":
-        case "paused":
+        case 'delivering':
+        case 'paused':
           return <BatchView session={session} name={name} />
-        case "finished":
-        case "returning":
+        case 'finished':
+        case 'returning':
           return <DoneView session={session} name={name} />
       }
     }
@@ -1004,12 +1004,12 @@ export default function CleanupScreen() {
 
 const styles = StyleSheet.create({
   page: { paddingHorizontal: Gutter, paddingTop: 2, paddingBottom: 16 },
-  between: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" },
-  center: { alignItems: "center", justifyContent: "center" },
+  between: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+  center: { alignItems: 'center', justifyContent: 'center' },
   headline: { letterSpacing: 0.4, lineHeight: 42 },
-  meter: { marginTop: 8, height: 4, backgroundColor: Ghost.rule, flexDirection: "row" },
+  meter: { marginTop: 8, height: 4, backgroundColor: Ghost.rule, flexDirection: 'row' },
   step: {
-    flexDirection: "row",
+    flexDirection: 'row',
     gap: 14,
     paddingVertical: 14,
     borderTopWidth: 1,
@@ -1029,34 +1029,34 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: Ghost.rule,
-    alignItems: "center",
+    alignItems: 'center',
     gap: 16,
   },
-  dashed: { borderWidth: 1, borderStyle: "dashed", borderColor: Ghost.line },
+  dashed: { borderWidth: 1, borderStyle: 'dashed', borderColor: Ghost.line },
   ask: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: Ghost.rule,
   },
   carried: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
     paddingVertical: 7,
     borderTopWidth: 1,
     borderTopColor: Ghost.rule,
   },
   review: { paddingVertical: 10, gap: 8, borderTopWidth: 1, borderTopColor: Ghost.rule },
-  reviewItem: { flexDirection: "row", alignItems: "center", gap: 12 },
+  reviewItem: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   junk: { borderWidth: 1, borderColor: Ghost.danger, paddingHorizontal: 4, paddingVertical: 1 },
   slot: { paddingTop: 8, paddingBottom: 10, borderTopWidth: 1, borderTopColor: Ghost.rule },
-  tiles: { flexDirection: "row", justifyContent: "space-between" },
+  tiles: { flexDirection: 'row', justifyContent: 'space-between' },
   tile: { width: TILE, height: TILE },
   ring: {
-    position: "absolute",
+    position: 'absolute',
     top: -2,
     left: -2,
     right: -2,
@@ -1074,8 +1074,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: Ghost.rule,
     backgroundColor: Ghost.bg,
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
   },
   cleared: { borderWidth: 1, borderColor: Ghost.good, opacity: 0.8 },
@@ -1093,9 +1093,9 @@ const styles = StyleSheet.create({
     borderColor: Ghost.ruleStrong,
   },
   tally: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "baseline",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
     paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: Ghost.rule,

@@ -1,21 +1,21 @@
-import type { ActionStatus, ItemDecision } from "@ghost/contract"
-import { Context, DateTime, Effect, Layer } from "effect"
-import { SqlClient, type SqlError } from "effect/sql"
+import type { ActionStatus, ItemDecision } from '@ghost/contract'
+import { Context, DateTime, Effect, Layer } from 'effect'
+import { SqlClient, type SqlError } from 'effect/sql'
 
 // One row per Bungie call the server made for a confirmed plan (plus a
 // "held" row for each item the player unticked). It is the source of truth
 // for history and for undo, which replays the ok rows backwards.
 
 export type ActionKind =
-  | "to_vault"
-  | "to_character"
-  | "pull_postmaster"
-  | "equip"
-  | "tag_junk"
-  | "insert_mod"
-  | "insert_subclass_plug"
-  | "snapshot_loadout"
-  | "held"
+  | 'to_vault'
+  | 'to_character'
+  | 'pull_postmaster'
+  | 'equip'
+  | 'tag_junk'
+  | 'insert_mod'
+  | 'insert_subclass_plug'
+  | 'snapshot_loadout'
+  | 'held'
 
 export interface ActionRecord {
   readonly id: string
@@ -41,7 +41,7 @@ export interface ActionRecord {
   readonly createdAt: string
 }
 
-export type NewAction = Omit<ActionRecord, "id" | "createdAt">
+export type NewAction = Omit<ActionRecord, 'id' | 'createdAt'>
 
 interface ActionRow {
   readonly id: string
@@ -78,7 +78,7 @@ const fromRow = (row: ActionRow): ActionRecord => ({
   plugHash: row.plug_hash,
   previousPlugHash: row.previous_plug_hash,
   previousDecision:
-    row.previous_decision === "keep" || row.previous_decision === "junk"
+    row.previous_decision === 'keep' || row.previous_decision === 'junk'
       ? row.previous_decision
       : null,
   status: row.status,
@@ -97,7 +97,7 @@ export interface ActionsRepoService {
 }
 
 export class ActionsRepo extends Context.Service<ActionsRepo, ActionsRepoService>()(
-  "ActionsRepo",
+  'ActionsRepo',
 ) {}
 
 export const ActionsRepoLive = Layer.effect(
@@ -136,7 +136,7 @@ export const ActionsRepoLive = Layer.effect(
       jobIds.length === 0
         ? Effect.succeed([])
         : sql<ActionRow>`
-            SELECT * FROM actions WHERE ${sql.in("job_id", jobIds)} ORDER BY rowid ASC
+            SELECT * FROM actions WHERE ${sql.in('job_id', jobIds)} ORDER BY rowid ASC
           `.pipe(Effect.map((rows) => rows.map(fromRow)))
 
     const setStatus = (id: string, status: ActionStatus) =>

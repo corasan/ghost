@@ -1,10 +1,10 @@
-import type { DamageType, ItemSlot, ItemTier } from "@ghost/contract"
-import { Context, Effect, Layer, Option, Redacted, Schema, Semaphore } from "effect"
-import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http"
-import { SqlClient } from "effect/sql"
-import { AppConfig } from "../config.ts"
-import { Settings } from "../db/settings.ts"
-import { BungieError, PLATFORM_TIMEOUT, readEnvelope, retryPolicy, timeoutAfter } from "./client.ts"
+import type { DamageType, ItemSlot, ItemTier } from '@ghost/contract'
+import { Context, Effect, Layer, Option, Redacted, Schema, Semaphore } from 'effect'
+import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http'
+import { SqlClient } from 'effect/sql'
+import { AppConfig } from '../config.ts'
+import { Settings } from '../db/settings.ts'
+import { BungieError, PLATFORM_TIMEOUT, readEnvelope, retryPolicy, timeoutAfter } from './client.ts'
 
 // Bungie's API only ever gives you item *hashes*. Names, tiers, and slots
 // live in the "manifest", a set of JSON blobs published with every game
@@ -82,9 +82,9 @@ export const statFactsFrom = (
     hashes.flatMap((hash) => {
       const display = definitions[hash]?.displayProperties
       const name = display?.name
-      if (name === undefined || name === "") return []
+      if (name === undefined || name === '') return []
       const icon = display?.icon ? { icon: `https://www.bungie.net${display.icon}` } : {}
-      return [[hash, { name, effect: display?.description ?? "", ...icon }]]
+      return [[hash, { name, effect: display?.description ?? '', ...icon }]]
     }),
   )
 
@@ -215,7 +215,7 @@ export const keywordsFrom = (
   Object.fromEntries(
     Object.entries(definitions).flatMap(([hash, definition]) => {
       const shown = definition?.displayProperties
-      if (definition?.displayHint !== "keyword" || !shown?.name || !shown.description) return []
+      if (definition?.displayHint !== 'keyword' || !shown?.name || !shown.description) return []
       return [
         [
           hash,
@@ -270,7 +270,7 @@ export const statModsFrom = (definition: PlugDefinition, conditional: boolean): 
     ),
   )
 
-export const TUNING_SOCKET = "core.gear_systems.armor_tiering.plugs.tuning.mods"
+export const TUNING_SOCKET = 'core.gear_systems.armor_tiering.plugs.tuning.mods'
 
 /** The stat hash each armor tuning mod raises, keyed by the mod's hash; null for Balanced Tuning, which raises none. */
 export type TuningMods = ReadonlyMap<number, string | null>
@@ -319,7 +319,7 @@ export const armorSetsFrom = (
   perks: ReadonlyMap<number, PlugDefinition>,
 ): ReadonlyArray<ArmorSet> =>
   Object.values(definitions).flatMap((definition) => {
-    const name = definition?.displayProperties?.name ?? ""
+    const name = definition?.displayProperties?.name ?? ''
     const resolved = (definition?.setPerks ?? []).flatMap((perk) => {
       const display =
         perk.sandboxPerkHash === undefined
@@ -330,13 +330,13 @@ export const armorSetsFrom = (
         : [
             {
               name: display.name,
-              description: display.description ?? "",
+              description: display.description ?? '',
               icon: display.icon ? `https://www.bungie.net${display.icon}` : null,
               required: perk.requiredSetCount,
             },
           ]
     })
-    return name === "" || resolved.length === 0
+    return name === '' || resolved.length === 0
       ? []
       : [{ name, items: definition?.setItems ?? [], perks: resolved }]
   })
@@ -357,7 +357,7 @@ export const elementIconsFrom = (
     Object.values(definitions).flatMap((definition) => {
       const element = damageForType(definition?.enumValue ?? 0)
       const icon = definition?.displayProperties?.icon
-      return element === "none" || !icon ? [] : [[element, `https://www.bungie.net${icon}`]]
+      return element === 'none' || !icon ? [] : [[element, `https://www.bungie.net${icon}`]]
     }),
   )
 
@@ -400,11 +400,11 @@ export interface ManifestService {
    */
   readonly findByName: (
     names: ReadonlyArray<string>,
-    kind?: "described" | "any",
+    kind?: 'described' | 'any',
   ) => Effect.Effect<ReadonlyArray<ManifestItem>, BungieError>
 }
 
-export class Manifest extends Context.Service<Manifest, ManifestService>()("Manifest") {}
+export class Manifest extends Context.Service<Manifest, ManifestService>()('Manifest') {}
 
 // DestinyInventoryBucketDefinition hashes for the equipment slots we show.
 export const BUCKETS = {
@@ -425,23 +425,23 @@ export const BUCKETS = {
 export const slotForBucket = (bucketHash: number): ItemSlot => {
   switch (bucketHash) {
     case BUCKETS.kinetic:
-      return "kinetic"
+      return 'kinetic'
     case BUCKETS.energy:
-      return "energy"
+      return 'energy'
     case BUCKETS.power:
-      return "power"
+      return 'power'
     case BUCKETS.helmet:
-      return "helmet"
+      return 'helmet'
     case BUCKETS.arms:
-      return "arms"
+      return 'arms'
     case BUCKETS.chest:
-      return "chest"
+      return 'chest'
     case BUCKETS.legs:
-      return "legs"
+      return 'legs'
     case BUCKETS.class:
-      return "class"
+      return 'class'
     default:
-      return "other"
+      return 'other'
   }
 }
 
@@ -449,16 +449,16 @@ export const slotForBucket = (bucketHash: number): ItemSlot => {
 export const tierForType = (tierType: number): ItemTier => {
   switch (tierType) {
     case 6:
-      return "exotic"
+      return 'exotic'
     case 5:
-      return "legendary"
+      return 'legendary'
     case 4:
-      return "rare"
+      return 'rare'
     case 3:
     case 2:
-      return "common"
+      return 'common'
     default:
-      return "unknown"
+      return 'unknown'
   }
 }
 
@@ -466,19 +466,19 @@ export const tierForType = (tierType: number): ItemTier => {
 export const damageForType = (damageType: number): DamageType => {
   switch (damageType) {
     case 1:
-      return "kinetic"
+      return 'kinetic'
     case 2:
-      return "arc"
+      return 'arc'
     case 3:
-      return "solar"
+      return 'solar'
     case 4:
-      return "void"
+      return 'void'
     case 6:
-      return "stasis"
+      return 'stasis'
     case 7:
-      return "strand"
+      return 'strand'
     default:
-      return "none"
+      return 'none'
   }
 }
 
@@ -505,7 +505,7 @@ const rowToItem = (row: ManifestRow): ManifestItem => ({
   damageType: damageForType(row.damage_type),
   bucketHash: row.bucket_hash,
   classType: row.class_type,
-  description: row.description ?? "",
+  description: row.description ?? '',
 })
 
 const LiteDefinition = Schema.Struct({
@@ -543,17 +543,17 @@ const definitionsOf = <S extends Schema.Top>(definition: S) =>
 const storedJson = <S extends Schema.Codec<unknown, unknown>>(schema: S) =>
   Schema.decodeOption(Schema.fromJsonString(schema))
 
-const VERSION_KEY = "manifest.version"
-const CAPACITIES_KEY = "manifest.capacities"
-const CAPACITIES_VERSION_KEY = "manifest.capacities.version"
-const STAT_FACTS_KEY = "manifest.statFacts.v2"
-const STAT_FACTS_VERSION_KEY = "manifest.statFacts.v2.version"
-const ARMOR_MODS_KEY = "manifest.armorMods.v3"
-const ARMOR_MODS_VERSION_KEY = "manifest.armorMods.version"
-const ARMOR_SETS_KEY = "manifest.armorSets"
-const ARMOR_SETS_VERSION_KEY = "manifest.armorSets.version"
-const TUNING_MODS_KEY = "manifest.tuningMods"
-const TUNING_MODS_VERSION_KEY = "manifest.tuningMods.version"
+const VERSION_KEY = 'manifest.version'
+const CAPACITIES_KEY = 'manifest.capacities'
+const CAPACITIES_VERSION_KEY = 'manifest.capacities.version'
+const STAT_FACTS_KEY = 'manifest.statFacts.v2'
+const STAT_FACTS_VERSION_KEY = 'manifest.statFacts.v2.version'
+const ARMOR_MODS_KEY = 'manifest.armorMods.v3'
+const ARMOR_MODS_VERSION_KEY = 'manifest.armorMods.version'
+const ARMOR_SETS_KEY = 'manifest.armorSets'
+const ARMOR_SETS_VERSION_KEY = 'manifest.armorSets.version'
+const TUNING_MODS_KEY = 'manifest.tuningMods'
+const TUNING_MODS_VERSION_KEY = 'manifest.tuningMods.version'
 export const BUILD_SOCKET = /^enhancements\.v2_/
 
 const ARMOR_CHARGE = /armor charge/i
@@ -564,24 +564,24 @@ const ARMOR_CHARGE = /armor charge/i
  */
 export const modDescription = (itemText: string, facts: PlugFacts) =>
   facts.charged ? facts.description : itemText || facts.description
-const ELEMENT_ICONS_KEY = "manifest.elementIcons"
-const ELEMENT_ICONS_VERSION_KEY = "manifest.elementIcons.version"
-const KEYWORDS_KEY = "manifest.keywords"
-const KEYWORDS_VERSION_KEY = "manifest.keywords.version"
+const ELEMENT_ICONS_KEY = 'manifest.elementIcons'
+const ELEMENT_ICONS_VERSION_KEY = 'manifest.elementIcons.version'
+const KEYWORDS_KEY = 'manifest.keywords'
+const KEYWORDS_VERSION_KEY = 'manifest.keywords.version'
 const ARMOR_STAT_HASHES = [
-  "2996146975",
-  "392767087",
-  "1943323491",
-  "1735777505",
-  "144602215",
-  "4244567218",
+  '2996146975',
+  '392767087',
+  '1943323491',
+  '1735777505',
+  '144602215',
+  '4244567218',
 ]
 const BATCH = 500
 const CHECK_EVERY_MS = 60 * 60 * 1000
 /** After a failed version check with a usable local copy, try again this soon. */
 const RECHECK_AFTER_FAILURE_MS = 5 * 60 * 1000
 /** The definition files run to tens of megabytes. */
-const CONTENT_TIMEOUT = "5 minutes"
+const CONTENT_TIMEOUT = '5 minutes'
 /** Per-hash Platform calls in flight at once, well under Bungie's rate limit. */
 const FAN_OUT = 4
 const MAX_PLUG_FAILURES = 3
@@ -594,12 +594,12 @@ export const ManifestLive = Layer.effect(
     const sql = yield* SqlClient.SqlClient
     const http = (yield* HttpClient.HttpClient).pipe(
       HttpClient.mapRequest(
-        HttpClientRequest.setHeader("X-API-Key", Redacted.value(config.bungie.apiKey)),
+        HttpClientRequest.setHeader('X-API-Key', Redacted.value(config.bungie.apiKey)),
       ),
     )
 
     const transport = (cause: unknown) =>
-      new BungieError({ status: "Transport", message: String(cause) })
+      new BungieError({ status: 'Transport', message: String(cause) })
 
     /** A definition file from the CDN; plain JSON, not an envelope. */
     const fetchJson = <S extends Schema.Constraint>(url: string, schema: S) =>
@@ -623,7 +623,7 @@ export const ManifestLive = Layer.effect(
           Effect.retry(retryPolicy(true)),
         )
 
-    const manifestIndex = platform("/Destiny2/Manifest/").pipe(
+    const manifestIndex = platform('/Destiny2/Manifest/').pipe(
       Effect.flatMap((raw) => decodeIndex(raw).pipe(Effect.mapError(transport))),
     )
 
@@ -633,12 +633,12 @@ export const ManifestLive = Layer.effect(
         // The lite definitions carry no `hash` field; the object key is the hash.
         for (const [key, def] of Object.entries(definitions)) {
           const hash = Number(key)
-          const name = def.displayProperties?.name ?? ""
-          if (!Number.isInteger(hash) || name === "") continue
+          const name = def.displayProperties?.name ?? ''
+          if (!Number.isInteger(hash) || name === '') continue
           rows.push({
             hash,
             name,
-            type_name: def.itemTypeDisplayName ?? "",
+            type_name: def.itemTypeDisplayName ?? '',
             icon: def.displayProperties?.icon ?? null,
             tier_type: def.inventory?.tierType ?? 0,
             bucket_hash: def.inventory?.bucketTypeHash ?? 0,
@@ -684,7 +684,7 @@ export const ManifestLive = Layer.effect(
       Effect.gen(function* () {
         const known = perkSockets.get(itemHash)
         if (known !== undefined) return known
-        const sockets = perkSocketsOf(yield* entity("DestinyInventoryItemDefinition", itemHash))
+        const sockets = perkSocketsOf(yield* entity('DestinyInventoryItemDefinition', itemHash))
         perkSockets.set(itemHash, sockets)
         return sockets
       })
@@ -746,7 +746,7 @@ export const ManifestLive = Layer.effect(
       Effect.forEach(
         [...new Set(hashes)].filter((hash) => !investments.has(hash)),
         (hash) =>
-          entity("DestinyInventoryItemDefinition", hash).pipe(
+          entity('DestinyInventoryItemDefinition', hash).pipe(
             Effect.map((definition) => investments.set(hash, investmentOf(definition))),
             Effect.catch((error) =>
               Effect.logWarning(`manifest: plug ${hash} failed: ${error.message}`),
@@ -771,7 +771,7 @@ export const ManifestLive = Layer.effect(
       Effect.gen(function* () {
         const known = plugSets.get(hash)
         if (known !== undefined) return known
-        const definition = yield* entity("DestinyInventoryItemDefinition", hash)
+        const definition = yield* entity('DestinyInventoryItemDefinition', hash)
         const sets = (definition.sockets?.socketEntries ?? []).map(
           (entry) => entry.reusablePlugSetHash ?? null,
         )
@@ -796,13 +796,13 @@ export const ManifestLive = Layer.effect(
           (hash) =>
             Effect.gen(function* () {
               if (failures >= MAX_PLUG_FAILURES) return
-              const definition = yield* entity("DestinyInventoryItemDefinition", hash)
+              const definition = yield* entity('DestinyInventoryItemDefinition', hash)
               const perk = definition.perks?.[0]?.perkHash
-              const own = definition.displayProperties?.description ?? ""
+              const own = definition.displayProperties?.description ?? ''
               const described =
                 (own && !ARMOR_CHARGE.test(own)) || perk === undefined
                   ? definition
-                  : yield* entity("DestinySandboxPerkDefinition", perk)
+                  : yield* entity('DestinySandboxPerkDefinition', perk)
               const description = described.displayProperties?.description || own
               const known = yield* readKeywords
               plugs.set(hash, {
@@ -810,9 +810,9 @@ export const ManifestLive = Layer.effect(
                 classMods: statModsFrom(definition, true),
                 fragmentSlots: definition.plug?.energyCapacity?.capacityValue ?? 0,
                 energyCost: definition.plug?.energyCost?.energyCost ?? 0,
-                category: definition.plug?.plugCategoryIdentifier ?? "",
+                category: definition.plug?.plugCategoryIdentifier ?? '',
                 artifact: (definition.plug?.insertionRules ?? []).some((rule) =>
-                  /artifact/i.test(rule.failureMessage ?? ""),
+                  /artifact/i.test(rule.failureMessage ?? ''),
                 ),
                 charged: ARMOR_CHARGE.test(own) || ARMOR_CHARGE.test(description),
                 description,
@@ -955,7 +955,7 @@ export const ManifestLive = Layer.effect(
       }
       const path = remote.jsonWorldComponentContentPaths.en?.DestinyInventoryItemLiteDefinition
       if (path === undefined) {
-        return yield* new BungieError({ status: "Manifest", message: "no item definitions" })
+        return yield* new BungieError({ status: 'Manifest', message: 'no item definitions' })
       }
       yield* Effect.logInfo(`manifest: downloading ${remote.version}`)
       const definitions = yield* fetchJson(`https://www.bungie.net${path}`, LiteDefinitions)
@@ -988,7 +988,7 @@ export const ManifestLive = Layer.effect(
         for (let i = 0; i < unknown.length; i += BATCH) {
           const batch = unknown.slice(i, i + BATCH)
           const rows = yield* sql<ManifestRow>`
-            SELECT * FROM manifest_items WHERE ${sql.in("hash", batch)}
+            SELECT * FROM manifest_items WHERE ${sql.in('hash', batch)}
           `.pipe(Effect.orDie)
           for (const row of rows) {
             const item = rowToItem(row)
@@ -1000,12 +1000,12 @@ export const ManifestLive = Layer.effect(
         return result
       })
 
-    const findByName = (names: ReadonlyArray<string>, kind: "described" | "any" = "described") =>
+    const findByName = (names: ReadonlyArray<string>, kind: 'described' | 'any' = 'described') =>
       Effect.gen(function* () {
         yield* ensure
         if (names.length === 0) return []
         const lowered = names.map((n) => n.toLowerCase())
-        const described = kind === "described" ? sql`AND description IS NOT NULL` : sql``
+        const described = kind === 'described' ? sql`AND description IS NOT NULL` : sql``
         const rows = yield* sql<ManifestRow>`
           SELECT * FROM manifest_items WHERE lower(name) IN ${sql.in(lowered)}
           ${described} LIMIT 200
@@ -1114,7 +1114,7 @@ export const ManifestLive = Layer.effect(
       yield* Effect.forEach(
         perkHashes,
         (hash) =>
-          entity("DestinySandboxPerkDefinition", hash).pipe(
+          entity('DestinySandboxPerkDefinition', hash).pipe(
             Effect.map((definition) => perks.set(hash, definition)),
             Effect.catch((error) =>
               Effect.logWarning(`manifest: set perk ${hash} failed: ${error.message}`),

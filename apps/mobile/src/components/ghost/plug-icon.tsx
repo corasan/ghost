@@ -1,6 +1,6 @@
-import { Image } from "expo-image"
+import { Image } from 'expo-image'
 
-import { Ghost } from "@/constants/theme"
+import { Ghost } from '@/constants/theme'
 
 /** An aspect, fragment or mod icon from the game, on a swatch so a missing image keeps its space. */
 export function PlugIcon({ icon, size }: { icon: string | null | undefined; size: number }) {

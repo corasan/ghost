@@ -1,17 +1,17 @@
-import { PlanStat } from "@ghost/contract"
-import { type ArmorStats, type CharacterInfo, isArmor, type OwnedItem, STAT } from "./inventory.ts"
-import type { StatFacts } from "./manifest.ts"
+import { PlanStat } from '@ghost/contract'
+import { type ArmorStats, type CharacterInfo, isArmor, type OwnedItem, STAT } from './inventory.ts'
+import type { StatFacts } from './manifest.ts'
 
 const OFF_STAT_AT_MASTERWORK = 5
 
 /** The six armor stats under the names the current patch gives them. */
 export const ARMOR_STATS = [
-  ["resilience", "HEALTH"],
-  ["strength", "MELEE"],
-  ["discipline", "GRENADE"],
-  ["intellect", "SUPER"],
-  ["recovery", "CLASS"],
-  ["mobility", "WEAPONS"],
+  ['resilience', 'HEALTH'],
+  ['strength', 'MELEE'],
+  ['discipline', 'GRENADE'],
+  ['intellect', 'SUPER'],
+  ['recovery', 'CLASS'],
+  ['mobility', 'WEAPONS'],
 ] as const satisfies ReadonlyArray<readonly [keyof ArmorStats, string]>
 
 type StatKey = (typeof ARMOR_STATS)[number][0]
@@ -37,18 +37,18 @@ export const masterworked = (stats: ArmorStats): Record<StatKey, number> | null 
   )
   const at = (key: StatKey) => (off.has(key) ? OFF_STAT_AT_MASTERWORK : stats[key])
   return {
-    resilience: at("resilience"),
-    strength: at("strength"),
-    discipline: at("discipline"),
-    intellect: at("intellect"),
-    recovery: at("recovery"),
-    mobility: at("mobility"),
+    resilience: at('resilience'),
+    strength: at('strength'),
+    discipline: at('discipline'),
+    intellect: at('intellect'),
+    recovery: at('recovery'),
+    mobility: at('mobility'),
   }
 }
 
 /** An armor piece's six stats, each with its masterworked value when the piece is not there yet. */
 export const armorStats = (
-  item: Pick<OwnedItem, "armorStats" | "masterwork">,
+  item: Pick<OwnedItem, 'armorStats' | 'masterwork'>,
 ): ReadonlyArray<PlanStat> => {
   const stats = item.armorStats
   if (stats === null) return []
@@ -77,7 +77,7 @@ const ALIASES: Record<string, StatKey> = Object.fromEntries(
  */
 export const withMasterworkTotals = (
   totals: ReadonlyArray<PlanStat>,
-  pieces: ReadonlyArray<Pick<OwnedItem, "armorStats" | "masterwork">>,
+  pieces: ReadonlyArray<Pick<OwnedItem, 'armorStats' | 'masterwork'>>,
 ): ReadonlyArray<PlanStat> => {
   const gains = new Map<StatKey, number>()
   for (const piece of pieces) {
@@ -98,10 +98,10 @@ export const withMasterworkTotals = (
 export const statLabel = (key: StatKey, label: string, facts: StatFacts) =>
   facts[STAT[key]]?.name.toUpperCase() ?? label
 
-type Piece = Pick<OwnedItem, "itemInstanceId" | "slot" | "armorStats" | "masterwork">
+type Piece = Pick<OwnedItem, 'itemInstanceId' | 'slot' | 'armorStats' | 'masterwork'>
 
 /** The armor a character wears once the incoming pieces replace what is worn in their slots. */
-export const armorAfter = <P extends Pick<OwnedItem, "itemInstanceId" | "slot">>(
+export const armorAfter = <P extends Pick<OwnedItem, 'itemInstanceId' | 'slot'>>(
   worn: ReadonlyArray<P>,
   incoming: ReadonlyArray<P>,
 ) => {
@@ -126,7 +126,7 @@ export const buildStats = ({
   facts,
   modChange,
 }: {
-  readonly character: Pick<CharacterInfo, "stats">
+  readonly character: Pick<CharacterInfo, 'stats'>
   readonly worn: ReadonlyArray<Piece>
   readonly incoming: ReadonlyArray<Piece>
   readonly targets: ReadonlyArray<string>
@@ -154,7 +154,7 @@ export const buildStats = ({
       value,
       target: wanted.has(key),
       masterworked: gain(key) > 0 ? value + gain(key) : undefined,
-      effect: fact !== undefined && fact.effect !== "" ? fact.effect : undefined,
+      effect: fact !== undefined && fact.effect !== '' ? fact.effect : undefined,
     })
   })
 }

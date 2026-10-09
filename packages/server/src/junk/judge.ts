@@ -1,38 +1,38 @@
-import { ARMOR_STATS } from "../bungie/masterwork.ts"
-import { type Inventory, isArmor, isWeapon, type OwnedItem } from "../bungie/inventory.ts"
-import type { GameLoadouts } from "../bungie/loadouts.ts"
-import type { StoredBuild } from "../db/builds.ts"
-import { goodColumns, keepable, type Purpose, PURPOSES, type RatedColumns, rated } from "./perks.ts"
+import { ARMOR_STATS } from '../bungie/masterwork.ts'
+import { type Inventory, isArmor, isWeapon, type OwnedItem } from '../bungie/inventory.ts'
+import type { GameLoadouts } from '../bungie/loadouts.ts'
+import type { StoredBuild } from '../db/builds.ts'
+import { goodColumns, keepable, type Purpose, PURPOSES, type RatedColumns, rated } from './perks.ts'
 
 export type Protection =
-  | "locked"
-  | "masterworked"
-  | "equipped"
-  | "crafted"
-  | "marked_keep"
-  | "in_build"
-  | "in_loadout"
-  | "best_pve"
-  | "best_pvp"
-  | "only_copy"
-  | "best_copy"
-  | "recent"
-  | "unread_tuning"
+  | 'locked'
+  | 'masterworked'
+  | 'equipped'
+  | 'crafted'
+  | 'marked_keep'
+  | 'in_build'
+  | 'in_loadout'
+  | 'best_pve'
+  | 'best_pvp'
+  | 'only_copy'
+  | 'best_copy'
+  | 'recent'
+  | 'unread_tuning'
 
 export type Signal =
   | {
-      readonly kind: "duplicate"
+      readonly kind: 'duplicate'
       readonly better: string
       /** The copy's good perks, which the better copy's roll beats or matches; empty when copies are not compared by roll. */
       readonly shared: ReadonlyArray<string>
     }
-  | { readonly kind: "weak_roll"; readonly perks: ReadonlyArray<string> }
-  | { readonly kind: "trash_roll"; readonly score: number }
+  | { readonly kind: 'weak_roll'; readonly perks: ReadonlyArray<string> }
+  | { readonly kind: 'trash_roll'; readonly score: number }
 
 export type Verdict =
-  | { readonly verdict: "junk"; readonly signals: ReadonlyArray<Signal> }
-  | { readonly verdict: "review"; readonly signals: ReadonlyArray<Signal>; readonly why: string }
-  | { readonly verdict: "keep"; readonly protections: ReadonlyArray<Protection> }
+  | { readonly verdict: 'junk'; readonly signals: ReadonlyArray<Signal> }
+  | { readonly verdict: 'review'; readonly signals: ReadonlyArray<Signal>; readonly why: string }
+  | { readonly verdict: 'keep'; readonly protections: ReadonlyArray<Protection> }
 
 export interface RollStanding {
   readonly wishlist: boolean
@@ -66,24 +66,24 @@ export const RECENT_MS = 48 * 60 * 60 * 1000
 // A hard protection keeps the item off the proposal; a soft one lets it be
 // listed for review but never ticked as junk.
 const HARD: ReadonlyArray<readonly [Protection, (item: OwnedItem, ctx: InUse) => boolean]> = [
-  ["locked", (item) => item.locked],
-  ["masterworked", (item) => item.masterwork],
-  ["equipped", (item) => item.equipped],
-  ["crafted", (item) => item.crafted],
-  ["marked_keep", (item) => item.decision === "keep"],
-  ["in_build", (item, ctx) => ctx.builds.has(item.itemInstanceId)],
-  ["in_loadout", (item, ctx) => ctx.loadouts.has(item.itemInstanceId)],
+  ['locked', (item) => item.locked],
+  ['masterworked', (item) => item.masterwork],
+  ['equipped', (item) => item.equipped],
+  ['crafted', (item) => item.crafted],
+  ['marked_keep', (item) => item.decision === 'keep'],
+  ['in_build', (item, ctx) => ctx.builds.has(item.itemInstanceId)],
+  ['in_loadout', (item, ctx) => ctx.loadouts.has(item.itemInstanceId)],
 ]
 
 /** What keeps an item off every proposal. Tagging and cleanup check it again, since a plan can be stale. */
 export const hardProtections = (item: OwnedItem, ctx: InUse): ReadonlyArray<Protection> =>
   HARD.flatMap(([protection, applies]) => (applies(item, ctx) ? [protection] : []))
 
-const SOFT_WHY: Record<"only_copy" | "best_copy" | "recent" | "unread_tuning", string> = {
-  only_copy: "your only copy",
-  best_copy: "your best copy",
-  recent: "picked up in the last two days",
-  unread_tuning: "its tuned stat could not be read",
+const SOFT_WHY: Record<'only_copy' | 'best_copy' | 'recent' | 'unread_tuning', string> = {
+  only_copy: 'your only copy',
+  best_copy: 'your best copy',
+  recent: 'picked up in the last two days',
+  unread_tuning: 'its tuned stat could not be read',
 }
 
 // Tier 5 armor rolls a tuned stat its visible stats do not show, so a copy
@@ -93,12 +93,12 @@ const unreadTuning = (item: OwnedItem) =>
 
 const statProfile = (item: OwnedItem) => {
   const stats = item.armorStats
-  if (stats === null) return ""
+  if (stats === null) return ''
   return ARMOR_STATS.map(([key]) => [key, stats[key]] as const)
     .toSorted((a, b) => b[1] - a[1])
     .slice(0, 3)
     .map(([key]) => key)
-    .join("/")
+    .join('/')
 }
 
 // Weapons are one weapon by name, so a reissue with a new item hash competes
@@ -111,7 +111,7 @@ const statProfile = (item: OwnedItem) => {
 const roleKey = (item: OwnedItem) =>
   isWeapon(item.slot)
     ? `weapon|${item.name.toLowerCase()}`
-    : `armor|${item.classType}|${item.slot}|${item.set?.name ?? item.itemHash}|${statProfile(item)}|${item.intrinsics.toSorted().join("/")}`
+    : `armor|${item.classType}|${item.slot}|${item.set?.name ?? item.itemHash}|${statProfile(item)}|${item.intrinsics.toSorted().join('/')}`
 
 const groupKey = (item: OwnedItem) =>
   isWeapon(item.slot) ? roleKey(item) : `${roleKey(item)}|${item.tuning}`
@@ -143,7 +143,7 @@ const groupBy = <A>(items: ReadonlyArray<A>, key: (item: A) => string) => {
   return groups
 }
 
-const NO_BETTER_COPY = "no better copy"
+const NO_BETTER_COPY = 'no better copy'
 
 interface Standing {
   readonly better: OwnedItem | null
@@ -151,7 +151,7 @@ interface Standing {
   /** The roll's perks, when none of them is worth keeping. */
   readonly weak: ReadonlyArray<string> | null
   /** Why the copy stays: the best roll for some purposes, or being the best copy when no roll is. */
-  readonly kept: ReadonlyArray<Purpose> | "best" | null
+  readonly kept: ReadonlyArray<Purpose> | 'best' | null
 }
 
 type HigherTier = (item: OwnedItem) => OwnedItem | null
@@ -160,12 +160,12 @@ const bestOnly = (ordered: ReadonlyArray<OwnedItem>, higherTier: HigherTier) =>
   new Map(
     ordered.map((item, index): readonly [OwnedItem, Standing] => {
       const better = higherTier(item) ?? (index === 0 ? null : (ordered[0] ?? null))
-      return [item, { better, shared: [], weak: null, kept: better === null ? "best" : null }]
+      return [item, { better, shared: [], weak: null, kept: better === null ? 'best' : null }]
     }),
   )
 
 const goodNames = (columns: RatedColumns) =>
-  columns.flatMap((column) => column.filter((perk) => perk.rating === "good").map((p) => p.name))
+  columns.flatMap((column) => column.filter((perk) => perk.rating === 'good').map((p) => p.name))
 
 const selectedNames = (columns: RatedColumns) =>
   columns.flatMap((column) => (column[0] === undefined ? [] : [column[0].name]))
@@ -200,12 +200,12 @@ const byPurpose = (
       const purposes = kept.get(item)
       if (purposes !== undefined)
         return [item, { better: null, shared: [], weak: null, kept: purposes }]
-      if (item === fallback) return [item, { better: null, shared: [], weak: null, kept: "best" }]
+      if (item === fallback) return [item, { better: null, shared: [], weak: null, kept: 'best' }]
       if (keepable(columns)) {
         return [item, { better: first, shared: goodNames(columns), weak: null, kept: null }]
       }
       const weak = selectedNames(columns)
-      return [item, { better: null, shared: [], weak, kept: item === lastResort ? "best" : null }]
+      return [item, { better: null, shared: [], weak, kept: item === lastResort ? 'best' : null }]
     }),
   )
 }
@@ -237,18 +237,18 @@ export const judge = (inv: Inventory, ctx: JudgeContext): ReadonlyMap<string, Ve
       const { better, kept } = standing
       const hard = hardProtections(item, ctx)
       const soft = [
-        ...(kept === "best" && copies.length === 1 ? (["only_copy"] as const) : []),
-        ...(kept === "best" && copies.length > 1 ? (["best_copy"] as const) : []),
+        ...(kept === 'best' && copies.length === 1 ? (['only_copy'] as const) : []),
+        ...(kept === 'best' && copies.length > 1 ? (['best_copy'] as const) : []),
         ...(item.acquiredAt !== null && ctx.now - Date.parse(item.acquiredAt) < RECENT_MS
-          ? (["recent"] as const)
+          ? (['recent'] as const)
           : []),
-        ...(unreadTuning(item) ? (["unread_tuning"] as const) : []),
+        ...(unreadTuning(item) ? (['unread_tuning'] as const) : []),
       ]
       if (Array.isArray(kept)) {
         const best = kept.map((purpose): Protection =>
-          purpose === "pve" ? "best_pve" : "best_pvp",
+          purpose === 'pve' ? 'best_pve' : 'best_pvp',
         )
-        verdicts.set(item.itemInstanceId, { verdict: "keep", protections: [...hard, ...best] })
+        verdicts.set(item.itemInstanceId, { verdict: 'keep', protections: [...hard, ...best] })
         continue
       }
       const roll = ctx.rolls.get(item.itemInstanceId)
@@ -257,27 +257,27 @@ export const judge = (inv: Inventory, ctx: JudgeContext): ReadonlyMap<string, Ve
           ? []
           : [
               {
-                kind: "duplicate",
+                kind: 'duplicate',
                 better: better.itemInstanceId,
                 shared: standing.shared,
               } as const,
             ]),
-        ...(standing.weak === null ? [] : [{ kind: "weak_roll", perks: standing.weak } as const]),
-        ...(roll?.trash === true ? [{ kind: "trash_roll", score: roll.score ?? 0 } as const] : []),
+        ...(standing.weak === null ? [] : [{ kind: 'weak_roll', perks: standing.weak } as const]),
+        ...(roll?.trash === true ? [{ kind: 'trash_roll', score: roll.score ?? 0 } as const] : []),
       ]
       if (hard.length > 0 || signals.length === 0) {
-        verdicts.set(item.itemInstanceId, { verdict: "keep", protections: [...hard, ...soft] })
+        verdicts.set(item.itemInstanceId, { verdict: 'keep', protections: [...hard, ...soft] })
         continue
       }
       const reasons = [
         ...soft.map((protection) => SOFT_WHY[protection]),
-        ...(kept === "best" ? [NO_BETTER_COPY] : []),
+        ...(kept === 'best' ? [NO_BETTER_COPY] : []),
       ]
       verdicts.set(
         item.itemInstanceId,
         reasons.length === 0
-          ? { verdict: "junk", signals }
-          : { verdict: "review", signals, why: reasons.join(" · ") },
+          ? { verdict: 'junk', signals }
+          : { verdict: 'review', signals, why: reasons.join(' · ') },
       )
     }
   }

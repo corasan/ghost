@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react"
+import { useSyncExternalStore } from 'react'
 
 export function store<T>(initial: T) {
   let value = initial

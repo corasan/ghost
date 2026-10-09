@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test"
+import { describe, expect, test } from 'bun:test'
 import {
   checkNotes,
   extractChannelId,
@@ -9,7 +9,7 @@ import {
   rankNotes,
   transcriptText,
   videoUrl,
-} from "./parse.ts"
+} from './parse.ts'
 
 const FEED = `<?xml version="1.0" encoding="UTF-8"?>
 <feed xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns:media="http://search.yahoo.com/mrss/" xmlns="http://www.w3.org/2005/Atom">
@@ -33,121 +33,121 @@ const FEED = `<?xml version="1.0" encoding="UTF-8"?>
  </entry>
 </feed>`
 
-describe("channel config", () => {
-  test("reads handles, ids and names to search", () => {
-    expect(parseChannelList(" @Datto, UCaaaaaaaaaaaaaaaaaaaaaa ,Aegis Destiny 2,,")).toEqual([
-      { kind: "handle", value: "@Datto" },
-      { kind: "id", value: "UCaaaaaaaaaaaaaaaaaaaaaa" },
-      { kind: "search", value: "Aegis Destiny 2" },
+describe('channel config', () => {
+  test('reads handles, ids and names to search', () => {
+    expect(parseChannelList(' @Datto, UCaaaaaaaaaaaaaaaaaaaaaa ,Aegis Destiny 2,,')).toEqual([
+      { kind: 'handle', value: '@Datto' },
+      { kind: 'id', value: 'UCaaaaaaaaaaaaaaaaaaaaaa' },
+      { kind: 'search', value: 'Aegis Destiny 2' },
     ])
   })
 
-  test("finds the channel id on a channel or search page", () => {
+  test('finds the channel id on a channel or search page', () => {
     expect(
       extractChannelId(`<meta itemprop="identifier" content="UCbbbbbbbbbbbbbbbbbbbbbb">`),
-    ).toBe("UCbbbbbbbbbbbbbbbbbbbbbb")
+    ).toBe('UCbbbbbbbbbbbbbbbbbbbbbb')
     expect(extractChannelId(`{"channelId":"UCcccccccccccccccccccccc","title"`)).toBe(
-      "UCcccccccccccccccccccccc",
+      'UCcccccccccccccccccccccc',
     )
-    expect(extractChannelId("<html>consent wall</html>")).toBeNull()
+    expect(extractChannelId('<html>consent wall</html>')).toBeNull()
   })
 })
 
-describe("parseFeed", () => {
-  test("reads entries with decoded titles and skips incomplete ones", () => {
+describe('parseFeed', () => {
+  test('reads entries with decoded titles and skips incomplete ones', () => {
     expect(parseFeed(FEED)).toEqual([
       {
-        videoId: "abc123def45",
-        channelId: "UCaaaaaaaaaaaaaaaaaaaaaa",
-        channelTitle: "Datto",
+        videoId: 'abc123def45',
+        channelId: 'UCaaaaaaaaaaaaaaaaaaaaaa',
+        channelTitle: 'Datto',
         title: "Best Hunter Build & Why It's Busted",
-        publishedAt: "2026-09-30T16:00:00.000Z",
-        description: "Here is the build <3",
+        publishedAt: '2026-09-30T16:00:00.000Z',
+        description: 'Here is the build <3',
       },
     ])
   })
 
-  test("skips an entry with a malformed date or an id that is not a video id", () => {
+  test('skips an entry with a malformed date or an id that is not a video id', () => {
     const entry = (videoId: string, published: string) => `<entry>
   <yt:videoId>${videoId}</yt:videoId>
   <yt:channelId>UCaaaaaaaaaaaaaaaaaaaaaa</yt:channelId>
   <published>${published}</published>
  </entry>`
     const feed = `<feed><title>Datto</title>
- ${entry("abc123def45", "yesterday-ish")}
- ${entry("../../../etc", "2026-09-30T16:00:00+00:00")}
- ${entry("zzz123def45", "2026-09-30T16:00:00+00:00")}
+ ${entry('abc123def45', 'yesterday-ish')}
+ ${entry('../../../etc', '2026-09-30T16:00:00+00:00')}
+ ${entry('zzz123def45', '2026-09-30T16:00:00+00:00')}
 </feed>`
-    expect(parseFeed(feed).map((video) => video.videoId)).toEqual(["zzz123def45"])
+    expect(parseFeed(feed).map((video) => video.videoId)).toEqual(['zzz123def45'])
   })
 })
 
-describe("captions", () => {
+describe('captions', () => {
   const json3 = JSON.stringify({
     events: [
-      { tStartMs: 0, segs: [{ utf8: "welcome back" }] },
+      { tStartMs: 0, segs: [{ utf8: 'welcome back' }] },
       { tStartMs: 500 },
-      { tStartMs: 4000, segs: [{ utf8: "today " }, { utf8: "\nhunters" }] },
-      { tStartMs: 4200, segs: [{ utf8: "today hunters" }] },
-      { tStartMs: 75_000, segs: [{ utf8: "run Vorpal Weapon" }] },
+      { tStartMs: 4000, segs: [{ utf8: 'today ' }, { utf8: '\nhunters' }] },
+      { tStartMs: 4200, segs: [{ utf8: 'today hunters' }] },
+      { tStartMs: 75_000, segs: [{ utf8: 'run Vorpal Weapon' }] },
     ],
   })
 
-  test("joins segments and keeps start seconds", () => {
+  test('joins segments and keeps start seconds', () => {
     expect(parseJson3(json3)).toEqual([
-      { startSec: 0, text: "welcome back" },
-      { startSec: 4, text: "today hunters" },
-      { startSec: 4, text: "today hunters" },
-      { startSec: 75, text: "run Vorpal Weapon" },
+      { startSec: 0, text: 'welcome back' },
+      { startSec: 4, text: 'today hunters' },
+      { startSec: 4, text: 'today hunters' },
+      { startSec: 75, text: 'run Vorpal Weapon' },
     ])
   })
 
-  test("groups lines into timestamped windows without rolling repeats", () => {
+  test('groups lines into timestamped windows without rolling repeats', () => {
     expect(transcriptText(parseJson3(json3))).toBe(
-      "[0:00] welcome back today hunters\n[1:15] run Vorpal Weapon",
+      '[0:00] welcome back today hunters\n[1:15] run Vorpal Weapon',
     )
   })
 
-  test("links to the moment", () => {
-    expect(videoUrl("abc", 75)).toBe("https://www.youtube.com/watch?v=abc&t=75s")
-    expect(videoUrl("abc", null)).toBe("https://www.youtube.com/watch?v=abc")
+  test('links to the moment', () => {
+    expect(videoUrl('abc', 75)).toBe('https://www.youtube.com/watch?v=abc&t=75s')
+    expect(videoUrl('abc', null)).toBe('https://www.youtube.com/watch?v=abc')
   })
 })
 
-describe("summary checks", () => {
-  test("pulls JSON out of a fenced reply", () => {
+describe('summary checks', () => {
+  test('pulls JSON out of a fenced reply', () => {
     expect(extractJsonText('Here:\n```json\n{"notes":[]}\n```')).toBe('{"notes":[]}')
-    expect(() => extractJsonText("no json")).toThrow()
+    expect(() => extractJsonText('no json')).toThrow()
   })
 
-  test("keeps manifest names, flags unknown ones and drops notes with none known", () => {
-    const known = new Map([["vorpal weapon", "Vorpal Weapon"]])
+  test('keeps manifest names, flags unknown ones and drops notes with none known', () => {
+    const known = new Map([['vorpal weapon', 'Vorpal Weapon']])
     const notes = checkNotes(
       [
         {
-          topic: "perk",
-          claim: " Vorpal is great on rockets. ",
+          topic: 'perk',
+          claim: ' Vorpal is great on rockets. ',
           startSec: 75.4,
-          names: ["vorpal weapon", "Rocket Thing"],
+          names: ['vorpal weapon', 'Rocket Thing'],
         },
-        { topic: "perk", claim: "Vorple wepon is good.", startSec: 10, names: ["Vorple Wepon"] },
-        { topic: "meta", claim: "Solar is strong this season.", startSec: 9999, names: [] },
-        { topic: "meta", claim: "  ", startSec: 0, names: [] },
+        { topic: 'perk', claim: 'Vorple wepon is good.', startSec: 10, names: ['Vorple Wepon'] },
+        { topic: 'meta', claim: 'Solar is strong this season.', startSec: 9999, names: [] },
+        { topic: 'meta', claim: '  ', startSec: 0, names: [] },
       ],
       known,
       600,
     )
     expect(notes).toEqual([
       {
-        topic: "perk",
-        claim: "Vorpal is great on rockets.",
+        topic: 'perk',
+        claim: 'Vorpal is great on rockets.',
         startSec: 75,
-        names: ["Vorpal Weapon"],
-        unverified: ["Rocket Thing"],
+        names: ['Vorpal Weapon'],
+        unverified: ['Rocket Thing'],
       },
       {
-        topic: "meta",
-        claim: "Solar is strong this season.",
+        topic: 'meta',
+        claim: 'Solar is strong this season.',
         startSec: null,
         names: [],
         unverified: [],
@@ -156,36 +156,36 @@ describe("summary checks", () => {
   })
 })
 
-describe("rankNotes", () => {
+describe('rankNotes', () => {
   const notes = [
     {
-      topic: "meta",
-      claim: "Solar hunters are strong in GMs",
+      topic: 'meta',
+      claim: 'Solar hunters are strong in GMs',
       names: [],
-      publishedAt: "2026-09-01",
+      publishedAt: '2026-09-01',
     },
     {
-      topic: "weapon",
-      claim: "Run this rocket",
-      names: ["Apex Predator"],
-      publishedAt: "2026-09-02",
+      topic: 'weapon',
+      claim: 'Run this rocket',
+      names: ['Apex Predator'],
+      publishedAt: '2026-09-02',
     },
     {
-      topic: "perk",
-      claim: "Apex Predator wants Bait and Switch",
-      names: ["Bait and Switch"],
-      publishedAt: "2026-09-03",
+      topic: 'perk',
+      claim: 'Apex Predator wants Bait and Switch',
+      names: ['Bait and Switch'],
+      publishedAt: '2026-09-03',
     },
   ]
 
-  test("names outrank claim text, then newer first", () => {
-    expect(rankNotes(notes, "apex predator", 5).map((n) => n.publishedAt)).toEqual([
-      "2026-09-02",
-      "2026-09-03",
+  test('names outrank claim text, then newer first', () => {
+    expect(rankNotes(notes, 'apex predator', 5).map((n) => n.publishedAt)).toEqual([
+      '2026-09-02',
+      '2026-09-03',
     ])
   })
 
-  test("an empty query lists newest first", () => {
-    expect(rankNotes(notes, "", 2).map((n) => n.publishedAt)).toEqual(["2026-09-03", "2026-09-02"])
+  test('an empty query lists newest first', () => {
+    expect(rankNotes(notes, '', 2).map((n) => n.publishedAt)).toEqual(['2026-09-03', '2026-09-02'])
   })
 })

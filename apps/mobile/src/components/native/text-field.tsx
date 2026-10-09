@@ -1,5 +1,5 @@
-import { StyleSheet, TextInput } from "react-native"
-import type { TextFieldProps } from "./types"
+import { StyleSheet, TextInput } from 'react-native'
+import type { TextFieldProps } from './types'
 
 export function TextField({
   placeholder,
@@ -14,7 +14,7 @@ export function TextField({
       placeholder={placeholder}
       defaultValue={initialValue}
       onChangeText={onChange}
-      keyboardType={keyboard === "numeric" ? "numeric" : keyboard === "url" ? "url" : "default"}
+      keyboardType={keyboard === 'numeric' ? 'numeric' : keyboard === 'url' ? 'url' : 'default'}
       autoCapitalize="none"
       autoCorrect={false}
       multiline={multiline}

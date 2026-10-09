@@ -1,6 +1,6 @@
-import { OutlinedTextField, Text, useNativeState } from "@expo/ui/jetpack-compose"
-import { fillMaxWidth, paddingAll } from "@expo/ui/jetpack-compose/modifiers"
-import type { TextFieldProps } from "./types"
+import { OutlinedTextField, Text, useNativeState } from '@expo/ui/jetpack-compose'
+import { fillMaxWidth, paddingAll } from '@expo/ui/jetpack-compose/modifiers'
+import type { TextFieldProps } from './types'
 
 export function TextField({
   placeholder,
@@ -9,14 +9,14 @@ export function TextField({
   keyboard,
   multiline,
 }: TextFieldProps) {
-  const value = useNativeState(initialValue ?? "")
+  const value = useNativeState(initialValue ?? '')
   return (
     <OutlinedTextField
       value={value}
       onValueChange={onChange}
       singleLine={!multiline}
       keyboardOptions={{
-        keyboardType: keyboard === "numeric" ? "number" : keyboard === "url" ? "uri" : "text",
+        keyboardType: keyboard === 'numeric' ? 'number' : keyboard === 'url' ? 'uri' : 'text',
         autoCorrectEnabled: false,
       }}
       modifiers={[fillMaxWidth(), paddingAll(8)]}

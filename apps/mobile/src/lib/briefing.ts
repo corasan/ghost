@@ -1,11 +1,11 @@
-import type { Briefing } from "@ghost/contract"
+import type { Briefing } from '@ghost/contract'
 
 // Pure wording for the "since last..." message that opens the chat. Kept free
 // of React Native imports so it can be tested with `bun test`.
 
-const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-const WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten']
 
 const startOfDay = (date: Date) =>
   new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
@@ -16,18 +16,18 @@ export function sinceLabel(since: string, now: Date = new Date()) {
   const days = Math.round((startOfDay(now) - startOfDay(then)) / 86_400_000)
   const hour = then.getHours()
   if (days <= 0) {
-    if (hour < 12) return "Since this morning"
-    if (hour < 17) return "Since this afternoon"
-    return "Since earlier this evening"
+    if (hour < 12) return 'Since this morning'
+    if (hour < 17) return 'Since this afternoon'
+    return 'Since earlier this evening'
   }
-  if (days === 1) return hour >= 17 ? "Since last night" : "Since yesterday"
+  if (days === 1) return hour >= 17 ? 'Since last night' : 'Since yesterday'
   if (days < 7) return `Since ${DAYS[then.getDay()]}`
   return `Since ${then.getDate()} ${MONTHS[then.getMonth()]}`
 }
 
 export const countWord = (n: number) => WORDS[n] ?? String(n)
 
-const items = (n: number) => `${n} new ${n === 1 ? "item" : "items"}`
+const items = (n: number) => `${n} new ${n === 1 ? 'item' : 'items'}`
 
 export function briefingSentence(briefing: Briefing, now: Date = new Date()) {
   const parts: string[] = []
@@ -39,10 +39,10 @@ export function briefingSentence(briefing: Briefing, now: Date = new Date()) {
     const upgrades = briefing.upgrades.length
     const beat =
       upgrades === 0
-        ? ""
+        ? ''
         : upgrades === briefing.newCount && upgrades === 1
-          ? ", and it beats what you have on"
-          : `, ${countWord(upgrades)} of them ${upgrades === 1 ? "beats" : "beat"} what you have on`
+          ? ', and it beats what you have on'
+          : `, ${countWord(upgrades)} of them ${upgrades === 1 ? 'beats' : 'beat'} what you have on`
     parts.push(`${sinceLabel(briefing.since, now)}: ${items(briefing.newCount)}${beat}.`)
   }
   const { postmasterCount: post, postmasterCapacity: postCap } = briefing
@@ -51,31 +51,31 @@ export function briefingSentence(briefing: Briefing, now: Date = new Date()) {
   if (briefing.vaultCount / briefing.vaultCapacity >= 0.9) {
     parts.push(`Vault is at ${briefing.vaultCount} of ${briefing.vaultCapacity}.`)
   }
-  return parts.join(" ")
+  return parts.join(' ')
 }
 
 export type FollowUp =
-  | { readonly label: string; readonly kind: "prompt"; readonly prompt: string }
-  | { readonly label: string; readonly kind: "recent"; readonly filter: "upgrades" | "all" }
+  | { readonly label: string; readonly kind: 'prompt'; readonly prompt: string }
+  | { readonly label: string; readonly kind: 'recent'; readonly filter: 'upgrades' | 'all' }
 
 /** The two most useful next steps, most urgent first. */
 export function followUps(briefing: Briefing): readonly FollowUp[] {
   const out: FollowUp[] = []
   if (briefing.upgrades.length > 0) {
-    out.push({ label: "SHOW UPGRADES", kind: "recent", filter: "upgrades" })
+    out.push({ label: 'SHOW UPGRADES', kind: 'recent', filter: 'upgrades' })
   }
   if (briefing.postmasterCount > 0) {
     out.push({
-      label: "CLEAR POSTMASTER",
-      kind: "prompt",
-      prompt: "Empty the postmaster into the vault",
+      label: 'CLEAR POSTMASTER',
+      kind: 'prompt',
+      prompt: 'Empty the postmaster into the vault',
     })
   }
   if (briefing.vaultCount / briefing.vaultCapacity >= 0.9) {
-    out.push({ label: "CLEAN UP VAULT", kind: "prompt", prompt: "Clean up my vault" })
+    out.push({ label: 'CLEAN UP VAULT', kind: 'prompt', prompt: 'Clean up my vault' })
   }
   if (briefing.newCount > 0 && briefing.upgrades.length === 0) {
-    out.push({ label: "SHOW WHAT'S NEW", kind: "recent", filter: "all" })
+    out.push({ label: "SHOW WHAT'S NEW", kind: 'recent', filter: 'all' })
   }
   return out.slice(0, 2)
 }

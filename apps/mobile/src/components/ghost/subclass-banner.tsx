@@ -1,11 +1,11 @@
-import type { SubclassLoadout } from "@ghost/contract"
-import type { ReactNode } from "react"
-import { Pressable, View } from "react-native"
+import type { SubclassLoadout } from '@ghost/contract'
+import type { ReactNode } from 'react'
+import { Pressable, View } from 'react-native'
 
-import { SubclassMark } from "@/components/ghost/subclass-mark"
-import { Body, Chevron, Cond, Cut, Meta } from "@/components/ghost/ui"
-import { ELEMENT_TONE, Ghost } from "@/constants/theme"
-import { sentence, upper } from "@/lib/format"
+import { SubclassMark } from '@/components/ghost/subclass-mark'
+import { Body, Chevron, Cond, Cut, Meta } from '@/components/ghost/ui'
+import { ELEMENT_TONE, Ghost } from '@/constants/theme'
+import { sentence, upper } from '@/lib/format'
 
 /** The subclass at a glance: its mark, name, element, aspects and fragment count, what a build switches it from, and whatever it opens. */
 export function SubclassBanner({
@@ -17,7 +17,7 @@ export function SubclassBanner({
   children,
 }: {
   loadout: SubclassLoadout
-  chevron: "right" | "down" | "up"
+  chevron: 'right' | 'down' | 'up'
   hint: string
   expanded?: boolean
   onPress: () => void
@@ -28,10 +28,10 @@ export function SubclassBanner({
   const fragments = loadout.fragments.length
   const summary = [
     ...loadout.aspects.map((aspect) => aspect.name),
-    fragments > 0 ? `${fragments} ${fragments === 1 ? "fragment" : "fragments"}` : null,
+    fragments > 0 ? `${fragments} ${fragments === 1 ? 'fragment' : 'fragments'}` : null,
   ]
     .filter(Boolean)
-    .join(" · ")
+    .join(' · ')
   return (
     <Cut cut={8} fill={`${tone}1a`} border={`${tone}4d`}>
       <Pressable
@@ -41,8 +41,8 @@ export function SubclassBanner({
         onPress={onPress}
         style={({ pressed }) => [
           {
-            flexDirection: "row",
-            alignItems: "center",
+            flexDirection: 'row',
+            alignItems: 'center',
             gap: 12,
             paddingVertical: 13,
             paddingHorizontal: 14,
@@ -52,11 +52,11 @@ export function SubclassBanner({
       >
         <SubclassMark loadout={loadout} size={30} />
         <View style={{ flex: 1, minWidth: 0 }}>
-          <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
             <Cond size={20} style={{ letterSpacing: 0.8, lineHeight: 21 }}>
-              {upper(loadout.subclass ?? "Subclass")}
+              {upper(loadout.subclass ?? 'Subclass')}
             </Cond>
-            {loadout.element !== "none" ? (
+            {loadout.element !== 'none' ? (
               <Meta color={tone}>{sentence(loadout.element)}</Meta>
             ) : null}
           </View>

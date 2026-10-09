@@ -1,16 +1,16 @@
-import { router } from "expo-router"
-import { type ReactNode, useState } from "react"
-import { Text, View } from "react-native"
+import { router } from 'expo-router'
+import { type ReactNode, useState } from 'react'
+import { Text, View } from 'react-native'
 
-import { Button, Cond, Cut, Meta } from "@/components/ghost/ui"
-import { Ghost } from "@/constants/theme"
-import { errorMessage, useCleanup, useCleanupPreview, useStartCleanup } from "@/lib/api"
-import { useCharacter } from "@/lib/character"
-import { plural } from "@/lib/cleanup"
+import { Button, Cond, Cut, Meta } from '@/components/ghost/ui'
+import { Ghost } from '@/constants/theme'
+import { errorMessage, useCleanup, useCleanupPreview, useStartCleanup } from '@/lib/api'
+import { useCharacter } from '@/lib/character'
+import { plural } from '@/lib/cleanup'
 
 function Line({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <View style={{ flexDirection: "row", justifyContent: "space-between", paddingTop: 6 }}>
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 6 }}>
       <Meta>{label}</Meta>
       <Cond size={16} style={{ letterSpacing: 0.7 }}>
         {children}
@@ -33,12 +33,12 @@ export function CleanupOffer({ characterId }: { characterId: string | null }) {
   return (
     <Cut border={Ghost.ruleStrong} style={{ marginLeft: 14, padding: 14 }}>
       <View
-        style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}
+        style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}
       >
         <Cond size={18} style={{ lineHeight: 22 }}>
           CLEAN UP MODE
         </Cond>
-        <Meta>{plural(batches, "batch", "batches")}</Meta>
+        <Meta>{plural(batches, 'batch', 'batches')}</Meta>
       </View>
       <View style={{ marginTop: 10, borderTopWidth: 1, borderTopColor: Ghost.rule, paddingTop: 4 }}>
         <Line label="Junk to delete">{junk}</Line>
@@ -58,26 +58,26 @@ export function CleanupOffer({ characterId }: { characterId: string | null }) {
           {errorMessage(start.error)}
         </Meta>
       ) : null}
-      <View style={{ flexDirection: "row", gap: 8, marginTop: 14 }}>
+      <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
         {running ? (
           <Button
             label="OPEN CLEANUP"
             tone="solid"
             compact
-            onPress={() => router.navigate("/cleanup")}
+            onPress={() => router.navigate('/cleanup')}
           />
         ) : (
           <>
             <Button label="NOT NOW" compact onPress={() => setDismissed(true)} />
             <Button
-              label={start.isPending ? "STARTING…" : "START CLEANUP"}
+              label={start.isPending ? 'STARTING…' : 'START CLEANUP'}
               tone="solid"
               flex={1.4}
               compact
               disabled={!fits || start.isPending}
               onPress={() =>
                 start.mutate(preview.data.characterId, {
-                  onSuccess: () => router.navigate("/cleanup"),
+                  onSuccess: () => router.navigate('/cleanup'),
                 })
               }
             />

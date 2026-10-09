@@ -20,11 +20,11 @@ import {
   SavedBuild,
   SubclassChange,
   SubclassLoadout,
-} from "@ghost/contract"
-import { Context, Effect, Layer, Option } from "effect"
-import { Artifacts } from "../bungie/artifact.ts"
-import type { BungieError } from "../bungie/client.ts"
-import { type Inventory, isArmor, isWeapon, type OwnedItem } from "../bungie/inventory.ts"
+} from '@ghost/contract'
+import { Context, Effect, Layer, Option } from 'effect'
+import { Artifacts } from '../bungie/artifact.ts'
+import type { BungieError } from '../bungie/client.ts'
+import { type Inventory, isArmor, isWeapon, type OwnedItem } from '../bungie/inventory.ts'
 import {
   type GameLoadout,
   isEmptyLoadout,
@@ -32,16 +32,16 @@ import {
   slotName,
   slotsFor,
   validateSlot,
-} from "../bungie/loadouts.ts"
-import { Manifest, type ManifestItem } from "../bungie/manifest.ts"
-import { ProfileStore } from "../bungie/profile.ts"
-import { ChargeEffects } from "../db/charge.ts"
-import { BuildsRepo, type StoredBuild } from "../db/builds.ts"
-import { JobsRepo } from "../db/jobs.ts"
-import { title } from "../items/items.ts"
-import { composeBuild, withPerkIcons } from "../plans/compose.ts"
-import type { BuildRecipe } from "../plans/recipe.ts"
-import { Wishlist } from "../wishlist/wishlist.ts"
+} from '../bungie/loadouts.ts'
+import { Manifest, type ManifestItem } from '../bungie/manifest.ts'
+import { ProfileStore } from '../bungie/profile.ts'
+import { ChargeEffects } from '../db/charge.ts'
+import { BuildsRepo, type StoredBuild } from '../db/builds.ts'
+import { JobsRepo } from '../db/jobs.ts'
+import { title } from '../items/items.ts'
+import { composeBuild, withPerkIcons } from '../plans/compose.ts'
+import type { BuildRecipe } from '../plans/recipe.ts'
+import { Wishlist } from '../wishlist/wishlist.ts'
 
 type ReadErrors = BungieError | BungieNotLinked
 type EquipErrors = BuildNotFound | PlanNotApplicable | LoadoutSlotInvalid | ReadErrors
@@ -55,36 +55,36 @@ export interface BuildsService {
   readonly slots: (characterId: string) => Effect.Effect<LoadoutSlots, ReadErrors>
 }
 
-export class Builds extends Context.Service<Builds, BuildsService>()("Builds") {}
+export class Builds extends Context.Service<Builds, BuildsService>()('Builds') {}
 
-const WEAPON_ORDER = ["kinetic", "energy", "power"]
+const WEAPON_ORDER = ['kinetic', 'energy', 'power']
 
 const keptRows = (plan: Plan) =>
-  plan.rows.filter((row) => row.action === "equip" || row.action === "none")
+  plan.rows.filter((row) => row.action === 'equip' || row.action === 'none')
 
 export const buildFacets = (plan: Plan): BuildFacets | undefined => {
   if (plan.loadout === undefined) return undefined
   const kept = keptRows(plan)
   const weapons = kept
     .filter((row) => row.slot !== undefined && isWeapon(row.slot))
-    .sort((a, b) => WEAPON_ORDER.indexOf(a.slot ?? "") - WEAPON_ORDER.indexOf(b.slot ?? ""))
+    .sort((a, b) => WEAPON_ORDER.indexOf(a.slot ?? '') - WEAPON_ORDER.indexOf(b.slot ?? ''))
   const armor = kept.filter((row) => row.slot !== undefined && isArmor(row.slot))
   return new BuildFacets({
     classType: plan.loadout.classType,
     element: plan.loadout.element,
     subclass: plan.loadout.subclass,
-    exoticArmor: armor.find((row) => row.tier === "exotic")?.name ?? null,
-    exoticWeapon: weapons.find((row) => row.tier === "exotic")?.name ?? null,
+    exoticArmor: armor.find((row) => row.tier === 'exotic')?.name ?? null,
+    exoticWeapon: weapons.find((row) => row.tier === 'exotic')?.name ?? null,
     weaponTypes: weapons.flatMap((row) => (row.typeName === undefined ? [] : [row.typeName])),
   })
 }
 
 const inGameState = (plan: Plan, slot: GameLoadout | undefined): InGameState =>
   slot === undefined || isEmptyLoadout(slot)
-    ? "cleared"
+    ? 'cleared'
     : keptRows(plan).every((row) => slot.itemInstanceIds.includes(row.itemInstanceId))
-      ? "matches"
-      : "changed"
+      ? 'matches'
+      : 'changed'
 
 export const buildReadiness = (
   plan: Plan,
@@ -133,7 +133,7 @@ export const substitute = (recipe: BuildRecipe, plan: Plan, inventory: Inventory
       .filter((item) => item.itemHash === saved.itemHash && !taken.has(item.itemInstanceId))
       .sort(better)[0]
     if (copy === undefined) {
-      lost.push(new PlanRow({ ...saved, selected: false, outcome: null, error: "no longer owned" }))
+      lost.push(new PlanRow({ ...saved, selected: false, outcome: null, error: 'no longer owned' }))
       continue
     }
     taken.add(copy.itemInstanceId)
@@ -180,7 +180,7 @@ export const normalizePlan = (plan: Plan): Plan => {
   const change = plan.loadout?.change
   return new Plan({
     ...rest,
-    status: "proposed",
+    status: 'proposed',
     rows: plan.rows.map((row) => new PlanRow({ ...row, outcome: null, error: null })),
     loadout:
       plan.loadout === undefined
@@ -198,7 +198,7 @@ export const normalizePlan = (plan: Plan): Plan => {
 const confirmLabel = (saveTo: LoadoutSaveTo | undefined, name: string) =>
   saveTo === undefined
     ? `EQUIP ${name.toUpperCase()}`
-    : `EQUIP & SAVE TO SLOT ${saveTo.index + 1}${saveTo.replaces === null ? "" : ` · REPLACES ${saveTo.replaces.toUpperCase()}`}`
+    : `EQUIP & SAVE TO SLOT ${saveTo.index + 1}${saveTo.replaces === null ? '' : ` · REPLACES ${saveTo.replaces.toUpperCase()}`}`
 
 export const BuildsLive = Layer.effect(
   Builds,
@@ -291,11 +291,11 @@ export const BuildsLive = Layer.effect(
 
     const equip = (id: string, input: EquipBuild) =>
       Effect.gen(function* () {
-        const build = yield* builds.get(id).pipe(Effect.catchTag("SqlError", Effect.die))
+        const build = yield* builds.get(id).pipe(Effect.catchTag('SqlError', Effect.die))
         const inv = yield* profile.inventory
         const target = inv.characters.find((each) => each.characterId === input.characterId)
         if (target === undefined) {
-          return yield* new PlanNotApplicable({ reason: "that character is gone" })
+          return yield* new PlanNotApplicable({ reason: 'that character is gone' })
         }
         const facets = buildFacets(build.plan)
         if (facets !== undefined && facets.classType !== target.classType) {
@@ -313,7 +313,7 @@ export const BuildsLive = Layer.effect(
         const { recipe, substituted, lost, order } = substitute(retargeted, build.plan, inv)
         const composed = yield* composeBuild(recipe, inv).pipe(
           Effect.provideContext(composing),
-          Effect.catchTag("BuildRefusal", (refusal) =>
+          Effect.catchTag('BuildRefusal', (refusal) =>
             Effect.fail(new PlanNotApplicable({ reason: refusal.message })),
           ),
         )
@@ -328,7 +328,7 @@ export const BuildsLive = Layer.effect(
         })
         const job = yield* jobs
           .createManual({
-            kind: "saved_build",
+            kind: 'saved_build',
             prompt: `Equip ${build.name} on ${title(target.classType)}`,
             characterId: target.characterId,
             plan,
@@ -340,17 +340,17 @@ export const BuildsLive = Layer.effect(
 
     const save = (input: SaveBuild) =>
       Effect.gen(function* () {
-        const job = yield* jobs.get(input.jobId).pipe(Effect.catchTag("SqlError", Effect.die))
-        if (job.plan === null || job.plan.kind !== "build") {
-          return yield* new PlanNotApplicable({ reason: "this request is not a build" })
+        const job = yield* jobs.get(input.jobId).pipe(Effect.catchTag('SqlError', Effect.die))
+        if (job.plan === null || job.plan.kind !== 'build') {
+          return yield* new PlanNotApplicable({ reason: 'this request is not a build' })
         }
         if (buildFacets(job.plan) === undefined) {
-          return yield* new PlanNotApplicable({ reason: "this build names no character" })
+          return yield* new PlanNotApplicable({ reason: 'this build names no character' })
         }
         const recipe = yield* jobs.recipe(input.jobId).pipe(Effect.orDie)
         if (Option.isNone(recipe)) {
           return yield* new PlanNotApplicable({
-            reason: "this build was made before builds could be saved; ask Ghost for it again",
+            reason: 'this build was made before builds could be saved; ask Ghost for it again',
           })
         }
         const existing = yield* builds.byJob(input.jobId).pipe(Effect.orDie)
@@ -377,9 +377,9 @@ export const BuildsLive = Layer.effect(
     const rename = (id: string, name: string) =>
       builds
         .rename(id, name)
-        .pipe(Effect.catchTag("SqlError", Effect.die), Effect.flatMap(presentOne))
+        .pipe(Effect.catchTag('SqlError', Effect.die), Effect.flatMap(presentOne))
 
-    const remove = (id: string) => builds.remove(id).pipe(Effect.catchTag("SqlError", Effect.die))
+    const remove = (id: string) => builds.remove(id).pipe(Effect.catchTag('SqlError', Effect.die))
 
     const slots = (characterId: string) =>
       Effect.gen(function* () {

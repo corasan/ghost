@@ -1,18 +1,18 @@
-import { noul, TypeSafeClient } from "@typesafe-ai/sdk"
-import { Context, Effect, Layer, Redacted, Schema } from "effect"
-import { AppConfig } from "../config.ts"
+import { noul, TypeSafeClient } from '@typesafe-ai/sdk'
+import { Context, Effect, Layer, Redacted, Schema } from 'effect'
+import { AppConfig } from '../config.ts'
 
 export interface Candidate {
   readonly id: string
   readonly text: string
 }
 
-export class JevUnavailable extends Schema.TaggedError<JevUnavailable>()("JevUnavailable", {
+export class JevUnavailable extends Schema.TaggedError<JevUnavailable>()('JevUnavailable', {
   message: Schema.String,
 }) {}
 
 /** What a candidate is, which sets the question Jev answers about it. */
-export type Subject = "item" | "set bonus"
+export type Subject = 'item' | 'set bonus'
 
 export interface JevService {
   /** Each candidate's relevance to the intent, in [0, 1]: Jev's probability that it fits. */
@@ -23,7 +23,7 @@ export interface JevService {
   ) => Effect.Effect<ReadonlyMap<string, number>, JevUnavailable>
 }
 
-export class Jev extends Context.Service<Jev, JevService>()("Jev") {}
+export class Jev extends Context.Service<Jev, JevService>()('Jev') {}
 
 const CHARS_PER_TOKEN = 4
 export const REQUEST_TOKENS = 32_000
@@ -37,14 +37,14 @@ export interface Question {
 
 export const QUESTIONS: Record<Subject, Question> = {
   item: {
-    question: "Does the Destiny 2 item in `item` fit what the player asks for in `request`?",
-    true: "Nothing about the item conflicts with `request`, and its class, element, stats or perks serve the goal `request` states.",
+    question: 'Does the Destiny 2 item in `item` fit what the player asks for in `request`?',
+    true: 'Nothing about the item conflicts with `request`, and its class, element, stats or perks serve the goal `request` states.',
     false:
-      "The item conflicts with something `request` names, such as a different class, element or activity, or none of its stats and perks serve the goal `request` states.",
+      'The item conflicts with something `request` names, such as a different class, element or activity, or none of its stats and perks serve the goal `request` states.',
   },
-  "set bonus": {
+  'set bonus': {
     question:
-      "Does the Destiny 2 armor set bonus in `item` help the build the player asks for in `request`?",
+      'Does the Destiny 2 armor set bonus in `item` help the build the player asks for in `request`?',
     true: "The bonus's effect triggers from or feeds the subclass, element, abilities, weapons or activity `request` describes.",
     false:
       "The bonus's effect needs a different element, ability, weapon type or activity than `request` describes, or does nothing for its goal.",
@@ -60,7 +60,7 @@ export const requestBody = (
   model: string,
   intent: string,
   candidates: ReadonlyArray<Candidate>,
-  subject: Subject = "item",
+  subject: Subject = 'item',
 ) => ({
   model,
   state: { request: intent },
@@ -73,7 +73,7 @@ export const chunk = (
   model: string,
   intent: string,
   candidates: ReadonlyArray<Candidate>,
-  subject: Subject = "item",
+  subject: Subject = 'item',
   budget = REQUEST_TOKENS,
 ): ReadonlyArray<ReadonlyArray<Candidate>> => {
   const base = JSON.stringify(requestBody(model, intent, [], subject)).length
@@ -103,9 +103,9 @@ export const JevLive = Layer.effect(
   Effect.gen(function* () {
     const { jev } = yield* AppConfig
     const apiKey = Redacted.value(jev.apiKey)
-    if (apiKey === "") {
+    if (apiKey === '') {
       return {
-        rank: () => Effect.fail(new JevUnavailable({ message: "TYPESAFE_API_KEY is not set" })),
+        rank: () => Effect.fail(new JevUnavailable({ message: 'TYPESAFE_API_KEY is not set' })),
       }
     }
     const client = new TypeSafeClient({
@@ -129,7 +129,7 @@ export const JevLive = Layer.effect(
     const rank = (
       intent: string,
       candidates: ReadonlyArray<Candidate>,
-      subject: Subject = "item",
+      subject: Subject = 'item',
     ) =>
       Effect.forEach(
         chunk(jev.model, intent, candidates, subject),

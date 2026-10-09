@@ -1,13 +1,13 @@
-import type { DamageType, GuardianClass, ItemSummary, ItemTier } from "@ghost/contract"
+import type { DamageType, GuardianClass, ItemSummary, ItemTier } from '@ghost/contract'
 
 // Vault filtering runs on the phone over the cached snapshot: a few hundred
 // items filter in well under a frame, so typing and tapping chips never wait
 // on the network. Pure functions so they can be tested with `bun test`.
 
-export type Category = "all" | "weapons" | "armor"
-const FLAGS = ["dupes", "junk", "unlocked", "new"] as const
+export type Category = 'all' | 'weapons' | 'armor'
+const FLAGS = ['dupes', 'junk', 'unlocked', 'new'] as const
 export type Flag = (typeof FLAGS)[number]
-export type Sort = "power" | "newest" | "stats" | "name"
+export type Sort = 'power' | 'newest' | 'stats' | 'name'
 
 export interface VaultFilter {
   readonly query: string
@@ -20,17 +20,17 @@ export interface VaultFilter {
 }
 
 export const emptyFilter: VaultFilter = {
-  query: "",
-  category: "all",
+  query: '',
+  category: 'all',
   tiers: new Set(),
   elements: new Set(),
   classes: new Set(),
   flags: new Set(),
-  sort: "power",
+  sort: 'power',
 }
 
-const WEAPON_SLOTS = new Set(["kinetic", "energy", "power"])
-const ARMOR_SLOTS = new Set(["helmet", "arms", "chest", "legs", "class"])
+const WEAPON_SLOTS = new Set(['kinetic', 'energy', 'power'])
+const ARMOR_SLOTS = new Set(['helmet', 'arms', 'chest', 'legs', 'class'])
 
 export const isWeapon = (item: ItemSummary) => WEAPON_SLOTS.has(item.slot)
 export const isArmor = (item: ItemSummary) => ARMOR_SLOTS.has(item.slot)
@@ -43,7 +43,7 @@ const haystack = (item: ItemSummary) => {
   let text = haystacks.get(item)
   if (text === undefined) {
     text = [item.name, item.typeName, item.damageType, item.slot, ...item.perks]
-      .join(" ")
+      .join(' ')
       .toLowerCase()
     haystacks.set(item, text)
   }
@@ -52,19 +52,19 @@ const haystack = (item: ItemSummary) => {
 
 const matchesFlag = (item: ItemSummary, flag: Flag, now: number) => {
   switch (flag) {
-    case "dupes":
+    case 'dupes':
       return item.duplicates > 0
-    case "junk":
-      return item.decision === "junk"
-    case "unlocked":
+    case 'junk':
+      return item.decision === 'junk'
+    case 'unlocked':
       return !item.locked
-    case "new":
+    case 'new':
       return item.acquiredAt !== null && now - Date.parse(item.acquiredAt) < NEW_WINDOW_MS
   }
 }
 
 const inCategory = (item: ItemSummary, category: Category) =>
-  category === "all" || (category === "weapons" ? isWeapon(item) : isArmor(item))
+  category === 'all' || (category === 'weapons' ? isWeapon(item) : isArmor(item))
 
 /** Every word must appear somewhere in the item's name, type, element, slot or perks. */
 const matchesQuery = (item: ItemSummary, words: readonly string[]) =>
@@ -72,7 +72,7 @@ const matchesQuery = (item: ItemSummary, words: readonly string[]) =>
 
 const comparators: Record<Sort, (a: ItemSummary, b: ItemSummary) => number> = {
   power: (a, b) => (b.power ?? 0) - (a.power ?? 0) || a.name.localeCompare(b.name),
-  newest: (a, b) => (b.acquiredAt ?? "").localeCompare(a.acquiredAt ?? ""),
+  newest: (a, b) => (b.acquiredAt ?? '').localeCompare(a.acquiredAt ?? ''),
   stats: (a, b) => (b.statTotal ?? -1) - (a.statTotal ?? -1) || (b.power ?? 0) - (a.power ?? 0),
   name: (a, b) => a.name.localeCompare(b.name),
 }
@@ -120,14 +120,14 @@ export const toggle = <T>(set: ReadonlySet<T>, value: T): ReadonlySet<T> => {
 }
 
 export const SORT_LABEL: Record<Sort, string> = {
-  power: "POWER",
-  newest: "NEWEST",
-  stats: "STAT TOTAL",
-  name: "A–Z",
+  power: 'POWER',
+  newest: 'NEWEST',
+  stats: 'STAT TOTAL',
+  name: 'A–Z',
 }
 
-type Facet = "tiers" | "elements" | "classes" | "flags"
-const FACETS: readonly Facet[] = ["tiers", "elements", "classes", "flags"]
+type Facet = 'tiers' | 'elements' | 'classes' | 'flags'
+const FACETS: readonly Facet[] = ['tiers', 'elements', 'classes', 'flags']
 
 export interface ActiveFilter {
   readonly id: string
@@ -136,17 +136,17 @@ export interface ActiveFilter {
 
 /** Everything narrowing the list right now, as chips the player can tap to remove. */
 export const activeFilters = (filter: VaultFilter): ActiveFilter[] => [
-  ...(filter.category === "all" ? [] : [{ id: "category", label: filter.category.toUpperCase() }]),
+  ...(filter.category === 'all' ? [] : [{ id: 'category', label: filter.category.toUpperCase() }]),
   ...FACETS.flatMap((facet) =>
     [...filter[facet]].map((value) => ({
       id: `${facet}:${value}`,
-      label: facet === "classes" ? `${value.toUpperCase()} ARMOR` : value.toUpperCase(),
+      label: facet === 'classes' ? `${value.toUpperCase()} ARMOR` : value.toUpperCase(),
     })),
   ),
 ]
 
 export const removeFilter = (filter: VaultFilter, id: string): VaultFilter => {
-  if (id === "category") return { ...filter, category: "all" }
+  if (id === 'category') return { ...filter, category: 'all' }
   const facet = FACETS.find((each) => id.startsWith(`${each}:`))
   if (facet === undefined) return filter
   const value = id.slice(facet.length + 1)

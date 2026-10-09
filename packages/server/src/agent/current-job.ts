@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Option, Ref } from "effect"
+import { Context, Effect, Layer, Option, Ref } from 'effect'
 
 // The MCP tools run in a separate request from the agent run, so they learn
 // which job a plan belongs to from here. The runner sets it around each run;
@@ -16,7 +16,7 @@ export interface CurrentJobService {
   ) => <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>
 }
 
-export class CurrentJob extends Context.Service<CurrentJob, CurrentJobService>()("CurrentJob") {}
+export class CurrentJob extends Context.Service<CurrentJob, CurrentJobService>()('CurrentJob') {}
 
 export const CurrentJobLive = Layer.effect(
   CurrentJob,

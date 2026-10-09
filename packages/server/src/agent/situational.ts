@@ -1,7 +1,7 @@
-import { Context, Effect, Layer, Schema } from "effect"
-import { AppConfig } from "../config.ts"
-import { extractJsonText } from "../creators/parse.ts"
-import { abortOn, AgentFailed, runClaude, within } from "./claude.ts"
+import { Context, Effect, Layer, Schema } from 'effect'
+import { AppConfig } from '../config.ts'
+import { extractJsonText } from '../creators/parse.ts'
+import { abortOn, AgentFailed, runClaude, within } from './claude.ts'
 
 export interface SituationalInput {
   readonly subclass: string
@@ -36,7 +36,7 @@ export interface SituationalWriterService {
 export class SituationalWriter extends Context.Service<
   SituationalWriter,
   SituationalWriterService
->()("SituationalWriter") {}
+>()('SituationalWriter') {}
 
 const SYSTEM_PROMPT = `You are Ghost, a Destiny 2 companion. A player wants to know what the conditional bonuses on their equipped character add.
 
@@ -59,33 +59,33 @@ export const SituationalWriterLive = Layer.effect(
         try: async (signal) => {
           const prompt = [
             `Subclass: ${input.subclass}`,
-            "Aspects and fragments:",
+            'Aspects and fragments:',
             ...input.conditions.map((c) => `- ${c.name}: ${c.description}`),
-            "Armor charge mods:",
+            'Armor charge mods:',
             ...input.mods.map(
-              (m) => `- ${m.name} ×${m.copies}: ${m.description} Known value: ${m.known ?? "null"}`,
+              (m) => `- ${m.name} ×${m.copies}: ${m.description} Known value: ${m.known ?? 'null'}`,
             ),
-          ].join("\n")
+          ].join('\n')
           for await (const message of runClaude(config.claudePath, prompt, {
             model: config.model,
             systemPrompt: SYSTEM_PROMPT,
-            tools: ["WebSearch", "WebFetch"],
-            allowedTools: ["WebSearch", "WebFetch"],
-            permissionMode: "bypassPermissions",
+            tools: ['WebSearch', 'WebFetch'],
+            allowedTools: ['WebSearch', 'WebFetch'],
+            permissionMode: 'bypassPermissions',
             allowDangerouslySkipPermissions: true,
             maxTurns: 20,
             abortController: abortOn(signal),
           })) {
-            if (message.type === "result") {
-              if (message.subtype === "success") return message.result
+            if (message.type === 'result') {
+              if (message.subtype === 'success') return message.result
               throw new Error(`situational ended with ${message.subtype}`)
             }
           }
-          throw new Error("situational returned nothing")
+          throw new Error('situational returned nothing')
         },
         catch: (error) => new AgentFailed({ message: String(error) }),
       }).pipe(
-        within("5 minutes", "The situational writer"),
+        within('5 minutes', 'The situational writer'),
         Effect.flatMap((text) =>
           Effect.try({
             try: () => extractJsonText(text),

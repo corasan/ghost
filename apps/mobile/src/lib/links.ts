@@ -6,7 +6,7 @@
 export const webUrl = (link: string): string | null => {
   try {
     const url = new URL(link.trim())
-    return url.protocol === "https:" || url.protocol === "http:" ? url.href : null
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : null
   } catch {
     return null
   }

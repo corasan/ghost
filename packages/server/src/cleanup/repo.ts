@@ -1,6 +1,6 @@
-import { CleanupNotFound, CleanupSession } from "@ghost/contract"
-import { Context, DateTime, Effect, Layer, Option, Schema } from "effect"
-import { SqlClient, type SqlError } from "effect/sql"
+import { CleanupNotFound, CleanupSession } from '@ghost/contract'
+import { Context, DateTime, Effect, Layer, Option, Schema } from 'effect'
+import { SqlClient, type SqlError } from 'effect/sql'
 
 const SessionJson = Schema.fromJsonString(CleanupSession)
 const encode = Schema.encodeEffect(SessionJson)
@@ -19,7 +19,7 @@ export interface CleanupRepoService {
 }
 
 export class CleanupRepo extends Context.Service<CleanupRepo, CleanupRepoService>()(
-  "CleanupRepo",
+  'CleanupRepo',
 ) {}
 
 export const CleanupRepoLive = Layer.effect(

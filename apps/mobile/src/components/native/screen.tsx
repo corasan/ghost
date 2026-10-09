@@ -1,5 +1,5 @@
-import { ScrollView, StyleSheet } from "react-native"
-import type { ScreenProps } from "./types"
+import { ScrollView, StyleSheet } from 'react-native'
+import type { ScreenProps } from './types'
 
 export function Screen({ children }: ScreenProps) {
   return <ScrollView contentContainerStyle={styles.content}>{children}</ScrollView>

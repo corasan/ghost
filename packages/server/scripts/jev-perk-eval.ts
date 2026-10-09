@@ -1,21 +1,21 @@
-import { noul, TypeSafeClient } from "@typesafe-ai/sdk"
-import { Effect, Layer, Redacted, Schema } from "effect"
-import { BungieClient, BungieClientLive } from "../src/bungie/client.ts"
-import { isRolledTrait } from "../src/bungie/inventory.ts"
-import { LoadoutsLive } from "../src/bungie/loadouts.ts"
-import { Manifest, ManifestLive } from "../src/bungie/manifest.ts"
-import { MembershipLive } from "../src/bungie/membership.ts"
-import { ProfileStoreLive } from "../src/bungie/profile.ts"
-import { AppConfig, AppConfigLive } from "../src/config.ts"
-import { BuildsRepoLive } from "../src/db/builds.ts"
-import { DatabaseLive } from "../src/db/client.ts"
-import { ItemsRepoLive } from "../src/db/items.ts"
-import { PerkRatingsLive } from "../src/db/perk-ratings.ts"
-import { SettingsLive } from "../src/db/settings.ts"
-import { type Purpose, PURPOSES, type RatedPerk } from "../src/junk/perks.ts"
-import { JunkJudge, JunkJudgeLive } from "../src/junk/service.ts"
-import { perkKey } from "../src/wishlist/parse.ts"
-import { WishlistLive } from "../src/wishlist/wishlist.ts"
+import { noul, TypeSafeClient } from '@typesafe-ai/sdk'
+import { Effect, Layer, Redacted, Schema } from 'effect'
+import { BungieClient, BungieClientLive } from '../src/bungie/client.ts'
+import { isRolledTrait } from '../src/bungie/inventory.ts'
+import { LoadoutsLive } from '../src/bungie/loadouts.ts'
+import { Manifest, ManifestLive } from '../src/bungie/manifest.ts'
+import { MembershipLive } from '../src/bungie/membership.ts'
+import { ProfileStoreLive } from '../src/bungie/profile.ts'
+import { AppConfig, AppConfigLive } from '../src/config.ts'
+import { BuildsRepoLive } from '../src/db/builds.ts'
+import { DatabaseLive } from '../src/db/client.ts'
+import { ItemsRepoLive } from '../src/db/items.ts'
+import { PerkRatingsLive } from '../src/db/perk-ratings.ts'
+import { SettingsLive } from '../src/db/settings.ts'
+import { type Purpose, PURPOSES, type RatedPerk } from '../src/junk/perks.ts'
+import { JunkJudge, JunkJudgeLive } from '../src/junk/service.ts'
+import { perkKey } from '../src/wishlist/parse.ts'
+import { WishlistLive } from '../src/wishlist/wishlist.ts'
 
 // Scores Jev against Ghost's perk ratings: for owned weapons whose perks the
 // weapon's own wishlist rolls or the player rate, asks Jev whether each perk
@@ -31,11 +31,11 @@ const ReadOnlyBungie = Layer.effect(
   BungieClient,
   Effect.map(BungieClient, (client) => ({
     ...client,
-    transferItem: readOnly("transfer an item"),
-    pullFromPostmaster: readOnly("pull from the postmaster"),
-    equipItem: readOnly("equip an item"),
-    insertPlug: readOnly("insert a plug"),
-    snapshotLoadout: readOnly("save a loadout"),
+    transferItem: readOnly('transfer an item'),
+    pullFromPostmaster: readOnly('pull from the postmaster'),
+    equipItem: readOnly('equip an item'),
+    insertPlug: readOnly('insert a plug'),
+    snapshotLoadout: readOnly('save a loadout'),
   })),
 ).pipe(Layer.provide(BungieClientLive))
 
@@ -56,15 +56,15 @@ const decodeAnswers = Schema.decodeUnknownSync(
   Schema.Record(Schema.String, Schema.Struct({ noul: Schema.Number })),
 )
 
-const LABELLED = new Set(["wishlist", "player"])
-const LIMIT = Number(process.env["EVAL_WEAPONS"] ?? 40)
+const LABELLED = new Set(['wishlist', 'player'])
+const LIMIT = Number(process.env['EVAL_WEAPONS'] ?? 40)
 
 const QUESTION = {
   question:
-    "Is the Destiny 2 weapon perk in `item` one of the top picks for the weapon and activity `request` names, the perk a god roll would pick in its column?",
-  true: "Players and roll curators pick this perk on this weapon for that activity; it is among the best options its column offers there.",
+    'Is the Destiny 2 weapon perk in `item` one of the top picks for the weapon and activity `request` names, the perk a god roll would pick in its column?',
+  true: 'Players and roll curators pick this perk on this weapon for that activity; it is among the best options its column offers there.',
   false:
-    "Players pass this perk over on this weapon for that activity: other perks in its column do the job better, or it does little there.",
+    'Players pass this perk over on this weapon for that activity: other perks in its column do the job better, or it does little there.',
 }
 
 interface Case {
@@ -162,7 +162,7 @@ const program = Effect.gen(function* () {
       Effect.tryPromise(async () => {
         const first = group[0]
         if (first === undefined) return
-        const label = first.purpose === "pve" ? "PvE" : "PvP"
+        const label = first.purpose === 'pve' ? 'PvE' : 'PvP'
         const request = `${first.weapon} (${first.typeName}) for ${label}`
         const response = await client.systemOne({
           model: config.jev.model,
@@ -173,7 +173,7 @@ const program = Effect.gen(function* () {
               noul(
                 {
                   question: QUESTION.question,
-                  item: `${c.perk}: ${description.get(perkKey(c.perk)) ?? "no description"}`,
+                  item: `${c.perk}: ${description.get(perkKey(c.perk)) ?? 'no description'}`,
                 },
                 { true: QUESTION.true, false: QUESTION.false },
               ),
@@ -209,17 +209,17 @@ const program = Effect.gen(function* () {
     ),
     `accuracy at 0.5: ${pct(accuracyAt(scored, 0.5))}; best threshold ${best}: ${pct(accuracyAt(scored, best))}; always "not good": ${pct(1 - baseRate)}`,
     `Jev's top perk per column is a good one: ${hit.length} of ${topHits.length} (${pct(hit.length / topHits.length)})`,
-    "",
-    "Biggest misses:",
+    '',
+    'Biggest misses:',
     ...scored
       .toSorted((a, b) => Math.abs(b.score - Number(b.good)) - Math.abs(a.score - Number(a.good)))
       .slice(0, 15)
       .map(
         (s) =>
-          `  ${s.weapon} ${s.purpose} · ${s.perk} · labelled ${s.good ? "good" : "not good"} · Jev ${s.score.toFixed(2)}`,
+          `  ${s.weapon} ${s.purpose} · ${s.perk} · labelled ${s.good ? 'good' : 'not good'} · Jev ${s.score.toFixed(2)}`,
       ),
   ]
-  yield* Effect.sync(() => console.log(lines.join("\n")))
+  yield* Effect.sync(() => console.log(lines.join('\n')))
 })
 
 Effect.runPromise(program.pipe(Effect.provide(EvalLive), Effect.scoped)).catch((error) => {

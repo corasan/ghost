@@ -1,5 +1,5 @@
-import { ArmorMod, type ChargeEffect, StatMod } from "@ghost/contract"
-import { type OwnedItem, STAT } from "./inventory.ts"
+import { ArmorMod, type ChargeEffect, StatMod } from '@ghost/contract'
+import { type OwnedItem, STAT } from './inventory.ts'
 import {
   type ArmorModEntry,
   BUILD_SOCKET,
@@ -8,14 +8,14 @@ import {
   type PlugFacts,
   type StatFacts,
   type StatMods,
-} from "./manifest.ts"
-import { ARMOR_STATS, statLabel } from "./masterwork.ts"
+} from './manifest.ts'
+import { ARMOR_STATS, statLabel } from './masterwork.ts'
 
 // Armor mods on a build: reading what is slotted, and checking the swaps the
 // agent asks for against the piece's sockets and energy before the player
 // ever sees them, so a card never promises a mod that cannot go in.
 
-type Piece = Pick<OwnedItem, "name" | "modSockets" | "energy">
+type Piece = Pick<OwnedItem, 'name' | 'modSockets' | 'energy'>
 
 /** One mod socket of a piece as it is now. */
 export interface SocketNow {
@@ -34,7 +34,7 @@ export interface SocketNow {
 }
 
 export const socketsNow = (
-  item: Pick<OwnedItem, "modSockets">,
+  item: Pick<OwnedItem, 'modSockets'>,
   defs: ReadonlyMap<number, ManifestItem>,
   plugs: ReadonlyMap<number, PlugFacts>,
 ): ReadonlyArray<SocketNow> =>
@@ -44,7 +44,7 @@ export const socketsNow = (
     return {
       index: socket.index,
       plugHash: socket.plugHash,
-      category: known?.category ?? "",
+      category: known?.category ?? '',
       mod:
         socket.empty || def === undefined
           ? null
@@ -117,7 +117,7 @@ export const planModSwaps = ({
     const target =
       request.replaces === undefined
         ? open.find((socket) => holds(socket) === null)
-        : open.find((socket) => same(holds(socket) ?? "", request.replaces ?? ""))
+        : open.find((socket) => same(holds(socket) ?? '', request.replaces ?? ''))
     if (target === undefined) {
       errors.push(
         request.replaces === undefined

@@ -1,13 +1,13 @@
-import type { ArmorMod } from "@ghost/contract"
-import { Image } from "expo-image"
-import { useState } from "react"
-import { Pressable, StyleSheet, View } from "react-native"
+import type { ArmorMod } from '@ghost/contract'
+import { Image } from 'expo-image'
+import { useState } from 'react'
+import { Pressable, StyleSheet, View } from 'react-native'
 
-import { Body, Chevron, Cut, Meta, Mono } from "@/components/ghost/ui"
-import { Ghost, Type } from "@/constants/theme"
-import { type ChargedMod } from "@/lib/charge"
-import { firstSentence } from "@/lib/effect-text"
-import { age } from "@/lib/format"
+import { Body, Chevron, Cut, Meta, Mono } from '@/components/ghost/ui'
+import { Ghost, Type } from '@/constants/theme'
+import { type ChargedMod } from '@/lib/charge'
+import { firstSentence } from '@/lib/effect-text'
+import { age } from '@/lib/format'
 
 export function ChargeTag() {
   return <Meta color={Ghost.charge}>Charge</Meta>
@@ -38,11 +38,11 @@ export function ChargeNote({
         {copies > 1 ? <Meta color={Ghost.charge}>×{copies} slotted</Meta> : null}
       </View>
       <Body size={14} color={effect ? Ghost.ink : Ghost.muted} style={{ lineHeight: 20 }}>
-        {effect?.effect ?? "Ghost has not looked up the numbers for this mod yet."}
+        {effect?.effect ?? 'Ghost has not looked up the numbers for this mod yet.'}
       </Body>
       {source ? (
         <Meta lines={1}>
-          {[source.label, source.asOf ? age(source.asOf) : null].filter(Boolean).join(" · ")}
+          {[source.label, source.asOf ? age(source.asOf) : null].filter(Boolean).join(' · ')}
         </Meta>
       ) : null}
     </Cut>
@@ -68,7 +68,7 @@ function ChargedRow({ entry, under }: { entry: ChargedMod; under: string }) {
           </Body>
           <Meta lines={1}>{mod.chargeEffect?.effect ?? firstSentence(mod.description)}</Meta>
         </View>
-        <Chevron direction={open ? "up" : "down"} size={6} color={Ghost.charge} />
+        <Chevron direction={open ? 'up' : 'down'} size={6} color={Ghost.charge} />
       </Pressable>
       {open ? <ChargeNote mod={mod} copies={copies} under={under} /> : null}
     </View>
@@ -109,8 +109,8 @@ export function Situational({
 
 const styles = StyleSheet.create({
   note: { marginTop: 6, paddingVertical: 9, paddingHorizontal: 11, gap: 5 },
-  noteHead: { flexDirection: "row", justifyContent: "space-between" },
+  noteHead: { flexDirection: 'row', justifyContent: 'space-between' },
   row: { borderTopWidth: 1, borderTopColor: Ghost.rule, paddingVertical: 6 },
-  rowHead: { flexDirection: "row", alignItems: "center", gap: 10 },
+  rowHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   icon: { width: 28, height: 28, backgroundColor: Ghost.swatch },
 })

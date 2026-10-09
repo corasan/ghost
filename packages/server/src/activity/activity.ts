@@ -4,22 +4,22 @@ import {
   type ItemDecision,
   ItemSummary,
   RecentItem,
-} from "@ghost/contract"
-import { Context, DateTime, Effect, Layer, Option } from "effect"
-import type { BungieError } from "../bungie/client.ts"
-import { type Inventory, isUpgrade, type OwnedItem, pickCharacter } from "../bungie/inventory.ts"
-import { Manifest } from "../bungie/manifest.ts"
-import { ProfileStore } from "../bungie/profile.ts"
-import { ActionsRepo } from "../db/actions.ts"
-import { ItemsRepo, type SeenRow } from "../db/items.ts"
-import { Settings } from "../db/settings.ts"
-import { sessionWindow } from "./session.ts"
+} from '@ghost/contract'
+import { Context, DateTime, Effect, Layer, Option } from 'effect'
+import type { BungieError } from '../bungie/client.ts'
+import { type Inventory, isUpgrade, type OwnedItem, pickCharacter } from '../bungie/inventory.ts'
+import { Manifest } from '../bungie/manifest.ts'
+import { ProfileStore } from '../bungie/profile.ts'
+import { ActionsRepo } from '../db/actions.ts'
+import { ItemsRepo, type SeenRow } from '../db/items.ts'
+import { Settings } from '../db/settings.ts'
+import { sessionWindow } from './session.ts'
 
 // What changed for the player: recently acquired items and the "since last
 // time" briefing. Both join what items_seen remembers with the live
 // inventory, so names, power and upgrade flags reflect the current profile.
 
-const KEYS = { lastActiveAt: "session.lastActiveAt", since: "session.since" } as const
+const KEYS = { lastActiveAt: 'session.lastActiveAt', since: 'session.since' } as const
 
 export interface ActivityService {
   /** Never fails on Bungie: without a profile it falls back to manifest data. */
@@ -35,7 +35,7 @@ export interface ActivityService {
   ) => Effect.Effect<Briefing, BungieError | BungieNotLinked>
 }
 
-export class Activity extends Context.Service<Activity, ActivityService>()("Activity") {}
+export class Activity extends Context.Service<Activity, ActivityService>()('Activity') {}
 
 const fromOwned = (row: SeenRow, item: OwnedItem, upgrade: boolean) =>
   new RecentItem({
@@ -65,7 +65,7 @@ export const startOfDay = (nowMs: number, timeZone?: string) =>
       day.setHours(0, 0, 0, 0)
       return day.toISOString()
     },
-    onSome: (zoned) => DateTime.formatIso(DateTime.startOf(zoned, "day")),
+    onSome: (zoned) => DateTime.formatIso(DateTime.startOf(zoned, 'day')),
   })
 
 export const ActivityLive = Layer.effect(
@@ -108,10 +108,10 @@ export const ActivityLive = Layer.effect(
           return new RecentItem({
             ...row,
             name: def?.name ?? row.name,
-            typeName: def?.typeName ?? "",
+            typeName: def?.typeName ?? '',
             icon: def?.icon ?? null,
-            tier: def?.tier ?? "unknown",
-            slot: def?.slot ?? "other",
+            tier: def?.tier ?? 'unknown',
+            slot: def?.slot ?? 'other',
             power: null,
             upgrade: false,
           })

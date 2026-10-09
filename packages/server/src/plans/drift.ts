@@ -1,5 +1,5 @@
-import type { Plan } from "@ghost/contract"
-import type { Inventory } from "../bungie/inventory.ts"
+import type { Plan } from '@ghost/contract'
+import type { Inventory } from '../bungie/inventory.ts'
 
 const names = (plugs: ReadonlyArray<{ readonly name: string }>) =>
   plugs.map((plug) => plug.name).sort()
@@ -7,7 +7,7 @@ const names = (plugs: ReadonlyArray<{ readonly name: string }>) =>
 const differ = (
   planned: ReadonlyArray<{ readonly name: string }>,
   worn: ReadonlyArray<{ readonly name: string }>,
-) => names(planned).join("|") !== names(worn).join("|")
+) => names(planned).join('|') !== names(worn).join('|')
 
 export const drift = (
   plan: Plan,
@@ -16,7 +16,7 @@ export const drift = (
 ): ReadonlyArray<string> => {
   const owned = new Map(inventory.items.map((item) => [item.itemInstanceId, item]))
   const pieces = plan.rows
-    .filter((row) => row.action === "equip" || row.action === "none")
+    .filter((row) => row.action === 'equip' || row.action === 'none')
     .flatMap((row) => {
       const item = owned.get(row.itemInstanceId)
       return item === undefined
@@ -28,19 +28,19 @@ export const drift = (
   const loadout = plan.loadout
   const character = inventory.characters.find((each) => each.characterId === characterId)
   if (loadout === undefined) return pieces
-  if (character === undefined) return [...pieces, "the character is gone"]
+  if (character === undefined) return [...pieces, 'the character is gone']
   const subclass =
     loadout.subclass !== null && character.subclass !== loadout.subclass
-      ? [`${character.subclass ?? "no subclass"} is equipped, not ${loadout.subclass}`]
+      ? [`${character.subclass ?? 'no subclass'} is equipped, not ${loadout.subclass}`]
       : [
           loadout.super !== null && character.loadout.super?.name !== loadout.super.name
-            ? "the super is not the planned one"
+            ? 'the super is not the planned one'
             : null,
           differ(loadout.aspects, character.loadout.aspects)
-            ? "the aspects are not as planned"
+            ? 'the aspects are not as planned'
             : null,
           differ(loadout.fragments, character.loadout.fragments)
-            ? "the fragments are not as planned"
+            ? 'the fragments are not as planned'
             : null,
         ].filter((part) => part !== null)
   return [...pieces, ...subclass]

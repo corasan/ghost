@@ -9,28 +9,28 @@ import {
   JudgeUnavailable,
   RatedPerk,
   WeaponPerks,
-} from "@ghost/contract"
-import { Effect, Layer, Option, Schema } from "effect"
-import { HttpApiBuilder, HttpApiScalar } from "effect/http-api"
-import { AgentConfig } from "../agent/settings.ts"
-import { Activity } from "../activity/activity.ts"
-import { BungieClient, type BungieError } from "../bungie/client.ts"
-import { Guardian } from "../bungie/guardian.ts"
-import { ProfileStore } from "../bungie/profile.ts"
-import { Builds } from "../builds/builds.ts"
-import { Cleanup } from "../cleanup/service.ts"
-import { ItemsRepo } from "../db/items.ts"
-import { PerkRatings } from "../db/perk-ratings.ts"
-import { JobsRepo } from "../db/jobs.ts"
-import { reviewItems } from "../junk/proposal.ts"
-import { JunkJudge } from "../junk/service.ts"
-import { Items } from "../items/items.ts"
-import { Plans } from "../plans/executor.ts"
+} from '@ghost/contract'
+import { Effect, Layer, Option, Schema } from 'effect'
+import { HttpApiBuilder, HttpApiScalar } from 'effect/http-api'
+import { AgentConfig } from '../agent/settings.ts'
+import { Activity } from '../activity/activity.ts'
+import { BungieClient, type BungieError } from '../bungie/client.ts'
+import { Guardian } from '../bungie/guardian.ts'
+import { ProfileStore } from '../bungie/profile.ts'
+import { Builds } from '../builds/builds.ts'
+import { Cleanup } from '../cleanup/service.ts'
+import { ItemsRepo } from '../db/items.ts'
+import { PerkRatings } from '../db/perk-ratings.ts'
+import { JobsRepo } from '../db/jobs.ts'
+import { reviewItems } from '../junk/proposal.ts'
+import { JunkJudge } from '../junk/service.ts'
+import { Items } from '../items/items.ts'
+import { Plans } from '../plans/executor.ts'
 
-const VERSION = "0.0.0"
+const VERSION = '0.0.0'
 
-const HealthLive = HttpApiBuilder.group(GhostApi, "health", (handlers) =>
-  handlers.handle("status", () =>
+const HealthLive = HttpApiBuilder.group(GhostApi, 'health', (handlers) =>
+  handlers.handle('status', () =>
     Effect.gen(function* () {
       const bungie = yield* BungieClient
       const bungieLinked = yield* bungie.isLinked
@@ -43,39 +43,39 @@ const HealthLive = HttpApiBuilder.group(GhostApi, "health", (handlers) =>
 // as BungieFailed so the app can show the text without knowing the shape.
 const toBungieFailed = (e: BungieError) => Effect.fail(new BungieFailed({ message: e.message }))
 
-const JobsLive = HttpApiBuilder.group(GhostApi, "jobs", (handlers) =>
+const JobsLive = HttpApiBuilder.group(GhostApi, 'jobs', (handlers) =>
   handlers
-    .handle("list", ({ query }) =>
+    .handle('list', ({ query }) =>
       Effect.flatMap(JobsRepo, (jobs) =>
         query.sessionId === undefined ? jobs.list : jobs.inSession(query.sessionId),
       ).pipe(Effect.orDie),
     )
-    .handle("sessions", () => Effect.flatMap(JobsRepo, (jobs) => jobs.sessions).pipe(Effect.orDie))
-    .handle("create", ({ payload }) =>
+    .handle('sessions', () => Effect.flatMap(JobsRepo, (jobs) => jobs.sessions).pipe(Effect.orDie))
+    .handle('create', ({ payload }) =>
       Effect.flatMap(JobsRepo, (jobs) => jobs.create(payload)).pipe(Effect.orDie),
     )
-    .handle("get", ({ params }) =>
+    .handle('get', ({ params }) =>
       Effect.flatMap(JobsRepo, (jobs) => jobs.get(params.id)).pipe(
-        Effect.catchTag("SqlError", Effect.die),
+        Effect.catchTag('SqlError', Effect.die),
       ),
     )
-    .handle("apply", ({ params, payload }) =>
+    .handle('apply', ({ params, payload }) =>
       Effect.flatMap(Plans, (plans) => plans.apply(params.id, payload.selected)).pipe(
-        Effect.catchTag("BungieError", toBungieFailed),
+        Effect.catchTag('BungieError', toBungieFailed),
       ),
     )
-    .handle("undo", ({ params }) =>
+    .handle('undo', ({ params }) =>
       Effect.flatMap(Plans, (plans) => plans.undo(params.id)).pipe(
-        Effect.catchTag("BungieError", toBungieFailed),
+        Effect.catchTag('BungieError', toBungieFailed),
       ),
     )
-    .handle("history", () => Effect.flatMap(Plans, (plans) => plans.history)),
+    .handle('history', () => Effect.flatMap(Plans, (plans) => plans.history)),
 )
 
-const InventoryLive = HttpApiBuilder.group(GhostApi, "inventory", (handlers) =>
+const InventoryLive = HttpApiBuilder.group(GhostApi, 'inventory', (handlers) =>
   handlers
-    .handle("recent", ({ query }) => Effect.flatMap(Activity, (a) => a.recent(query.characterId)))
-    .handle("decide", ({ params, payload }) =>
+    .handle('recent', ({ query }) => Effect.flatMap(Activity, (a) => a.recent(query.characterId)))
+    .handle('decide', ({ params, payload }) =>
       Effect.gen(function* () {
         const activity = yield* Activity
         const updated = yield* activity.decide(params.id, payload.decision)
@@ -103,50 +103,50 @@ const weaponPerks = (id: string) =>
           ),
       }),
     ),
-    Effect.catchTag("BungieError", toBungieFailed),
-    Effect.catchTag("WishlistError", (e) =>
+    Effect.catchTag('BungieError', toBungieFailed),
+    Effect.catchTag('WishlistError', (e) =>
       Effect.fail(new JudgeUnavailable({ reason: e.message })),
     ),
   )
 
-const ItemsApiLive = HttpApiBuilder.group(GhostApi, "items", (handlers) =>
+const ItemsApiLive = HttpApiBuilder.group(GhostApi, 'items', (handlers) =>
   handlers
-    .handle("detail", ({ params }) =>
+    .handle('detail', ({ params }) =>
       Effect.flatMap(Items, (items) => items.detail(params.id)).pipe(
-        Effect.catchTag("BungieError", toBungieFailed),
+        Effect.catchTag('BungieError', toBungieFailed),
       ),
     )
-    .handle("act", ({ params, payload }) =>
+    .handle('act', ({ params, payload }) =>
       Effect.flatMap(Items, (items) => items.act(params.id, payload)).pipe(
-        Effect.catchTag("BungieError", toBungieFailed),
+        Effect.catchTag('BungieError', toBungieFailed),
       ),
     )
-    .handle("perks", ({ params }) => weaponPerks(params.id))
-    .handle("sheet", ({ params }) =>
+    .handle('perks', ({ params }) => weaponPerks(params.id))
+    .handle('sheet', ({ params }) =>
       Effect.flatMap(Items, (items) => items.sheet(params.id)).pipe(
-        Effect.catchTag("BungieError", toBungieFailed),
-        Effect.catchTag("WishlistError", (e) =>
+        Effect.catchTag('BungieError', toBungieFailed),
+        Effect.catchTag('WishlistError', (e) =>
           Effect.fail(new JudgeUnavailable({ reason: e.message })),
         ),
       ),
     )
-    .handle("applyPerks", ({ params, payload }) =>
+    .handle('applyPerks', ({ params, payload }) =>
       Effect.flatMap(Items, (items) => items.applyPerks(params.id, payload)).pipe(
-        Effect.catchTag("BungieError", toBungieFailed),
+        Effect.catchTag('BungieError', toBungieFailed),
       ),
     )
-    .handle("ratePerk", ({ params, payload }) =>
+    .handle('ratePerk', ({ params, payload }) =>
       Effect.gen(function* () {
         const current = yield* weaponPerks(params.id)
         const ratings = yield* PerkRatings
         const write =
           payload.rating === null
-            ? ratings.clear(current.weapon, payload.perk, "player", payload.purpose)
+            ? ratings.clear(current.weapon, payload.perk, 'player', payload.purpose)
             : ratings.set({
                 weapon: current.weapon,
                 perk: payload.perk,
                 rating: payload.rating,
-                source: "player",
+                source: 'player',
                 purpose: payload.purpose,
                 note: null,
                 url: null,
@@ -157,69 +157,69 @@ const ItemsApiLive = HttpApiBuilder.group(GhostApi, "items", (handlers) =>
     ),
 )
 
-const GuardianLive = HttpApiBuilder.group(GhostApi, "guardian", (handlers) =>
+const GuardianLive = HttpApiBuilder.group(GhostApi, 'guardian', (handlers) =>
   handlers
-    .handle("snapshot", () =>
+    .handle('snapshot', () =>
       Effect.flatMap(Guardian, (g) => g.snapshot).pipe(
-        Effect.catchTag("BungieError", toBungieFailed),
+        Effect.catchTag('BungieError', toBungieFailed),
       ),
     )
-    .handle("situational", ({ query }) =>
+    .handle('situational', ({ query }) =>
       Effect.flatMap(Guardian, (g) => g.situational(query.characterId)).pipe(
-        Effect.catchTag("BungieError", toBungieFailed),
+        Effect.catchTag('BungieError', toBungieFailed),
       ),
     )
-    .handle("vault", () =>
-      Effect.flatMap(Guardian, (g) => g.vault).pipe(Effect.catchTag("BungieError", toBungieFailed)),
+    .handle('vault', () =>
+      Effect.flatMap(Guardian, (g) => g.vault).pipe(Effect.catchTag('BungieError', toBungieFailed)),
     )
-    .handle("briefing", ({ query }) =>
+    .handle('briefing', ({ query }) =>
       Effect.flatMap(Activity, (a) => a.briefing(query.characterId, query.tz)).pipe(
-        Effect.catchTag("BungieError", toBungieFailed),
+        Effect.catchTag('BungieError', toBungieFailed),
       ),
     ),
 )
 
-const BuildsLive = HttpApiBuilder.group(GhostApi, "builds", (handlers) =>
+const BuildsLive = HttpApiBuilder.group(GhostApi, 'builds', (handlers) =>
   handlers
-    .handle("list", () => Effect.flatMap(Builds, (builds) => builds.list))
-    .handle("save", ({ payload }) =>
+    .handle('list', () => Effect.flatMap(Builds, (builds) => builds.list))
+    .handle('save', ({ payload }) =>
       Effect.flatMap(Builds, (builds) => builds.save(payload)).pipe(
-        Effect.catchTag("BungieError", toBungieFailed),
+        Effect.catchTag('BungieError', toBungieFailed),
       ),
     )
-    .handle("rename", ({ params, payload }) =>
+    .handle('rename', ({ params, payload }) =>
       Effect.flatMap(Builds, (builds) => builds.rename(params.id, payload.name)),
     )
-    .handle("remove", ({ params }) => Effect.flatMap(Builds, (builds) => builds.remove(params.id)))
-    .handle("equip", ({ params, payload }) =>
+    .handle('remove', ({ params }) => Effect.flatMap(Builds, (builds) => builds.remove(params.id)))
+    .handle('equip', ({ params, payload }) =>
       Effect.flatMap(Builds, (builds) => builds.equip(params.id, payload)).pipe(
-        Effect.catchTag("BungieError", toBungieFailed),
+        Effect.catchTag('BungieError', toBungieFailed),
       ),
     )
-    .handle("slots", ({ query }) =>
+    .handle('slots', ({ query }) =>
       Effect.flatMap(Builds, (builds) => builds.slots(query.characterId)).pipe(
-        Effect.catchTag("BungieError", toBungieFailed),
+        Effect.catchTag('BungieError', toBungieFailed),
       ),
     ),
 )
 
-const AgentLive = HttpApiBuilder.group(GhostApi, "agent", (handlers) =>
+const AgentLive = HttpApiBuilder.group(GhostApi, 'agent', (handlers) =>
   handlers
-    .handle("settings", () => Effect.flatMap(AgentConfig, (agent) => agent.current))
-    .handle("configure", ({ payload }) =>
+    .handle('settings', () => Effect.flatMap(AgentConfig, (agent) => agent.current))
+    .handle('configure', ({ payload }) =>
       Effect.flatMap(AgentConfig, (agent) => agent.setEffort(payload.effort)),
     ),
 )
 
-const CleanupApiLive = HttpApiBuilder.group(GhostApi, "cleanup", (handlers) =>
+const CleanupApiLive = HttpApiBuilder.group(GhostApi, 'cleanup', (handlers) =>
   handlers
-    .handle("preview", ({ query }) =>
+    .handle('preview', ({ query }) =>
       Effect.flatMap(Cleanup, (c) => c.preview(query.characterId)).pipe(
-        Effect.catchTag("BungieError", toBungieFailed),
+        Effect.catchTag('BungieError', toBungieFailed),
       ),
     )
-    .handle("current", () => Effect.flatMap(Cleanup, (c) => c.current))
-    .handle("review", () =>
+    .handle('current', () => Effect.flatMap(Cleanup, (c) => c.current))
+    .handle('review', () =>
       Effect.gen(function* () {
         const judgment = yield* Effect.flatMap(JunkJudge, (judge) => judge.judgeVault)
         const decisions = yield* Effect.flatMap(ItemsRepo, (items) => items.decisions).pipe(
@@ -227,31 +227,31 @@ const CleanupApiLive = HttpApiBuilder.group(GhostApi, "cleanup", (handlers) =>
         )
         return reviewItems(judgment, (id) => (decisions.get(id)?.decision ?? null) !== null)
       }).pipe(
-        Effect.catchTag("BungieError", toBungieFailed),
-        Effect.catchTag("WishlistError", (e) =>
+        Effect.catchTag('BungieError', toBungieFailed),
+        Effect.catchTag('WishlistError', (e) =>
           Effect.fail(new JudgeUnavailable({ reason: e.message })),
         ),
       ),
     )
-    .handle("start", ({ payload }) =>
+    .handle('start', ({ payload }) =>
       Effect.flatMap(Cleanup, (c) => c.start(payload.characterId)).pipe(
-        Effect.catchTag("BungieError", toBungieFailed),
+        Effect.catchTag('BungieError', toBungieFailed),
       ),
     )
-    .handle("pause", ({ params }) => Effect.flatMap(Cleanup, (c) => c.command(params.id, "pause")))
-    .handle("resume", ({ params }) =>
-      Effect.flatMap(Cleanup, (c) => c.command(params.id, "resume")),
+    .handle('pause', ({ params }) => Effect.flatMap(Cleanup, (c) => c.command(params.id, 'pause')))
+    .handle('resume', ({ params }) =>
+      Effect.flatMap(Cleanup, (c) => c.command(params.id, 'resume')),
     )
-    .handle("stop", ({ params }) => Effect.flatMap(Cleanup, (c) => c.command(params.id, "stop")))
-    .handle("return", ({ params }) =>
-      Effect.flatMap(Cleanup, (c) => c.command(params.id, "return")),
+    .handle('stop', ({ params }) => Effect.flatMap(Cleanup, (c) => c.command(params.id, 'stop')))
+    .handle('return', ({ params }) =>
+      Effect.flatMap(Cleanup, (c) => c.command(params.id, 'return')),
     )
-    .handle("close", ({ params }) => Effect.flatMap(Cleanup, (c) => c.command(params.id, "close")))
-    .handle("skip", ({ params }) => Effect.flatMap(Cleanup, (c) => c.skip(params.id)))
-    .handle("keep", ({ params, payload }) =>
+    .handle('close', ({ params }) => Effect.flatMap(Cleanup, (c) => c.command(params.id, 'close')))
+    .handle('skip', ({ params }) => Effect.flatMap(Cleanup, (c) => c.skip(params.id)))
+    .handle('keep', ({ params, payload }) =>
       Effect.flatMap(Cleanup, (c) => c.keep(params.id, payload.itemIds)),
     )
-    .handle("deleted", ({ params, payload }) =>
+    .handle('deleted', ({ params, payload }) =>
       Effect.flatMap(Cleanup, (c) => c.markDeleted(params.id, payload.itemIds)),
     ),
 )
@@ -260,20 +260,20 @@ const Memberships = Schema.Struct({
   bungieNetUser: Schema.Struct({ membershipId: Schema.String, displayName: Schema.String }),
 })
 
-const AuthLive = HttpApiBuilder.group(GhostApi, "auth", (handlers) =>
+const AuthLive = HttpApiBuilder.group(GhostApi, 'auth', (handlers) =>
   handlers
-    .handle("start", () =>
+    .handle('start', () =>
       Effect.flatMap(BungieClient, (bungie) =>
         Effect.map(bungie.authorizeUrl, (url) => new BungieAuthStart({ url })),
       ),
     )
-    .handle("callback", ({ query }) =>
+    .handle('callback', ({ query }) =>
       Effect.gen(function* () {
         const bungie = yield* BungieClient
         yield* bungie.exchangeCode(query.code, query.state)
         // The cached profile may be another account's.
         yield* Effect.flatMap(ProfileStore, (profile) => profile.invalidate)
-        const raw = yield* bungie.get("/User/GetMembershipsForCurrentUser/")
+        const raw = yield* bungie.get('/User/GetMembershipsForCurrentUser/')
         const me = yield* Schema.decodeUnknownEffect(Memberships)(raw)
         return new BungieAuthResult({
           membershipId: me.bungieNetUser.membershipId,
@@ -285,7 +285,7 @@ const AuthLive = HttpApiBuilder.group(GhostApi, "auth", (handlers) =>
 
 // /docs serves an interactive reference generated from the contract, handy
 // for poking the server from a laptop on the tailnet.
-export const ApiLive = HttpApiBuilder.layer(GhostApi, { openapiPath: "/openapi.json" }).pipe(
+export const ApiLive = HttpApiBuilder.layer(GhostApi, { openapiPath: '/openapi.json' }).pipe(
   Layer.provide([
     HealthLive,
     JobsLive,
@@ -297,5 +297,5 @@ export const ApiLive = HttpApiBuilder.layer(GhostApi, { openapiPath: "/openapi.j
     CleanupApiLive,
     AuthLive,
   ]),
-  Layer.merge(HttpApiScalar.layer(GhostApi, { path: "/docs" })),
+  Layer.merge(HttpApiScalar.layer(GhostApi, { path: '/docs' })),
 )

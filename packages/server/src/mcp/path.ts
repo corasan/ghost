@@ -1,1 +1,1 @@
-export const MCP_PATH = "/mcp"
+export const MCP_PATH = '/mcp'

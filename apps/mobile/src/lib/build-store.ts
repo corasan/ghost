@@ -1,5 +1,5 @@
-import { type BuildFilter, emptyBuildFilter } from "./build-filter"
-import { store } from "./store"
+import { type BuildFilter, emptyBuildFilter } from './build-filter'
+import { store } from './store'
 
 const filter = store<BuildFilter>(emptyBuildFilter)
 
