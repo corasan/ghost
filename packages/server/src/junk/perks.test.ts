@@ -52,6 +52,15 @@ describe("ratePerk", () => {
     })
   })
 
+  test("a rating for the purpose beats one for any, in whichever order they are stored", () => {
+    const specific = { rating: "junk", source: "claude", purpose: "pvp" } as const
+    const any = { rating: "good", source: "claude", purpose: "any" } as const
+    const rated = (rows: ReadonlyArray<typeof specific | typeof any>) =>
+      ratePerk("Rampage", knowing({ stored: new Map([["rampage", rows]]) }), NONE).good
+    expect(rated([any, specific])).toEqual(["pve"])
+    expect(rated([specific, any])).toEqual(["pve"])
+  })
+
   test("a perk rated for any purpose is good for PvE and PvP", () => {
     const known = knowing({
       stored: new Map([["kill clip", [{ rating: "good", source: "claude", purpose: "any" }]]]),

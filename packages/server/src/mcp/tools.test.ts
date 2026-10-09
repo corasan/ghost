@@ -11,6 +11,7 @@ import {
   judgeSetBonuses,
   offBuildBonuses,
   rankingText,
+  ratingSourceAllowed,
   searchItems,
   subclassDetail,
   type SubclassView,
@@ -354,5 +355,20 @@ describe("offBuildBonuses", () => {
         bonus("Away", 4, 3, 0.1),
       ]).map((b) => b.name),
     ).toEqual(["Poor"])
+  })
+})
+
+describe("ratingSourceAllowed", () => {
+  test("takes https pages on the listed sites and their subdomains only", () => {
+    expect(
+      [
+        "https://www.light.gg/db/items/123/",
+        "https://d2foundry.gg/w/1",
+        "http://www.light.gg/db/items/123/",
+        "https://light.gg.evil.example/",
+        "https://evil-light.gg/",
+        "not a url",
+      ].map(ratingSourceAllowed),
+    ).toEqual([true, true, false, false, false, false])
   })
 })

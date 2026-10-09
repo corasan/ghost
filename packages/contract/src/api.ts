@@ -189,7 +189,7 @@ export const guardianGroup = HttpApiGroup.make("guardian")
   .add(HttpApiEndpoint.get("vault", "/vault", { success: VaultSnapshot, error: bungieErrors }))
   .add(
     HttpApiEndpoint.get("briefing", "/briefing", {
-      query: { characterId: Schema.optional(Schema.String) },
+      query: { characterId: Schema.optional(Schema.String), tz: Schema.optional(Schema.String) },
       success: Briefing,
       error: bungieErrors,
     }),
@@ -313,7 +313,7 @@ export const authGroup = HttpApiGroup.make("auth")
   .add(HttpApiEndpoint.get("start", "/auth/bungie/start", { success: BungieAuthStart }))
   .add(
     HttpApiEndpoint.get("callback", "/auth/bungie/callback", {
-      query: { code: Schema.String },
+      query: { code: Schema.String, state: Schema.String },
       success: BungieAuthResult,
       error: BungieAuthFailed,
     }),

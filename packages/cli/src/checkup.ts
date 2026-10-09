@@ -1,9 +1,10 @@
 import { Console, Effect } from "effect"
 import { Prompt } from "effect/cli"
-import { CliFailure, serverState } from "./daemon.ts"
+import { CliFailure, portOf, serverState, settingsOf } from "./daemon.ts"
 import type { GhostHome } from "./home.ts"
 import { start } from "./lifecycle.ts"
 import { machineOf, type Requirement, type Verdict, requirements } from "./requirements.ts"
+import { servedPorts, tailnet } from "./tailscale.ts"
 import { bold, cyan, dim, green, red, yellow } from "./ui.ts"
 
 const NAME_WIDTH = Math.max(...requirements.map((r) => r.name.length)) + 2
@@ -65,6 +66,17 @@ export const doctor = (home: GhostHome) =>
     yield* Console.log(
       `\n  Server ${state._tag === "Running" ? green(`running (pid ${state.pid})`) : dim("stopped")}`,
     )
+    // `serve --bg` outlives a crashed server, and publishes whatever binds that port next.
+    const net = yield* tailnet
+    if (net._tag === "Connected") {
+      const live = state._tag === "Running" ? (state.port ?? portOf(settingsOf(home))) : null
+      for (const port of yield* servedPorts(net.binary)) {
+        if (port === live) continue
+        yield* Console.log(
+          `  ${yellow("!")} tailscale serve still publishes port ${port}, and Ghost is not running on it\n    ${cyan(`tailscale serve --https=${port} off`)}`,
+        )
+      }
+    }
     if (left.length > 0) {
       return yield* new CliFailure({
         message: `\n${left.length} required ${left.length === 1 ? "item needs" : "items need"} attention. \`ghost setup\` walks you through ${left.length === 1 ? "it" : "them"}.`,

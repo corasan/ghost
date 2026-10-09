@@ -17,7 +17,7 @@ import { Loadouts } from "../bungie/loadouts.ts"
 import { Manifest } from "../bungie/manifest.ts"
 import { ProfileStore } from "../bungie/profile.ts"
 import { AppConfig } from "../config.ts"
-import { BuildsRepoLive } from "../db/builds.ts"
+import { BuildsRepo, BuildsRepoLive } from "../db/builds.ts"
 import { ChargeEffects } from "../db/charge.ts"
 import { Artifacts } from "../bungie/artifact.ts"
 import { Wishlist } from "../wishlist/wishlist.ts"
@@ -304,48 +304,55 @@ const ConfigTest = Layer.succeed(AppConfig, {
 
 const down = Effect.fail(new BungieError({ status: "Down", message: "Bungie is down" }))
 
-const ServiceTest = BuildsLive.pipe(
-  Layer.provideMerge(
-    Layer.mergeAll(JobsRepoLive, BuildsRepoLive).pipe(
-      Layer.provideMerge(DatabaseLive),
-      Layer.provide(ConfigTest),
+const serviceWith = (inventoryNow: Effect.Effect<Inventory, BungieError>) =>
+  BuildsLive.pipe(
+    Layer.provideMerge(
+      Layer.mergeAll(JobsRepoLive, BuildsRepoLive).pipe(
+        Layer.provideMerge(DatabaseLive),
+        Layer.provide(ConfigTest),
+      ),
     ),
-  ),
-  Layer.provide(
-    Layer.mergeAll(
-      Layer.succeed(ProfileStore, { inventory: down, plugSets: down, invalidate: Effect.void }),
-      Layer.succeed(Loadouts, { current: down, invalidate: Effect.void, catalog: down }),
-      Layer.succeed(Manifest, {
-        statFacts: Effect.succeed({}),
-        plugFacts: () => Effect.succeed(new Map()),
-        subclassPlugSets: () => Effect.succeed([]),
-        weaponPerkPools: () => Effect.succeed([]),
-        weaponPerkSockets: () => Effect.succeed([]),
-        plugInvestments: () => Effect.succeed(new Map()),
-        armorMods: Effect.succeed([]),
-        armorSets: Effect.succeed([]),
-        tuningMods: Effect.succeed(new Map()),
-        elementIcons: Effect.succeed({}),
-        capacities: Effect.succeed({ vault: 700, postmaster: 21 }),
-        ensure: Effect.void,
-        lookup: () => Effect.succeed(new Map()),
-        findByName: () => Effect.succeed([]),
-      }),
-      Layer.succeed(ChargeEffects, {
-        forMods: () => Effect.succeed(new Map()),
-        record: () => Effect.void,
-      }),
-      Layer.succeed(Artifacts, { forCharacter: () => Effect.succeed(null) }),
-      Layer.succeed(Wishlist, {
-        ensure: Effect.void,
-        rollsFor: () => Effect.succeed(new Map()),
-        recommended: Effect.succeed([]),
-        asOf: Effect.succeed(null),
-        source: Effect.die("unused"),
-      }),
+    Layer.provide(
+      Layer.mergeAll(
+        Layer.succeed(ProfileStore, {
+          inventory: inventoryNow,
+          plugSets: down,
+          invalidate: Effect.void,
+        }),
+        Layer.succeed(Loadouts, { current: down, invalidate: Effect.void, catalog: down }),
+        Layer.succeed(Manifest, {
+          statFacts: Effect.succeed({}),
+          plugFacts: () => Effect.succeed(new Map()),
+          subclassPlugSets: () => Effect.succeed([]),
+          weaponPerkPools: () => Effect.succeed([]),
+          weaponPerkSockets: () => Effect.succeed([]),
+          plugInvestments: () => Effect.succeed(new Map()),
+          armorMods: Effect.succeed([]),
+          armorSets: Effect.succeed([]),
+          tuningMods: Effect.succeed(new Map()),
+          elementIcons: Effect.succeed({}),
+          capacities: Effect.succeed({ vault: 700, postmaster: 21 }),
+          ensure: Effect.void,
+          lookup: () => Effect.succeed(new Map()),
+          findByName: () => Effect.succeed([]),
+        }),
+        Layer.succeed(ChargeEffects, {
+          forMods: () => Effect.succeed(new Map()),
+          record: () => Effect.void,
+        }),
+        Layer.succeed(Artifacts, { forCharacter: () => Effect.succeed(null) }),
+        Layer.succeed(Wishlist, {
+          ensure: Effect.void,
+          rollsFor: () => Effect.succeed(new Map()),
+          recommended: Effect.succeed([]),
+          asOf: Effect.succeed(null),
+          source: Effect.die("unused"),
+        }),
+      ),
     ),
-  ),
-)
+  )
+
+const ServiceTest = serviceWith(down)
 
 const recipe: BuildRecipe = {
   kind: "build",
@@ -390,5 +397,34 @@ describe("Builds.save", () => {
       return yield* builds.save({ jobId, name: "Old" }).pipe(Effect.result)
     }).pipe(Effect.provide(ServiceTest), Effect.runPromise)
     expect(result._tag === "Failure" && result.failure._tag).toBe("PlanNotApplicable")
+  })
+})
+
+describe("Builds.equip", () => {
+  test("keeps a substituted piece in the plan, equipped from the copy that replaced it", async () => {
+    const copy = owned("helm-2", "helmet", { itemHash: helm.itemHash, name: helm.name })
+    const result = await Effect.gen(function* () {
+      const stored = yield* (yield* BuildsRepo).insert({
+        jobId: crypto.randomUUID(),
+        name: "Melee",
+        recipe: {
+          ...recipe,
+          rows: [
+            { itemInstanceId: "helm", action: "equip" },
+            { itemInstanceId: "chest", action: "equip" },
+          ],
+        },
+        plan: plan([row(helm), row(chest)]),
+      })
+      return yield* (yield* Builds).equip(stored.id, { characterId: "titan-1" })
+    }).pipe(
+      Effect.provide(serviceWith(Effect.succeed(inventory([copy, chest])))),
+      Effect.runPromise,
+    )
+    expect(result.substituted).toEqual(["Loreley Splendor"])
+    expect(result.job.plan?.rows.map((r) => [r.itemInstanceId, r.action])).toEqual([
+      ["helm-2", "equip"],
+      ["chest", "equip"],
+    ])
   })
 })

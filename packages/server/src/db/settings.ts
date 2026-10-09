@@ -4,6 +4,7 @@ import { SqlClient, type SqlError } from "effect/sql"
 export interface SettingsService {
   readonly get: (key: string) => Effect.Effect<Option.Option<string>, SqlError.SqlError>
   readonly set: (key: string, value: string) => Effect.Effect<void, SqlError.SqlError>
+  readonly remove: (key: string) => Effect.Effect<void, SqlError.SqlError>
 }
 
 // A tiny key/value table for things that are set once and read often, such as
@@ -24,6 +25,7 @@ export const SettingsLive = Layer.effect(
           INSERT INTO settings (key, value) VALUES (${key}, ${value})
           ON CONFLICT(key) DO UPDATE SET value = excluded.value
         `.pipe(Effect.asVoid),
+      remove: (key) => sql`DELETE FROM settings WHERE key = ${key}`.pipe(Effect.asVoid),
     }
   }),
 )

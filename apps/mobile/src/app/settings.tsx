@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query"
 import * as WebBrowser from "expo-web-browser"
 import { useState } from "react"
 
@@ -11,7 +12,7 @@ import {
   useHealth,
   useSetAgentEffort,
 } from "@/lib/api"
-import { setServerUrl, useServerUrl } from "@/lib/server-url"
+import { setServerToken, setServerUrl, useServerToken, useServerUrl } from "@/lib/server-url"
 
 const EFFORTS: readonly { readonly value: AgentEffort; readonly label: string }[] = [
   { value: "low", label: "Low" },
@@ -24,6 +25,9 @@ const EFFORTS: readonly { readonly value: AgentEffort; readonly label: string }[
 export default function SettingsScreen() {
   const serverUrl = useServerUrl()
   const [draft, setDraft] = useState(serverUrl)
+  const serverToken = useServerToken()
+  const [tokenDraft, setTokenDraft] = useState("")
+  const queryClient = useQueryClient()
   const health = useHealth()
   const authStart = useBungieAuthStart()
   const agent = useAgentSettings()
@@ -50,6 +54,26 @@ export default function SettingsScreen() {
           label="Save"
           onPress={() => setServerUrl(draft)}
           disabled={draft.trim() === serverUrl}
+        />
+      </Section>
+
+      <Section
+        title="Pairing token"
+        footer="Scanning the QR code from `ghost pair` fills this in. To enter it by hand, run `ghost token` on the server."
+      >
+        <TextField
+          placeholder={
+            serverToken === "" ? "Not paired" : "Paired; paste a new token to replace it"
+          }
+          onChange={setTokenDraft}
+        />
+        <Button
+          label="Save"
+          onPress={() => {
+            setServerToken(tokenDraft)
+            void queryClient.invalidateQueries()
+          }}
+          disabled={tokenDraft.trim() === "" || tokenDraft.trim() === serverToken}
         />
       </Section>
 

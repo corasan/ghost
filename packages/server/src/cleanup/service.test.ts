@@ -7,9 +7,11 @@ import { Effect, Layer, Option, Redacted } from "effect"
 import { BungieClient, BungieError, type TransferItemInput } from "../bungie/client.ts"
 import type { CharacterInfo, Inventory, OwnedItem } from "../bungie/inventory.ts"
 import { Manifest } from "../bungie/manifest.ts"
+import { Loadouts } from "../bungie/loadouts.ts"
 import { ProfileStore } from "../bungie/profile.ts"
 import { AppConfig } from "../config.ts"
 import { DatabaseLive } from "../db/client.ts"
+import { BuildsRepoLive } from "../db/builds.ts"
 import { ItemsRepo, ItemsRepoLive } from "../db/items.ts"
 import { CleanupRepoLive } from "./repo.ts"
 import { Cleanup, cleanupLayer } from "./service.ts"
@@ -171,6 +173,11 @@ const harness = (account: Account, dataDir = mkdtempSync(join(tmpdir(), "ghost-c
       insertPlug: () => unused,
       snapshotLoadout: () => unused,
     }),
+    Layer.succeed(Loadouts, {
+      current: Effect.succeed({ byCharacter: new Map(), artifactHash: null }),
+      invalidate: Effect.void,
+      catalog: unused,
+    }),
     Layer.succeed(ProfileStore, {
       inventory: Effect.sync(() => account.stale ?? account.inventory),
       plugSets: Effect.succeed({}),
@@ -193,7 +200,7 @@ const harness = (account: Account, dataDir = mkdtempSync(join(tmpdir(), "ghost-c
       findByName: () => Effect.succeed([]),
     }),
   )
-  const Repos = Layer.mergeAll(ItemsRepoLive, CleanupRepoLive).pipe(
+  const Repos = Layer.mergeAll(ItemsRepoLive, CleanupRepoLive, BuildsRepoLive).pipe(
     Layer.provideMerge(DatabaseLive),
     Layer.provide(Config),
   )

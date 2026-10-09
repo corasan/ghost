@@ -532,7 +532,7 @@ function StashingView({ session, name }: { session: CleanupSession; name: string
             onPress={() => act.mutate({ id: session.id, action: "stop" })}
           />
           <Meta color={Ghost.dim} style={{ textAlign: "center" }}>
-            Anything already moved stays in the vault.
+            You can still return what was moved.
           </Meta>
         </View>
       </Footer>

@@ -15,6 +15,8 @@ export type ChannelRef =
   | { readonly kind: "search"; readonly value: string }
 
 const CHANNEL_ID = /^UC[\w-]{22}$/
+/** YouTube video ids are 11 characters from the URL-safe base64 alphabet. */
+export const VIDEO_ID = /^[\w-]{11}$/
 
 export const parseChannelRef = (raw: string): ChannelRef | null => {
   const entry = raw.trim()
@@ -90,8 +92,11 @@ export const parseFeed = (xml: string): ReadonlyArray<FeedVideo> => {
   return entries.flatMap((entry) => {
     const videoId = tag(entry, "yt:videoId")
     const channelId = tag(entry, "yt:channelId")
-    const published = tag(entry, "published")
-    if (videoId === null || channelId === null || published === null) return []
+    const published = Date.parse(tag(entry, "published") ?? "")
+    // The id names a scratch folder for captions, and one bad entry must not
+    // sink the rest of the feed.
+    if (videoId === null || !VIDEO_ID.test(videoId) || channelId === null) return []
+    if (Number.isNaN(published)) return []
     return [
       {
         videoId,

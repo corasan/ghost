@@ -72,7 +72,11 @@ export const PerkRatingsLive = Layer.effect(
         Array.from({ length: Math.ceil(keys.length / BATCH) }, (_, i) =>
           keys.slice(i * BATCH, (i + 1) * BATCH),
         ),
-        (part) => sql<Row>`SELECT * FROM perk_ratings WHERE weapon IN ${sql.in(part)}`,
+        (part) =>
+          sql<Row>`
+            SELECT * FROM perk_ratings WHERE weapon IN ${sql.in(part)}
+            ORDER BY weapon, perk, source, purpose
+          `,
       ).pipe(
         Effect.map((parts) => {
           const byWeapon = new Map<string, Map<string, Array<StoredRating>>>()

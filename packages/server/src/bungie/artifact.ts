@@ -2,7 +2,7 @@ import { ArtifactPick, ArtifactPlan, type BungieNotLinked } from "@ghost/contrac
 import { Context, Effect, Layer, Schema } from "effect"
 import { BungieClient, type BungieError } from "./client.ts"
 import { Manifest } from "./manifest.ts"
-import { ProfileStore } from "./profile.ts"
+import { Membership } from "./membership.ts"
 
 export const ARTIFACT_COMPONENTS = [104, 202]
 
@@ -199,14 +199,14 @@ export const ArtifactsLive = Layer.effect(
   Effect.gen(function* () {
     const bungie = yield* BungieClient
     const manifest = yield* Manifest
-    const profiles = yield* ProfileStore
+    const membership = (yield* Membership).current
     const definitions = new Map<number, ArtifactDefinition>()
 
     const decodeFailure = (cause: unknown) =>
       Effect.die(new Error(`unexpected Bungie response: ${String(cause)}`))
 
     const load = Effect.gen(function* () {
-      const { membershipType, membershipId } = yield* profiles.inventory
+      const { membershipType, membershipId } = yield* membership
       const raw = yield* bungie.get(
         `/Destiny2/${membershipType}/Profile/${membershipId}/?components=${ARTIFACT_COMPONENTS.join(",")}`,
       )

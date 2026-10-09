@@ -2,7 +2,7 @@ import { query } from "@anthropic-ai/claude-agent-sdk"
 import { Context, Effect, Layer, Schema } from "effect"
 import { AppConfig } from "../config.ts"
 import { extractJsonText, SummaryOutput } from "../creators/parse.ts"
-import { AgentFailed } from "./claude.ts"
+import { abortOn, AgentFailed, within } from "./claude.ts"
 
 export interface VideoToSummarize {
   readonly channelTitle: string
@@ -41,7 +41,7 @@ export const SummarizerLive = Layer.effect(
 
     const summarize = (video: VideoToSummarize) =>
       Effect.tryPromise({
-        try: async () => {
+        try: async (signal) => {
           const prompt = [
             `Channel: ${video.channelTitle}`,
             `Video: ${video.title}`,
@@ -56,6 +56,7 @@ export const SummarizerLive = Layer.effect(
               systemPrompt: SYSTEM_PROMPT,
               tools: [],
               maxTurns: 1,
+              abortController: abortOn(signal),
             },
           })) {
             if (message.type === "result") {
@@ -67,6 +68,7 @@ export const SummarizerLive = Layer.effect(
         },
         catch: (error) => new AgentFailed({ message: String(error) }),
       }).pipe(
+        within("3 minutes", "The summary"),
         Effect.flatMap((text) =>
           Effect.try({
             try: () => extractJsonText(text),

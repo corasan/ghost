@@ -313,6 +313,8 @@ export interface ComposedBuild {
   readonly misses: ReadonlyArray<MissedTarget>
   readonly modSwaps: number
   readonly subclassChanges: ReadonlyArray<string> | null
+  /** Charge effects researched for this plan, to record once it passes the build rules. */
+  readonly research: ReadonlyArray<{ readonly mod: string; readonly effect: ChargeEffect }>
 }
 
 const refuse = (message: string) => new BuildRefusal({ message })
@@ -360,6 +362,14 @@ export const composeBuild = (
     if (unknown.length > 0) {
       return yield* refuse(
         `Error: unknown item ids ${unknown.join(", ")}. Use ids from search_items or get_characters.`,
+      )
+    }
+    const repeated = recipe.rows
+      .map((r) => r.itemInstanceId)
+      .filter((id, index, all) => all.indexOf(id) !== index)
+    if (repeated.length > 0) {
+      return yield* refuse(
+        `Error: items listed in more than one row: ${[...new Set(repeated)].join(", ")}. List each item once, with the one action it needs, and call present_plan again.`,
       )
     }
     const pieces = recipe.rows.flatMap((row) => {
@@ -422,14 +432,11 @@ export const composeBuild = (
         `Error: ${refused.join(". ")}. Fix the mods and call present_plan again.`,
       )
     }
-    yield* chargeEffects
-      .record(
-        researched.map((r) => ({
-          mod: r.mod,
-          effect: new ChargeEffect({ effect: r.effect, source: toSource(r.source) }),
-        })),
-      )
-      .pipe(Effect.orDie)
+    // Kept only once the plan passes the build rules: the caller records them.
+    const research = researched.map((r) => ({
+      mod: r.mod,
+      effect: new ChargeEffect({ effect: r.effect, source: toSource(r.source) }),
+    }))
     const weapons =
       recipe.kind === "build"
         ? pieces.filter(({ item }) => isWeapon(item.slot)).map(({ item }) => item)
@@ -501,13 +508,17 @@ export const composeBuild = (
         typeName: judged.has(item.itemInstanceId) ? item.typeName : undefined,
       })
     })
-    const effects = yield* chargeEffects
+    const stored = yield* chargeEffects
       .forMods(
         drafted.flatMap((row) =>
           (row.armorMods ?? []).filter((mod) => mod.charged).map((mod) => mod.name),
         ),
       )
       .pipe(Effect.orDie)
+    const effects = new Map([
+      ...stored,
+      ...research.map(({ mod, effect }) => [mod.toLowerCase(), effect] as const),
+    ])
     const rows = drafted.map((row) =>
       row.armorMods === undefined
         ? row
@@ -624,6 +635,7 @@ export const composeBuild = (
       misses,
       modSwaps: [...swapsFor.values()].flat().length,
       subclassChanges: chosen === null ? null : chosen.summary,
+      research,
     }
   })
 
@@ -649,6 +661,12 @@ export const buildRules = (recipe: BuildRecipe, build: ComposedBuild): BuildRefu
     if (exotics.length > 1) {
       return refuse(
         `Error: a build can equip only one exotic weapon; this one has ${exotics.map((weapon) => weapon.name).join(" and ")}. Keep the one the loop needs, swap the others for legendaries, and call present_plan again.`,
+      )
+    }
+    const exoticArmor = build.armor.filter((item) => item.tier === "exotic")
+    if (exoticArmor.length > 1) {
+      return refuse(
+        `Error: a build can wear only one exotic armor piece; this one ends up with ${exoticArmor.map((item) => item.name).join(" and ")}. Equip a legendary in place of the ones the loop does not need, and call present_plan again.`,
       )
     }
   }

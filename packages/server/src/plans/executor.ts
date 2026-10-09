@@ -12,15 +12,17 @@ import {
   SubclassChange,
   SubclassLoadout,
 } from "@ghost/contract"
-import { Context, Effect, Layer, Predicate } from "effect"
+import { Context, Effect, Fiber, Layer, Option, Predicate } from "effect"
 import { BungieClient, type BungieError } from "../bungie/client.ts"
-import { type Inventory, type OwnedItem, pickCharacter } from "../bungie/inventory.ts"
+import { type Inventory, type OwnedItem } from "../bungie/inventory.ts"
 import { Loadouts } from "../bungie/loadouts.ts"
 import { ProfileStore } from "../bungie/profile.ts"
 import { type ActionKind, ActionsRepo, type NewAction } from "../db/actions.ts"
 import { BuildsRepo } from "../db/builds.ts"
 import { ItemsRepo } from "../db/items.ts"
 import { JobsRepo } from "../db/jobs.ts"
+import { hardProtections, type InUse, inUse } from "../junk/judge.ts"
+import { PROTECTED } from "../junk/proposal.ts"
 import { drift } from "./drift.ts"
 import { historyCalls } from "./history.ts"
 
@@ -28,6 +30,11 @@ import { historyCalls } from "./history.ts"
 // becomes one or more Bungie calls, made one at a time, and every call is
 // journaled in `actions` so history can show it and undo can replay it
 // backwards. A failing row records its error and the batch carries on.
+//
+// Apply and undo run on their own fiber and the request only waits for it,
+// so a client that goes away (the app suspended mid-plan) cannot stop a
+// batch halfway. Only one of them runs per job at a time, so a double tap or
+// a retry finds the plan already claimed instead of repeating every call.
 
 type PlanErrors = JobNotFound | PlanNotApplicable | BungieError | BungieNotLinked
 
@@ -51,13 +58,9 @@ interface Where {
 const describe = (error: BungieError | BungieNotLinked) =>
   error._tag === "BungieError" ? error.message : "Bungie account is not linked"
 
-// The judge never proposes these, but the plan may be stale by the time the
-// player confirms it, so tagging checks the item as it is now.
-const JUNK_GUARDS: ReadonlyArray<readonly [(item: OwnedItem) => boolean, string]> = [
-  [(item) => item.locked, "it is locked"],
-  [(item) => item.masterwork, "it is masterworked"],
-  [(item) => item.equipped, "it is equipped"],
-]
+// Bungie refuses a second exotic weapon or armor piece, so the equips that
+// bring one in run after the rest, which take off the exotic worn now.
+const runsLate = (row: PlanRow) => row.action === "equip" && row.tier === "exotic"
 
 export const PlansLive = Layer.effect(
   Plans,
@@ -70,7 +73,30 @@ export const PlansLive = Layer.effect(
     const builds = yield* BuildsRepo
     const loadouts = yield* Loadouts
 
-    const record = (action: NewAction) => actions.record(action).pipe(Effect.orDie)
+    // A failed journal write must not stop the batch after Bungie already
+    // made the change, so it is logged and the apply carries on.
+    const record = (action: NewAction) =>
+      actions.record(action).pipe(
+        Effect.retry({ times: 2 }),
+        Effect.catch((error) =>
+          Effect.logError(`could not journal ${action.kind} ${action.itemInstanceId}`, error),
+        ),
+      )
+
+    const busy = new Set<string>()
+    const exclusive = <A, E>(jobId: string, run: Effect.Effect<A, E>) =>
+      Effect.suspend((): Effect.Effect<A, E | PlanNotApplicable> => {
+        if (busy.has(jobId)) {
+          return Effect.fail(
+            new PlanNotApplicable({ reason: "this plan is already being applied or undone" }),
+          )
+        }
+        busy.add(jobId)
+        return run.pipe(Effect.ensuring(Effect.sync(() => busy.delete(jobId))))
+      }).pipe(
+        Effect.forkDetach,
+        Effect.flatMap((fiber) => Fiber.join(fiber)),
+      )
 
     const freshInventory = profile.invalidate.pipe(Effect.andThen(profile.inventory))
 
@@ -145,7 +171,22 @@ export const PlansLive = Layer.effect(
         }),
       )
 
+    // What a saved build or an in-game loadout uses, read only when the plan
+    // tags junk; none when the loadouts cannot be read, so nothing is tagged.
+    const inUseNow = Effect.gen(function* () {
+      const saved = yield* builds.list.pipe(Effect.orDie)
+      return Option.some(inUse(saved, yield* loadouts.current))
+    }).pipe(
+      Effect.catchTags({
+        BungieError: () => Effect.succeedNone,
+        BungieNotLinked: () => Effect.succeedNone,
+      }),
+    )
+
     const apply = (jobId: string, selected: ReadonlyArray<string>) =>
+      exclusive(jobId, applyNow(jobId, selected))
+
+    const applyNow = (jobId: string, selected: ReadonlyArray<string>) =>
       Effect.gen(function* () {
         const job = yield* jobs.get(jobId).pipe(Effect.catchTag("SqlError", Effect.die))
         const plan = job.plan
@@ -160,9 +201,12 @@ export const PlansLive = Layer.effect(
         // Where each item is now, updated as calls succeed, so later rows in
         // the same batch see the moves earlier rows made.
         const where = new Map<string, Where>()
-        const fallbackCharacter = pickCharacter(inv, job.characterId)?.characterId ?? null
         const moved = new Set<string>()
         const picked = new Set(selected)
+        const tagging = plan.rows.some(
+          (row) => row.action === "tag_junk" && picked.has(row.itemInstanceId),
+        )
+        const guarded: Option.Option<InUse> = tagging ? yield* inUseNow : Option.none()
 
         const call = (
           item: Pick<OwnedItem, "itemInstanceId" | "itemHash" | "name">,
@@ -296,28 +340,43 @@ export const PlansLive = Layer.effect(
             at.equipped = true
           })
 
-        const tagJunk = (item: OwnedItem) => {
-          const kept = JUNK_GUARDS.find(([applies]) => applies({ ...item, ...state(item) }))
-          if (kept !== undefined) return Effect.fail(`${kept[1]}, so it was not tagged junk`)
-          return items.setDecision(item.itemInstanceId, "junk").pipe(
-            Effect.orDie,
-            Effect.andThen(
-              record({
-                jobId,
-                itemInstanceId: item.itemInstanceId,
-                itemHash: item.itemHash,
-                name: item.name,
-                kind: "tag_junk",
-                characterId: null,
-                fromLocation: null,
-                fromCharacterId: null,
-                previousItemId: null,
-                status: "ok",
-                error: null,
-              }),
-            ),
-          )
-        }
+        // Only the judge decides what is junk, and only a cleanup plan carries
+        // its verdicts. The plan may be stale by the time the player confirms
+        // it, so the item is checked against the judge's hard protections as
+        // it is now.
+        const tagJunk = (item: OwnedItem) =>
+          Effect.gen(function* () {
+            if (plan.kind !== "cleanup") {
+              return yield* Effect.fail("only a cleanup plan tags junk")
+            }
+            if (Option.isNone(guarded)) {
+              return yield* Effect.fail(
+                "your in-game loadouts could not be read, so it was not tagged junk",
+              )
+            }
+            const [kept] = hardProtections({ ...item, ...state(item) }, guarded.value)
+            if (kept !== undefined) {
+              return yield* Effect.fail(`${PROTECTED[kept]}, so it was not tagged junk`)
+            }
+            const tagged = yield* items.setDecision(item.itemInstanceId, "junk").pipe(Effect.orDie)
+            if (Option.isNone(tagged)) {
+              return yield* Effect.fail("Ghost has no record of it yet, so it was not tagged junk")
+            }
+            yield* record({
+              jobId,
+              itemInstanceId: item.itemInstanceId,
+              itemHash: item.itemHash,
+              name: item.name,
+              kind: "tag_junk",
+              characterId: null,
+              fromLocation: null,
+              fromCharacterId: null,
+              previousItemId: null,
+              previousDecision: item.decision,
+              status: "ok",
+              error: null,
+            })
+          })
 
         const insertMods = (row: PlanRow, item: OwnedItem) =>
           Effect.gen(function* () {
@@ -353,8 +412,24 @@ export const PlansLive = Layer.effect(
 
         const swapsMods = (row: PlanRow) => row.armorMods?.some((mod) => mod.swap === true) ?? false
 
+        // A row without a character goes to the job's own character, never to
+        // whichever character happens to be first, and armor is only equipped
+        // by its own class.
+        const targetOf = (row: PlanRow, item: OwnedItem) => {
+          const id = row.characterId ?? job.characterId
+          const character = inv.characters.find((c) => c.characterId === id)
+          if (character === undefined) return Effect.fail("no target character")
+          if (
+            row.action === "equip" &&
+            item.classType !== null &&
+            item.classType !== character.classType
+          ) {
+            return Effect.fail(`it is ${item.classType} armor`)
+          }
+          return Effect.succeed(character.characterId)
+        }
+
         const runRow = (row: PlanRow, item: OwnedItem): Effect.Effect<void, string> => {
-          const target = row.characterId ?? fallbackCharacter
           switch (row.action) {
             case "to_vault":
               return toVault(item)
@@ -363,11 +438,9 @@ export const PlansLive = Layer.effect(
                 ? pull(item)
                 : Effect.fail("it is no longer in the postmaster")
             case "to_character":
-              return target === null
-                ? Effect.fail("no target character")
-                : toCharacter(item, target)
+              return Effect.flatMap(targetOf(row, item), (target) => toCharacter(item, target))
             case "equip":
-              return target === null ? Effect.fail("no target character") : equip(item, target)
+              return Effect.flatMap(targetOf(row, item), (target) => equip(item, target))
             case "tag_junk":
               return tagJunk(item)
             case "none":
@@ -457,10 +530,14 @@ export const PlansLive = Layer.effect(
                   error: null,
                 }).pipe(Effect.as(new SubclassChange({ ...change, outcome: "skipped" })))
 
-        const rows: Array<PlanRow> = []
-        for (const row of plan.rows) {
+        const finished = new Map<PlanRow, PlanRow>()
+        const runOrder = [
+          ...plan.rows.filter((row) => !runsLate(row)),
+          ...plan.rows.filter(runsLate),
+        ]
+        for (const row of runOrder) {
           const finish = (outcome: RowOutcome | null, error: string | null) =>
-            rows.push(new PlanRow({ ...row, outcome, error }))
+            finished.set(row, new PlanRow({ ...row, outcome, error }))
           const item = owned.get(row.itemInstanceId)
           if (row.action === "none") {
             if (!swapsMods(row)) {
@@ -522,6 +599,7 @@ export const PlansLive = Layer.effect(
           yield* Effect.sleep(SPACING)
         }
 
+        const rows = plan.rows.map((row) => finished.get(row) ?? row)
         const loadout =
           plan.loadout === undefined || changed === undefined
             ? plan.loadout
@@ -537,9 +615,14 @@ export const PlansLive = Layer.effect(
         return yield* jobs.get(jobId).pipe(Effect.catchTag("SqlError", Effect.die))
       })
 
-    const undo = (jobId: string) =>
+    const undo = (jobId: string) => exclusive(jobId, undoNow(jobId))
+
+    const undoNow = (jobId: string) =>
       Effect.gen(function* () {
         const job = yield* jobs.get(jobId).pipe(Effect.catchTag("SqlError", Effect.die))
+        if (job.plan?.status === "undone") {
+          return yield* new PlanNotApplicable({ reason: "the plan was already undone" })
+        }
         const done = (yield* actions.forJobs([jobId]).pipe(Effect.orDie))
           .filter((a) => a.status === "ok" && a.kind !== "snapshot_loadout")
           .reverse()
@@ -557,11 +640,20 @@ export const PlansLive = Layer.effect(
             transferToVault: toVault,
           })
 
+        // Some calls have nothing to go back to: a postmaster pull, an equip
+        // into an empty slot, a mod into an empty socket. They stay ok rather
+        // than claim to be undone, and an item still equipped because of one
+        // keeps the moves that brought it, since Bungie cannot move it while
+        // it is equipped. The rest of the plan still undoes.
+        const stays = new Set<string>()
         let failures = 0
         for (const action of done) {
           const hash = action.itemHash ?? 0
-          const reverse: Effect.Effect<unknown, BungieError | BungieNotLinked> =
-            action.kind === "to_vault" && action.fromCharacterId !== null
+          const reverse: Effect.Effect<unknown, BungieError | BungieNotLinked> | null = stays.has(
+            action.itemInstanceId,
+          )
+            ? null
+            : action.kind === "to_vault" && action.fromCharacterId !== null
               ? back(action.itemInstanceId, hash, action.fromCharacterId, false)
               : action.kind === "to_character" && action.characterId !== null
                 ? back(action.itemInstanceId, hash, action.characterId, true)
@@ -585,9 +677,17 @@ export const PlansLive = Layer.effect(
                         plugHash: action.previousPlugHash,
                       })
                     : action.kind === "tag_junk"
-                      ? items.setDecision(action.itemInstanceId, null).pipe(Effect.orDie)
-                      : // A postmaster pull cannot be reversed; the item stays on the character.
-                        Effect.void
+                      ? items
+                          .setDecision(action.itemInstanceId, action.previousDecision ?? null)
+                          .pipe(Effect.orDie)
+                      : null
+          if (reverse === null) {
+            if (action.kind === "equip") stays.add(action.itemInstanceId)
+            yield* Effect.logInfo(
+              `undo ${action.kind} ${action.itemInstanceId}: not reversible, left as it is`,
+            )
+            continue
+          }
           const result = yield* Effect.result(reverse)
           if (result._tag === "Success") {
             yield* actions.setStatus(action.id, "undone").pipe(Effect.orDie)
@@ -631,7 +731,7 @@ export const PlansLive = Layer.effect(
           prompt: job.prompt,
           at: job.createdAt,
           calls: historyCalls(jobActions),
-          undoable: jobActions.some((a) => a.status === "ok"),
+          undoable: job.plan?.status !== "undone" && jobActions.some((a) => a.status === "ok"),
           undone: job.plan?.status === "undone",
         })
       })

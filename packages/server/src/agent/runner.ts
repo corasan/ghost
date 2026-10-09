@@ -1,7 +1,7 @@
 import { Effect, Layer, Option } from "effect"
 import { JobsRepo } from "../db/jobs.ts"
 import { Settings } from "../db/settings.ts"
-import { type AgentRequest, ClaudeAgent } from "./claude.ts"
+import { type AgentFailed, type AgentRequest, ClaudeAgent } from "./claude.ts"
 import { CurrentJob } from "./current-job.ts"
 
 // One daemon fiber drains the queue. Polling SQLite every two seconds is
@@ -34,13 +34,25 @@ const tick = Effect.gen(function* () {
       Effect.runFork(Effect.ignore(jobs.addStep(job.id, step)))
     },
   }
-  const outcome = yield* agent.run(request).pipe(
-    Effect.catch((error) =>
-      resume === null ? Effect.fail(error) : agent.run({ ...request, resume: null }),
-    ),
-    current.around({ id: job.id, characterId: job.characterId }),
-    Effect.result,
-  )
+  // A conversation that cannot be resumed gets one fresh run, unless the
+  // failed run already presented a plan: a second run would present another.
+  const retryFresh = (error: AgentFailed) =>
+    resume === null
+      ? Effect.fail(error)
+      : jobs.get(job.id).pipe(
+          Effect.matchEffect({
+            onFailure: () => Effect.fail(error),
+            onSuccess: (latest) =>
+              latest.plan === null ? agent.run({ ...request, resume: null }) : Effect.fail(error),
+          }),
+        )
+  const outcome = yield* agent
+    .run(request)
+    .pipe(
+      Effect.catch(retryFresh),
+      current.around({ id: job.id, characterId: job.characterId }),
+      Effect.result,
+    )
   if (outcome._tag === "Success") {
     const { text, conversation } = outcome.success
     if (job.sessionId !== null && conversation !== null) {

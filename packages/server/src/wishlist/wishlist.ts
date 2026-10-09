@@ -17,6 +17,7 @@ const decodePerkHashes = Schema.decodeSync(Schema.fromJsonString(Schema.Array(Sc
 export const WISHLIST_URL =
   "https://raw.githubusercontent.com/48klocs/dim-wish-list-sources/master/voltron.txt"
 const REFRESH_MS = 12 * 60 * 60 * 1000
+const DOWNLOAD_TIMEOUT = "2 minutes"
 const BATCH = 500
 
 const KEYS = {
@@ -109,8 +110,15 @@ export const WishlistLive = Layer.effect(
         return parsed.rolls.length
       }).pipe(sql.withTransaction, Effect.orDie)
 
+    const populated = sql<{ count: number }>`SELECT COUNT(*) AS count FROM wishlist_rolls`.pipe(
+      Effect.orDie,
+      Effect.map((rows) => (rows[0]?.count ?? 0) > 0),
+    )
+
     const refresh = Effect.gen(function* () {
-      const etag = yield* setting(KEYS.etag)
+      // With nothing stored, a 304 would leave the tables empty for good, so
+      // the ETag is only sent when there is a copy it describes.
+      const etag = (yield* populated) ? yield* setting(KEYS.etag) : null
       const request = HttpClientRequest.get(WISHLIST_URL).pipe(
         etag === null ? (r) => r : HttpClientRequest.setHeader("If-None-Match", etag),
       )
@@ -130,11 +138,13 @@ export const WishlistLive = Layer.effect(
       yield* settings.set(KEYS.fetchedAt, now).pipe(Effect.orDie)
       yield* settings.set(KEYS.changedAt, now).pipe(Effect.orDie)
       yield* Effect.logInfo(`wishlist: stored ${count} rolls`)
-    })
-
-    const populated = sql<{ count: number }>`SELECT COUNT(*) AS count FROM wishlist_rolls`.pipe(
-      Effect.orDie,
-      Effect.map((rows) => (rows[0]?.count ?? 0) > 0),
+    }).pipe(
+      // The lock is held for the whole download, so a hung one would stall
+      // every judgment that reads rolls.
+      Effect.timeoutOrElse({
+        duration: DOWNLOAD_TIMEOUT,
+        orElse: () => Effect.fail(new WishlistError({ message: "wishlist download timed out" })),
+      }),
     )
 
     // A failed revalidation keeps serving the copy we have; only a missing

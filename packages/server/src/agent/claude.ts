@@ -1,6 +1,7 @@
 import { query, type Options } from "@anthropic-ai/claude-agent-sdk"
 import type { AgentEffort, JobKind, JobStep } from "@ghost/contract"
-import { Context, Effect, Layer, Schema } from "effect"
+import { Context, Duration, Effect, Layer, Redacted, Schema } from "effect"
+import { Access } from "../access.ts"
 import { AppConfig } from "../config.ts"
 import { MCP_PATH } from "../mcp/path.ts"
 import { AgentConfig } from "./settings.ts"
@@ -9,6 +10,32 @@ import { decodeToolInput, describeStep } from "./steps.ts"
 export class AgentFailed extends Schema.TaggedError<AgentFailed>()("AgentFailed", {
   message: Schema.String,
 }) {}
+
+/**
+ * An AbortController for query() that fires when the Effect running it is
+ * interrupted, so the Claude Code subprocess stops with the fiber instead of
+ * running on and spending the subscription.
+ */
+export const abortOn = (signal: AbortSignal) => {
+  const controller = new AbortController()
+  if (signal.aborted) controller.abort(signal.reason)
+  else signal.addEventListener("abort", () => controller.abort(signal.reason), { once: true })
+  return controller
+}
+
+/** Fails a model call that runs past `limit`. The timeout interrupts it, which aborts the subprocess. */
+export const within =
+  (limit: Duration.Input, what: string) =>
+  <A, R>(self: Effect.Effect<A, AgentFailed, R>) =>
+    Effect.timeoutOrElse(self, {
+      duration: limit,
+      orElse: () =>
+        Effect.fail(
+          new AgentFailed({
+            message: `${what} took longer than ${Duration.format(Duration.fromInputUnsafe(limit))}`,
+          }),
+        ),
+    })
 
 export interface AgentRequest {
   readonly kind: JobKind
@@ -95,6 +122,7 @@ export const ClaudeAgentLive = Layer.effect(
   ClaudeAgent,
   Effect.gen(function* () {
     const config = yield* AppConfig
+    const { mcpToken } = yield* Access
     const agentConfig = yield* AgentConfig
     const mcpUrl = `http://127.0.0.1:${config.port}${MCP_PATH}`
 
@@ -103,7 +131,7 @@ export const ClaudeAgentLive = Layer.effect(
       effort: AgentEffort,
     ) =>
       Effect.tryPromise({
-        try: async () => {
+        try: async (signal) => {
           const selected =
             characterId === null
               ? "No character is selected; default to the highest light one."
@@ -115,12 +143,19 @@ export const ClaudeAgentLive = Layer.effect(
             model: config.model,
             effort,
             systemPrompt: SYSTEM_PROMPT,
-            mcpServers: { ghost: { type: "http", url: mcpUrl } },
+            mcpServers: {
+              ghost: {
+                type: "http",
+                url: mcpUrl,
+                headers: { Authorization: `Bearer ${Redacted.value(mcpToken)}` },
+              },
+            },
             tools: ["WebSearch", "WebFetch"],
             allowedTools: ["mcp__ghost__*", "WebSearch", "WebFetch"],
             permissionMode: "bypassPermissions",
             allowDangerouslySkipPermissions: true,
             maxTurns: 40,
+            abortController: abortOn(signal),
           }
           if (resume !== null) options.resume = resume
           if (config.claudePath !== "") options.pathToClaudeCodeExecutable = config.claudePath
@@ -145,7 +180,7 @@ export const ClaudeAgentLive = Layer.effect(
           return { text: lastText, conversation }
         },
         catch: (error) => new AgentFailed({ message: String(error) }),
-      })
+      }).pipe(within("10 minutes", "The agent"))
 
     const run = (request: AgentRequest) =>
       Effect.flatMap(agentConfig.current, ({ effort }) => ask(request, effort))

@@ -4,6 +4,7 @@ import { BungieClient, BungieClientLive } from "../src/bungie/client.ts"
 import { isRolledTrait } from "../src/bungie/inventory.ts"
 import { LoadoutsLive } from "../src/bungie/loadouts.ts"
 import { Manifest, ManifestLive } from "../src/bungie/manifest.ts"
+import { MembershipLive } from "../src/bungie/membership.ts"
 import { ProfileStoreLive } from "../src/bungie/profile.ts"
 import { AppConfig, AppConfigLive } from "../src/config.ts"
 import { BuildsRepoLive } from "../src/db/builds.ts"
@@ -44,7 +45,11 @@ const Repos = Layer.mergeAll(SettingsLive, ItemsRepoLive, BuildsRepoLive, PerkRa
 const Clients = Layer.mergeAll(ReadOnlyBungie, ManifestLive, WishlistLive).pipe(
   Layer.provideMerge(Repos),
 )
-const Reads = LoadoutsLive.pipe(Layer.provideMerge(ProfileStoreLive), Layer.provideMerge(Clients))
+const Reads = LoadoutsLive.pipe(
+  Layer.provideMerge(ProfileStoreLive),
+  Layer.provideMerge(MembershipLive),
+  Layer.provideMerge(Clients),
+)
 const EvalLive = JunkJudgeLive.pipe(Layer.provideMerge(Reads), Layer.provideMerge(AppConfigLive))
 
 const decodeAnswers = Schema.decodeUnknownSync(

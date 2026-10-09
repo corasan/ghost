@@ -57,15 +57,21 @@ and exits non-zero when something required is missing.
 | `ghost status`                 | Running or not, local and tailnet addresses, whether Bungie is linked |
 | `ghost logs [-f] [-n 100]`     | Print or follow the background server's log                           |
 | `ghost pair`                   | Print the QR code again                                               |
+| `ghost token`                  | Print the pairing token, to enter it in the app by hand               |
 
-Everything lives in `~/.ghost` (`GHOST_HOME` moves it): `config.env` with your
-keys, `data/` with the SQLite database, `ghost.log` and `ghost.pid`. Settings in
-the shell environment win over `config.env`. The server finds Claude Code on
-your PATH and uses its sign-in, so the subscription pays for each run.
+Everything lives in `~/.ghost` (`GHOST_HOME` moves it, and only your user can
+read it): `config.env` with your keys and the pairing token, `data/` with the
+SQLite database, `ghost.log` and `ghost.pid`. Settings in the shell environment
+win over `config.env`. The server finds Claude Code on your PATH and uses its
+sign-in, so the subscription pays for each run; an `ANTHROPIC_API_KEY` in the
+shell is not passed on, and `ghost doctor` warns about it.
 
 Scan the QR code with the phone's camera to open the app with the server's
-address saved, then sign in with Bungie. The address can also be changed by
-hand from the sign-in screen.
+address and pairing token saved, then sign in with Bungie. Every request but
+`/health` and Bungie's sign-in redirect needs that token, and requests through
+the tailnet must come from the tailnet login that owns this machine (recorded
+in `config.env` as `GHOST_TAILSCALE_USER` on the first start). The address and
+token can also be changed by hand in the app's settings.
 
 ### Working on Ghost
 

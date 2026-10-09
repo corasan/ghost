@@ -58,8 +58,13 @@ interface Judged {
 }
 
 const storedFor = (rows: ReadonlyArray<StoredRating>, purpose: Purpose) => {
-  const fits = rows.filter((row) => row.purpose === purpose || row.purpose === "any")
-  return fits.find((row) => row.source === "player") ?? fits[0]
+  // The player's rating wins over Claude's, and one for this purpose over
+  // one for any, whatever order the rows came back in.
+  const rank = (row: StoredRating) =>
+    (row.source === "player" ? 0 : 2) + (row.purpose === "any" ? 1 : 0)
+  return rows
+    .filter((row) => row.purpose === purpose || row.purpose === "any")
+    .toSorted((a, b) => rank(a) - rank(b))[0]
 }
 
 // A curated list names a weapon's good perks, so anything it leaves out is
