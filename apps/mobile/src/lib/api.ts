@@ -249,7 +249,8 @@ export function useBriefing(characterId: string | undefined) {
     queryFn: () =>
       run((api) =>
         api.guardian.briefing({
-          query: { ...(characterId ? { characterId } : {}), tz: localTimeZone },
+          query:
+            characterId === undefined ? { tz: localTimeZone } : { characterId, tz: localTimeZone },
         }),
       ),
     staleTime: 60_000,
