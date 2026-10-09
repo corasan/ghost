@@ -149,6 +149,7 @@ environment, and signing credentials live on EAS's servers.
    echo 'EAS_PROJECT_ID=<id>' >> apps/mobile/.env.local
    eas env:create --environment preview --name GHOST_APP_ID --value com.you.ghost --visibility plaintext
    eas env:create --environment preview --name EAS_PROJECT_ID --value <id> --visibility plaintext
+   eas env:create --environment preview --name UPDATES_URL --value https://u.expo.dev/<id> --visibility plaintext
    ```
 
    `.env.local` is for your machine and the EAS variables are for the build
@@ -178,6 +179,21 @@ environment, and signing credentials live on EAS's servers.
 4. Share the build page link (or its QR code). On iPhone, open it in Safari and
    install, then turn on Developer Mode. On Android, download the APK and allow
    installing from the browser.
+
+5. Ship JavaScript changes without a new build:
+
+   ```sh
+   bun run app:update --message "Fix vault search"
+   ```
+
+   This publishes the current JavaScript to the `adhoc` channel, using the
+   `preview` EAS variables so it matches the builds. Installed builds download
+   it the next time they open and run it the launch after that. Only builds
+   made after `UPDATES_URL` was set check for updates, so the first time you
+   need one more `eas build`. An update also only reaches builds with the same
+   native code (the runtime version is a fingerprint of it), so after adding a
+   native library or changing `app.config.ts` plugins, build again instead.
+   Builds from `bun run app:ios|android` have no `UPDATES_URL` and never update.
 
 `eas credentials` shows or downloads what EAS stores. If it writes a local
 `credentials.json` or `credentials/` folder, git ignores both.

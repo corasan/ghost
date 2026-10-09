@@ -6,6 +6,7 @@
   "build": {
     "adhoc": {
       "distribution": "internal",
+      "channel": "adhoc",
       "environment": "preview",
       "autoIncrement": true,
       "android": {

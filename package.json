@@ -16,7 +16,8 @@
     "format": "oxfmt",
     "app:ios": "bun apps/mobile/scripts/install.ts ios",
     "app:android": "bun apps/mobile/scripts/install.ts android",
-    "eas": "bun apps/mobile/scripts/eas.ts"
+    "eas": "bun apps/mobile/scripts/eas.ts",
+    "app:update": "bun apps/mobile/scripts/eas.ts update --channel adhoc --environment preview"
   },
   "devDependencies": {
     "@oxlint/plugins": "1.86.0",
