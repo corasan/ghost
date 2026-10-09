@@ -88,7 +88,7 @@ const GetCharacters = Tool.make('get_characters', {
 
 const SearchItems = Tool.make('search_items', {
   description:
-    'Search owned items (vault, characters, postmaster). All filters are optional and combine. text matches name, type and perk names. Returns compact JSON rows; item ids are what present_plan and check_rolls take. With purpose, the matches are ranked against it and you get the best few per slot, each with a relevance from 0 to 1, and limit is the count per slot (default 6, max 20). If the result says ranking unavailable, the list is unranked; judge the rows yourself.',
+    'Search owned items (vault, characters, postmaster). All filters are optional and combine. text matches name, type and perk names. tier is rarity (exotic, legendary); gearTier is the 1 to 5 gear tier, and minGearTier keeps items at that tier or higher. Returns compact JSON rows; item ids are what present_plan and check_rolls take. With purpose, the matches are ranked against it and you get the best few per slot, each with a relevance from 0 to 1, and limit is the count per slot (default 6, max 20). If the result says ranking unavailable, the list is unranked; judge the rows yourself.',
   parameters: Schema.Struct({
     purpose: Schema.optional(
       Schema.String.annotate({
@@ -100,6 +100,7 @@ const SearchItems = Tool.make('search_items', {
     category: Schema.optional(Schema.Literals(['weapon', 'armor'])),
     slot: Schema.optional(ItemSlot),
     tier: Schema.optional(ItemTier),
+    minGearTier: Schema.optional(Schema.Number),
     location: Schema.optional(ItemLocation),
     classType: Schema.optional(GuardianClass),
     damageType: Schema.optional(DamageType),
@@ -336,6 +337,7 @@ const compact = (i: OwnedItem) => ({
   name: i.name,
   type: i.typeName,
   tier: i.tier,
+  gearTier: i.gearTier ?? undefined,
   slot: i.slot,
   element: i.damageType,
   power: i.power,
@@ -369,6 +371,7 @@ const matchingItems = (inv: Inventory, f: SearchFilters) => {
         (f.category === 'weapon' ? isWeapon(i.slot) : isArmor(i.slot))) &&
       (f.slot === undefined || i.slot === f.slot) &&
       (f.tier === undefined || i.tier === f.tier) &&
+      (f.minGearTier === undefined || (i.gearTier ?? 0) >= f.minGearTier) &&
       (f.location === undefined || i.location === f.location) &&
       (f.classType === undefined || i.classType === f.classType) &&
       (f.damageType === undefined || i.damageType === f.damageType) &&
@@ -398,6 +401,7 @@ export const rankingText = (i: OwnedItem) => {
   return [
     i.name,
     [i.tier, i.classType, i.typeName].filter((part) => part !== null).join(' '),
+    i.gearTier ? `gear tier ${i.gearTier}` : null,
     `${i.slot} slot`,
     i.damageType === 'none' ? null : `${i.damageType} element`,
     i.masterwork ? 'masterworked' : null,
