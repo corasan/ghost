@@ -2,11 +2,12 @@
 import { BunRuntime, BunServices } from "@effect/platform-bun"
 import { Console, Effect, Terminal } from "effect"
 import { Command, Flag } from "effect/cli"
-import pkg from "../package.json" with { type: "json" }
 import { doctor, setup } from "./checkup.ts"
 import { ghostHome } from "./home.ts"
+import { displayVersion, install } from "./install.ts"
 import { logs, pair, restart, runForeground, start, status, stop, token } from "./lifecycle.ts"
 import { red } from "./ui.ts"
+import { update } from "./update.ts"
 
 const home = ghostHome()
 
@@ -67,6 +68,17 @@ const tokenCommand = Command.make("token", {}, () => token(home)).pipe(
   Command.withDescription("Print the token the phone app sends, to enter it by hand"),
 )
 
+const updateCommand = Command.make(
+  "update",
+  {
+    check: Flag.Boolean("check").pipe(
+      Flag.withDescription("Only say whether a newer version is out"),
+      Flag.withDefault(false),
+    ),
+  },
+  ({ check }) => update(home, install, check),
+).pipe(Command.withDescription("Update ghost to the latest version and restart the server"))
+
 const ghost = Command.make("ghost").pipe(
   Command.withDescription("Run the Ghost server for the Destiny 2 companion app"),
   Command.withSubcommands([
@@ -79,10 +91,11 @@ const ghost = Command.make("ghost").pipe(
     logsCommand,
     pairCommand,
     tokenCommand,
+    updateCommand,
   ]),
 )
 
-Command.run(ghost, { version: pkg.version }).pipe(
+Command.run(ghost, { version: displayVersion(install) }).pipe(
   Effect.catchTag("CliFailure", (failure) =>
     Effect.andThen(
       Console.error(red(failure.message)),

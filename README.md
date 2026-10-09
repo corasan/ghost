@@ -32,7 +32,10 @@ bun run install:cli   # builds packages/cli/dist/ghost and copies it to ~/.local
 ```
 
 Either way the result is one self-contained binary with the server inside it.
-Pushing a `v*` tag builds the release binaries (`.github/workflows/release.yml`).
+Pushing a `v*` tag builds the release binaries (`.github/workflows/release.yml`),
+and the tag is the version they report. `ghost update` keeps either kind current:
+a release binary downloads the newest release, a clone build pulls and rebuilds,
+and a running server is restarted on the new version.
 
 ### Set up and run
 
@@ -49,15 +52,16 @@ Bungie before saving it. Run it again any time; it only asks about what is
 still missing. `ghost doctor` runs the same checks without changing anything
 and exits non-zero when something required is missing.
 
-| Command                        | What it does                                                          |
-| ------------------------------ | --------------------------------------------------------------------- |
-| `ghost start`                  | Start in the background, wait until it answers, print the QR code     |
-| `ghost start -f`               | Run in this terminal instead, logging to stdout                       |
-| `ghost stop` / `ghost restart` | Stop the background server (and take it off the tailnet)              |
-| `ghost status`                 | Running or not, local and tailnet addresses, whether Bungie is linked |
-| `ghost logs [-f] [-n 100]`     | Print or follow the background server's log                           |
-| `ghost pair`                   | Print the QR code again                                               |
-| `ghost token`                  | Print the pairing token, to enter it in the app by hand               |
+| Command                        | What it does                                                                            |
+| ------------------------------ | --------------------------------------------------------------------------------------- |
+| `ghost start`                  | Start in the background, wait until it answers, print the QR code                       |
+| `ghost start -f`               | Run in this terminal instead, logging to stdout                                         |
+| `ghost stop` / `ghost restart` | Stop the background server (and take it off the tailnet)                                |
+| `ghost status`                 | Running or not, local and tailnet addresses, whether Bungie is linked                   |
+| `ghost logs [-f] [-n 100]`     | Print or follow the background server's log                                             |
+| `ghost pair`                   | Print the QR code again                                                                 |
+| `ghost token`                  | Print the pairing token, to enter it in the app by hand                                 |
+| `ghost update [--check]`       | Install the newest version and restart the server (`--check` only says if there is one) |
 
 Everything lives in `~/.ghost` (`GHOST_HOME` moves it, and only your user can
 read it): `config.env` with your keys and the pairing token, `data/` with the
