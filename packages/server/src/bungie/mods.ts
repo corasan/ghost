@@ -142,6 +142,46 @@ export const planModSwaps = ({
   return { swaps, errors }
 }
 
+/**
+ * The requests that bring a piece's mods to the set a saved build ended with,
+ * from whatever it holds now. Mods already slotted stay; each missing one
+ * takes a free socket, else one holding a mod the build does not run. A mod
+ * that no longer fits (gone from the game, or too much energy) is left out, so
+ * equipping a saved build never fails over its mods.
+ */
+export const restoreMods = ({
+  item,
+  sockets,
+  catalog,
+  wanted,
+}: {
+  readonly item: Piece
+  readonly sockets: ReadonlyArray<SocketNow>
+  readonly catalog: ReadonlyArray<ArmorModEntry>
+  readonly wanted: ReadonlyArray<string>
+}): ReadonlyArray<ModRequest> => {
+  const missing = [...wanted]
+  const spare: Array<string> = []
+  for (const socket of sockets) {
+    if (socket.mod === null) continue
+    const at = missing.findIndex((name) => same(name, socket.mod?.name ?? ''))
+    if (at >= 0) missing.splice(at, 1)
+    else spare.push(socket.mod.name)
+  }
+  const requests: Array<ModRequest> = []
+  for (const mod of missing) {
+    const fit = [{ mod }, ...spare.map((replaces) => ({ mod, replaces }))].find(
+      (request) =>
+        planModSwaps({ item, sockets, catalog, requests: [...requests, request] }).errors.length ===
+        0,
+    )
+    if (fit === undefined) continue
+    requests.push(fit)
+    if ('replaces' in fit) spare.splice(spare.indexOf(fit.replaces), 1)
+  }
+  return requests
+}
+
 const statMods = (mods: StatMods, facts: StatFacts) =>
   ARMOR_STATS.flatMap(([key, label]) => {
     const delta = mods[STAT[key]]
