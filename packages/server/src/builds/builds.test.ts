@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
+  ArmorMod,
   ArtifactPlan,
   type ItemSlot,
   LoadoutSaveTo,
@@ -14,7 +15,7 @@ import { BungieError } from '../bungie/client.ts'
 import { Effect, Layer, Redacted } from 'effect'
 import type { CharacterInfo, Inventory, OwnedItem } from '../bungie/inventory.ts'
 import { Loadouts } from '../bungie/loadouts.ts'
-import { Manifest } from '../bungie/manifest.ts'
+import { type ArmorModEntry, Manifest, type ManifestService } from '../bungie/manifest.ts'
 import { ProfileStore } from '../bungie/profile.ts'
 import { AppConfig } from '../config.ts'
 import { BuildsRepo, BuildsRepoLive } from '../db/builds.ts'
@@ -304,7 +305,10 @@ const ConfigTest = Layer.succeed(AppConfig, {
 
 const down = Effect.fail(new BungieError({ status: 'Down', message: 'Bungie is down' }))
 
-const serviceWith = (inventoryNow: Effect.Effect<Inventory, BungieError>) =>
+const serviceWith = (
+  inventoryNow: Effect.Effect<Inventory, BungieError>,
+  manifest: Partial<ManifestService> = {},
+) =>
   BuildsLive.pipe(
     Layer.provideMerge(
       Layer.mergeAll(JobsRepoLive, BuildsRepoLive).pipe(
@@ -335,6 +339,7 @@ const serviceWith = (inventoryNow: Effect.Effect<Inventory, BungieError>) =>
           ensure: Effect.void,
           lookup: () => Effect.succeed(new Map()),
           findByName: () => Effect.succeed([]),
+          ...manifest,
         }),
         Layer.succeed(ChargeEffects, {
           forMods: () => Effect.succeed(new Map()),
@@ -425,6 +430,135 @@ describe('Builds.equip', () => {
     expect(result.job.plan?.rows.map((r) => [r.itemInstanceId, r.action])).toEqual([
       ['helm-2', 'equip'],
       ['chest', 'equip'],
+    ])
+  })
+})
+
+describe('Builds.equip on a build whose first run already changed the gear', () => {
+  const GENERAL = 'enhancements.v2_general'
+  const mod = (hash: number, name: string): ArmorModEntry => ({
+    hash,
+    name,
+    icon: null,
+    mods: {},
+    classMods: {},
+    fragmentSlots: 0,
+    energyCost: 3,
+    category: GENERAL,
+    artifact: false,
+    charged: false,
+    keywords: [],
+    description: '',
+  })
+  const grenadeMod = mod(1, 'Grenade Mod')
+  const weaponsMod = mod(2, 'Weapons Mod')
+  const manifest: Partial<ManifestService> = {
+    armorMods: Effect.succeed([grenadeMod, weaponsMod]),
+    plugFacts: (hashes) =>
+      Effect.succeed(
+        new Map(
+          [grenadeMod, weaponsMod]
+            .filter((entry) => hashes.includes(entry.hash))
+            .map((entry) => [entry.hash, entry] as const),
+        ),
+      ),
+    lookup: (hashes) =>
+      Effect.succeed(
+        new Map(
+          [grenadeMod, weaponsMod]
+            .filter((entry) => [...hashes].includes(entry.hash))
+            .map(
+              (entry) =>
+                [
+                  entry.hash,
+                  {
+                    hash: entry.hash,
+                    name: entry.name,
+                    typeName: 'General Armor Mod',
+                    icon: null,
+                    tier: 'common',
+                    slot: 'other',
+                    damageType: 'none',
+                    bucketHash: 0,
+                    classType: 3,
+                    description: '',
+                  },
+                ] as const,
+            ),
+        ),
+      ),
+  }
+  const stats = {
+    mobility: 10,
+    resilience: 10,
+    recovery: 10,
+    discipline: 10,
+    intellect: 10,
+    strength: 10,
+  }
+  const gauntlets = (holds: ArmorModEntry, fields: Partial<OwnedItem> = {}) =>
+    owned('arms', 'arms', {
+      name: 'Stronghold',
+      armorStats: stats,
+      energy: { used: 3, capacity: 10 },
+      modSockets: [{ index: 0, plugHash: holds.hash, empty: false }],
+      ...fields,
+    })
+  const saved = (arms: OwnedItem) =>
+    Effect.gen(function* () {
+      const stored = yield* (yield* BuildsRepo).insert({
+        jobId: crypto.randomUUID(),
+        name: 'Grenades',
+        recipe: {
+          ...recipe,
+          rows: [
+            { itemInstanceId: 'helm', action: 'none' },
+            { itemInstanceId: 'arms', action: 'none' },
+          ],
+          mods: [{ itemInstanceId: 'arms', mod: 'Grenade Mod', replaces: 'Weapons Mod' }],
+        },
+        plan: plan([
+          row(helm, 'none'),
+          row(arms, 'none', {
+            armorMods: [new ArmorMod({ name: 'Grenade Mod', description: '', cost: 3, mods: [] })],
+          }),
+        ]),
+      })
+      return yield* (yield* Builds).equip(stored.id, { characterId: 'titan-1' })
+    })
+  const arms = gauntlets(grenadeMod)
+
+  test('equips again without asking for a mod the piece already holds', async () => {
+    const worn = { location: 'character' as const, characterId: 'titan-1', equipped: true }
+    const result = await saved(gauntlets(grenadeMod, worn)).pipe(
+      Effect.provide(
+        serviceWith(
+          Effect.succeed(inventory([{ ...helm, ...worn }, gauntlets(grenadeMod, worn)])),
+          manifest,
+        ),
+      ),
+      Effect.runPromise,
+    )
+    const armsRow = result.job.plan?.rows.find((r) => r.itemInstanceId === 'arms')
+    expect(armsRow?.armorMods?.map((m) => [m.name, m.swap ?? false])).toEqual([
+      ['Grenade Mod', false],
+    ])
+  })
+
+  test('puts the mod back and equips the pieces that came off since', async () => {
+    const result = await saved(arms).pipe(
+      Effect.provide(
+        serviceWith(Effect.succeed(inventory([helm, gauntlets(weaponsMod)])), manifest),
+      ),
+      Effect.runPromise,
+    )
+    const rows = result.job.plan?.rows ?? []
+    expect(rows.map((r) => [r.itemInstanceId, r.action, r.selected])).toEqual([
+      ['helm', 'equip', true],
+      ['arms', 'equip', true],
+    ])
+    expect(rows[1]?.armorMods?.map((m) => [m.name, m.replaces])).toEqual([
+      ['Grenade Mod', 'Weapons Mod'],
     ])
   })
 })

@@ -34,6 +34,7 @@ import {
   validateSlot,
 } from '../bungie/loadouts.ts'
 import { Manifest, type ManifestItem } from '../bungie/manifest.ts'
+import { restoreMods, socketsNow } from '../bungie/mods.ts'
 import { ProfileStore } from '../bungie/profile.ts'
 import { ChargeEffects } from '../db/charge.ts'
 import { BuildsRepo, type StoredBuild } from '../db/builds.ts'
@@ -175,6 +176,46 @@ export const inRecipeOrder = (
   })
 }
 
+/** The mods each saved armor piece ended with, keyed by the id the piece has now. */
+export const savedMods = (
+  plan: Plan,
+  rows: ReadonlyArray<{ readonly itemInstanceId: string }>,
+  order: ReadonlyArray<string>,
+): ReadonlyMap<string, ReadonlyArray<string>> =>
+  new Map(
+    rows.flatMap((row, index) => {
+      const mods = plan.rows.find((each) => each.itemInstanceId === row.itemInstanceId)?.armorMods
+      const now = order[index]
+      return mods === undefined || now === undefined
+        ? []
+        : [[now, mods.map((mod) => mod.name)] as const]
+    }),
+  )
+
+/**
+ * A piece the build kept on (action none) may have come off since; the replay
+ * equips it again, or the in-game slot would save whatever is worn instead.
+ */
+export const replayRows = (
+  recipe: BuildRecipe,
+  inv: Inventory,
+  characterId: string,
+): BuildRecipe => {
+  const worn = new Set(
+    inv.items
+      .filter((item) => item.equipped && item.characterId === characterId)
+      .map((item) => item.itemInstanceId),
+  )
+  return {
+    ...recipe,
+    rows: recipe.rows.map((row) => {
+      if (row.action !== 'none' || worn.has(row.itemInstanceId)) return row
+      const { meta: _meta, selected: _selected, ...rest } = row
+      return { ...rest, action: 'equip', characterId }
+    }),
+  }
+}
+
 export const normalizePlan = (plan: Plan): Plan => {
   const { saveTo: _saveTo, ...rest } = plan
   const change = plan.loadout?.change
@@ -270,6 +311,40 @@ export const BuildsLive = Layer.effect(
 
     const list = builds.list.pipe(Effect.orDie, Effect.flatMap(present))
 
+    // The recipe's mods were changes against the pieces as they were when the
+    // build was made; once applied they no longer apply. The saved plan holds
+    // the mods each piece ended with, so a replay works out the changes anew.
+    const modsToRestore = (
+      recipe: BuildRecipe,
+      wanted: ReadonlyMap<string, ReadonlyArray<string>>,
+      inv: Inventory,
+    ) =>
+      Effect.gen(function* () {
+        const owned = new Map(inv.items.map((item) => [item.itemInstanceId, item]))
+        const pieces = recipe.rows.flatMap((row) => {
+          const item = owned.get(row.itemInstanceId)
+          const mods = wanted.get(row.itemInstanceId)
+          return item === undefined || mods === undefined ? [] : [{ item, mods }]
+        })
+        if (pieces.length === 0) return []
+        const slotted = pieces.flatMap(({ item }) => item.modSockets.map((s) => s.plugHash))
+        const [defs, facts, catalog] = yield* Effect.all([
+          manifest
+            .lookup(slotted)
+            .pipe(Effect.orElseSucceed((): ReadonlyMap<number, ManifestItem> => new Map())),
+          manifest.plugFacts(slotted),
+          manifest.armorMods,
+        ])
+        return pieces.flatMap(({ item, mods }) =>
+          restoreMods({
+            item,
+            sockets: socketsNow(item, defs, facts),
+            catalog,
+            wanted: mods,
+          }).map((request) => ({ itemInstanceId: item.itemInstanceId, ...request })),
+        )
+      })
+
     const chooseSlot = (choice: LoadoutSlotChoice, buildId: string) =>
       Effect.gen(function* () {
         const [game, catalog] = yield* Effect.all([loadouts.current, loadouts.catalog])
@@ -310,7 +385,13 @@ export const BuildsLive = Layer.effect(
             row.characterId === undefined ? row : { ...row, characterId: target.characterId },
           ),
         }
-        const { recipe, substituted, lost, order } = substitute(retargeted, build.plan, inv)
+        const substitution = substitute(retargeted, build.plan, inv)
+        const { substituted, lost, order } = substitution
+        const replayed = replayRows(substitution.recipe, inv, target.characterId)
+        const recipe: BuildRecipe = {
+          ...replayed,
+          mods: yield* modsToRestore(replayed, savedMods(build.plan, retargeted.rows, order), inv),
+        }
         const composed = yield* composeBuild(recipe, inv).pipe(
           Effect.provideContext(composing),
           Effect.catchTag('BuildRefusal', (refusal) =>

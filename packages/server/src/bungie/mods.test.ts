@@ -5,6 +5,7 @@ import type { ArmorModEntry } from './manifest.ts'
 import {
   describeArmorMods,
   planModSwaps,
+  restoreMods,
   type SocketNow,
   swapStatChange,
   withChargeEffects,
@@ -157,5 +158,36 @@ describe('withChargeEffects', () => {
       undefined,
       '+10% Arc weapon damage',
     ])
+  })
+})
+
+describe('restoreMods', () => {
+  test('asks for nothing when the piece already holds the mods the build ended with', () => {
+    const full = [socket(0, GENERAL, superMod), socket(1, ARMS, firepower)]
+    expect(restoreMods({ ...gauntlets(5, full), wanted: ['Super Mod', 'Firepower'] })).toEqual([])
+  })
+
+  test('puts a missing mod in a free socket, else over one the build does not run', () => {
+    expect(
+      restoreMods({
+        ...gauntlets(3, [socket(0, GENERAL, weaponsMod), socket(1, ARMS), socket(2, ARMS)]),
+        wanted: ['Weapons Mod', 'Firepower'],
+      }),
+    ).toEqual([{ mod: 'Firepower' }])
+    expect(
+      restoreMods({
+        ...gauntlets(6, [socket(0, GENERAL, weaponsMod), socket(1, ARMS, heavyHanded)]),
+        wanted: ['Super Mod', 'Heavy Handed'],
+      }),
+    ).toEqual([{ mod: 'Super Mod', replaces: 'Weapons Mod' }])
+  })
+
+  test('leaves out a mod that is gone from the game or that the energy cannot take', () => {
+    expect(
+      restoreMods({
+        ...gauntlets(9, [socket(0, GENERAL, weaponsMod), socket(1, ARMS)]),
+        wanted: ['Weapons Mod', 'Retired Mod', 'Heavy Handed'],
+      }),
+    ).toEqual([])
   })
 })
