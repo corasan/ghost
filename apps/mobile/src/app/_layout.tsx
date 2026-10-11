@@ -72,6 +72,7 @@ function RootStack() {
         <Stack.Screen name="vault-filter" options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />
         <Stack.Screen name="save-build" options={fullSheet} />
         <Stack.Screen name="build/[id]" options={fullSheet} />
+        <Stack.Screen name="edit-build" options={fullSheet} />
         <Stack.Screen name="build-filter" options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />
       </Stack.Protected>
       <Stack.Protected guard={!linked}>

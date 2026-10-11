@@ -98,6 +98,13 @@ function Actions({ build }: { build: SavedBuild }) {
       </View>
       <View style={styles.buttons}>
         <Button
+          label="EDIT"
+          compact
+          flex={0.7}
+          under={Ghost.panel}
+          onPress={() => router.push({ pathname: '/edit-build', params: { buildId: build.id } })}
+        />
+        <Button
           label="SAVE IN GAME"
           compact
           under={Ghost.panel}

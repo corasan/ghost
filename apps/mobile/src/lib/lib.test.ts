@@ -28,6 +28,7 @@ import {
 } from '@ghost/contract'
 
 import { webUrl } from './links'
+import { draftOf, editOf, gearOfItem, sameEdit } from './build-edit'
 import { briefingSentence, followUps, sinceLabel } from './briefing'
 import * as builds from './build-filter'
 import { slotChoice } from './loadout-slots'
@@ -974,5 +975,113 @@ describe('keywordRuns', () => {
     expect(
       loadoutKeywords([plug([weaken, volatile]), plug([weaken]), plug([])]).map((k) => k.name),
     ).toEqual(['Weaken', 'Volatile'])
+  })
+})
+
+describe('build edit', () => {
+  const row = (id: string, patch: Partial<PlanRow> = {}) =>
+    new PlanRow({
+      itemInstanceId: id,
+      itemHash: 1,
+      name: id,
+      icon: null,
+      tier: 'legendary',
+      meta: '',
+      power: 530,
+      score: null,
+      action: 'none',
+      characterId: 'c1',
+      selected: false,
+      outcome: null,
+      error: null,
+      ...patch,
+    })
+  const build = (rows: PlanRow[], patch: Partial<Plan> = {}) =>
+    new SavedBuild({
+      id: 'b1',
+      name: 'Raid Titan',
+      plan: new Plan({
+        kind: 'build',
+        title: 'Build plan',
+        subtitle: null,
+        stats: [],
+        featured: null,
+        rows,
+        note: null,
+        confirmLabel: 'EQUIP BUILD',
+        status: 'proposed',
+        ...patch,
+      }),
+      facets: new BuildFacets({
+        classType: 'titan',
+        element: 'solar',
+        subclass: 'Sunbreaker',
+        exoticArmor: null,
+        exoticWeapon: null,
+        weaponTypes: [],
+      }),
+      readiness: null,
+      inGame: null,
+      jobId: null,
+      createdAt: '2026-10-01T10:00:00Z',
+      updatedAt: '2026-10-01T10:00:00Z',
+    })
+  const raid = build(
+    [
+      row('helm', { slot: 'helmet', action: 'equip' }),
+      row('chest', { slot: 'chest' }),
+      row('spare-chest', { slot: 'chest' }),
+      row('ghost-shell', { slot: 'other' }),
+      row('old'),
+      row('junk', { slot: 'kinetic', action: 'to_vault' }),
+    ],
+    { purpose: "Salvation's Edge" },
+  )
+
+  test('places one kept piece per slot and passes the rest through', () => {
+    const draft = draftOf(raid)
+    expect(draft.gear.helmet?.id).toBe('helm')
+    expect(draft.gear.chest?.id).toBe('chest')
+    expect(draft.gear.kinetic).toBeNull()
+    expect(draft.unplaced).toEqual(['spare-chest', 'ghost-shell', 'old'])
+    expect(draft.purpose).toBe("Salvation's Edge")
+  })
+
+  test('an untouched draft saves the same items, name and purpose', () => {
+    expect(editOf(draftOf(raid))).toEqual({
+      name: 'Raid Titan',
+      purpose: "Salvation's Edge",
+      items: ['spare-chest', 'ghost-shell', 'old', 'helm', 'chest'],
+    })
+  })
+
+  test('swapping, clearing and renaming land in the edit', () => {
+    const draft = draftOf(raid)
+    const edit = editOf({
+      ...draft,
+      name: '  Raid Titan II ',
+      purpose: '   ',
+      gear: {
+        ...draft.gear,
+        helmet: null,
+        kinetic: gearOfItem({ ...item({}), itemInstanceId: 'hammer' }),
+      },
+    })
+    expect(edit).toEqual({
+      name: 'Raid Titan II',
+      purpose: null,
+      items: ['spare-chest', 'ghost-shell', 'old', 'hammer', 'chest'],
+    })
+  })
+
+  test('a build without a purpose starts with an empty line', () => {
+    expect(editOf(draftOf(build([])))).toEqual({ name: 'Raid Titan', purpose: null, items: [] })
+  })
+
+  test('the same items in another order are no change', () => {
+    const was = { name: 'A', purpose: null, items: ['1', '2'] }
+    expect(sameEdit(was, { name: 'A', purpose: null, items: ['2', '1'] })).toBe(true)
+    expect(sameEdit(was, { name: 'A', purpose: null, items: ['1', '3'] })).toBe(false)
+    expect(sameEdit(was, { name: 'A', purpose: 'Raids', items: ['1', '2'] })).toBe(false)
   })
 })

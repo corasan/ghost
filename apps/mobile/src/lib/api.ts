@@ -3,10 +3,12 @@ import {
   type CleanupSession,
   type CleanupStage,
   type CreateJob,
+  type EditBuild,
   type EquipBuild,
   GhostApi,
   type ItemAction,
   type ItemDecision,
+  type ItemSlot,
   ItemSummary,
   type Job,
   RecentItem,
@@ -68,6 +70,8 @@ export const queryKeys = {
     [url, 'situational', characterId] as const,
   job: (url: string, id: string) => [url, 'job', id] as const,
   builds: (url: string) => [url, 'builds'] as const,
+  buildOptions: (url: string, id: string, slot: ItemSlot | undefined) =>
+    [url, 'buildOptions', id, slot] as const,
   loadoutSlots: (url: string, characterId: string | undefined) =>
     [url, 'loadoutSlots', characterId] as const,
   cleanup: (url: string) => [url, 'cleanup'] as const,
@@ -455,6 +459,32 @@ const patchBuilds = (
   queryClient.setQueryData<readonly SavedBuild[]>(queryKeys.builds(getServerUrl()), (builds) =>
     builds ? patch(builds) : builds,
   )
+
+const replaceBuild = (queryClient: QueryClient, build: SavedBuild) => {
+  patchBuilds(queryClient, (builds) => builds.map((each) => (each.id === build.id ? build : each)))
+  return refreshBuilds(queryClient)
+}
+
+export function useEditBuild() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...payload }: { id: string } & EditBuild) =>
+      run((api) => api.builds.edit({ params: { id }, payload })),
+    onSuccess: (build) => replaceBuild(queryClient, build),
+  })
+}
+
+export function useBuildOptions(id: string, slot: ItemSlot | undefined) {
+  const url = useServerUrl()
+  return useQuery({
+    queryKey: queryKeys.buildOptions(url, id, slot),
+    queryFn: () =>
+      run((api) => api.builds.options({ params: { id }, query: { slot: slot ?? 'other' } })),
+    enabled: slot !== undefined,
+    staleTime: 30_000,
+    retry: false,
+  })
+}
 
 export function useSaveBuild() {
   const queryClient = useQueryClient()
