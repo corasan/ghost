@@ -280,7 +280,9 @@ describe('apply with saveTo', () => {
     ])
     expect(job.plan?.saveTo?.outcome).toBe('ok')
     expect(job.plan?.status).toBe('applied')
-    expect(build.inGame?.index).toBe(3)
+    expect(build.link?.index).toBe(3)
+    expect(build.link?.revision).toBe(1)
+    expect(build.link?.snapshot).toBeNull()
     expect(actions.map((a) => [a.kind, a.status])).toEqual([
       ['equip', 'ok'],
       ['snapshot_loadout', 'ok'],
@@ -301,7 +303,7 @@ describe('apply with saveTo', () => {
     expect(h.snapshots).toEqual([])
     expect(job.plan?.saveTo?.outcome).toBe('skipped')
     expect(job.plan?.saveTo?.error).toBe('not saved in game: Item chest-vault is not equipped')
-    expect(build.inGame).toBeNull()
+    expect(build.link).toBeNull()
   })
 
   test("reports Bungie's refusal and leaves the build unmarked", async () => {
@@ -311,7 +313,7 @@ describe('apply with saveTo', () => {
     )
     expect(job.plan?.saveTo?.outcome).toBe('failed')
     expect(job.plan?.saveTo?.error).toBe('Cannot snapshot while in an activity')
-    expect(build.inGame).toBeNull()
+    expect(build.link).toBeNull()
     expect(actions.find((a) => a.kind === 'snapshot_loadout')?.status).toBe('failed')
   })
 
@@ -376,7 +378,15 @@ describe('apply a cleanup plan', () => {
       byCharacter: new Map([
         [
           'titan-1',
-          [{ index: 0, nameHash: 1, colorHash: 1, iconHash: 1, itemInstanceIds: ['looped'] }],
+          [
+            {
+              index: 0,
+              nameHash: 1,
+              colorHash: 1,
+              iconHash: 1,
+              items: [{ itemInstanceId: 'looped', plugItemHashes: [] }],
+            },
+          ],
         ],
       ]),
       artifactHash: null,

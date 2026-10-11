@@ -6,7 +6,9 @@ import {
   type GameLoadout,
   LoadoutsResponse,
   parseLoadouts,
+  sameSnapshot,
   slotsFor,
+  snapshotOf,
   validateSlot,
 } from './loadouts.ts'
 
@@ -43,10 +45,17 @@ describe('parseLoadouts', () => {
 
   test('keeps every slot in index order and strips the zero ids of an empty one', () => {
     const titan = parsed.byCharacter.get('2305843009309769093') ?? []
-    expect(titan.map((slot) => slot.itemInstanceIds.length)).toEqual([10, 0])
+    expect(titan.map((slot) => slot.items.length)).toEqual([10, 0])
     expect(titan[0]?.nameHash).toBe(752612098)
     expect(titan[1]?.index).toBe(1)
-    expect(parsed.byCharacter.get('2305843009309769094')?.[0]?.itemInstanceIds).toEqual([])
+    expect(parsed.byCharacter.get('2305843009309769094')?.[0]?.items).toEqual([])
+  })
+
+  test('keeps the plugs each item carries in the slot', () => {
+    expect(parsed.byCharacter.get('2305843009309769093')?.[0]?.items[8]).toEqual({
+      itemInstanceId: 'sub',
+      plugItemHashes: [NONE, 4026309323],
+    })
   })
 
   test('reads the current artifact beside the loadouts', () => {
@@ -80,7 +89,7 @@ const loadout = (index: number, ids: ReadonlyArray<string>): GameLoadout => ({
   nameHash: 752612103,
   colorHash: 3871954967,
   iconHash: 1143786716,
-  itemInstanceIds: ids,
+  items: ids.map((itemInstanceId) => ({ itemInstanceId, plugItemHashes: [] })),
 })
 
 describe('catalogFrom', () => {
@@ -88,6 +97,33 @@ describe('catalogFrom', () => {
     expect(catalog.names.map((name) => name.name)).toEqual(['Alpha', 'Bravo'])
     expect(catalog.colors[0]?.icon).toBe('https://www.bungie.net/common/c.jpg')
     expect(catalog.icons[0]?.icon).toBe('https://www.bungie.net/common/i.png')
+  })
+})
+
+describe('snapshotOf', () => {
+  const slot = (items: GameLoadout['items']): GameLoadout => ({ ...loadout(0, []), items })
+
+  test('reads the same gear in any order as the same snapshot', () => {
+    const a = snapshotOf(
+      slot([
+        { itemInstanceId: 'helm', plugItemHashes: [1, 2] },
+        { itemInstanceId: 'arms', plugItemHashes: [3] },
+      ]),
+    )
+    const b = snapshotOf(
+      slot([
+        { itemInstanceId: 'arms', plugItemHashes: [3] },
+        { itemInstanceId: 'helm', plugItemHashes: [1, 2] },
+      ]),
+    )
+    expect(a.map((item) => item.itemInstanceId)).toEqual(['arms', 'helm'])
+    expect(sameSnapshot(a, b)).toBe(true)
+  })
+
+  test('tells a swapped mod from the same gear', () => {
+    const before = snapshotOf(slot([{ itemInstanceId: 'helm', plugItemHashes: [1, 2] }]))
+    const after = snapshotOf(slot([{ itemInstanceId: 'helm', plugItemHashes: [1, 5] }]))
+    expect(sameSnapshot(before, after)).toBe(false)
   })
 })
 

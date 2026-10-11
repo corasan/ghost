@@ -14,6 +14,9 @@ import { Membership } from './membership.ts'
 
 const EMPTY_ID = '0'
 
+/** The plug hash a loadout gives a socket it leaves as it is. */
+export const NO_PLUG = 2166136261
+
 const component = <S extends Schema.Top>(data: S) =>
   Schema.optional(Schema.Struct({ data: Schema.optional(data) }))
 
@@ -40,20 +43,43 @@ export const LoadoutsResponse = Schema.Struct({
 })
 export type LoadoutsResponse = typeof LoadoutsResponse.Type
 
+export interface LoadoutItem {
+  readonly itemInstanceId: string
+  readonly plugItemHashes: ReadonlyArray<number>
+}
+
 export interface GameLoadout {
   readonly index: number
   readonly nameHash: number
   readonly colorHash: number
   readonly iconHash: number
-  readonly itemInstanceIds: ReadonlyArray<string>
+  readonly items: ReadonlyArray<LoadoutItem>
 }
+
+/** A slot's gear, plugs included, in a fixed order so two reads of the same slot compare equal. */
+export type SlotSnapshot = ReadonlyArray<LoadoutItem>
 
 export interface GameLoadouts {
   readonly byCharacter: ReadonlyMap<string, ReadonlyArray<GameLoadout>>
   readonly artifactHash: number | null
 }
 
-export const isEmptyLoadout = (loadout: GameLoadout) => loadout.itemInstanceIds.length === 0
+export const isEmptyLoadout = (loadout: GameLoadout) => loadout.items.length === 0
+
+export const snapshotOf = (loadout: GameLoadout): SlotSnapshot =>
+  [...loadout.items].sort((a, b) => a.itemInstanceId.localeCompare(b.itemInstanceId))
+
+export const sameSnapshot = (a: SlotSnapshot, b: SlotSnapshot) =>
+  a.length === b.length &&
+  a.every((item, index) => {
+    const other = b[index]
+    return (
+      other !== undefined &&
+      item.itemInstanceId === other.itemInstanceId &&
+      item.plugItemHashes.length === other.plugItemHashes.length &&
+      item.plugItemHashes.every((hash, at) => hash === other.plugItemHashes[at])
+    )
+  })
 
 export const parseLoadouts = (response: LoadoutsResponse): GameLoadouts => ({
   byCharacter: new Map(
@@ -64,9 +90,7 @@ export const parseLoadouts = (response: LoadoutsResponse): GameLoadouts => ({
         nameHash: loadout.nameHash,
         colorHash: loadout.colorHash,
         iconHash: loadout.iconHash,
-        itemInstanceIds: loadout.items
-          .map((item) => item.itemInstanceId)
-          .filter((id) => id !== EMPTY_ID),
+        items: loadout.items.filter((item) => item.itemInstanceId !== EMPTY_ID),
       })),
     ]),
   ),

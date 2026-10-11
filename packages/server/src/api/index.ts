@@ -187,9 +187,22 @@ const BuildsLive = HttpApiBuilder.group(GhostApi, 'builds', (handlers) =>
         Effect.catchTag('BungieError', toBungieFailed),
       ),
     )
-    .handle('rename', ({ params, payload }) =>
-      Effect.flatMap(Builds, (builds) => builds.rename(params.id, payload.name)),
+    .handle('edit', ({ params, payload }) =>
+      Effect.flatMap(Builds, (builds) => builds.edit(params.id, payload)).pipe(
+        Effect.catchTag('BungieError', toBungieFailed),
+      ),
     )
+    .handle('options', ({ params, query }) =>
+      Effect.flatMap(Builds, (builds) => builds.options(params.id, query.slot)).pipe(
+        Effect.catchTag('BungieError', toBungieFailed),
+      ),
+    )
+    .handle('link', ({ params, payload }) =>
+      Effect.flatMap(Builds, (builds) => builds.link(params.id, payload)).pipe(
+        Effect.catchTag('BungieError', toBungieFailed),
+      ),
+    )
+    .handle('unlink', ({ params }) => Effect.flatMap(Builds, (builds) => builds.unlink(params.id)))
     .handle('remove', ({ params }) => Effect.flatMap(Builds, (builds) => builds.remove(params.id)))
     .handle('equip', ({ params, payload }) =>
       Effect.flatMap(Builds, (builds) => builds.equip(params.id, payload)).pipe(

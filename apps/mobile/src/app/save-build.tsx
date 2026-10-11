@@ -1,23 +1,23 @@
 import type { GuardianClass, Job, Plan, SavedBuild } from '@ghost/contract'
 import { router, useLocalSearchParams } from 'expo-router'
-import { type ReactNode, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native'
+import { useState } from 'react'
+import { Pressable, StyleSheet, View } from 'react-native'
 
+import { Sheet, SheetField } from '@/components/plan/sheet'
 import { SlotPicker } from '@/components/plan/slot-picker'
-import { Body, Button, Cond, Cut, Meta, Mono, Tick } from '@/components/ghost/ui'
+import { Body, Button, Meta, Mono, Tick } from '@/components/ghost/ui'
 import { Ghost, Type } from '@/constants/theme'
 import {
   errorMessage,
   useEquipBuild,
   useJob,
+  useLinkBuild,
   useLoadoutSlots,
   useSaveBuild,
   useSavedBuilds,
 } from '@/lib/api'
 import { useCharacter, useWearer } from '@/lib/character'
 import { sentence } from '@/lib/format'
-import { useFooterHeight } from '@/lib/footer'
-import { useBottomInset } from '@/lib/insets'
 import { type SlotChoice, slotChoice } from '@/lib/loadout-slots'
 
 const openPlan = (job: Job, substituted: readonly string[] = []) =>
@@ -61,10 +61,14 @@ function Where({
   )
 }
 
-function useSlots(characterId: string | undefined, holds: number | undefined) {
+function useSlots(
+  characterId: string | undefined,
+  holds: number | undefined,
+  prefer: 'empty' | 'filled' = 'empty',
+) {
   const query = useLoadoutSlots(characterId)
   const [picked, setPicked] = useState<Partial<SlotChoice>>({})
-  const choice = query.data ? slotChoice(query.data, picked, holds) : undefined
+  const choice = query.data ? slotChoice(query.data, picked, holds, prefer) : undefined
   return {
     query,
     choice,
@@ -77,11 +81,13 @@ function InGame({
   slots,
   builds,
   selfId,
+  taking = false,
 }: {
   characterId: string | undefined
   slots: ReturnType<typeof useSlots>
   builds: readonly SavedBuild[]
   selfId?: string | undefined
+  taking?: boolean
 }) {
   if (characterId === undefined)
     return <Meta color={Ghost.danger}>No character on this account can wear this build.</Meta>
@@ -100,52 +106,8 @@ function InGame({
       onPick={slots.pick}
       builds={builds}
       selfId={selfId}
+      taking={taking}
     />
-  )
-}
-
-function Sheet({
-  title,
-  children,
-  error,
-  footer,
-}: {
-  title: string
-  children: ReactNode
-  error: string | null
-  footer: ReactNode
-}) {
-  const bottomInset = useBottomInset()
-  const footerSlot = useFooterHeight()
-  return (
-    <View collapsable={false} style={{ flex: 1 }}>
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{
-          padding: 20,
-          paddingTop: 28,
-          paddingBottom: footerSlot.height + 28,
-          gap: 22,
-        }}
-      >
-        <Cond size={24} style={{ letterSpacing: 0.5 }}>
-          {title}
-        </Cond>
-        {children}
-      </ScrollView>
-      <View
-        collapsable={false}
-        onLayout={footerSlot.onLayout}
-        style={[styles.footer, { paddingBottom: bottomInset + 12 }]}
-      >
-        {error ? (
-          <Body size={13} color={Ghost.danger}>
-            {error}
-          </Body>
-        ) : null}
-        <View style={{ flexDirection: 'row', gap: 8 }}>{footer}</View>
-      </View>
-    </View>
   )
 }
 
@@ -199,21 +161,12 @@ function SaveProposed({ job, plan }: { job: Job; plan: Plan }) {
         </>
       }
     >
-      <View style={{ gap: 10 }}>
-        <Mono>NAME</Mono>
-        <Cut fill={Ghost.bg} border={Ghost.line} under={Ghost.panel}>
-          <TextInput
-            value={name}
-            onChangeText={setName}
-            placeholder="What this build is for"
-            placeholderTextColor={Ghost.dim}
-            keyboardAppearance="dark"
-            autoCorrect={false}
-            clearButtonMode="while-editing"
-            style={styles.input}
-          />
-        </Cut>
-      </View>
+      <SheetField
+        label="NAME"
+        value={name}
+        onChangeText={setName}
+        placeholder="What this build is for"
+      />
       <View style={{ gap: 4 }}>
         <Mono>SAVE TO</Mono>
         <Where
@@ -251,38 +204,85 @@ function SaveFromJob({ jobId }: { jobId: string }) {
 function SaveSavedInGame({ build }: { build: SavedBuild }) {
   const builds = useSavedBuilds().data ?? []
   const equip = useEquipBuild()
+  const link = useLinkBuild()
   const wearer = useWearer(build.facets.classType)
-  const characterId = wearer?.characterId
+  const characterId = build.inGame?.characterId ?? wearer?.characterId
   const holds = build.inGame?.characterId === characterId ? build.inGame?.index : undefined
-  const slots = useSlots(characterId, holds)
+  const [take, setTake] = useState(false)
+  const slots = useSlots(characterId, holds, take ? 'filled' : 'empty')
+  const chosenEmpty =
+    slots.query.data?.slots.find((slot) => slot.index === slots.choice?.index)?.empty ?? true
+  const firstFilled = slots.query.data?.slots.find((slot) => !slot.empty)?.index
+  const taking = build.inGame === null && take && !chosenEmpty
+  const pending = equip.isPending || link.isPending
+  const error = equip.error ?? link.error
+  const putDetail = `${build.name} goes on your ${classLabel(build.facets.classType)} first, then into the slot. You confirm the plan before anything moves.`
+
+  const submit = () => {
+    if (!slots.choice || !characterId) return
+    if (taking)
+      return link.mutate(
+        { id: build.id, characterId, index: slots.choice.index },
+        { onSuccess: () => router.back() },
+      )
+    equip.mutate(
+      { id: build.id, characterId, saveTo: { characterId, ...slots.choice } },
+      { onSuccess: (result) => openPlan(result.job, result.substituted) },
+    )
+  }
 
   return (
     <Sheet
-      title="SAVE IN GAME"
-      error={equip.isError ? errorMessage(equip.error) : null}
+      title={build.inGame ? 'SAVE TO SLOT' : 'LINK SLOT'}
+      error={error ? errorMessage(error) : null}
       footer={
         <>
           <Button label="CANCEL" flex={0.6} under={Ghost.panel} onPress={() => router.back()} />
           <Button
-            label={equip.isPending ? 'WORKING…' : 'REVIEW'}
+            label={pending ? 'WORKING…' : taking ? 'LINK' : 'REVIEW'}
             tone="solid"
             under={Ghost.panel}
-            disabled={slots.choice === undefined || characterId === undefined || equip.isPending}
-            onPress={() => {
-              if (!slots.choice || !characterId) return
-              equip.mutate(
-                { id: build.id, characterId, saveTo: { characterId, ...slots.choice } },
-                { onSuccess: (result) => openPlan(result.job, result.substituted) },
-              )
-            }}
+            disabled={slots.choice === undefined || characterId === undefined || pending}
+            onPress={submit}
           />
         </>
       }
     >
-      <Body size={14} color={Ghost.soft} style={{ lineHeight: 20 }}>
-        {`${build.name} goes on your ${classLabel(build.facets.classType)} first, then into the slot. You confirm the plan before anything moves.`}
-      </Body>
-      <InGame characterId={characterId} slots={slots} builds={builds} selfId={build.id} />
+      {build.inGame ? (
+        <Body size={14} color={Ghost.soft} style={{ lineHeight: 20 }}>
+          {putDetail}
+        </Body>
+      ) : (
+        <View style={{ gap: 4 }}>
+          <Where
+            on={!taking}
+            title="Put this build in the slot"
+            detail={putDetail}
+            onPress={() => setTake(false)}
+          />
+          <Where
+            on={taking}
+            locked={firstFilled === undefined}
+            title="Use the slot's gear"
+            detail={
+              firstFilled === undefined
+                ? 'None of your slots holds a loadout yet.'
+                : `${build.name} takes the gear saved in the slot. Nothing moves in game.`
+            }
+            onPress={() => {
+              setTake(true)
+              if (chosenEmpty && firstFilled !== undefined) slots.pick({ index: firstFilled })
+            }}
+          />
+        </View>
+      )}
+      <InGame
+        characterId={characterId}
+        slots={slots}
+        builds={builds}
+        selfId={build.id}
+        taking={taking}
+      />
     </Sheet>
   )
 }
@@ -307,24 +307,5 @@ export default function SaveBuildScreen() {
 }
 
 const styles = StyleSheet.create({
-  input: {
-    height: 44,
-    paddingHorizontal: 12,
-    fontFamily: Type.body,
-    fontSize: 15,
-    color: Ghost.ink,
-  },
   where: { flexDirection: 'row', gap: 12, paddingVertical: 10 },
-  footer: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    gap: 8,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    backgroundColor: Ghost.panel,
-    borderTopWidth: 1,
-    borderTopColor: Ghost.line,
-  },
 })

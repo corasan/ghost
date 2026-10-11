@@ -31,7 +31,10 @@ import {
   LoadoutSlots,
   PlanNotApplicable,
   RecentItem,
-  RenameBuild,
+  EditBuild,
+  ItemSlot,
+  ItemSummary,
+  LinkBuild,
   SaveBuild,
   SaveBuildResult,
   SavedBuild,
@@ -211,9 +214,32 @@ export const buildsGroup = HttpApiGroup.make('builds')
     }),
   )
   .add(
-    HttpApiEndpoint.patch('rename', '/builds/:id', {
+    HttpApiEndpoint.patch('edit', '/builds/:id', {
       params: { id: Schema.String },
-      payload: RenameBuild,
+      payload: EditBuild,
+      success: SavedBuild,
+      error: buildErrors,
+    }),
+  )
+  .add(
+    HttpApiEndpoint.get('options', '/builds/:id/options', {
+      params: { id: Schema.String },
+      query: { slot: ItemSlot },
+      success: Schema.Array(ItemSummary),
+      error: [BuildNotFound.pipe(HttpApiSchema.status(404)), ...bungieErrors],
+    }),
+  )
+  .add(
+    HttpApiEndpoint.put('link', '/builds/:id/link', {
+      params: { id: Schema.String },
+      payload: LinkBuild,
+      success: SavedBuild,
+      error: buildErrors,
+    }),
+  )
+  .add(
+    HttpApiEndpoint.delete('unlink', '/builds/:id/link', {
+      params: { id: Schema.String },
       success: SavedBuild,
       error: BuildNotFound.pipe(HttpApiSchema.status(404)),
     }),

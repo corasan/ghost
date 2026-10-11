@@ -299,6 +299,18 @@ const migrations = {
     const sql = yield* SqlClient.SqlClient
     yield* sql`ALTER TABLE actions ADD COLUMN previous_decision TEXT`
   }),
+  // A link remembers the build revision and slot gear it last agreed with, so
+  // a change on either side shows. Links made before this have no snapshot and
+  // take the slot as it is the next time it holds the build's gear.
+  '0016_saved_build_revisions': Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    yield* sql`ALTER TABLE saved_builds ADD COLUMN revision INTEGER NOT NULL DEFAULT 1`
+    yield* sql`ALTER TABLE saved_builds ADD COLUMN in_game_revision INTEGER`
+    yield* sql`ALTER TABLE saved_builds ADD COLUMN in_game_snapshot TEXT`
+    yield* sql`
+      UPDATE saved_builds SET in_game_revision = revision WHERE in_game_character_id IS NOT NULL
+    `
+  }),
 }
 
 const SqliteLive = Layer.unwrap(
