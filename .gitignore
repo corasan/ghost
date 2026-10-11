@@ -20,3 +20,6 @@ apps/mobile/web-build/
 
 .argent/recordings
 *.tsv
+
+# verify skill runs and evidence
+.verify/
