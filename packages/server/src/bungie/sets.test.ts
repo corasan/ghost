@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
+import { TargetSet } from '@ghost/contract'
 import type { ArmorSet } from './manifest.ts'
-import { isActive, setBonusesFor } from './sets.ts'
+import { isActive, setBonusesFor, targetSetFor } from './sets.ts'
 
 const perk = (name: string, required: number) => ({
   name,
@@ -65,5 +66,27 @@ describe('setBonusesFor', () => {
       ['Force Converter', 1, 'one away'],
       ['Techsec Two', 1, 'one away'],
     ])
+  })
+})
+
+describe('targetSetFor', () => {
+  const target = { set: 'techsec', why: 'Its bonuses feed the loop.' }
+
+  test('counts the pieces the build wears of the set and lists every bonus, until it wears enough for all of them', () => {
+    const farming = targetSetFor([techsec, aion], [11, 21, 22], target)
+    expect(farming).toBeInstanceOf(TargetSet)
+    if (!(farming instanceof TargetSet)) return
+    expect([farming.set, farming.worn, farming.required, farming.source]).toEqual([
+      'Techsec',
+      1,
+      4,
+      null,
+    ])
+    expect(farming.bonuses.map((bonus) => bonus.name)).toEqual(['Techsec Two', 'Techsec Four'])
+    expect(targetSetFor([techsec], [11, 12, 13, 14], target)).toBe('worn')
+  })
+
+  test('names no set the manifest does not have', () => {
+    expect(targetSetFor([techsec], [11], { ...target, set: 'Nope' })).toBe('unknown')
   })
 })

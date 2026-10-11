@@ -318,6 +318,20 @@ export class SetBonus extends Schema.Class<SetBonus>('SetBonus')({
   fit: Schema.optional(Schema.Number),
 }) {}
 
+/** An armor set the build should move to once the player owns its pieces, shown until the build wears enough of it to turn every bonus on. */
+export class TargetSet extends Schema.Class<TargetSet>('TargetSet')({
+  set: Schema.String,
+  /** Why the set fits the build, in Ghost's words. */
+  why: Schema.String,
+  /** Where its pieces drop, in Ghost's words. */
+  source: Schema.NullOr(Schema.String),
+  /** Pieces of the set the build wears. */
+  worn: Schema.Number,
+  /** Pieces of the set that turn on every bonus. */
+  required: Schema.Number,
+  bonuses: Schema.Array(SetBonus),
+}) {}
+
 /** Below this fit, Jev judges an active set bonus off-build: on real data clear misfits score under 0.2 and plausible fits 0.2 to 0.5. */
 export const OFF_BUILD_FIT = 0.2
 
@@ -397,6 +411,7 @@ export class Plan extends Schema.Class<Plan>('Plan')({
   situational: Schema.optional(Schema.String),
   /** Armor set bonuses the build's pieces turn on, then those one piece away, fewest pieces needed first. */
   setBonuses: Schema.optional(Schema.Array(SetBonus)),
+  targetSet: Schema.optional(TargetSet),
   synergy: Schema.optional(Synergy),
   /** Label of the confirm button, for example "APPLY BUILD". */
   confirmLabel: Schema.String,

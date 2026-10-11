@@ -78,6 +78,22 @@ export const PlanInput = Schema.Struct({
     }),
   ),
   shortfall: Schema.optional(Schema.String),
+  targetSet: Schema.optional(
+    Schema.Struct({
+      set: Schema.String.annotate({
+        description: 'The set name exactly as list_armor_sets gives it.',
+      }),
+      why: Schema.String.annotate({
+        description: 'One sentence on what its bonuses do for this build.',
+      }),
+      source: Schema.optional(
+        Schema.String.annotate({
+          description:
+            "Where its pieces drop, for example 'Sundered Doctrine and its weekly chest'.",
+        }),
+      ),
+    }),
+  ),
   subclass: Schema.optional(SubclassInput),
   sources: Schema.optional(Schema.Array(SourceInput)),
 })
