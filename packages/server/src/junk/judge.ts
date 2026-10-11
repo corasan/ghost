@@ -49,7 +49,9 @@ export interface InUse {
 export const inUse = (saved: ReadonlyArray<StoredBuild>, game: GameLoadouts): InUse => ({
   builds: new Set(saved.flatMap((build) => build.plan.rows.map((row) => row.itemInstanceId))),
   loadouts: new Set(
-    [...game.byCharacter.values()].flat().flatMap((loadout) => loadout.itemInstanceIds),
+    [...game.byCharacter.values()]
+      .flat()
+      .flatMap((loadout) => loadout.items.map((item) => item.itemInstanceId)),
   ),
 })
 
