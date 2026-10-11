@@ -499,8 +499,17 @@ export class BuildFacets extends Schema.Class<BuildFacets>('BuildFacets')({
   weaponTypes: Schema.Array(Schema.String),
 }) {}
 
-/** How the in-game slot a build was saved to compares with the build now. */
-export const InGameState = Schema.Literals(['matches', 'changed', 'cleared'])
+/**
+ * How a build and its linked in-game slot compare since they were last in sync:
+ * the slot changed in game, the build was edited in Ghost, both, or the slot was emptied.
+ */
+export const InGameState = Schema.Literals([
+  'synced',
+  'game_changed',
+  'build_changed',
+  'diverged',
+  'cleared',
+])
 export type InGameState = typeof InGameState.Type
 
 export class BuildReadiness extends Schema.Class<BuildReadiness>('BuildReadiness')({
@@ -508,7 +517,7 @@ export class BuildReadiness extends Schema.Class<BuildReadiness>('BuildReadiness
   missing: Schema.Array(Schema.String),
   /** The build's artifact picks belong to an artifact that is no longer the current one. */
   pastArtifact: Schema.Boolean,
-  /** Null when the build was never saved in game. */
+  /** Null when the build is not linked to an in-game slot. */
   inGame: Schema.NullOr(InGameState),
 }) {}
 
@@ -569,8 +578,20 @@ export class EquipBuildResult extends Schema.Class<EquipBuildResult>('EquipBuild
   substituted: Schema.Array(Schema.String),
 }) {}
 
-export const RenameBuild = Schema.Struct({ name: Schema.String })
-export type RenameBuild = typeof RenameBuild.Type
+export const EditBuild = Schema.Struct({
+  name: Schema.String,
+  purpose: Schema.NullOr(Schema.String),
+  /** Every item the build wears, by instance id; the server works out what was swapped. */
+  items: Schema.Array(Schema.String),
+})
+export type EditBuild = typeof EditBuild.Type
+
+/** Link a build to an in-game slot and take that slot's gear into the build. */
+export const LinkBuild = Schema.Struct({
+  characterId: Schema.String,
+  index: Schema.Number,
+})
+export type LinkBuild = typeof LinkBuild.Type
 
 export class LoadoutIdentity extends Schema.Class<LoadoutIdentity>('LoadoutIdentity')({
   hash: Schema.Number,
