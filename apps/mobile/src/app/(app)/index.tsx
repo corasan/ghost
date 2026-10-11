@@ -37,7 +37,9 @@ export default function ChatScreen() {
   const createJob = useCreateJob()
   const pending = usePendingRevision()
   const revisingId =
-    sessionId === null ? pending : (jobs.data?.find((job) => job.buildId !== null)?.buildId ?? null)
+    sessionId === null
+      ? pending
+      : (jobs.data?.find((job) => (job.buildId ?? null) !== null)?.buildId ?? null)
   const revising = useSavedBuilds().data?.find((build) => build.id === revisingId)
   const pull = usePullRefresh(jobs.refetch, briefing.refetch)
 

@@ -29,12 +29,23 @@ const tick = Effect.gen(function* () {
       ? null
       : Option.getOrNull(yield* settings.get(conversationKey(job.sessionId)))
   // A build deleted since the conversation started leaves nothing to revise.
+  const revisingId = job.buildId ?? null
   const revising =
-    job.buildId === null ? Option.none() : yield* Effect.option(builds.get(job.buildId))
+    revisingId === null
+      ? Option.none()
+      : yield* builds.get(revisingId).pipe(
+          Effect.map(Option.some),
+          Effect.catchTag('BuildNotFound', () => Effect.succeedNone),
+        )
+  // A revision targets the build's own character, whichever one the app has selected.
+  const characterId = Option.match(revising, {
+    onNone: () => job.characterId,
+    onSome: (build) => build.recipe.characterId ?? job.characterId,
+  })
   const request: AgentRequest = {
     kind: job.kind,
     prompt: job.prompt,
-    characterId: job.characterId,
+    characterId,
     context: Option.match(revising, { onNone: () => null, onSome: revisionBrief }),
     resume,
     onStep: (step) => {
@@ -55,11 +66,7 @@ const tick = Effect.gen(function* () {
         )
   const outcome = yield* agent
     .run(request)
-    .pipe(
-      Effect.catch(retryFresh),
-      current.around({ id: job.id, characterId: job.characterId }),
-      Effect.result,
-    )
+    .pipe(Effect.catch(retryFresh), current.around({ id: job.id, characterId }), Effect.result)
   if (outcome._tag === 'Success') {
     const { text, conversation } = outcome.success
     if (job.sessionId !== null && conversation !== null) {

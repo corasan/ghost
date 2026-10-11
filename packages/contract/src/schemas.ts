@@ -468,7 +468,7 @@ export class Job extends Schema.Class<Job>('Job')({
   characterId: Schema.NullOr(Schema.String),
   offer: Schema.NullOr(JobOffer),
   /** The saved build this request revises; its build plan updates that build instead of saving a new one. */
-  buildId: Schema.NullOr(Schema.String),
+  buildId: Schema.optional(Schema.NullOr(Schema.String)),
   createdAt: Schema.String,
   updatedAt: Schema.String,
 }) {}

@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { ArmorMod, Plan, PlanRow } from '@ghost/contract'
+import { ArmorMod, LoadoutPlug, Plan, PlanRow, SubclassLoadout } from '@ghost/contract'
 import type { StoredBuild } from '../db/builds.ts'
 import { revisionBrief } from './revision.ts'
 
@@ -74,4 +74,27 @@ test('hands the agent the gear the build keeps, each piece with the mods it ends
   expect(saved.stats).toEqual([{ label: 'Melee', value: 100, target: true }])
   expect(saved.subclass).toEqual({ name: 'Sentinel', aspects: ['Knockout'] })
   expect(saved).not.toHaveProperty('mods')
+})
+
+test('takes the subclass from what the build composed, with its class, not from the partial picks', () => {
+  const plug = (name: string) => new LoadoutPlug({ name, description: '', mods: [] })
+  const loadout = new SubclassLoadout({
+    classType: 'titan',
+    subclass: 'Sentinel',
+    element: 'void',
+    super: plug('Ward of Dawn'),
+    abilities: [{ kind: 'melee', name: 'Shield Throw', icon: null }],
+    aspects: [plug('Knockout'), plug('Bastion')],
+    fragments: [plug('Echo of Persistence')],
+  })
+  const saved = savedOf(revisionBrief({ ...build, plan: new Plan({ ...build.plan, loadout }) }))
+  expect(saved.classType).toBe('titan')
+  expect(saved.characterId).toBe('titan-1')
+  expect(saved.subclass).toEqual({
+    name: 'Sentinel',
+    super: 'Ward of Dawn',
+    melee: 'Shield Throw',
+    aspects: ['Knockout', 'Bastion'],
+    fragments: ['Echo of Persistence'],
+  })
 })

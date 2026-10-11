@@ -607,11 +607,12 @@ export const BuildsLive = Layer.effect(
           })
         }
         const content = { name: input.name, recipe: recipe.value, plan: normalizePlan(job.plan) }
+        const revisedId = job.buildId ?? null
         const revised =
-          job.buildId === null
+          revisedId === null
             ? Option.none<StoredBuild>()
             : yield* builds
-                .get(job.buildId)
+                .get(revisedId)
                 .pipe(Effect.catchTag('SqlError', Effect.die), Effect.option)
         const existing = Option.isSome(revised)
           ? revised
