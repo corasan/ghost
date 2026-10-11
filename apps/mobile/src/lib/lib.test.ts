@@ -1,5 +1,6 @@
 // Pure helpers only: these files import contract types, never React Native.
 import { describe, expect, test } from 'bun:test'
+import { Schema } from 'effect'
 import {
   ArmorMod,
   Briefing,
@@ -1092,5 +1093,23 @@ describe('build edit', () => {
     expect(sameEdit(was, { name: 'A', purpose: null, items: ['2', '1'] })).toBe(true)
     expect(sameEdit(was, { name: 'A', purpose: null, items: ['1', '3'] })).toBe(false)
     expect(sameEdit(was, { name: 'A', purpose: 'Raids', items: ['1', '2'] })).toBe(false)
+  })
+})
+
+describe('build readiness from an older server', () => {
+  const readiness = (inGame: string | null) =>
+    Schema.decodeUnknownSync(BuildReadiness)({ missing: [], pastArtifact: false, inGame })
+
+  test('reads the link states a v1.1.3 server sends as their new names', () => {
+    expect(readiness('matches').inGame).toBe('synced')
+    expect(readiness('changed').inGame).toBe('game_changed')
+    expect(readiness('cleared').inGame).toBe('cleared')
+    expect(readiness(null).inGame).toBeNull()
+  })
+
+  test('sends only the new names', () => {
+    const encode = Schema.encodeSync(BuildReadiness)
+    expect(encode(readiness('matches')).inGame).toBe('synced')
+    expect(encode(readiness('diverged')).inGame).toBe('diverged')
   })
 })
