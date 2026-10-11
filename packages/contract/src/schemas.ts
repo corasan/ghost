@@ -1,4 +1,4 @@
-import { Schema } from 'effect'
+import { Schema, SchemaTransformation } from 'effect'
 
 // Shared wire types. Both the server (to validate and encode) and the app
 // (to decode) derive their TypeScript types from these, so a field rename
@@ -512,13 +512,29 @@ export const InGameState = Schema.Literals([
 ])
 export type InGameState = typeof InGameState.Type
 
+const LEGACY_IN_GAME = { matches: 'synced', changed: 'game_changed' } as const
+
+/** Servers before build edits (v1.1.3 and older) send 'matches' and 'changed'; the app reads them as 'synced' and 'game_changed'. */
+const InGameWire = Schema.Union([
+  InGameState,
+  Schema.Literals(['matches', 'changed']).pipe(
+    Schema.decodeTo(
+      InGameState,
+      SchemaTransformation.transform<InGameState, keyof typeof LEGACY_IN_GAME>({
+        decode: (legacy) => LEGACY_IN_GAME[legacy],
+        encode: (state) => (state === 'synced' ? 'matches' : 'changed'),
+      }),
+    ),
+  ),
+])
+
 export class BuildReadiness extends Schema.Class<BuildReadiness>('BuildReadiness')({
   /** Names of the build's items the player no longer owns. */
   missing: Schema.Array(Schema.String),
   /** The build's artifact picks belong to an artifact that is no longer the current one. */
   pastArtifact: Schema.Boolean,
   /** Null when the build is not linked to an in-game slot. */
-  inGame: Schema.NullOr(InGameState),
+  inGame: Schema.NullOr(InGameWire),
 }) {}
 
 export class InGameSlotRef extends Schema.Class<InGameSlotRef>('InGameSlotRef')({
