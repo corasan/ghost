@@ -452,6 +452,8 @@ export class Job extends Schema.Class<Job>('Job')({
   sources: Schema.Array(Source),
   characterId: Schema.NullOr(Schema.String),
   offer: Schema.NullOr(JobOffer),
+  /** The saved build this request revises; its build plan updates that build instead of saving a new one. */
+  buildId: Schema.NullOr(Schema.String),
   createdAt: Schema.String,
   updatedAt: Schema.String,
 }) {}
@@ -463,6 +465,8 @@ export const CreateJob = Schema.Struct({
   characterId: Schema.optional(Schema.NullOr(Schema.String)),
   /** The conversation to continue; leave it out to start a new one. */
   sessionId: Schema.optional(Schema.NullOr(Schema.String)),
+  /** The saved build to revise. A request that continues a conversation revises what the conversation revises. */
+  buildId: Schema.optional(Schema.NullOr(Schema.String)),
 })
 export type CreateJob = typeof CreateJob.Type
 
@@ -535,7 +539,7 @@ export class SavedBuild extends Schema.Class<SavedBuild>('SavedBuild')({
   /** Null when Bungie could not be reached, so the list still loads. */
   readiness: Schema.NullOr(BuildReadiness),
   inGame: Schema.NullOr(InGameSlotRef),
-  /** The request that proposed the build; null once that job is gone. */
+  /** The request whose plan the build holds now; null once that job is gone. */
   jobId: Schema.NullOr(Schema.String),
   createdAt: Schema.String,
   updatedAt: Schema.String,
@@ -551,7 +555,7 @@ export const LoadoutSlotChoice = Schema.Struct({
 export type LoadoutSlotChoice = typeof LoadoutSlotChoice.Type
 
 export const SaveBuild = Schema.Struct({
-  /** The job whose build plan to save. Saving it again renames the saved build. */
+  /** The job whose build plan to save. Saving it again renames the saved build; a job that revises a build updates that build. */
   jobId: Schema.String,
   name: Schema.String,
   /** Also save it in game; this returns a plan to confirm that equips and snapshots it. */

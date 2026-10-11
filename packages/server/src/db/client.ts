@@ -311,6 +311,11 @@ const migrations = {
       UPDATE saved_builds SET in_game_revision = revision WHERE in_game_character_id IS NOT NULL
     `
   }),
+  // A request can revise a saved build; the rest of its conversation revises it too.
+  '0017_job_revises_build': Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    yield* sql`ALTER TABLE jobs ADD COLUMN build_id TEXT`
+  }),
 }
 
 const SqliteLive = Layer.unwrap(

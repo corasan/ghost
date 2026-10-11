@@ -426,11 +426,14 @@ const recipe: BuildRecipe = {
   characterId: 'titan-1',
 }
 
-const buildJob = (withRecipe: boolean) =>
+const buildJob = (withRecipe: boolean, buildId?: string, rows = [row(helm, 'equip')]) =>
   Effect.gen(function* () {
     const jobs = yield* JobsRepo
-    const job = yield* jobs.create({ kind: 'build_suggestion', prompt: 'a build' })
-    yield* jobs.setPlan(job.id, plan([row(helm, 'equip', { outcome: 'failed', error: 'x' })]))
+    const job = yield* jobs.create({ kind: 'build_suggestion', prompt: 'a build', buildId })
+    yield* jobs.setPlan(
+      job.id,
+      plan(rows.map((each) => new PlanRow({ ...each, outcome: 'failed', error: 'x' }))),
+    )
     if (withRecipe) yield* jobs.setRecipe(job.id, recipe)
     return job.id
   })
@@ -452,6 +455,45 @@ describe('Builds.save', () => {
     expect(first.build.readiness).toBeNull()
     expect(first.build.facets.subclass).toBe('Sentinel')
     expect(all.filter((b) => b.id === first.build.id)).toHaveLength(1)
+  })
+
+  test('a job that revises a build updates that build, and its old card saves a separate build', async () => {
+    const [first, revised, again, older, all] = await Effect.gen(function* () {
+      const builds = yield* Builds
+      const firstJob = yield* buildJob(true)
+      const first = yield* builds.save({ jobId: firstJob, name: 'Melee' })
+      const revision = yield* buildJob(true, first.build.id, [
+        row(helm, 'none'),
+        row(chest, 'equip'),
+      ])
+      const revised = yield* builds.save({ jobId: revision, name: 'Melee' })
+      const again = yield* builds.save({ jobId: revision, name: 'Melee v2' })
+      const older = yield* builds.save({ jobId: firstJob, name: 'Melee (old)' })
+      return [first, revised, again, older, yield* builds.list] as const
+    }).pipe(Effect.provide(ServiceTest), Effect.runPromise)
+    expect(revised.build.id).toBe(first.build.id)
+    expect(revised.build.jobId).not.toBe(first.build.jobId)
+    expect(revised.build.plan.rows.map((each) => each.itemInstanceId)).toEqual(['helm', 'chest'])
+    expect(revised.build.plan.rows[1]?.error).toBeNull()
+    expect(again.build.id).toBe(first.build.id)
+    expect(again.build.name).toBe('Melee v2')
+    expect(again.build.plan.rows).toHaveLength(2)
+    expect(older.build.id).not.toBe(first.build.id)
+    expect(older.build.plan.rows.map((each) => each.itemInstanceId)).toEqual(['helm'])
+    expect(all.filter((b) => b.id === first.build.id || b.id === older.build.id)).toHaveLength(2)
+  })
+
+  test('a job revising a build deleted since saves a new one', async () => {
+    const [first, saved] = await Effect.gen(function* () {
+      const builds = yield* Builds
+      const first = yield* builds.save({ jobId: yield* buildJob(true), name: 'Melee' })
+      yield* builds.remove(first.build.id)
+      return [
+        first,
+        yield* builds.save({ jobId: yield* buildJob(true, first.build.id), name: 'Melee' }),
+      ] as const
+    }).pipe(Effect.provide(ServiceTest), Effect.runPromise)
+    expect(saved.build.id).not.toBe(first.build.id)
   })
 
   test('refuses a build whose recipe was never kept', async () => {

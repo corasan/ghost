@@ -606,17 +606,21 @@ export const BuildsLive = Layer.effect(
             reason: 'this build was made before builds could be saved; ask Ghost for it again',
           })
         }
-        const existing = yield* builds.byJob(input.jobId).pipe(Effect.orDie)
-        const stored = Option.isSome(existing)
-          ? yield* builds.rename(existing.value.id, input.name).pipe(Effect.orDie)
-          : yield* builds
-              .insert({
-                jobId: input.jobId,
-                name: input.name,
-                recipe: recipe.value,
-                plan: normalizePlan(job.plan),
-              })
-              .pipe(Effect.orDie)
+        const content = { name: input.name, recipe: recipe.value, plan: normalizePlan(job.plan) }
+        const revised =
+          job.buildId === null
+            ? Option.none<StoredBuild>()
+            : yield* builds
+                .get(job.buildId)
+                .pipe(Effect.catchTag('SqlError', Effect.die), Effect.option)
+        const existing = Option.isSome(revised)
+          ? revised
+          : yield* builds.byJob(input.jobId).pipe(Effect.orDie)
+        const stored = Option.isNone(existing)
+          ? yield* builds.insert({ jobId: input.jobId, ...content }).pipe(Effect.orDie)
+          : existing.value.jobId === input.jobId
+            ? yield* builds.rename(existing.value.id, input.name).pipe(Effect.orDie)
+            : yield* builds.revise(existing.value.id, content, input.jobId).pipe(Effect.orDie)
         const confirm =
           input.inGame === undefined
             ? null

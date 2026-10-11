@@ -60,3 +60,22 @@ test('a job carries no offer until Ghost makes one, then reads it back', async (
   expect(before).toBeNull()
   expect(after).toBe('cleanup_mode')
 })
+
+test('a request revising a build carries it to the rest of its conversation, and no further', async () => {
+  const [first, followUp, elsewhere, plain] = await Effect.gen(function* () {
+    const jobs = yield* JobsRepo
+    const first = yield* jobs.create({ kind: 'chat', prompt: 'more melee', buildId: 'build-1' })
+    const followUp = yield* jobs.create({
+      kind: 'chat',
+      prompt: 'and Health',
+      sessionId: first.sessionId,
+    })
+    const elsewhere = yield* jobs.create({ kind: 'chat', prompt: 'a Hunter build' })
+    const plain = yield* jobs.create({ kind: 'chat', prompt: 'hi', sessionId: elsewhere.sessionId })
+    return [first, followUp, elsewhere, plain] as const
+  }).pipe(Effect.provide(JobsTest), Effect.runPromise)
+  expect(first.buildId).toBe('build-1')
+  expect(followUp.buildId).toBe('build-1')
+  expect(elsewhere.buildId).toBeNull()
+  expect(plain.buildId).toBeNull()
+})

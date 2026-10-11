@@ -27,6 +27,7 @@ interface JobRow {
   readonly steps: string
   readonly character_id: string | null
   readonly offer: string | null
+  readonly build_id: string | null
   readonly created_at: string
   readonly updated_at: string
 }
@@ -67,6 +68,7 @@ const rowToJob = (row: JobRow) =>
     steps: row.steps,
     characterId: row.character_id,
     offer: row.offer,
+    buildId: row.build_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }).pipe(
@@ -172,9 +174,18 @@ export const JobsRepoLive = Layer.effect(
       Effect.gen(function* () {
         const id = crypto.randomUUID()
         const now = DateTime.formatIso(yield* DateTime.now)
+        const sessionId = input.sessionId ?? crypto.randomUUID()
         yield* sql`
-          INSERT INTO jobs (id, session_id, kind, prompt, status, result, error, character_id, created_at, updated_at)
-          VALUES (${id}, ${input.sessionId ?? crypto.randomUUID()}, ${input.kind}, ${input.prompt}, 'queued', NULL, NULL, ${input.characterId ?? null}, ${now}, ${now})
+          INSERT INTO jobs (id, session_id, kind, prompt, status, result, error, character_id, build_id, created_at, updated_at)
+          VALUES (
+            ${id}, ${sessionId}, ${input.kind}, ${input.prompt}, 'queued', NULL, NULL, ${input.characterId ?? null},
+            COALESCE(${input.buildId ?? null}, (
+              SELECT build_id FROM jobs
+              WHERE session_id = ${sessionId} AND build_id IS NOT NULL
+              ORDER BY created_at DESC LIMIT 1
+            )),
+            ${now}, ${now}
+          )
         `
         return yield* get(id).pipe(Effect.orDie)
       })

@@ -1,4 +1,6 @@
 import { Effect, Layer, Option } from 'effect'
+import { revisionBrief } from '../builds/revision.ts'
+import { BuildsRepo } from '../db/builds.ts'
 import { JobsRepo } from '../db/jobs.ts'
 import { Settings } from '../db/settings.ts'
 import { type AgentFailed, type AgentRequest, ClaudeAgent } from './claude.ts'
@@ -16,6 +18,7 @@ const tick = Effect.gen(function* () {
   const agent = yield* ClaudeAgent
   const current = yield* CurrentJob
   const settings = yield* Settings
+  const builds = yield* BuildsRepo
   const next = yield* jobs.nextQueued
   if (Option.isNone(next)) return
   const job = next.value
@@ -25,10 +28,14 @@ const tick = Effect.gen(function* () {
     job.sessionId === null
       ? null
       : Option.getOrNull(yield* settings.get(conversationKey(job.sessionId)))
+  // A build deleted since the conversation started leaves nothing to revise.
+  const revising =
+    job.buildId === null ? Option.none() : yield* Effect.option(builds.get(job.buildId))
   const request: AgentRequest = {
     kind: job.kind,
     prompt: job.prompt,
     characterId: job.characterId,
+    context: Option.match(revising, { onNone: () => null, onSome: revisionBrief }),
     resume,
     onStep: (step) => {
       Effect.runFork(Effect.ignore(jobs.addStep(job.id, step)))

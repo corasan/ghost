@@ -53,6 +53,8 @@ export interface AgentRequest {
   readonly kind: JobKind
   readonly prompt: string
   readonly characterId: string | null
+  /** What the request works on beyond the prompt, such as the saved build it revises. */
+  readonly context: string | null
   /** The agent conversation to continue, so follow-ups know what came before. */
   readonly resume: string | null
   readonly onStep: (step: JobStep) => void
@@ -139,7 +141,7 @@ export const ClaudeAgentLive = Layer.effect(
     const mcpUrl = `http://127.0.0.1:${config.port}${MCP_PATH}`
 
     const ask = (
-      { kind, prompt, characterId, resume, onStep }: AgentRequest,
+      { kind, prompt, characterId, context, resume, onStep }: AgentRequest,
       effort: AgentEffort,
     ) =>
       Effect.tryPromise({
@@ -148,7 +150,7 @@ export const ClaudeAgentLive = Layer.effect(
             characterId === null
               ? 'No character is selected; default to the highest light one.'
               : `The player has character ${characterId} selected in the app; plans target it unless they say otherwise.`
-          const fullPrompt = [KIND_PROMPTS[kind], selected, prompt]
+          const fullPrompt = [KIND_PROMPTS[kind], selected, context ?? '', prompt]
             .filter((part) => part !== '')
             .join('\n\n')
           const options: Options = {
