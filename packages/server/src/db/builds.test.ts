@@ -158,10 +158,11 @@ test('a slot saved before revisions is a link waiting for its baseline at revisi
   try {
     await Effect.runPromise(Effect.provide(Effect.void, layer(legacyDir)))
     const db = new Database(join(legacyDir, 'ghost.sqlite'))
-    db.run('DELETE FROM effect_sql_migrations WHERE migration_id = 16')
+    db.run('DELETE FROM effect_sql_migrations WHERE migration_id >= 16')
     for (const column of ['revision', 'in_game_revision', 'in_game_snapshot']) {
       db.run(`ALTER TABLE saved_builds DROP COLUMN ${column}`)
     }
+    db.run('ALTER TABLE jobs DROP COLUMN build_id')
     db.run(
       `INSERT INTO saved_builds (id, job_id, name, recipe, plan, in_game_character_id, in_game_index, in_game_saved_at, created_at, updated_at)
        VALUES ('old', 'job-old', 'Old', ?, ?, 'titan', 2, 'then', 'then', 'then')`,

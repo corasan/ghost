@@ -1,4 +1,4 @@
-import { SetBonus } from '@ghost/contract'
+import { SetBonus, TargetSet } from '@ghost/contract'
 import type { ArmorSet } from './manifest.ts'
 
 /** The set each armor item hash belongs to. */
@@ -45,4 +45,35 @@ export const setBonusesFor = (
     ...bonuses.filter(isActive).toSorted(fewestPiecesFirst),
     ...bonuses.filter((bonus) => !isActive(bonus)).toSorted(fewestPiecesFirst),
   ]
+}
+
+export interface TargetSetInput {
+  readonly set: string
+  readonly why: string
+  readonly source?: string | undefined
+}
+
+/**
+ * The set the build should farm toward, with how much of it the build wears;
+ * 'worn' once the build wears enough of it to turn every bonus on.
+ */
+export const targetSetFor = (
+  sets: ReadonlyArray<ArmorSet>,
+  itemHashes: ReadonlyArray<number>,
+  target: TargetSetInput,
+): TargetSet | 'worn' | 'unknown' => {
+  const set = sets.find((each) => each.name.toLowerCase() === target.set.trim().toLowerCase())
+  if (set === undefined) return 'unknown'
+  const members = new Set(set.items)
+  const worn = new Set(itemHashes.filter((hash) => members.has(hash))).size
+  const required = Math.max(0, ...set.perks.map((perk) => perk.required))
+  if (worn >= required) return 'worn'
+  return new TargetSet({
+    set: set.name,
+    why: target.why,
+    source: target.source ?? null,
+    worn,
+    required,
+    bonuses: everySetBonus(set, worn),
+  })
 }

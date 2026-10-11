@@ -111,9 +111,11 @@ export interface BuildsRepoService {
     id: string,
     name: string,
   ) => Effect.Effect<StoredBuild, BuildNotFound | SqlError.SqlError>
+  /** With a job, the build now holds that job's plan. */
   readonly revise: (
     id: string,
     content: BuildContent,
+    jobId?: string,
   ) => Effect.Effect<StoredBuild, BuildNotFound | SqlError.SqlError>
   readonly remove: (id: string) => Effect.Effect<void, BuildNotFound | SqlError.SqlError>
   /**
@@ -188,7 +190,7 @@ export const BuildsRepoLive = Layer.effect(
         )
       })
 
-    const revise = (id: string, content: BuildContent) =>
+    const revise = (id: string, content: BuildContent, jobId?: string) =>
       Effect.gen(function* () {
         const now = DateTime.formatIso(yield* DateTime.now)
         const recipe = yield* encodeRecipe(content.recipe).pipe(Effect.orDie)
@@ -198,6 +200,7 @@ export const BuildsRepoLive = Layer.effect(
           sql`
             UPDATE saved_builds
             SET name = ${content.name}, recipe = ${recipe}, plan = ${plan},
+                job_id = COALESCE(${jobId ?? null}, job_id),
                 revision = revision + 1, updated_at = ${now}
             WHERE id = ${id}
           `,

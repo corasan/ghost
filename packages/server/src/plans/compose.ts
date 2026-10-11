@@ -46,7 +46,7 @@ import {
   withChargeEffects,
 } from '../bungie/mods.ts'
 import { ProfileStore } from '../bungie/profile.ts'
-import { isActive, setBonusesFor } from '../bungie/sets.ts'
+import { isActive, setBonusesFor, targetSetFor } from '../bungie/sets.ts'
 import { planSubclass, subclassSockets, unlockedPlugs } from '../bungie/subclass.ts'
 import { ChargeEffects } from '../db/charge.ts'
 import { title } from '../items/items.ts'
@@ -315,6 +315,8 @@ export interface ComposedBuild {
   readonly subclassChanges: ReadonlyArray<string> | null
   /** Charge effects researched for this plan, to record once it passes the build rules. */
   readonly research: ReadonlyArray<{ readonly mod: string; readonly effect: ChargeEffect }>
+  /** The target set names no set in the manifest. */
+  readonly unknownTargetSet: boolean
 }
 
 const refuse = (message: string) => new BuildRefusal({ message })
@@ -588,10 +590,20 @@ export const composeBuild = (
     const misses = recipe.kind === 'build' ? missedTargets(planStats, goals) : []
     const armor =
       recipe.kind === 'build' && builtFor !== undefined ? armorAfter(worn, incoming).final : []
+    const target = recipe.kind === 'build' ? recipe.targetSet : undefined
+    const sets = armor.length > 0 || target !== undefined ? yield* manifest.armorSets : []
     const setBonuses = setBonusesFor(
-      armor.length > 0 ? yield* manifest.armorSets : [],
+      sets,
       armor.map((item) => item.itemHash),
     )
+    const targetSet =
+      target === undefined
+        ? undefined
+        : targetSetFor(
+            sets,
+            armor.map((item) => item.itemHash),
+            target,
+          )
     const note =
       misses.length > 0 && recipe.shortfall !== undefined
         ? [recipe.shortfall, recipe.note].filter((part) => part !== undefined).join(' ')
@@ -614,6 +626,7 @@ export const composeBuild = (
       note,
       situational: recipe.situational,
       setBonuses: setBonuses.length > 0 ? setBonuses : undefined,
+      targetSet: targetSet === 'worn' || targetSet === 'unknown' ? undefined : targetSet,
       synergy:
         recipe.kind === 'build' && recipe.synergy !== undefined
           ? new Synergy(recipe.synergy)
@@ -636,6 +649,7 @@ export const composeBuild = (
       modSwaps: [...swapsFor.values()].flat().length,
       subclassChanges: chosen === null ? null : chosen.summary,
       research,
+      unknownTargetSet: targetSet === 'unknown',
     }
   })
 
@@ -669,6 +683,11 @@ export const buildRules = (recipe: BuildRecipe, build: ComposedBuild): BuildRefu
         `Error: a build can wear only one exotic armor piece; this one ends up with ${exoticArmor.map((item) => item.name).join(' and ')}. Equip a legendary in place of the ones the loop does not need, and call present_plan again.`,
       )
     }
+  }
+  if (build.unknownTargetSet) {
+    return refuse(
+      `Error: no armor set is named ${recipe.targetSet?.set}. Use a set name list_armor_sets gives, and call present_plan again.`,
+    )
   }
   if (build.artifact !== null && 'errors' in build.artifact) {
     return refuse(

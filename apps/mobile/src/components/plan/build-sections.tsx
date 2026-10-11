@@ -1,4 +1,5 @@
 import type {
+  TargetSet,
   AbilityKind,
   ArmorMod,
   ArtifactPlan,
@@ -423,6 +424,30 @@ function BonusRow({ bonus, offBuild = false }: { bonus: SetBonus; offBuild?: boo
   )
 }
 
+/** The set Ghost would farm toward; the server drops it once the build wears enough of it. */
+function TargetSetView({ target }: { target: TargetSet }) {
+  return (
+    <View>
+      <View style={[styles.label, styles.between]}>
+        <Mono>SET TO FARM</Mono>
+        <Meta color={Ghost.gold}>
+          {target.worn} of {target.required} worn
+        </Meta>
+      </View>
+      <View style={styles.synergyPart}>
+        <Body size={14} style={{ fontFamily: Type.bodyMedium, lineHeight: 18 }}>
+          {target.set}
+        </Body>
+        <Prose text={target.why} />
+        {target.source ? <Meta>Drops from {target.source}</Meta> : null}
+        {target.bonuses.map((bonus) => (
+          <BonusRow key={bonus.name} bonus={bonus} />
+        ))}
+      </View>
+    </View>
+  )
+}
+
 function Named({ row }: { row: PlanRow }) {
   return (
     <View style={styles.plug}>
@@ -544,6 +569,11 @@ export function BuildSections({
           />
         ))}
       </View>
+      {plan.targetSet ? (
+        <View style={[styles.section, { marginTop: 24 }]}>
+          <TargetSetView target={plan.targetSet} />
+        </View>
+      ) : null}
       {weapons.length > 0 ? (
         <View style={styles.section}>
           <Mono style={styles.label}>WEAPONS</Mono>

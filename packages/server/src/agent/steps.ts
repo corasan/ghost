@@ -80,6 +80,7 @@ const STEPS = new Map<string, StepCopy>(
       detail: (input) =>
         [input.slot, input.text].flatMap((part) => text(part) ?? []).join(' · ') || null,
     },
+    list_armor_sets: { label: 'Looking up armor sets', detail: (input) => text(input.text) },
     list_subclasses: {
       label: 'Looking up your subclasses',
       detail: (input) => text(input.subclass),

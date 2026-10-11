@@ -301,6 +301,14 @@ export function BuildCard({ job, plan }: { job: Job; plan: Plan }) {
           <SetBonusIcons bonuses={plan.setBonuses} />
         </View>
       ) : null}
+      {plan.targetSet ? (
+        <View style={[styles.band, styles.tally]}>
+          <Mono>FARM</Mono>
+          <Meta lines={1} style={{ flex: 1 }}>
+            {plan.targetSet.set} · {plan.targetSet.worn} of {plan.targetSet.required} worn
+          </Meta>
+        </View>
+      ) : null}
 
       <View style={[styles.band, styles.verdict]}>
         <View style={{ flex: 1 }}>

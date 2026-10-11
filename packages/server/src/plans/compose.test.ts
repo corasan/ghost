@@ -446,6 +446,13 @@ describe('buildRules', () => {
     expect(await verdict(recipe({ ...goal, shortfall: 'No owned armor reaches it.' }))).toBe('ok')
   })
 
+  test('refuses a target set the manifest does not have', async () => {
+    const targetSet = { set: 'Nowhere', why: 'It would feed the loop.' }
+    expect(await verdict(recipe({ targetSet }))).toStartWith(
+      'Error: no armor set is named Nowhere.',
+    )
+  })
+
   test('refuses a build without a purpose', async () => {
     expect(await verdict(recipe({ purpose: ' ' }))).toBe(
       'Error: a build needs purpose: what it does, in plain words, so Jev can judge its set bonuses. Call present_plan again with purpose.',

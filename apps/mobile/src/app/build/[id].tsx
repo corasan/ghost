@@ -12,6 +12,7 @@ import { useWearer } from '@/lib/character'
 import { sentence } from '@/lib/format'
 import { useFooterHeight } from '@/lib/footer'
 import { useBottomInset } from '@/lib/insets'
+import { startRevision } from '@/lib/session'
 
 function Readiness({ build }: { build: SavedBuild }) {
   const readiness = build.readiness
@@ -99,6 +100,15 @@ function Actions({ build }: { build: SavedBuild }) {
         />
       </View>
       <View style={styles.buttons}>
+        <Button
+          label="REVISE"
+          compact
+          under={Ghost.panel}
+          onPress={() => {
+            startRevision(build.id)
+            router.navigate('/')
+          }}
+        />
         <Button
           label="EDIT"
           compact
