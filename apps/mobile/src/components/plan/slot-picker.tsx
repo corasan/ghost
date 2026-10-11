@@ -104,25 +104,35 @@ const overwriting = (slot: InGameSlot, claimedBy: SavedBuild | undefined, selfId
   return `Overwrites ${current} in game.`
 }
 
+const relinking = (claimedBy: SavedBuild | undefined, selfId?: string) =>
+  claimedBy && claimedBy.id !== selfId ? `${claimedBy.name} loses its in-game slot.` : null
+
 export function SlotPicker({
   slots,
   choice,
   onPick,
   builds,
   selfId,
+  taking = false,
 }: {
   slots: LoadoutSlots
   choice: SlotChoice
   onPick: (patch: Partial<SlotChoice>) => void
   builds: readonly SavedBuild[]
   selfId?: string | undefined
+  /** Taking the slot's gear into the build: the slot keeps its name, color and icon. */
+  taking?: boolean
 }) {
   const rows = Array.from({ length: Math.ceil(slots.slots.length / SLOTS_PER_ROW) }, (_, i) =>
     slots.slots.slice(i * SLOTS_PER_ROW, (i + 1) * SLOTS_PER_ROW),
   )
   const chosen = slots.slots.find((slot) => slot.index === choice.index)
   const claimedBy = builds.find((build) => build.id === chosen?.savedBuildId)
-  const warning = chosen ? overwriting(chosen, claimedBy, selfId) : null
+  const warning = taking
+    ? relinking(claimedBy, selfId)
+    : chosen
+      ? overwriting(chosen, claimedBy, selfId)
+      : null
   return (
     <View style={{ gap: 22 }}>
       <Group label="SLOT">
@@ -149,6 +159,22 @@ export function SlotPicker({
           </Body>
         ) : null}
       </Group>
+      {taking ? null : <Identity slots={slots} choice={choice} onPick={onPick} />}
+    </View>
+  )
+}
+
+function Identity({
+  slots,
+  choice,
+  onPick,
+}: {
+  slots: LoadoutSlots
+  choice: SlotChoice
+  onPick: (patch: Partial<SlotChoice>) => void
+}) {
+  return (
+    <>
       <Group label="NAME IN GAME">
         <View style={styles.wrap}>
           {slots.names.map((name) => (
@@ -177,7 +203,7 @@ export function SlotPicker({
           onPick={(iconHash) => onPick({ iconHash })}
         />
       </Group>
-    </View>
+    </>
   )
 }
 

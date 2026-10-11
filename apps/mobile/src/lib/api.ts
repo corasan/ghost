@@ -11,6 +11,7 @@ import {
   type ItemSlot,
   ItemSummary,
   type Job,
+  type LinkBuild,
   RecentItem,
   type ReviewItem,
   type SaveBuild,
@@ -471,6 +472,29 @@ export function useEditBuild() {
     mutationFn: ({ id, ...payload }: { id: string } & EditBuild) =>
       run((api) => api.builds.edit({ params: { id }, payload })),
     onSuccess: (build) => replaceBuild(queryClient, build),
+  })
+}
+
+const relink = (queryClient: QueryClient, build: SavedBuild) =>
+  Promise.all([
+    replaceBuild(queryClient, build),
+    queryClient.invalidateQueries({ queryKey: [getServerUrl(), 'loadoutSlots'] }),
+  ])
+
+export function useLinkBuild() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...payload }: { id: string } & LinkBuild) =>
+      run((api) => api.builds.link({ params: { id }, payload })),
+    onSuccess: (build) => relink(queryClient, build),
+  })
+}
+
+export function useUnlinkBuild() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => run((api) => api.builds.unlink({ params: { id } })),
+    onSuccess: (build) => relink(queryClient, build),
   })
 }
 

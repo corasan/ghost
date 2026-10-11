@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router'
 import { Alert, ScrollView, StyleSheet, View } from 'react-native'
 
 import { BuildBadges } from '@/components/plan/build-badges'
+import { BuildLink } from '@/components/plan/build-link'
 import { BuildSections } from '@/components/plan/build-sections'
 import { Body, Button, Meta } from '@/components/ghost/ui'
 import { Ghost, Gutter } from '@/constants/theme'
@@ -37,6 +38,7 @@ function Readiness({ build }: { build: SavedBuild }) {
           {line.text}
         </Body>
       ))}
+      <BuildLink build={build} />
     </View>
   )
 }
@@ -100,16 +102,8 @@ function Actions({ build }: { build: SavedBuild }) {
         <Button
           label="EDIT"
           compact
-          flex={0.7}
           under={Ghost.panel}
           onPress={() => router.push({ pathname: '/edit-build', params: { buildId: build.id } })}
-        />
-        <Button
-          label="SAVE IN GAME"
-          compact
-          under={Ghost.panel}
-          disabled={wearer === undefined}
-          onPress={() => router.push({ pathname: '/save-build', params: { buildId: build.id } })}
         />
         <Button
           label={remove.isPending ? 'DELETING…' : 'DELETE'}

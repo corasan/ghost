@@ -11,6 +11,7 @@ import {
   errorMessage,
   useEquipBuild,
   useJob,
+  useLinkBuild,
   useLoadoutSlots,
   useSaveBuild,
   useSavedBuilds,
@@ -76,11 +77,13 @@ function InGame({
   slots,
   builds,
   selfId,
+  taking = false,
 }: {
   characterId: string | undefined
   slots: ReturnType<typeof useSlots>
   builds: readonly SavedBuild[]
   selfId?: string | undefined
+  taking?: boolean
 }) {
   if (characterId === undefined)
     return <Meta color={Ghost.danger}>No character on this account can wear this build.</Meta>
@@ -99,6 +102,7 @@ function InGame({
       onPick={slots.pick}
       builds={builds}
       selfId={selfId}
+      taking={taking}
     />
   )
 }
@@ -196,38 +200,81 @@ function SaveFromJob({ jobId }: { jobId: string }) {
 function SaveSavedInGame({ build }: { build: SavedBuild }) {
   const builds = useSavedBuilds().data ?? []
   const equip = useEquipBuild()
+  const link = useLinkBuild()
   const wearer = useWearer(build.facets.classType)
-  const characterId = wearer?.characterId
+  const characterId = build.inGame?.characterId ?? wearer?.characterId
   const holds = build.inGame?.characterId === characterId ? build.inGame?.index : undefined
   const slots = useSlots(characterId, holds)
+  const [take, setTake] = useState(false)
+  const chosenEmpty =
+    slots.query.data?.slots.find((slot) => slot.index === slots.choice?.index)?.empty ?? true
+  const taking = build.inGame === null && take && !chosenEmpty
+  const pending = equip.isPending || link.isPending
+  const error = equip.error ?? link.error
+  const putDetail = `${build.name} goes on your ${classLabel(build.facets.classType)} first, then into the slot. You confirm the plan before anything moves.`
+
+  const submit = () => {
+    if (!slots.choice || !characterId) return
+    if (taking)
+      return link.mutate(
+        { id: build.id, characterId, index: slots.choice.index },
+        { onSuccess: () => router.back() },
+      )
+    equip.mutate(
+      { id: build.id, characterId, saveTo: { characterId, ...slots.choice } },
+      { onSuccess: (result) => openPlan(result.job, result.substituted) },
+    )
+  }
 
   return (
     <Sheet
-      title="SAVE IN GAME"
-      error={equip.isError ? errorMessage(equip.error) : null}
+      title={build.inGame ? 'SAVE TO SLOT' : 'LINK SLOT'}
+      error={error ? errorMessage(error) : null}
       footer={
         <>
           <Button label="CANCEL" flex={0.6} under={Ghost.panel} onPress={() => router.back()} />
           <Button
-            label={equip.isPending ? 'WORKING…' : 'REVIEW'}
+            label={pending ? 'WORKING…' : taking ? 'LINK' : 'REVIEW'}
             tone="solid"
             under={Ghost.panel}
-            disabled={slots.choice === undefined || characterId === undefined || equip.isPending}
-            onPress={() => {
-              if (!slots.choice || !characterId) return
-              equip.mutate(
-                { id: build.id, characterId, saveTo: { characterId, ...slots.choice } },
-                { onSuccess: (result) => openPlan(result.job, result.substituted) },
-              )
-            }}
+            disabled={slots.choice === undefined || characterId === undefined || pending}
+            onPress={submit}
           />
         </>
       }
     >
-      <Body size={14} color={Ghost.soft} style={{ lineHeight: 20 }}>
-        {`${build.name} goes on your ${classLabel(build.facets.classType)} first, then into the slot. You confirm the plan before anything moves.`}
-      </Body>
-      <InGame characterId={characterId} slots={slots} builds={builds} selfId={build.id} />
+      {build.inGame ? (
+        <Body size={14} color={Ghost.soft} style={{ lineHeight: 20 }}>
+          {putDetail}
+        </Body>
+      ) : (
+        <View style={{ gap: 4 }}>
+          <Where
+            on={!taking}
+            title="Put this build in the slot"
+            detail={putDetail}
+            onPress={() => setTake(false)}
+          />
+          <Where
+            on={taking}
+            locked={chosenEmpty}
+            title="Use the slot's gear"
+            detail={
+              chosenEmpty
+                ? 'Pick a slot that holds a loadout to take its gear.'
+                : `${build.name} takes the gear saved in the slot. Nothing moves in game.`
+            }
+            onPress={() => setTake(true)}
+          />
+        </View>
+      )}
+      <InGame
+        characterId={characterId}
+        slots={slots}
+        builds={builds}
+        selfId={build.id}
+        taking={taking}
+      />
     </Sheet>
   )
 }
