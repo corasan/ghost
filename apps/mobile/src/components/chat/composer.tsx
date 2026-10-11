@@ -13,12 +13,24 @@ export const STARTERS = [
   'What did I get yesterday?',
 ]
 
+export const REVISION_STARTERS = [
+  'Re-optimize it with what I own now',
+  'Swap the exotic armor and keep the stats',
+  'Check its mods and artifact perks',
+]
+
 /** Starter prompts as a plain list above the composer, shown until you've asked something. */
-export function Starters({ onAsk }: { onAsk: (prompt: string) => void }) {
+export function Starters({
+  onAsk,
+  prompts = STARTERS,
+}: {
+  onAsk: (prompt: string) => void
+  prompts?: readonly string[]
+}) {
   return (
     <View style={{ paddingHorizontal: 20 }}>
       <Mono style={{ paddingBottom: 10 }}>TRY ASKING</Mono>
-      {STARTERS.map((prompt) => (
+      {prompts.map((prompt) => (
         <Pressable
           key={prompt}
           accessibilityRole="button"
@@ -48,11 +60,13 @@ export function Composer({
   onChange,
   onSend,
   sending,
+  placeholder = 'Ask Ghost',
 }: {
   value: string
   onChange: (text: string) => void
   onSend: () => void
   sending: boolean
+  placeholder?: string
 }) {
   const bottomInset = useBottomInset()
   const ready = value.trim() !== '' && !sending
@@ -78,7 +92,7 @@ export function Composer({
         <TextInput
           value={value}
           onChangeText={onChange}
-          placeholder="Ask Ghost"
+          placeholder={placeholder}
           placeholderTextColor={Ghost.dim}
           keyboardAppearance="dark"
           multiline
