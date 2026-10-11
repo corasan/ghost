@@ -1,0 +1,208 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
+ROOT="$REPO/.verify"
+RUN="$ROOT/run"
+STATE="$RUN/state.env"
+USER_HOME="${GHOST_HOME:-$HOME/.ghost}"
+
+die() { echo "ghost-verify: $*" >&2; exit 1; }
+
+load() {
+  [[ -f $STATE ]] || die "no verify instance; run: $0 up [--linked]"
+  source "$STATE"
+}
+
+free_port() {
+  local port=$1
+  while lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; do port=$((port + 1)); done
+  echo "$port"
+}
+
+config_value() {
+  sed -n "s/^$1=//p" "$USER_HOME/config.env" | tail -1
+}
+
+snapshot_user_data() {
+  local source="$USER_HOME/data/ghost.sqlite" target="$1/ghost.sqlite"
+  [[ -f $source ]] || die "no linked account at $source"
+  sqlite3 -readonly "$source" ".backup '$target'"
+  sqlite3 "$target" "UPDATE settings SET value = json_set(value, '$.refreshToken', '', '$.refreshExpiresAt', json_extract(value, '$.expiresAt')) WHERE key = 'bungie.tokens';"
+  sqlite3 "$target" "SELECT json_extract(value, '$.expiresAt') FROM settings WHERE key = 'bungie.tokens';"
+}
+
+cmd_up() {
+  local mode=unlinked
+  [[ ${1:-} == --linked ]] && mode=linked
+  [[ -f $STATE ]] && die "an instance is already recorded in $STATE; run: $0 down"
+  mkdir -p "$RUN/data" && chmod 700 "$RUN"
+
+  local port token run_id evidence pid
+  port=$(free_port "${GHOST_VERIFY_PORT:-4901}")
+  token=$(openssl rand -hex 24)
+  run_id=$(date +%Y%m%d-%H%M%S)
+  evidence="$ROOT/evidence/$run_id"
+  mkdir -p "$evidence"
+
+  local api_key="" client_id="" client_secret="" jev_key=""
+  if [[ $mode == linked ]]; then
+    local expires
+    expires=$(snapshot_user_data "$RUN/data")
+    [[ -n $expires ]] || die "the account in $USER_HOME is not linked to Bungie"
+    echo "snapshot access token valid until $expires (it is never refreshed here)"
+    api_key=$(config_value BUNGIE_API_KEY)
+    client_id=$(config_value BUNGIE_CLIENT_ID)
+    client_secret=$(config_value BUNGIE_CLIENT_SECRET)
+    jev_key=$(config_value TYPESAFE_API_KEY)
+  fi
+
+  (
+    cd "$REPO/packages/server"
+    env -u ANTHROPIC_API_KEY \
+      GHOST_HOST=127.0.0.1 GHOST_PORT="$port" GHOST_DATA_DIR="$RUN/data" GHOST_TOKEN="$token" \
+      GHOST_TAILSCALE_USER= GHOST_TAILNET_HOST= GHOST_YOUTUBE_CHANNELS=, \
+      BUNGIE_API_KEY="$api_key" BUNGIE_CLIENT_ID="$client_id" BUNGIE_CLIENT_SECRET="$client_secret" \
+      TYPESAFE_API_KEY="$jev_key" \
+      nohup bun --no-env-file src/main.ts >"$RUN/server.log" 2>&1 &
+    echo $! >"$RUN/pid"
+  )
+  pid=$(cat "$RUN/pid")
+  cat >"$STATE" <<EOF
+PORT=$port
+TOKEN=$token
+PID=$pid
+MODE=$mode
+EVIDENCE=$evidence
+BASE=http://127.0.0.1:$port
+EOF
+  chmod 600 "$STATE"
+
+  for _ in $(seq 1 60); do
+    if curl -sf "http://127.0.0.1:$port/health" >/dev/null 2>&1; then
+      echo "ready: http://127.0.0.1:$port ($mode) pid $pid"
+      echo "evidence: $evidence"
+      return
+    fi
+    kill -0 "$pid" 2>/dev/null || { tail -40 "$RUN/server.log" >&2; die "server exited during startup"; }
+    sleep 1
+  done
+  tail -40 "$RUN/server.log" >&2
+  die "server did not answer /health within 60s"
+}
+
+cmd_doctor() {
+  load
+  local ok=1
+  if kill -0 "$PID" 2>/dev/null; then echo "process   $PID alive"; else echo "process   $PID DEAD"; ok=0; fi
+  local owner
+  owner=$(lsof -nP -t -iTCP:"$PORT" -sTCP:LISTEN 2>/dev/null | head -1 || true)
+  if [[ $owner == "$PID" ]]; then echo "port      $PORT owned by our pid"; else echo "port      $PORT owned by '${owner:-nobody}', not $PID"; ok=0; fi
+  echo "health    $(curl -s -m 5 "$BASE/health" || echo unreachable)"
+  local status
+  status=$(curl -s -o /dev/null -w '%{http_code}' -m 5 -H "Authorization: Bearer $TOKEN" "$BASE/agent" || true)
+  if [[ $status == 200 ]]; then echo "auth      token accepted"; else echo "auth      GET /agent -> $status"; ok=0; fi
+  echo "mode      $MODE"
+  echo "source    $(git -C "$REPO" rev-parse --short HEAD) $(git -C "$REPO" status --porcelain | grep -vc '^?? .verify' || true) changed files"
+  echo "evidence  $EVIDENCE"
+  [[ $ok == 1 ]] || die "instance is not healthy; run: $0 down && $0 up"
+}
+
+next_index() {
+  local count
+  count=$(find "$EVIDENCE" -maxdepth 1 -type f | wc -l | tr -d ' ')
+  printf '%02d' $((count + 1))
+}
+
+cmd_api() {
+  load
+  local method=${1:?method} path=${2:?path} body=${3:-}
+  local slug file args=(-s -X "$method" -H "Authorization: Bearer $TOKEN" -w '\n%{http_code}')
+  [[ -n $body ]] && args+=(-H 'Content-Type: application/json' --data "$body")
+  slug=$(echo "$method$path" | tr -c 'A-Za-z0-9' '-' | sed 's/--*/-/g; s/-$//')
+  file="$EVIDENCE/$(next_index)-$slug.txt"
+  local raw status response
+  raw=$(curl "${args[@]}" "$BASE$path")
+  status=${raw##*$'\n'}
+  response=${raw%$'\n'*}
+  { echo "$method $path"; [[ -n $body ]] && echo "$body"; echo "-> $status"; echo "$response"; } >"$file"
+  echo "$status"
+  echo "$response"
+}
+
+cmd_sql() {
+  load
+  local query=${1:?query} file
+  file="$EVIDENCE/$(next_index)-sql.txt"
+  { echo "$query"; echo "->"; sqlite3 -readonly -header "$RUN/data/ghost.sqlite" "$query"; } | tee "$file"
+}
+
+kill_tree() {
+  local child
+  for child in $(pgrep -P "$1" 2>/dev/null); do kill_tree "$child"; done
+  kill "$1" 2>/dev/null || true
+}
+
+cmd_metro() {
+  load
+  [[ -n ${METRO_PID:-} ]] && kill -0 "$METRO_PID" 2>/dev/null && { echo "metro already on $METRO_PORT"; return; }
+  local port pid
+  port=$(free_port "${GHOST_VERIFY_METRO_PORT:-8082}")
+  (
+    cd "$REPO/apps/mobile"
+    nohup bunx expo start --dev-client --port "$port" >"$RUN/metro.log" 2>&1 &
+    echo $! >"$RUN/metro.pid"
+  )
+  pid=$(cat "$RUN/metro.pid")
+  printf 'METRO_PID=%s\nMETRO_PORT=%s\n' "$pid" "$port" >>"$STATE"
+  for _ in $(seq 1 90); do
+    if [[ $(curl -s -m 2 "http://127.0.0.1:$port/status" || true) == packager-status:running ]]; then
+      echo "metro ready on $port; open in the dev client:"
+      echo "ghost://expo-development-client/?url=http%3A%2F%2F127.0.0.1%3A$port"
+      return
+    fi
+    kill -0 "$pid" 2>/dev/null || { tail -30 "$RUN/metro.log" >&2; die "metro exited during startup"; }
+    sleep 2
+  done
+  die "metro did not report running within 180s"
+}
+
+cmd_link() {
+  load
+  echo "ghost://connect?url=http%3A%2F%2F127.0.0.1%3A$PORT&token=$TOKEN"
+}
+
+cmd_restore_link() {
+  local port token
+  port=$(config_value GHOST_PORT)
+  token=$(config_value GHOST_TOKEN)
+  echo "ghost://connect?url=http%3A%2F%2Flocalhost%3A${port:-4848}&token=$token"
+}
+
+cmd_down() {
+  [[ -f $STATE ]] || { echo "nothing to stop"; rm -rf "$RUN"; return; }
+  source "$STATE"
+  [[ -n ${METRO_PID:-} ]] && kill_tree "$METRO_PID"
+  if kill -0 "$PID" 2>/dev/null; then
+    kill "$PID"
+    for _ in $(seq 1 10); do kill -0 "$PID" 2>/dev/null || break; sleep 0.5; done
+    kill -0 "$PID" 2>/dev/null && kill -9 "$PID"
+  fi
+  cp "$RUN/server.log" "$EVIDENCE/server.log" 2>/dev/null || true
+  cp "$RUN/metro.log" "$EVIDENCE/metro.log" 2>/dev/null || true
+  rm -rf "$RUN"
+  echo "stopped $PID; evidence kept in $EVIDENCE"
+}
+
+case ${1:-} in
+  up) shift; cmd_up "$@" ;;
+  doctor) cmd_doctor ;;
+  api) shift; cmd_api "$@" ;;
+  sql) shift; cmd_sql "$@" ;;
+  metro) cmd_metro ;;
+  link) cmd_link ;;
+  restore-link) cmd_restore_link ;;
+  down) cmd_down ;;
+  env) load; echo "BASE=$BASE"; echo "PORT=$PORT"; echo "EVIDENCE=$EVIDENCE"; echo "MODE=$MODE" ;;
+  *) echo "usage: $0 up [--linked] | doctor | api METHOD PATH [JSON] | sql QUERY | metro | link | restore-link | env | down" >&2; exit 2 ;;
+esac
