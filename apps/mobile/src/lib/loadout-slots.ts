@@ -11,9 +11,12 @@ export const slotChoice = (
   slots: LoadoutSlots,
   picked: Partial<SlotChoice>,
   holds: number | undefined,
+  prefer: 'empty' | 'filled' = 'empty',
 ): SlotChoice | undefined => {
   const index =
-    picked.index ?? holds ?? (slots.slots.find((slot) => slot.empty) ?? slots.slots[0])?.index
+    picked.index ??
+    holds ??
+    (slots.slots.find((slot) => slot.empty === (prefer === 'empty')) ?? slots.slots[0])?.index
   const slot = slots.slots.find((each) => each.index === index)
   const nameHash = picked.nameHash ?? slot?.name?.hash ?? slots.names[0]?.hash
   const colorHash = picked.colorHash ?? slot?.color?.hash ?? slots.colors[0]?.hash

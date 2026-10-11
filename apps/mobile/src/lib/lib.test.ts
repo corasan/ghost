@@ -761,6 +761,15 @@ describe('in-game slot choice', () => {
     })
   })
 
+  test("taking a slot's gear starts on the first slot that holds a loadout", () => {
+    expect(slotChoice(slots, {}, undefined, 'filled')).toEqual({
+      index: 0,
+      nameHash: 1,
+      colorHash: 20,
+      iconHash: 30,
+    })
+  })
+
   test('a build already in a slot starts there, and a filled slot keeps its look', () => {
     expect(slotChoice(slots, {}, 0)).toEqual({ index: 0, nameHash: 1, colorHash: 20, iconHash: 30 })
   })

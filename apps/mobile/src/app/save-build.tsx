@@ -61,10 +61,14 @@ function Where({
   )
 }
 
-function useSlots(characterId: string | undefined, holds: number | undefined) {
+function useSlots(
+  characterId: string | undefined,
+  holds: number | undefined,
+  prefer: 'empty' | 'filled' = 'empty',
+) {
   const query = useLoadoutSlots(characterId)
   const [picked, setPicked] = useState<Partial<SlotChoice>>({})
-  const choice = query.data ? slotChoice(query.data, picked, holds) : undefined
+  const choice = query.data ? slotChoice(query.data, picked, holds, prefer) : undefined
   return {
     query,
     choice,
@@ -204,10 +208,11 @@ function SaveSavedInGame({ build }: { build: SavedBuild }) {
   const wearer = useWearer(build.facets.classType)
   const characterId = build.inGame?.characterId ?? wearer?.characterId
   const holds = build.inGame?.characterId === characterId ? build.inGame?.index : undefined
-  const slots = useSlots(characterId, holds)
   const [take, setTake] = useState(false)
+  const slots = useSlots(characterId, holds, take ? 'filled' : 'empty')
   const chosenEmpty =
     slots.query.data?.slots.find((slot) => slot.index === slots.choice?.index)?.empty ?? true
+  const firstFilled = slots.query.data?.slots.find((slot) => !slot.empty)?.index
   const taking = build.inGame === null && take && !chosenEmpty
   const pending = equip.isPending || link.isPending
   const error = equip.error ?? link.error
@@ -257,14 +262,17 @@ function SaveSavedInGame({ build }: { build: SavedBuild }) {
           />
           <Where
             on={taking}
-            locked={chosenEmpty}
+            locked={firstFilled === undefined}
             title="Use the slot's gear"
             detail={
-              chosenEmpty
-                ? 'Pick a slot that holds a loadout to take its gear.'
+              firstFilled === undefined
+                ? 'None of your slots holds a loadout yet.'
                 : `${build.name} takes the gear saved in the slot. Nothing moves in game.`
             }
-            onPress={() => setTake(true)}
+            onPress={() => {
+              setTake(true)
+              if (chosenEmpty && firstFilled !== undefined) slots.pick({ index: firstFilled })
+            }}
           />
         </View>
       )}
