@@ -1,19 +1,12 @@
 import type { SavedBuild } from '@ghost/contract'
 import { router, useLocalSearchParams } from 'expo-router'
-import { useState } from 'react'
-import { Alert, ScrollView, StyleSheet, TextInput, View } from 'react-native'
+import { Alert, ScrollView, StyleSheet, View } from 'react-native'
 
 import { BuildBadges } from '@/components/plan/build-badges'
 import { BuildSections } from '@/components/plan/build-sections'
-import { Body, Button, Cut, Meta } from '@/components/ghost/ui'
-import { Ghost, Gutter, Type } from '@/constants/theme'
-import {
-  errorMessage,
-  useDeleteBuild,
-  useEquipBuild,
-  useRenameBuild,
-  useSavedBuilds,
-} from '@/lib/api'
+import { Body, Button, Meta } from '@/components/ghost/ui'
+import { Ghost, Gutter } from '@/constants/theme'
+import { errorMessage, useDeleteBuild, useEquipBuild, useSavedBuilds } from '@/lib/api'
 import { useWearer } from '@/lib/character'
 import { sentence } from '@/lib/format'
 import { useFooterHeight } from '@/lib/footer'
@@ -30,12 +23,6 @@ function Readiness({ build }: { build: SavedBuild }) {
           text: "Its artifact picks are from a past season's artifact, so they won't carry over.",
           color: Ghost.gold,
         }
-      : null,
-    readiness?.inGame === 'changed'
-      ? { text: 'Its in-game slot has been changed since Ghost saved it.', color: Ghost.gold }
-      : null,
-    readiness?.inGame === 'cleared'
-      ? { text: 'Its in-game slot has been cleared.', color: Ghost.gold }
       : null,
     readiness === null
       ? { text: "Couldn't check it against your items right now.", color: Ghost.dim }
@@ -54,48 +41,10 @@ function Readiness({ build }: { build: SavedBuild }) {
   )
 }
 
-function Rename({ build, onDone }: { build: SavedBuild; onDone: () => void }) {
-  const rename = useRenameBuild()
-  const [name, setName] = useState(build.name)
-  const trimmed = name.trim()
-  return (
-    <>
-      {rename.isError ? (
-        <Body size={13} color={Ghost.danger}>
-          {errorMessage(rename.error)}
-        </Body>
-      ) : null}
-      <Cut fill={Ghost.bg} border={Ghost.line} under={Ghost.panel}>
-        <TextInput
-          value={name}
-          onChangeText={setName}
-          autoFocus
-          keyboardAppearance="dark"
-          autoCorrect={false}
-          returnKeyType="done"
-          style={styles.input}
-        />
-      </Cut>
-      <View style={styles.buttons}>
-        <Button label="CANCEL" flex={0.6} under={Ghost.panel} onPress={onDone} />
-        <Button
-          label={rename.isPending ? 'RENAMING…' : 'RENAME'}
-          tone="solid"
-          under={Ghost.panel}
-          disabled={trimmed.length === 0 || trimmed === build.name || rename.isPending}
-          onPress={() => rename.mutate({ id: build.id, name: trimmed }, { onSuccess: onDone })}
-        />
-      </View>
-    </>
-  )
-}
-
 function Actions({ build }: { build: SavedBuild }) {
   const wearer = useWearer(build.facets.classType)
   const equip = useEquipBuild()
   const remove = useDeleteBuild()
-  const [renaming, setRenaming] = useState(false)
-  if (renaming) return <Rename build={build} onDone={() => setRenaming(false)} />
 
   const confirmDelete = () =>
     Alert.alert(
@@ -156,13 +105,6 @@ function Actions({ build }: { build: SavedBuild }) {
           onPress={() => router.push({ pathname: '/save-build', params: { buildId: build.id } })}
         />
         <Button
-          label="RENAME"
-          compact
-          flex={0.7}
-          under={Ghost.panel}
-          onPress={() => setRenaming(true)}
-        />
-        <Button
           label={remove.isPending ? 'DELETING…' : 'DELETE'}
           compact
           flex={0.7}
@@ -216,13 +158,6 @@ export default function SavedBuildScreen() {
 
 const styles = StyleSheet.create({
   content: { paddingHorizontal: Gutter, paddingTop: 28 },
-  input: {
-    height: 44,
-    paddingHorizontal: 12,
-    fontFamily: Type.body,
-    fontSize: 15,
-    color: Ghost.ink,
-  },
   buttons: { flexDirection: 'row', gap: 8 },
   footer: {
     position: 'absolute',

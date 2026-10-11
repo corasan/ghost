@@ -470,20 +470,6 @@ export function useSaveBuild() {
   })
 }
 
-export function useRenameBuild() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (input: { id: string; name: string }) =>
-      run((api) => api.builds.rename({ params: { id: input.id }, payload: { name: input.name } })),
-    onSuccess: (build) => {
-      patchBuilds(queryClient, (builds) =>
-        builds.map((each) => (each.id === build.id ? build : each)),
-      )
-      return refreshBuilds(queryClient)
-    },
-  })
-}
-
 export function useDeleteBuild() {
   const queryClient = useQueryClient()
   return useMutation({
