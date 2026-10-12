@@ -18,6 +18,7 @@ import { Platform } from 'react-native'
 
 import { AnimatedSplashOverlay } from '@/components/splash-overlay'
 import { TooltipLayer } from '@/components/ghost/tooltip'
+import { UpdateBanner } from '@/components/update-banner'
 import { Ghost } from '@/constants/theme'
 import { useHealth } from '@/lib/api'
 import { persistOptions, queryClient } from '@/lib/query'
@@ -113,6 +114,7 @@ export default function RootLayout() {
           <PortalProvider>
             <TooltipLayer name="app">
               <RootStack />
+              <UpdateBanner />
             </TooltipLayer>
           </PortalProvider>
         </ThemeProvider>
