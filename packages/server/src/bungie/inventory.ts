@@ -455,7 +455,7 @@ export const buildInventory = (
       element: subclass === undefined ? 'none' : elementOf(subclass),
       loadout: slottedPlugs(
         (sockets[subclassItem?.itemInstanceId ?? '']?.sockets ?? []).flatMap((socket) =>
-          socket.plugHash === undefined ? [] : [socket.plugHash],
+          socket.plugHash === undefined || socket.isEnabled === false ? [] : [socket.plugHash],
         ),
         defs,
       ),
