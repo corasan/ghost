@@ -44,6 +44,7 @@ const defs = new Map<number, ManifestItem>([
   [32, def(32, { name: 'Echo of Persistence', typeName: 'Void Fragment' })],
   [33, def(33, { name: 'Empty Fragment Socket', typeName: 'Void Fragment' })],
   [34, def(34, { name: 'Shield Bash', typeName: 'Void Melee' })],
+  [35, def(35, { name: 'Echo of Vigilance', typeName: 'Void Fragment' })],
 ])
 
 const armorStats = (each: number) =>
@@ -107,6 +108,7 @@ const profile: Profile = {
             { plugHash: 31 },
             { plugHash: 32 },
             { plugHash: 33 },
+            { plugHash: 35, isEnabled: false },
           ],
         },
         v1: {
@@ -154,7 +156,7 @@ describe('buildInventory', () => {
     expect(inv.characters[0]?.ghostIcon).toBeNull()
   })
 
-  test("sorts the subclass's plugs into super, aspects and fragments, without empty sockets", () => {
+  test("sorts the subclass's plugs into super, aspects and fragments, without empty or disabled sockets", () => {
     const titan = fixture(inv.characters[1])
     expect(titan.loadout).toEqual({
       super: { hash: 30, name: 'Ward of Dawn', description: 'A dome.', icon: null },
