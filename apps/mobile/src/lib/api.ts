@@ -56,7 +56,9 @@ const run = async <A, E>(f: (api: Api) => Effect.Effect<A, E>) =>
 // server never shows the old server's cached data.
 export const queryKeys = {
   health: (url: string) => [url, 'health'] as const,
-  jobs: (url: string, sessionId?: string | null) => [url, 'jobs', sessionId ?? 'all'] as const,
+  // Undefined is every job (Vault, Recent); null is a fresh chat with none.
+  jobs: (url: string, sessionId?: string | null) =>
+    [url, 'jobs', sessionId === undefined ? 'all' : (sessionId ?? 'fresh')] as const,
   sessions: (url: string) => [url, 'sessions'] as const,
   item: (url: string, id: string) => [url, 'item', id] as const,
   weaponSheet: (url: string, id: string) => [url, 'weaponSheet', id] as const,
