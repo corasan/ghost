@@ -3,8 +3,11 @@ import { ItemPerk, type ItemSlot, OFF_BUILD_FIT, SetBonus } from '@ghost/contrac
 import { Effect, Layer } from 'effect'
 import { Jev, JevUnavailable } from '../agent/jev.ts'
 import type { Inventory, OwnedItem, SubclassPart } from '../bungie/inventory.ts'
-import type { ArmorModEntry, PlugFacts } from '../bungie/manifest.ts'
+import type { ArmorModEntry, ArmorSet, PlugFacts } from '../bungie/manifest.ts'
+import { ratingKey, type SetBonusRating } from '../setratings/parse.ts'
+import type { SetRatingsSnapshot } from '../setratings/ratings.ts'
 import {
+  armorSetRows,
   findArmorMods,
   findItems,
   findSubclassDetail,
@@ -400,5 +403,100 @@ describe('ratingSourceAllowed', () => {
         'not a url',
       ].map(ratingSourceAllowed),
     ).toEqual([true, true, false, false, false, false])
+  })
+})
+
+describe('armorSetRows', () => {
+  const armorSet = (name: string, ...bonuses: ReadonlyArray<string>): ArmorSet => ({
+    name,
+    items: [],
+    perks: bonuses.map((bonus, i) => ({
+      name: bonus,
+      description: `${bonus} effect`,
+      icon: null,
+      required: (i + 1) * 2,
+    })),
+  })
+  const sets = [
+    armorSet('Brand New', 'Unknown Bonus'),
+    armorSet('Twofold Crown', 'Gift of Sight'),
+    // The sheet calls it "Smoke Jumper"; the join is on the bonus name.
+    armorSet('Smokejumper', 'Ride Together, Die Together'),
+    armorSet('Atheon’s Memory', 'Raw Power', 'Collective Power'),
+  ]
+  const rating = (
+    set: string,
+    source: string,
+    bonus: string,
+    rank: number,
+    tier: SetBonusRating['tier'],
+    tags: ReadonlyArray<string>,
+  ): SetBonusRating => ({
+    set,
+    source,
+    season: 29,
+    bonus,
+    pieces: 2,
+    tags,
+    trigger: `${bonus} trigger`,
+    effect: `${bonus} buff`,
+    analysis: `${bonus} analysis`,
+    rank,
+    tier,
+  })
+  const ratings: SetRatingsSnapshot = {
+    byBonus: new Map(
+      [
+        rating("Atheon's Memory", 'Vault of Glass', 'Collective Power', 1, 'S', ['damage']),
+        rating('Smoke Jumper', 'Solo/Fireteam Ops', 'Ride Together, Die Together', 6, 'A', [
+          'survivability',
+        ]),
+        rating('Twofold Crown', 'Trials of Osiris', 'Gift of Sight', 112, 'F', ['PvP']),
+      ].map((r) => [ratingKey(r.bonus), r]),
+    ),
+    asOf: '2026-10-12T00:00:00.000Z',
+    error: null,
+  }
+  const names = (found: ReturnType<typeof armorSetRows>) => found.sets.map((set) => set.name)
+
+  test("joins each bonus to the sheet's rating by bonus name, whatever the set is called", () => {
+    const found = armorSetRows(sets, [], ratings, {})
+    const smokejumper = found.sets.find((set) => set.name === 'Smokejumper')
+    expect(smokejumper).toMatchObject({ source: 'Solo/Fireteam Ops', bestTier: 'A' })
+    expect(smokejumper?.bonuses[0]?.rating).toEqual({
+      tier: 'A',
+      rank: 6,
+      tags: ['survivability'],
+      trigger: 'Ride Together, Die Together trigger',
+      effect: 'Ride Together, Die Together buff',
+      analysis: 'Ride Together, Die Together analysis',
+    })
+    expect(found.sets.find((set) => set.name === 'Brand New')?.bonuses[0]?.rating).toBeNull()
+    expect(found.ratings).toMatchObject({ matched: 3, asOf: '2026-10-12T00:00:00.000Z' })
+    expect(found.ratings.error).toBeUndefined()
+  })
+
+  test('puts sets in order of their best rated bonus, unrated sets last by name', () => {
+    expect(
+      names(armorSetRows([...sets, armorSet('Also New', 'Mystery')], [], ratings, {})),
+    ).toEqual(['Atheon’s Memory', 'Smokejumper', 'Twofold Crown', 'Also New', 'Brand New'])
+  })
+
+  test('keeps sets with a rated bonus that has the tag and reaches minTier', () => {
+    expect(names(armorSetRows(sets, [], ratings, { tag: 'Survivability' }))).toEqual([
+      'Smokejumper',
+    ])
+    expect(names(armorSetRows(sets, [], ratings, { minTier: 'A' }))).toEqual([
+      'Atheon’s Memory',
+      'Smokejumper',
+    ])
+    expect(names(armorSetRows(sets, [], ratings, { tag: 'pvp', minTier: 'A' }))).toEqual([])
+  })
+
+  test('without the sheet every rating is null and the reason is passed on', () => {
+    const found = armorSetRows(sets, [], { byBonus: new Map(), asOf: null, error: 'HTTP 500' }, {})
+    expect(found.ratings).toMatchObject({ matched: 0, error: 'HTTP 500' })
+    expect(found.sets.flatMap((set) => set.bonuses).every((b) => b.rating === null)).toBe(true)
+    expect(names(found)).toEqual(['Atheon’s Memory', 'Brand New', 'Smokejumper', 'Twofold Crown'])
   })
 })

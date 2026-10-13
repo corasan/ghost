@@ -36,6 +36,7 @@ import { ItemsLive } from './items/items.ts'
 import { LoggerLive, requestLogger } from './log.ts'
 import { McpLive } from './mcp/server.ts'
 import { PlansLive } from './plans/executor.ts'
+import { SetRatingsLive } from './setratings/ratings.ts'
 import { WishlistLive } from './wishlist/wishlist.ts'
 
 // Layers compose bottom-up: config -> database -> repositories -> clients ->
@@ -56,6 +57,7 @@ const Clients = Layer.mergeAll(
   BungieClientLive,
   ManifestLive,
   WishlistLive,
+  SetRatingsLive,
   ClaudeAgentLive,
   SummarizerLive,
   SituationalWriterLive,

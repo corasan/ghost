@@ -89,7 +89,7 @@ export const PlanInput = Schema.Struct({
       source: Schema.optional(
         Schema.String.annotate({
           description:
-            "Where its pieces drop, for example 'Sundered Doctrine and its weekly chest'.",
+            "Where its pieces drop: the set's source in list_armor_sets, for example 'Vault of Glass'.",
         }),
       ),
     }),

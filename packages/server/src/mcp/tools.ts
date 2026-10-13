@@ -63,6 +63,13 @@ import {
   unknownSubclass,
 } from '../plans/compose.ts'
 import { type BuildRecipe, PlanInput, SourceInput } from '../plans/recipe.ts'
+import { RATING_TIERS, ratingKey, type SetBonusRating } from '../setratings/parse.ts'
+import {
+  SET_RATINGS_LABEL,
+  SET_RATINGS_URL,
+  SetRatings,
+  type SetRatingsSnapshot,
+} from '../setratings/ratings.ts'
 import {
   checkRoll,
   perkKey,
@@ -128,7 +135,7 @@ const ListSubclasses = Tool.make('list_subclasses', {
 
 const PresentPlan = Tool.make('present_plan', {
   description:
-    "Show the player a plan to confirm. Nothing moves until they tap the confirm button; the server then runs the selected rows. Call it once per request, after deciding. Row actions: to_vault, to_character, pull_postmaster, equip, tag_junk, or none (shown for comparison only). For a build, list the armor piece for every slot and one weapon for each of kinetic, energy and power, including pieces that stay equipped (action none), with at most one exotic weapon and one exotic armor piece worn once it applies. Only a cleanup plan may use tag_junk. The server fills in each weapon's type, its perks and, when you pass no score, its wishlist score. The app works out the build's six stat totals itself from the pieces you equip, before and after, and what masterworking would add, so do not do that arithmetic or repeat those numbers in your reply. For a build, also pick the subclass in subclass: its name (from list_subclasses) and the super, class ability, jump, melee, grenade, aspects and fragments you want, by the names list_subclasses gives. Anything you leave out stays as that subclass has it. Name the fragments the build needs; they go into empty slots first, then replace from the last slot back, and slots you leave spare keep their fragment. The aspects' fragment slots cap the fragments. The server checks the picks and tells you what to fix; on confirm it equips the subclass and slots the plugs, and the build's stats count the chosen fragments. Leave subclass out only when the equipped subclass and its plugs already fit. For a build, also recommend armor mods in mods: one entry per mod to put in, naming the piece (it must be a row) and the mod exactly as list_armor_mods gives it, with replaces when the piece has no free socket of that kind. Only list mods that change; what is already slotted stays. The server checks sockets and energy and tells you what to fix. Every armor charge mod the build will run (charged true in get_armor_mods or list_armor_mods, already slotted or swapped in) needs its numbers: if it has no chargeEffect yet, look up what it adds while charged and how extra copies stack, and pass it in chargeEffects with the source, for example '+10% Arc weapon damage; 17% with two copies, 22% with three'. For a build, also write situational: one to three sentences on what the build's conditional bonuses (armor charge mods, and fragments or aspects that only work under a condition) add together once they are up, how the player keeps them up, and what they lose when they drop. For a build, also write synergy, one or two sentences per part on how it feeds the rest of the build: exotic, what the exotic armor's perk does for this subclass and its loop; setBonuses, how the set bonuses the armor turns on (get_armor_mods lists them) fit the loop, plus any bonus one piece away worth chasing; mods, how the armor mods back the loop; weapons, how the three weapons, the exotic weapon included, feed the loop (every build needs it); artifact, how the artifact perks and any artifact-only mod back the loop and the weapons. Leave out a part the build lacks; the server refuses a build that has a part without its synergy. For a build, also pass artifact: the names of the Seasonal Artifact perks it runs, from get_artifact. The server checks them against the character's columns and points and marks which the player must select in game, or that the artifact needs a reset; say so in note, because only the player can select them. For a build, also pass purpose; the server judges the set bonuses against it and tells you when one the armor turns on fits the build poorly. Prefer armor whose set bonuses fit the build. For a build, pass targetSet when an armor set from list_armor_sets would serve the build better than the armor it wears, so the player can farm it: the set name, why it fits, and where it drops if you know. The card shows it until the build wears enough of the set to turn every bonus on. For a build, pass stats only for the stat goals the player names: one entry each, label Health, Melee, Grenade, Super, Class or Weapons (Resilience is Health, Recovery is Class), target true, and value the number they asked for. The server refuses a build whose totals, after armor, mods and fragments, fall short of a goal; if the owned gear truly cannot reach it, pass shortfall with one sentence on why.",
+    "Show the player a plan to confirm. Nothing moves until they tap the confirm button; the server then runs the selected rows. Call it once per request, after deciding. Row actions: to_vault, to_character, pull_postmaster, equip, tag_junk, or none (shown for comparison only). For a build, list the armor piece for every slot and one weapon for each of kinetic, energy and power, including pieces that stay equipped (action none), with at most one exotic weapon and one exotic armor piece worn once it applies. Only a cleanup plan may use tag_junk. The server fills in each weapon's type, its perks and, when you pass no score, its wishlist score. The app works out the build's six stat totals itself from the pieces you equip, before and after, and what masterworking would add, so do not do that arithmetic or repeat those numbers in your reply. For a build, also pick the subclass in subclass: its name (from list_subclasses) and the super, class ability, jump, melee, grenade, aspects and fragments you want, by the names list_subclasses gives. Anything you leave out stays as that subclass has it. Name the fragments the build needs; they go into empty slots first, then replace from the last slot back, and slots you leave spare keep their fragment. The aspects' fragment slots cap the fragments. The server checks the picks and tells you what to fix; on confirm it equips the subclass and slots the plugs, and the build's stats count the chosen fragments. Leave subclass out only when the equipped subclass and its plugs already fit. For a build, also recommend armor mods in mods: one entry per mod to put in, naming the piece (it must be a row) and the mod exactly as list_armor_mods gives it, with replaces when the piece has no free socket of that kind. Only list mods that change; what is already slotted stays. The server checks sockets and energy and tells you what to fix. Every armor charge mod the build will run (charged true in get_armor_mods or list_armor_mods, already slotted or swapped in) needs its numbers: if it has no chargeEffect yet, look up what it adds while charged and how extra copies stack, and pass it in chargeEffects with the source, for example '+10% Arc weapon damage; 17% with two copies, 22% with three'. For a build, also write situational: one to three sentences on what the build's conditional bonuses (armor charge mods, and fragments or aspects that only work under a condition) add together once they are up, how the player keeps them up, and what they lose when they drop. For a build, also write synergy, one or two sentences per part on how it feeds the rest of the build: exotic, what the exotic armor's perk does for this subclass and its loop; setBonuses, how the set bonuses the armor turns on (get_armor_mods lists them) fit the loop, plus any bonus one piece away worth chasing; mods, how the armor mods back the loop; weapons, how the three weapons, the exotic weapon included, feed the loop (every build needs it); artifact, how the artifact perks and any artifact-only mod back the loop and the weapons. Leave out a part the build lacks; the server refuses a build that has a part without its synergy. For a build, also pass artifact: the names of the Seasonal Artifact perks it runs, from get_artifact. The server checks them against the character's columns and points and marks which the player must select in game, or that the artifact needs a reset; say so in note, because only the player can select them. For a build, also pass purpose; the server judges the set bonuses against it and tells you when one the armor turns on fits the build poorly. Prefer armor whose set bonuses fit the build. For a build, pass targetSet when an armor set from list_armor_sets would serve the build better than the armor it wears, so the player can farm it: the set name, why it fits, and where it drops (its source in list_armor_sets). The card shows it until the build wears enough of the set to turn every bonus on. For a build, pass stats only for the stat goals the player names: one entry each, label Health, Melee, Grenade, Super, Class or Weapons (Resilience is Health, Recovery is Class), target true, and value the number they asked for. The server refuses a build whose totals, after armor, mods and fragments, fall short of a goal; if the owned gear truly cannot reach it, pass shortfall with one sentence on why.",
   parameters: PlanInput,
   success: Json,
 })
@@ -266,9 +273,11 @@ const ListArmorMods = Tool.make('list_armor_mods', {
 
 const ListArmorSets = Tool.make('list_armor_sets', {
   description:
-    "Armor sets from the current patch's Bungie manifest, with every set bonus, the pieces each needs and its effect text, and owned: the pieces of the set the player owns now, by slot and class. Filter by words in the set name or a bonus. Use it to pick a build's targetSet: a set whose bonuses fit the build better than what the owned armor turns on, which the player would farm toward.",
+    "Armor sets from the current patch's Bungie manifest, with every set bonus, the pieces each needs and its effect text, and owned: the pieces of the set the player owns now, by slot and class. Each bonus carries rating from Aegis's Endgame Analysis sheet (Set Bonuses tab): tier (S best, F worst), rank (1 is the best bonus overall), tags (damage, survivability, ability, ammo, splash, stats, refill, PvP), trigger, effect and analysis, the sheet's reason for the rating; each set carries source, where it drops, and bestTier. Sets come best rated first. Filter by words in the set name or a bonus, by tag, and by minTier. Pick by tier and rank first, then by how the trigger and tags fit the build's loop. Use it to pick a build's targetSet: a set whose bonuses fit the build better than what the owned armor turns on, which the player would farm toward. Cite the sheet with the url and asOf in ratings.",
   parameters: Schema.Struct({
     text: Schema.optional(Schema.String),
+    tag: Schema.optional(Schema.String),
+    minTier: Schema.optional(Schema.Literals(RATING_TIERS)),
     limit: Schema.optional(Schema.Number),
   }),
   success: Json,
@@ -792,6 +801,89 @@ export const artifactView = (
   }
 }
 
+type ArmorSetFilters = (typeof ListArmorSets)['parametersSchema']['Type']
+
+const tierOrder = (tier: SetBonusRating['tier']) => RATING_TIERS.indexOf(tier)
+
+export const armorSetRows = (
+  sets: ReadonlyArray<ArmorSet>,
+  items: ReadonlyArray<OwnedItem>,
+  ratings: SetRatingsSnapshot,
+  input: ArmorSetFilters,
+) => {
+  const rated = sets.map((set) => ({
+    set,
+    bonuses: set.perks.map((perk) => ({
+      perk,
+      rating: ratings.byBonus.get(ratingKey(perk.name)) ?? null,
+    })),
+  }))
+  const words = (input.text ?? '').toLowerCase().trim()
+  const tag = input.tag?.toLowerCase().trim()
+  const minTier = input.minTier === undefined ? undefined : tierOrder(input.minTier)
+  const wanted = (rating: SetBonusRating | null) =>
+    rating !== null &&
+    (tag === undefined || rating.tags.some((t) => t.toLowerCase() === tag)) &&
+    (minTier === undefined || tierOrder(rating.tier) <= minTier)
+  const matches = rated
+    .filter(
+      ({ set, bonuses }) =>
+        (words === '' ||
+          [set.name, ...set.perks.flatMap((perk) => [perk.name, perk.description])].some((part) =>
+            part.toLowerCase().includes(words),
+          )) &&
+        ((tag === undefined && minTier === undefined) ||
+          bonuses.some(({ rating }) => wanted(rating))),
+    )
+    .map((entry) => ({
+      ...entry,
+      best: entry.bonuses
+        .flatMap(({ rating }) => (rating === null ? [] : [rating]))
+        .toSorted((a, b) => a.rank - b.rank)[0],
+    }))
+    .toSorted(
+      (a, b) =>
+        (a.best?.rank ?? Infinity) - (b.best?.rank ?? Infinity) ||
+        a.set.name.localeCompare(b.set.name),
+    )
+  const limit = Math.min(Math.max(input.limit ?? 20, 1), 50)
+  return {
+    total: matches.length,
+    ratings: {
+      source: SET_RATINGS_LABEL,
+      url: SET_RATINGS_URL,
+      asOf: ratings.asOf,
+      error: ratings.error ?? undefined,
+      matched: rated.flatMap(({ bonuses }) => bonuses).filter(({ rating }) => rating !== null)
+        .length,
+    },
+    sets: matches.slice(0, limit).map(({ set, bonuses, best }) => ({
+      name: set.name,
+      source: best?.source ?? null,
+      bestTier: best?.tier ?? null,
+      bonuses: bonuses.map(({ perk, rating }) => ({
+        pieces: perk.required,
+        name: perk.name,
+        effect: clip(perk.description, 300),
+        rating:
+          rating === null
+            ? null
+            : {
+                tier: rating.tier,
+                rank: rating.rank,
+                tags: rating.tags,
+                trigger: rating.trigger,
+                effect: rating.effect,
+                analysis: rating.analysis,
+              },
+      })),
+      owned: items
+        .filter((item) => item.set?.name === set.name)
+        .map((item) => ({ slot: item.slot, classType: item.classType })),
+    })),
+  }
+}
+
 export const GhostToolkitHandlers = GhostToolkit.toLayer(
   Effect.gen(function* () {
     const profile = yield* ProfileStore
@@ -807,6 +899,7 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
     const ratings = yield* PerkRatings
     const builds = yield* BuildsRepo
     const loadouts = yield* Loadouts
+    const setRatings = yield* SetRatings
 
     const withInventory = (f: (inv: Inventory) => Effect.Effect<string>) =>
       profile.inventory.pipe(
@@ -1175,32 +1268,11 @@ export const GhostToolkitHandlers = GhostToolkit.toLayer(
         })
       })
 
-    const list_armor_sets = (input: (typeof ListArmorSets)['parametersSchema']['Type']) =>
+    const list_armor_sets = (input: ArmorSetFilters) =>
       withInventory((inv) =>
         Effect.gen(function* () {
-          const words = (input.text ?? '').toLowerCase().trim()
-          const matches = (yield* manifest.armorSets).filter(
-            (set) =>
-              words === '' ||
-              [set.name, ...set.perks.flatMap((perk) => [perk.name, perk.description])].some(
-                (part) => part.toLowerCase().includes(words),
-              ),
-          )
-          const limit = Math.min(Math.max(input.limit ?? 20, 1), 50)
-          return JSON.stringify({
-            total: matches.length,
-            sets: matches.slice(0, limit).map((set) => ({
-              name: set.name,
-              bonuses: set.perks.map((perk) => ({
-                pieces: perk.required,
-                name: perk.name,
-                effect: clip(perk.description, 300),
-              })),
-              owned: inv.items
-                .filter((item) => item.set?.name === set.name)
-                .map((item) => ({ slot: item.slot, classType: item.classType })),
-            })),
-          })
+          const sets = yield* manifest.armorSets
+          return JSON.stringify(armorSetRows(sets, inv.items, yield* setRatings.ratings, input))
         }),
       )
 
