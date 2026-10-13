@@ -176,6 +176,29 @@ describe('vault filter', () => {
   test('sorts by power by default', () => {
     expect(filterVault(items, emptyFilter).map((i) => i.power)).toEqual([2010, 2004, 1990])
   })
+  test('a search by meaning adds the items the server ranked, best fit first', () => {
+    const relevance = new Map([
+      ['c', 0.9],
+      ['b', 0.6],
+    ])
+    const filter = { ...emptyFilter, query: 'cloak that makes my melee stronger' }
+    expect(filterVault(items, filter).map((i) => i.itemInstanceId)).toEqual([])
+    expect(filterVault(items, filter, relevance).map((i) => i.itemInstanceId)).toEqual(['c', 'b'])
+  })
+  test('a literal match outranks a match by meaning, and facets still apply', () => {
+    const relevance = new Map([['c', 0.9]])
+    const search = { ...emptyFilter, query: 'igneous' }
+    expect(filterVault(items, search, relevance).map((i) => i.itemInstanceId)).toEqual([
+      'a',
+      'b',
+      'c',
+    ])
+    const weaponsOnly = { ...search, category: 'weapons' as const }
+    expect(filterVault(items, weaponsOnly, relevance).map((i) => i.itemInstanceId)).toEqual([
+      'a',
+      'b',
+    ])
+  })
 })
 
 describe('active vault filters', () => {

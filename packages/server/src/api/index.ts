@@ -172,6 +172,11 @@ const GuardianLive = HttpApiBuilder.group(GhostApi, 'guardian', (handlers) =>
     .handle('vault', () =>
       Effect.flatMap(Guardian, (g) => g.vault).pipe(Effect.catchTag('BungieError', toBungieFailed)),
     )
+    .handle('searchVault', ({ query }) =>
+      Effect.flatMap(Guardian, (g) => g.searchVault(query.q)).pipe(
+        Effect.catchTag('BungieError', toBungieFailed),
+      ),
+    )
     .handle('briefing', ({ query }) =>
       Effect.flatMap(Activity, (a) => a.briefing(query.characterId, query.tz)).pipe(
         Effect.catchTag('BungieError', toBungieFailed),

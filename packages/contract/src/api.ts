@@ -48,6 +48,7 @@ import {
   CleanupItems,
   ReviewItem,
   StartCleanup,
+  VaultSearch,
   VaultSnapshot,
 } from './schemas'
 
@@ -190,6 +191,13 @@ export const guardianGroup = HttpApiGroup.make('guardian')
     }),
   )
   .add(HttpApiEndpoint.get('vault', '/vault', { success: VaultSnapshot, error: bungieErrors }))
+  .add(
+    HttpApiEndpoint.get('searchVault', '/vault/search', {
+      query: { q: Schema.String },
+      success: VaultSearch,
+      error: bungieErrors,
+    }),
+  )
   .add(
     HttpApiEndpoint.get('briefing', '/briefing', {
       query: { characterId: Schema.optional(Schema.String), tz: Schema.optional(Schema.String) },

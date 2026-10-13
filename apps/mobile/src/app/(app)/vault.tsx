@@ -2,7 +2,7 @@ import type { ItemSummary, Job, Plan } from '@ghost/contract'
 import { LegendList } from '@legendapp/list/react-native'
 import { AnimatedLegendList } from '@legendapp/list/reanimated'
 import { router } from 'expo-router'
-import { type ReactNode, useMemo, useState } from 'react'
+import { type ReactNode, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native'
 import Animated, {
   Extrapolation,
@@ -39,6 +39,8 @@ import {
   useJobs,
   useSetDecision,
   useVault,
+  useVaultSearch,
+  type VaultSearchState,
 } from '@/lib/api'
 import { vaultSaid } from '@/lib/cleanup'
 import { useCharacter } from '@/lib/character'
@@ -46,7 +48,7 @@ import { sentence } from '@/lib/format'
 import { usePullRefresh } from '@/lib/refresh'
 import { usePlanSelection } from '@/lib/selection'
 import { useSessionId } from '@/lib/session'
-import { activeFilters, filterVault, isWeapon, removeFilter, SORT_LABEL } from '@/lib/vault-filter'
+import { activeFilters, isWeapon, removeFilter, SORT_LABEL } from '@/lib/vault-filter'
 import {
   clearPicked,
   replaceVaultFilter,
@@ -227,6 +229,15 @@ function CleanupCard({ name }: { name: string }) {
   )
 }
 
+const SEARCH_NOTE: Record<VaultSearchState, string | null> = {
+  idle: null,
+  searching: 'Searching by description…',
+  ranked: 'Best fits for your description first.',
+  nothing: 'Nothing else in your vault fits that description.',
+  no_key: 'Matching names only. Add a TypeSafe key with ghost setup to search by description.',
+  failed: 'Search by description did not answer. Showing name matches only.',
+}
+
 function Filters({ shown }: { shown: number }) {
   const filter = useVaultFilter()
   const active = activeFilters(filter)
@@ -237,7 +248,7 @@ function Filters({ shown }: { shown: number }) {
           <TextInput
             value={filter.query}
             onChangeText={(query) => setVaultFilter({ query })}
-            placeholder="Name, perk or type"
+            placeholder="Name, perk, or describe it"
             placeholderTextColor={Ghost.dim}
             keyboardAppearance="dark"
             autoCorrect={false}
@@ -380,7 +391,9 @@ export default function VaultScreen() {
   const items = vault.data?.items ?? []
   const preview = useCleanupPreview(character?.characterId)
   const vaultJunk = items.filter((item) => item.decision === 'junk').length
-  const shown = useMemo(() => filterVault(items, filter), [items, filter])
+  const search = useVaultSearch(items, filter)
+  const { shown } = search
+  const note = SEARCH_NOTE[search.state]
 
   const latestCleanup = jobs.data?.find(
     (job) => job.kind === 'vault_cleanup' || job.plan?.kind === 'cleanup',
@@ -454,9 +467,16 @@ export default function VaultScreen() {
             progressViewOffset={headerHeight}
             scrollIndicatorInsets={{ top: headerHeight }}
             contentContainerStyle={{ paddingTop: headerHeight, paddingBottom: bottomInset + 16 }}
+            ListHeaderComponent={
+              note === null ? null : (
+                <Meta style={{ paddingHorizontal: Gutter, paddingBottom: 6 }}>{note}</Meta>
+              )
+            }
             ListEmptyComponent={
               <Body color={Ghost.dim} style={{ paddingHorizontal: Gutter, paddingTop: 24 }}>
-                Nothing matches. Loosen a filter or clear the search.
+                {search.state === 'searching'
+                  ? 'Nothing matches by name yet.'
+                  : 'Nothing matches. Loosen a filter or clear the search.'}
               </Body>
             }
             renderItem={({ item }) => (

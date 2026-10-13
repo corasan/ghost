@@ -77,12 +77,30 @@ const comparators: Record<Sort, (a: ItemSummary, b: ItemSummary) => number> = {
   name: (a, b) => a.name.localeCompare(b.name),
 }
 
+/** Item id to how well it fits the search by meaning, from the server's ranking. */
+export type Relevance = ReadonlyMap<string, number>
+const NO_RELEVANCE: Relevance = new Map()
+
+/**
+ * How strongly an item answers the search: a literal match counts as a full
+ * fit, otherwise the server's relevance, and 0 drops the item.
+ */
+const queryFit = (item: ItemSummary, words: readonly string[], relevance: Relevance) =>
+  matchesQuery(item, words)
+    ? 1
+    : item.itemInstanceId === null
+      ? 0
+      : (relevance.get(item.itemInstanceId) ?? 0)
+
+/** With a search, the best fits come first and the chosen sort orders equal fits. */
 export function filterVault(
   items: readonly ItemSummary[],
   filter: VaultFilter,
+  relevance: Relevance = NO_RELEVANCE,
   now: number = Date.now(),
 ): ItemSummary[] {
   const words = filter.query.toLowerCase().split(/\s+/).filter(Boolean)
+  const sort = comparators[filter.sort]
   return items
     .filter(
       (item) =>
@@ -91,10 +109,12 @@ export function filterVault(
         (filter.elements.size === 0 || filter.elements.has(item.damageType)) &&
         (filter.classes.size === 0 ||
           (item.classType !== null && filter.classes.has(item.classType))) &&
-        [...filter.flags].every((flag) => matchesFlag(item, flag, now)) &&
-        (words.length === 0 || matchesQuery(item, words)),
+        [...filter.flags].every((flag) => matchesFlag(item, flag, now)),
     )
-    .sort(comparators[filter.sort])
+    .map((item) => ({ item, fit: words.length === 0 ? 1 : queryFit(item, words, relevance) }))
+    .filter(({ fit }) => fit > 0)
+    .sort((a, b) => b.fit - a.fit || sort(a.item, b.item))
+    .map(({ item }) => item)
 }
 
 /** How many items each flag chip would show within the current category. */

@@ -8,6 +8,8 @@ export interface Candidate {
 }
 
 export class JevUnavailable extends Schema.TaggedError<JevUnavailable>()('JevUnavailable', {
+  /** no_key when the server has no TypeSafe key; failed when Jev errored or timed out. */
+  reason: Schema.Literals(['no_key', 'failed']),
   message: Schema.String,
 }) {}
 
@@ -96,7 +98,8 @@ export const chunk = (
 
 const Answers = Schema.Record(Schema.String, Schema.Struct({ noul: Schema.Number }))
 
-const unavailable = (cause: unknown) => new JevUnavailable({ message: String(cause) })
+const unavailable = (cause: unknown) =>
+  new JevUnavailable({ reason: 'failed', message: String(cause) })
 
 export const JevLive = Layer.effect(
   Jev,
@@ -105,7 +108,10 @@ export const JevLive = Layer.effect(
     const apiKey = Redacted.value(jev.apiKey)
     if (apiKey === '') {
       return {
-        rank: () => Effect.fail(new JevUnavailable({ message: 'TYPESAFE_API_KEY is not set' })),
+        rank: () =>
+          Effect.fail(
+            new JevUnavailable({ reason: 'no_key', message: 'TYPESAFE_API_KEY is not set' }),
+          ),
       }
     }
     const client = new TypeSafeClient({

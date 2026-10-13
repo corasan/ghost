@@ -5,13 +5,12 @@ import { ScrollView, StyleSheet, View } from 'react-native'
 
 import { Button, Chip, Cond, Mono } from '@/components/ghost/ui'
 import { ELEMENT_TONE, Ghost, Rarity } from '@/constants/theme'
-import { useVault } from '@/lib/api'
+import { useVault, useVaultSearch } from '@/lib/api'
 import { upper } from '@/lib/format'
 import {
   activeFilters,
   type Category,
   type Flag,
-  filterVault,
   flagCounts,
   SORT_LABEL,
   type Sort,
@@ -42,7 +41,7 @@ export default function VaultFilterScreen() {
   const filter = useVaultFilter()
   const items = useVault().data?.items ?? []
   const counts = useMemo(() => flagCounts(items, filter.category), [items, filter.category])
-  const shown = useMemo(() => filterVault(items, filter).length, [items, filter])
+  const shown = useVaultSearch(items, filter).shown.length
   const narrowed = activeFilters(filter).length > 0
 
   return (

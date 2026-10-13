@@ -22,6 +22,8 @@ import {
 } from '@ghost/contract'
 import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Effect } from 'effect'
+import { useEffect, useMemo, useState } from 'react'
+import { filterVault, type VaultFilter } from './vault-filter'
 import { FetchHttpClient, HttpClient, HttpClientError, HttpClientRequest } from 'effect/http'
 import { HttpApiClient } from 'effect/http-api'
 import { getServerToken, getServerUrl, useServerUrl } from './server-url'
@@ -66,6 +68,7 @@ export const queryKeys = {
   recent: (url: string, characterId: string | undefined) => [url, 'recent', characterId] as const,
   guardian: (url: string) => [url, 'guardian'] as const,
   vault: (url: string) => [url, 'vault'] as const,
+  vaultSearch: (url: string, query: string) => [url, 'vaultSearch', query] as const,
   briefing: (url: string, characterId: string | undefined) =>
     [url, 'briefing', characterId] as const,
   history: (url: string) => [url, 'history'] as const,
@@ -247,6 +250,67 @@ export function useVault() {
     staleTime: 60_000,
     retry: false,
   })
+}
+
+// A search by meaning costs a ranking call over the whole vault, so it waits
+// for the player to stop typing, and runs only for text that reads like a
+// description: several words, or one word that matches no name or perk.
+const SEARCH_PAUSE_MS = 600
+const SEARCH_MIN_CHARS = 4
+
+/** Where a search by meaning stands; idle when the text reads like a name. */
+export type VaultSearchState = 'idle' | 'searching' | 'ranked' | 'nothing' | 'no_key' | 'failed'
+
+const describes = (query: string, nameMatches: number) =>
+  query.length >= SEARCH_MIN_CHARS && (query.split(/\s+/).length > 1 || nameMatches === 0)
+
+const useSettled = (value: string, ms: number) => {
+  const [settled, setSettled] = useState(value)
+  useEffect(() => {
+    const timer = setTimeout(() => setSettled(value), ms)
+    return () => clearTimeout(timer)
+  }, [value, ms])
+  return settled
+}
+
+/**
+ * The filtered vault, where a description like "exotic that recharges
+ * grenades" also finds items whose names it never mentions: the server
+ * ranks the vault against it and the fits join the name matches.
+ */
+export function useVaultSearch(items: readonly ItemSummary[], filter: VaultFilter) {
+  const url = useServerUrl()
+  const typed = filter.query.trim()
+  const settled = useSettled(typed, SEARCH_PAUSE_MS)
+  const byName = useMemo(() => filterVault(items, filter), [items, filter])
+  const wanted = describes(typed, byName.length)
+  const search = useQuery({
+    queryKey: queryKeys.vaultSearch(url, typed),
+    queryFn: () => run((api) => api.guardian.searchVault({ query: { q: typed } })),
+    enabled: wanted && settled === typed,
+    staleTime: 10 * 60_000,
+    retry: false,
+  })
+  const matches = wanted ? search.data?.matches : undefined
+  const shown = useMemo(
+    () =>
+      matches === undefined || matches.length === 0
+        ? byName
+        : filterVault(items, filter, new Map(matches.map((m) => [m.itemInstanceId, m.relevance]))),
+    [byName, items, filter, matches],
+  )
+  const state: VaultSearchState = !wanted
+    ? 'idle'
+    : search.data !== undefined
+      ? search.data.ranking === 'ranked'
+        ? search.data.matches.length > 0
+          ? 'ranked'
+          : 'nothing'
+        : search.data.ranking
+      : search.isError
+        ? 'failed'
+        : 'searching'
+  return { shown, state }
 }
 
 export function useBriefing(characterId: string | undefined) {

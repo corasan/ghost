@@ -820,6 +820,22 @@ export class VaultSnapshot extends Schema.Class<VaultSnapshot>('VaultSnapshot')(
   items: Schema.Array(ItemSummary),
 }) {}
 
+/** How well one vault item fits what the player described, from 0 to 1. */
+export class VaultMatch extends Schema.Class<VaultMatch>('VaultMatch')({
+  itemInstanceId: Schema.String,
+  relevance: Schema.Number,
+}) {}
+
+/**
+ * Vault items that fit a description, best first. Without a ranking (no
+ * TypeSafe key, or Jev failed) matches is empty and the app keeps to matching
+ * names, types and perks.
+ */
+export class VaultSearch extends Schema.Class<VaultSearch>('VaultSearch')({
+  ranking: Schema.Literals(['ranked', 'no_key', 'failed']),
+  matches: Schema.Array(VaultMatch),
+}) {}
+
 // ---- "Since last time" briefing ----
 
 /**
