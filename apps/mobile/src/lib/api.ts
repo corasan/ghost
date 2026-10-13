@@ -22,6 +22,7 @@ import {
 } from '@ghost/contract'
 import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Effect } from 'effect'
+import { useEffect, useMemo, useState } from 'react'
 import { FetchHttpClient, HttpClient, HttpClientError, HttpClientRequest } from 'effect/http'
 import { HttpApiClient } from 'effect/http-api'
 import { getServerToken, getServerUrl, useServerUrl } from './server-url'
@@ -66,6 +67,7 @@ export const queryKeys = {
   recent: (url: string, characterId: string | undefined) => [url, 'recent', characterId] as const,
   guardian: (url: string) => [url, 'guardian'] as const,
   vault: (url: string) => [url, 'vault'] as const,
+  vaultSearch: (url: string, query: string) => [url, 'vaultSearch', query] as const,
   briefing: (url: string, characterId: string | undefined) =>
     [url, 'briefing', characterId] as const,
   history: (url: string) => [url, 'history'] as const,
@@ -249,6 +251,58 @@ export function useVault() {
   })
 }
 
+// A search by meaning costs a ranking call over the whole vault, so it waits
+// for the player to stop typing and for enough words to describe something.
+const SEARCH_PAUSE_MS = 600
+const SEARCH_MIN_CHARS = 4
+
+/** Where a search by meaning stands; idle when the text is too short to describe anything. */
+export type VaultSearchState = 'idle' | 'searching' | 'ranked' | 'unavailable'
+
+const useSettled = (value: string, ms: number) => {
+  const [settled, setSettled] = useState(value)
+  useEffect(() => {
+    const timer = setTimeout(() => setSettled(value), ms)
+    return () => clearTimeout(timer)
+  }, [value, ms])
+  return settled
+}
+
+/**
+ * The server's ranking of vault items against what the player typed, so a
+ * description like "exotic that makes grenades recharge" finds items whose
+ * names it never mentions. Empty until the server answers, and when it cannot rank.
+ */
+export function useVaultRelevance(query: string) {
+  const url = useServerUrl()
+  const settled = useSettled(query.trim(), SEARCH_PAUSE_MS)
+  const enabled = settled.length >= SEARCH_MIN_CHARS
+  const search = useQuery({
+    queryKey: queryKeys.vaultSearch(url, settled),
+    queryFn: () => run((api) => api.guardian.searchVault({ query: { q: settled } })),
+    enabled,
+    staleTime: 5 * 60_000,
+    retry: false,
+  })
+  const matches = enabled ? search.data?.matches : undefined
+  const relevance = useMemo(
+    () => new Map((matches ?? []).map((match) => [match.itemInstanceId, match.relevance])),
+    [matches],
+  )
+  const typed = query.trim()
+  const state: VaultSearchState =
+    typed.length < SEARCH_MIN_CHARS
+      ? 'idle'
+      : settled !== typed || search.isFetching
+        ? 'searching'
+        : search.data?.ranking === 'unavailable'
+          ? 'unavailable'
+          : search.data === undefined
+            ? 'idle'
+            : 'ranked'
+  return { relevance, state }
+}
+
 export function useBriefing(characterId: string | undefined) {
   const url = useServerUrl()
   return useQuery({
@@ -299,6 +353,7 @@ export const invalidateInventory = (queryClient: QueryClient) =>
       'recent',
       'guardian',
       'vault',
+      'vaultSearch',
       'briefing',
       'history',
       'builds',

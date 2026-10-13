@@ -39,6 +39,8 @@ import {
   useJobs,
   useSetDecision,
   useVault,
+  useVaultRelevance,
+  type VaultSearchState,
 } from '@/lib/api'
 import { vaultSaid } from '@/lib/cleanup'
 import { useCharacter } from '@/lib/character'
@@ -227,7 +229,14 @@ function CleanupCard({ name }: { name: string }) {
   )
 }
 
-function Filters({ shown }: { shown: number }) {
+const SEARCH_NOTE: Record<VaultSearchState, string | null> = {
+  idle: null,
+  searching: 'Searching by description…',
+  ranked: 'Best fits for your description first',
+  unavailable: 'Matching names only. Add a TypeSafe key with ghost setup to search by description.',
+}
+
+function Filters({ shown, search }: { shown: number; search: VaultSearchState }) {
   const filter = useVaultFilter()
   const active = activeFilters(filter)
   return (
@@ -237,7 +246,7 @@ function Filters({ shown }: { shown: number }) {
           <TextInput
             value={filter.query}
             onChangeText={(query) => setVaultFilter({ query })}
-            placeholder="Name, perk or type"
+            placeholder="Name, perk, or describe it"
             placeholderTextColor={Ghost.dim}
             keyboardAppearance="dark"
             autoCorrect={false}
@@ -257,6 +266,11 @@ function Filters({ shown }: { shown: number }) {
           <Cond size={13}>{SORT_LABEL[filter.sort]}</Cond>
         </Pressable>
       </View>
+      {SEARCH_NOTE[search] === null ? null : (
+        <Meta style={{ paddingHorizontal: Gutter }} lines={1}>
+          {SEARCH_NOTE[search]}
+        </Meta>
+      )}
       {active.length > 0 ? (
         <ScrollView
           horizontal
@@ -380,7 +394,11 @@ export default function VaultScreen() {
   const items = vault.data?.items ?? []
   const preview = useCleanupPreview(character?.characterId)
   const vaultJunk = items.filter((item) => item.decision === 'junk').length
-  const shown = useMemo(() => filterVault(items, filter), [items, filter])
+  const search = useVaultRelevance(filter.query)
+  const shown = useMemo(
+    () => filterVault(items, filter, search.relevance),
+    [items, filter, search.relevance],
+  )
 
   const latestCleanup = jobs.data?.find(
     (job) => job.kind === 'vault_cleanup' || job.plan?.kind === 'cleanup',
@@ -456,7 +474,9 @@ export default function VaultScreen() {
             contentContainerStyle={{ paddingTop: headerHeight, paddingBottom: bottomInset + 16 }}
             ListEmptyComponent={
               <Body color={Ghost.dim} style={{ paddingHorizontal: Gutter, paddingTop: 24 }}>
-                Nothing matches. Loosen a filter or clear the search.
+                {search.state === 'searching'
+                  ? 'Nothing matches by name. Still searching by description…'
+                  : 'Nothing matches. Loosen a filter or clear the search.'}
               </Body>
             }
             renderItem={({ item }) => (
@@ -498,7 +518,7 @@ export default function VaultScreen() {
                 <CleanupCard name={character ? sentence(character.classType) : 'your Guardian'} />
               </>
             }
-            pinned={<Filters shown={shown.length} />}
+            pinned={<Filters shown={shown.length} search={search.state} />}
             title="VAULT"
             figure={
               <Cond size={20}>

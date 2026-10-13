@@ -8,14 +8,18 @@ import {
   ItemSummary,
   SlottedMod,
   Source,
+  VaultMatch,
+  VaultSearch,
   VaultSnapshot,
 } from '@ghost/contract'
 import { Clock, Context, Effect, Layer, Option, Schema, Semaphore } from 'effect'
+import { Jev } from '../agent/jev.ts'
 import { SituationalWriter } from '../agent/situational.ts'
 import { ChargeEffects } from '../db/charge.ts'
 import { Settings } from '../db/settings.ts'
+import { rankingText } from '../mcp/tools.ts'
 import type { BungieError } from './client.ts'
-import { isArmor, isPerk, isWeapon, type OwnedItem } from './inventory.ts'
+import { type Inventory, isArmor, isPerk, isWeapon, type OwnedItem } from './inventory.ts'
 import { describeLoadout, loadoutPlugHashes } from './loadout.ts'
 import { Manifest, type ManifestItem } from './manifest.ts'
 import { describeArmorMods, socketsNow, withChargeEffects } from './mods.ts'
@@ -27,6 +31,8 @@ import { ProfileStore } from './profile.ts'
 export interface GuardianService {
   readonly snapshot: Effect.Effect<GuardianSnapshot, BungieError | BungieNotLinked>
   readonly vault: Effect.Effect<VaultSnapshot, BungieError | BungieNotLinked>
+  /** Vault items that fit what the player describes, for searches by meaning rather than name. */
+  readonly searchVault: (query: string) => Effect.Effect<VaultSearch, BungieError | BungieNotLinked>
   readonly situational: (
     characterId: string,
   ) => Effect.Effect<GuardianSituational, BungieError | BungieNotLinked>
@@ -37,10 +43,42 @@ export class Guardian extends Context.Service<Guardian, GuardianService>()('Guar
 const SUMMARIES_KEY = 'situational.summaries'
 const MAX_SUMMARIES = 50
 const RETRY_FAILED_MS = 60 * 60 * 1000
+/** Jev's answer is a probability, so an even chance is where "fits" starts. */
+const MIN_RELEVANCE = 0.5
 
 const decodeSummaries = Schema.decodeOption(
   Schema.fromJsonString(Schema.Array(Schema.Tuple([Schema.String, Schema.String]))),
 )
+
+/** Vault items Jev judges a fit for the description, best first; unranked when Jev cannot answer. */
+export const rankVault = (inv: Inventory, query: string): Effect.Effect<VaultSearch, never, Jev> =>
+  Effect.gen(function* () {
+    const jev = yield* Jev
+    const items = inv.items.filter((i) => i.location === 'vault')
+    return yield* jev
+      .rank(
+        query,
+        items.map((i) => ({ id: i.itemInstanceId, text: rankingText(i) })),
+      )
+      .pipe(
+        Effect.map(
+          (relevance) =>
+            new VaultSearch({
+              ranking: 'ranked',
+              matches: [...relevance]
+                .filter(([, fit]) => fit >= MIN_RELEVANCE)
+                .toSorted((a, b) => b[1] - a[1])
+                .map(
+                  ([itemInstanceId, fit]) =>
+                    new VaultMatch({ itemInstanceId, relevance: Math.round(fit * 100) / 100 }),
+                ),
+            }),
+        ),
+        Effect.catchTag('JevUnavailable', () =>
+          Effect.succeed(new VaultSearch({ ranking: 'unavailable', matches: [] })),
+        ),
+      )
+  })
 
 export const GuardianLive = Layer.effect(
   Guardian,
@@ -50,6 +88,7 @@ export const GuardianLive = Layer.effect(
     const chargeEffects = yield* ChargeEffects
     const settings = yield* Settings
     const writer = yield* SituationalWriter
+    const jev = yield* Jev
     const writing = new Set<string>()
     // When each loadout's last write failed, so a failing model is not
     // called again on every request.
@@ -171,6 +210,12 @@ export const GuardianLive = Layer.effect(
       })
     })
 
+    const searchVault = (query: string) =>
+      profile.inventory.pipe(
+        Effect.flatMap((inv) => rankVault(inv, query)),
+        Effect.provideService(Jev, jev),
+      )
+
     const situational = (characterId: string) =>
       Effect.gen(function* () {
         const inv = yield* profile.inventory
@@ -272,6 +317,6 @@ export const GuardianLive = Layer.effect(
         })
       })
 
-    return { snapshot, vault, situational }
+    return { snapshot, vault, searchVault, situational }
   }),
 )
