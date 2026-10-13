@@ -23,6 +23,7 @@ import {
 import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Effect } from 'effect'
 import { useEffect, useMemo, useState } from 'react'
+import { filterVault, type VaultFilter } from './vault-filter'
 import { FetchHttpClient, HttpClient, HttpClientError, HttpClientRequest } from 'effect/http'
 import { HttpApiClient } from 'effect/http-api'
 import { getServerToken, getServerUrl, useServerUrl } from './server-url'
@@ -252,12 +253,16 @@ export function useVault() {
 }
 
 // A search by meaning costs a ranking call over the whole vault, so it waits
-// for the player to stop typing and for enough words to describe something.
+// for the player to stop typing, and runs only for text that reads like a
+// description: several words, or one word that matches no name or perk.
 const SEARCH_PAUSE_MS = 600
 const SEARCH_MIN_CHARS = 4
 
-/** Where a search by meaning stands; idle when the text is too short to describe anything. */
-export type VaultSearchState = 'idle' | 'searching' | 'ranked' | 'unavailable'
+/** Where a search by meaning stands; idle when the text reads like a name. */
+export type VaultSearchState = 'idle' | 'searching' | 'ranked' | 'nothing' | 'no_key' | 'failed'
+
+const describes = (query: string, nameMatches: number) =>
+  query.length >= SEARCH_MIN_CHARS && (query.split(/\s+/).length > 1 || nameMatches === 0)
 
 const useSettled = (value: string, ms: number) => {
   const [settled, setSettled] = useState(value)
@@ -269,38 +274,43 @@ const useSettled = (value: string, ms: number) => {
 }
 
 /**
- * The server's ranking of vault items against what the player typed, so a
- * description like "exotic that makes grenades recharge" finds items whose
- * names it never mentions. Empty until the server answers, and when it cannot rank.
+ * The filtered vault, where a description like "exotic that recharges
+ * grenades" also finds items whose names it never mentions: the server
+ * ranks the vault against it and the fits join the name matches.
  */
-export function useVaultRelevance(query: string) {
+export function useVaultSearch(items: readonly ItemSummary[], filter: VaultFilter) {
   const url = useServerUrl()
-  const settled = useSettled(query.trim(), SEARCH_PAUSE_MS)
-  const enabled = settled.length >= SEARCH_MIN_CHARS
+  const typed = filter.query.trim()
+  const settled = useSettled(typed, SEARCH_PAUSE_MS)
+  const byName = useMemo(() => filterVault(items, filter), [items, filter])
+  const wanted = describes(typed, byName.length)
   const search = useQuery({
-    queryKey: queryKeys.vaultSearch(url, settled),
-    queryFn: () => run((api) => api.guardian.searchVault({ query: { q: settled } })),
-    enabled,
-    staleTime: 5 * 60_000,
+    queryKey: queryKeys.vaultSearch(url, typed),
+    queryFn: () => run((api) => api.guardian.searchVault({ query: { q: typed } })),
+    enabled: wanted && settled === typed,
+    staleTime: 10 * 60_000,
     retry: false,
   })
-  const matches = enabled ? search.data?.matches : undefined
-  const relevance = useMemo(
-    () => new Map((matches ?? []).map((match) => [match.itemInstanceId, match.relevance])),
-    [matches],
+  const matches = wanted ? search.data?.matches : undefined
+  const shown = useMemo(
+    () =>
+      matches === undefined || matches.length === 0
+        ? byName
+        : filterVault(items, filter, new Map(matches.map((m) => [m.itemInstanceId, m.relevance]))),
+    [byName, items, filter, matches],
   )
-  const typed = query.trim()
-  const state: VaultSearchState =
-    typed.length < SEARCH_MIN_CHARS
-      ? 'idle'
-      : settled !== typed || search.isFetching
-        ? 'searching'
-        : search.data?.ranking === 'unavailable'
-          ? 'unavailable'
-          : search.data === undefined
-            ? 'idle'
-            : 'ranked'
-  return { relevance, state }
+  const state: VaultSearchState = !wanted
+    ? 'idle'
+    : search.data !== undefined
+      ? search.data.ranking === 'ranked'
+        ? search.data.matches.length > 0
+          ? 'ranked'
+          : 'nothing'
+        : search.data.ranking
+      : search.isError
+        ? 'failed'
+        : 'searching'
+  return { shown, state }
 }
 
 export function useBriefing(characterId: string | undefined) {
@@ -353,7 +363,6 @@ export const invalidateInventory = (queryClient: QueryClient) =>
       'recent',
       'guardian',
       'vault',
-      'vaultSearch',
       'briefing',
       'history',
       'builds',

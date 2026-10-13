@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { VaultMatch, VaultSearch } from '@ghost/contract'
 import { Effect, Layer } from 'effect'
 import { Jev, JevUnavailable } from '../agent/jev.ts'
 import { rankVault } from './guardian.ts'
@@ -81,12 +82,42 @@ describe('rankVault', () => {
     ])
   })
 
-  test('says ranking is unavailable, with no matches, when Jev cannot answer', () => {
+  test('says the server has no key, with no matches, when Jev has no key', () => {
     const jev = Layer.succeed(Jev, {
-      rank: () => Effect.fail(new JevUnavailable({ message: 'TYPESAFE_API_KEY is not set' })),
+      rank: () =>
+        Effect.fail(
+          new JevUnavailable({ reason: 'no_key', message: 'TYPESAFE_API_KEY is not set' }),
+        ),
     })
     const found = Effect.runSync(rankVault(inventory, 'anything').pipe(Effect.provide(jev)))
-    expect(found.ranking).toBe('unavailable')
-    expect(found.matches).toEqual([])
+    expect(found).toEqual(new VaultSearch({ ranking: 'no_key', matches: [] }))
+  })
+
+  test('keeps the groups Jev answered when another group fails', () => {
+    const big: Inventory = {
+      ...inventory,
+      items: Array.from({ length: 200 }, (_, n) => owned(`i${n}`)),
+    }
+    const jev = Layer.succeed(Jev, {
+      rank: (_, candidates) =>
+        candidates.some((c) => c.id === 'i0')
+          ? Effect.fail(new JevUnavailable({ reason: 'failed', message: 'timed out' }))
+          : Effect.succeed(new Map(candidates.map((c) => [c.id, c.id === 'i199' ? 0.8 : 0]))),
+    })
+    const found = Effect.runSync(rankVault(big, 'anything').pipe(Effect.provide(jev)))
+    expect(found).toEqual(
+      new VaultSearch({
+        ranking: 'ranked',
+        matches: [new VaultMatch({ itemInstanceId: 'i199', relevance: 0.8 })],
+      }),
+    )
+  })
+
+  test('says ranking failed when every group fails', () => {
+    const jev = Layer.succeed(Jev, {
+      rank: () => Effect.fail(new JevUnavailable({ reason: 'failed', message: 'timed out' })),
+    })
+    const found = Effect.runSync(rankVault(inventory, 'anything').pipe(Effect.provide(jev)))
+    expect(found.ranking).toBe('failed')
   })
 })

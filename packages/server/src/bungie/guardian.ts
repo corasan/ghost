@@ -50,34 +50,47 @@ const decodeSummaries = Schema.decodeOption(
   Schema.fromJsonString(Schema.Array(Schema.Tuple([Schema.String, Schema.String]))),
 )
 
-/** Vault items Jev judges a fit for the description, best first; unranked when Jev cannot answer. */
+// Ranked in groups so one slow Jev request costs only its group's items,
+// not the whole search.
+const RANK_GROUP = 150
+
+/** Vault items Jev judges a fit for the description, best first. */
 export const rankVault = (inv: Inventory, query: string): Effect.Effect<VaultSearch, never, Jev> =>
   Effect.gen(function* () {
     const jev = yield* Jev
     const items = inv.items.filter((i) => i.location === 'vault')
-    return yield* jev
-      .rank(
-        query,
-        items.map((i) => ({ id: i.itemInstanceId, text: rankingText(i) })),
+    const groups = Array.from({ length: Math.ceil(items.length / RANK_GROUP) }, (_, n) =>
+      items.slice(n * RANK_GROUP, (n + 1) * RANK_GROUP),
+    )
+    const answers = yield* Effect.forEach(
+      groups,
+      (group) =>
+        jev
+          .rank(
+            query,
+            group.map((i) => ({ id: i.itemInstanceId, text: rankingText(i) })),
+          )
+          .pipe(Effect.result),
+      { concurrency: 2 },
+    )
+    const ranked = answers.flatMap((answer) => (answer._tag === 'Success' ? [answer.success] : []))
+    if (ranked.length === 0 && answers.length > 0) {
+      const noKey = answers.some(
+        (answer) => answer._tag === 'Failure' && answer.failure.reason === 'no_key',
       )
-      .pipe(
-        Effect.map(
-          (relevance) =>
-            new VaultSearch({
-              ranking: 'ranked',
-              matches: [...relevance]
-                .filter(([, fit]) => fit >= MIN_RELEVANCE)
-                .toSorted((a, b) => b[1] - a[1])
-                .map(
-                  ([itemInstanceId, fit]) =>
-                    new VaultMatch({ itemInstanceId, relevance: Math.round(fit * 100) / 100 }),
-                ),
-            }),
+      return new VaultSearch({ ranking: noKey ? 'no_key' : 'failed', matches: [] })
+    }
+    return new VaultSearch({
+      ranking: 'ranked',
+      matches: ranked
+        .flatMap((relevance) => [...relevance])
+        .filter(([, fit]) => fit >= MIN_RELEVANCE)
+        .toSorted((a, b) => b[1] - a[1])
+        .map(
+          ([itemInstanceId, fit]) =>
+            new VaultMatch({ itemInstanceId, relevance: Math.round(fit * 100) / 100 }),
         ),
-        Effect.catchTag('JevUnavailable', () =>
-          Effect.succeed(new VaultSearch({ ranking: 'unavailable', matches: [] })),
-        ),
-      )
+    })
   })
 
 export const GuardianLive = Layer.effect(

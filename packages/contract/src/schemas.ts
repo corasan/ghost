@@ -827,12 +827,12 @@ export class VaultMatch extends Schema.Class<VaultMatch>('VaultMatch')({
 }) {}
 
 /**
- * Vault items that fit a description, best first. `unavailable` means the
- * server could not rank (no TypeSafe key, or Jev did not answer), so the app
- * keeps to matching names, types and perks.
+ * Vault items that fit a description, best first. Without a ranking (no
+ * TypeSafe key, or Jev failed) matches is empty and the app keeps to matching
+ * names, types and perks.
  */
 export class VaultSearch extends Schema.Class<VaultSearch>('VaultSearch')({
-  ranking: Schema.Literals(['ranked', 'unavailable']),
+  ranking: Schema.Literals(['ranked', 'no_key', 'failed']),
   matches: Schema.Array(VaultMatch),
 }) {}
 

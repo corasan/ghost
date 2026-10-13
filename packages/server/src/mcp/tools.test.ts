@@ -164,7 +164,8 @@ describe('rankingText', () => {
 })
 
 const failing = Layer.succeed(Jev, {
-  rank: () => Effect.fail(new JevUnavailable({ message: 'TYPESAFE_API_KEY is not set' })),
+  rank: () =>
+    Effect.fail(new JevUnavailable({ reason: 'no_key', message: 'TYPESAFE_API_KEY is not set' })),
 })
 
 const scoring = Layer.succeed(Jev, {
