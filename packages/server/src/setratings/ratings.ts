@@ -7,14 +7,14 @@ import { parseSetRatings, ratingKey, type SetBonusRating } from './parse.ts'
 // Which armor sets are worth chasing comes from Aegis's Endgame Analysis
 // sheet, not the model's memory or a web search. Its Set Bonuses tab is
 // public, so the CSV export needs no sign-in; the raw text is kept in
-// Settings and re-downloaded at most every 12 hours.
+// Settings and re-downloaded at most once a week, because it changes rarely.
 
 const SHEET = '1JM-0SlxVDAi-C6rGVlLxa-J1WGewEeL8Qvq4htWZHhY'
 const TAB = '1665223292'
 export const SET_RATINGS_URL = `https://docs.google.com/spreadsheets/d/${SHEET}/edit?gid=${TAB}`
 const EXPORT_URL = `https://docs.google.com/spreadsheets/d/${SHEET}/export?format=csv&gid=${TAB}`
 export const SET_RATINGS_LABEL = 'Destiny 2: Endgame Analysis (Aegis), Set Bonuses'
-const REFRESH_MS = 12 * 60 * 60 * 1000
+const REFRESH_MS = 7 * 24 * 60 * 60 * 1000
 const DOWNLOAD_TIMEOUT = '30 seconds'
 
 const KEYS = {
@@ -36,7 +36,7 @@ export interface SetRatingsSnapshot {
 }
 
 export interface SetRatingsService {
-  /** Downloads when the stored copy is older than 12 hours; never fails. */
+  /** Downloads when the stored copy is older than a week; never fails. */
   readonly ratings: Effect.Effect<SetRatingsSnapshot>
   /** Citation for the sheet. */
   readonly source: Effect.Effect<Source>
