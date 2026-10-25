@@ -1,7 +1,7 @@
 import { Context, Effect, Layer, Schema } from 'effect'
 import { AppConfig } from '../config.ts'
 import { extractJsonText, SummaryOutput } from '../creators/parse.ts'
-import { abortOn, AgentFailed, runClaude, within } from './claude.ts'
+import { AgentFailed, Claude, within } from './claude.ts'
 
 export interface VideoToSummarize {
   readonly channelTitle: string
@@ -37,46 +37,41 @@ export const SummarizerLive = Layer.effect(
   Summarizer,
   Effect.gen(function* () {
     const config = yield* AppConfig
+    const claude = yield* Claude
 
     const summarize = (video: VideoToSummarize) =>
-      Effect.tryPromise({
-        try: async (signal) => {
-          const prompt = [
+      claude
+        .converse({
+          origin: { source: 'summary' },
+          prompt: [
             `Channel: ${video.channelTitle}`,
             `Video: ${video.title}`,
             `Published: ${video.publishedAt}`,
             video.timed ? 'Transcript:' : 'No captions were available; title and description:',
             video.text,
-          ].join('\n')
-          for await (const message of runClaude(config.claudePath, prompt, {
+          ].join('\n'),
+          options: {
             model: config.model,
             systemPrompt: SYSTEM_PROMPT,
             tools: [],
             maxTurns: 1,
-            abortController: abortOn(signal),
-          })) {
-            if (message.type === 'result') {
-              if (message.subtype === 'success') return message.result
-              throw new Error(`summary ended with ${message.subtype}`)
-            }
-          }
-          throw new Error('summary returned nothing')
-        },
-        catch: (error) => new AgentFailed({ message: String(error) }),
-      }).pipe(
-        within('3 minutes', 'The summary'),
-        Effect.flatMap((text) =>
-          Effect.try({
-            try: () => extractJsonText(text),
-            catch: (error) => new AgentFailed({ message: String(error) }),
-          }),
-        ),
-        Effect.flatMap((json) =>
-          Schema.decodeEffect(Schema.fromJsonString(SummaryOutput))(json).pipe(
-            Effect.mapError((error) => new AgentFailed({ message: String(error) })),
+          },
+        })
+        .pipe(
+          Effect.map(({ text }) => text),
+          within('3 minutes', 'The summary'),
+          Effect.flatMap((text) =>
+            Effect.try({
+              try: () => extractJsonText(text),
+              catch: (error) => new AgentFailed({ message: String(error) }),
+            }),
           ),
-        ),
-      )
+          Effect.flatMap((json) =>
+            Schema.decodeEffect(Schema.fromJsonString(SummaryOutput))(json).pipe(
+              Effect.mapError((error) => new AgentFailed({ message: String(error) })),
+            ),
+          ),
+        )
 
     return { summarize }
   }),

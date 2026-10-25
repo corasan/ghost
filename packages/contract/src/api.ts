@@ -50,6 +50,8 @@ import {
   StartCleanup,
   VaultSearch,
   VaultSnapshot,
+  UsageRange,
+  UsageReport,
 } from './schemas'
 
 // One HttpApi value describes every route. The server implements it with
@@ -283,6 +285,13 @@ export const agentGroup = HttpApiGroup.make('agent')
     }),
   )
 
+export const usageGroup = HttpApiGroup.make('usage').add(
+  HttpApiEndpoint.get('report', '/usage', {
+    query: { range: UsageRange, tz: Schema.optional(Schema.String) },
+    success: UsageReport,
+  }),
+)
+
 const cleanupErrors = [
   CleanupNotFound.pipe(HttpApiSchema.status(404)),
   CleanupRefused.pipe(HttpApiSchema.status(409)),
@@ -361,6 +370,7 @@ export const GhostApi = HttpApi.make('ghost')
   .add(guardianGroup)
   .add(buildsGroup)
   .add(agentGroup)
+  .add(usageGroup)
   .add(cleanupGroup)
   .add(authGroup)
 export type GhostApi = typeof GhostApi

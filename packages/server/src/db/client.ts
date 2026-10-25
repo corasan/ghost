@@ -316,6 +316,32 @@ const migrations = {
     const sql = yield* SqlClient.SqlClient
     yield* sql`ALTER TABLE jobs ADD COLUMN build_id TEXT`
   }),
+  // A ledger with one row per Claude call: chat requests, video summaries and
+  // situational write-ups. Each row holds what that call alone spent.
+  '0018_usage_runs': Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    yield* sql`
+      CREATE TABLE IF NOT EXISTS usage_runs (
+        id TEXT PRIMARY KEY,
+        source TEXT NOT NULL,
+        job_id TEXT,
+        session_id TEXT,
+        conversation TEXT,
+        model TEXT NOT NULL,
+        input_tokens INTEGER NOT NULL,
+        output_tokens INTEGER NOT NULL,
+        cache_read_tokens INTEGER NOT NULL,
+        cache_write_tokens INTEGER NOT NULL,
+        cost_usd REAL NOT NULL,
+        context_tokens INTEGER,
+        context_window INTEGER,
+        created_at TEXT NOT NULL
+      )
+    `
+    yield* sql`CREATE INDEX IF NOT EXISTS usage_runs_created ON usage_runs (created_at)`
+    yield* sql`CREATE INDEX IF NOT EXISTS usage_runs_session ON usage_runs (session_id, created_at)`
+    yield* sql`CREATE INDEX IF NOT EXISTS usage_runs_conversation ON usage_runs (conversation)`
+  }),
 }
 
 const SqliteLive = Layer.unwrap(

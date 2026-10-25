@@ -485,6 +485,75 @@ export const CreateJob = Schema.Struct({
 })
 export type CreateJob = typeof CreateJob.Type
 
+// ---- Claude usage ----
+
+/** Tokens and the API-equivalent cost Claude reported; the subscription pays, so the cost is an estimate. */
+export const TokenUsage = Schema.Struct({
+  inputTokens: Schema.Number,
+  outputTokens: Schema.Number,
+  cacheReadTokens: Schema.Number,
+  cacheWriteTokens: Schema.Number,
+  costUsd: Schema.Number,
+})
+export type TokenUsage = typeof TokenUsage.Type
+
+/** How full the model's context window was on the last turn of a run. */
+export const ContextFill = Schema.Struct({ tokens: Schema.Number, window: Schema.Number })
+export type ContextFill = typeof ContextFill.Type
+
+export const UsageSource = Schema.Literals(['chat', 'summary', 'situational'])
+export type UsageSource = typeof UsageSource.Type
+
+export const UsageRange = Schema.Literals(['day', 'week', 'month'])
+export type UsageRange = typeof UsageRange.Type
+
+/** One of the Claude plan's rolling limits, such as the five-hour or seven-day window. */
+export const PlanLimit = Schema.Struct({
+  window: Schema.String,
+  /** Share of the window used, 0 to 1. */
+  utilization: Schema.Number,
+  resetsAt: Schema.NullOr(Schema.String),
+  status: Schema.String,
+})
+export type PlanLimit = typeof PlanLimit.Type
+
+export const UsageDay = Schema.Struct({
+  date: Schema.String,
+  usage: TokenUsage,
+  runs: Schema.Number,
+})
+export type UsageDay = typeof UsageDay.Type
+
+export const UsageBySource = Schema.Struct({
+  source: UsageSource,
+  usage: TokenUsage,
+  runs: Schema.Number,
+})
+export type UsageBySource = typeof UsageBySource.Type
+
+export const ChatUsage = Schema.Struct({
+  sessionId: Schema.String,
+  title: Schema.String,
+  lastAt: Schema.String,
+  runs: Schema.Number,
+  usage: TokenUsage,
+  context: Schema.NullOr(ContextFill),
+})
+export type ChatUsage = typeof ChatUsage.Type
+
+export class UsageReport extends Schema.Class<UsageReport>('UsageReport')({
+  range: UsageRange,
+  total: TokenUsage,
+  runs: Schema.Number,
+  /** Every day of the range in the player's time zone, oldest first, empty days included. */
+  byDay: Schema.Array(UsageDay),
+  bySource: Schema.Array(UsageBySource),
+  /** Most expensive first. */
+  chats: Schema.Array(ChatUsage),
+  limits: Schema.Array(PlanLimit),
+  limitsSeenAt: Schema.NullOr(Schema.String),
+}) {}
+
 /** One conversation with Ghost, named after its first request. */
 export class ChatSession extends Schema.Class<ChatSession>('ChatSession')({
   id: Schema.String,
@@ -492,6 +561,9 @@ export class ChatSession extends Schema.Class<ChatSession>('ChatSession')({
   startedAt: Schema.String,
   lastAt: Schema.String,
   count: Schema.Number,
+  usage: TokenUsage,
+  /** From the latest request in the conversation; null before Ghost has answered one. */
+  context: Schema.NullOr(ContextFill),
 }) {}
 
 export const ApplyPlan = Schema.Struct({

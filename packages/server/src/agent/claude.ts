@@ -1,11 +1,13 @@
-import { query, type Options } from '@anthropic-ai/claude-agent-sdk'
+import { query, type Options, type SDKAssistantMessage } from '@anthropic-ai/claude-agent-sdk'
 import type { AgentEffort, JobKind, JobStep } from '@ghost/contract'
 import { Context, Duration, Effect, Layer, Redacted, Schema } from 'effect'
 import { Access } from '../access.ts'
 import { AppConfig } from '../config.ts'
+import { UsageRepo } from '../db/usage.ts'
 import { MCP_PATH } from '../mcp/path.ts'
 import { AgentConfig } from './settings.ts'
 import { decodeToolInput, describeStep } from './steps.ts'
+import { emptyTally, noUsage, observe, since, type Tally } from './usage.ts'
 
 export class AgentFailed extends Schema.TaggedError<AgentFailed>()('AgentFailed', {
   message: Schema.String,
@@ -16,24 +18,12 @@ export class AgentFailed extends Schema.TaggedError<AgentFailed>()('AgentFailed'
  * interrupted, so the Claude Code subprocess stops with the fiber instead of
  * running on and spending the subscription.
  */
-export const abortOn = (signal: AbortSignal) => {
+const abortOn = (signal: AbortSignal) => {
   const controller = new AbortController()
   if (signal.aborted) controller.abort(signal.reason)
   else signal.addEventListener('abort', () => controller.abort(signal.reason), { once: true })
   return controller
 }
-
-/**
- * The one way the server starts Claude Code. Without an explicit executable the
- * SDK looks for its per-platform optional package next to itself, which a
- * `bun build --compile` binary does not carry, so every call has to pass the
- * `claude` the CLI found (GHOST_CLAUDE_PATH).
- */
-export const runClaude = (claudePath: string, prompt: string, options: Options) =>
-  query({
-    prompt,
-    options: claudePath === '' ? options : { ...options, pathToClaudeCodeExecutable: claudePath },
-  })
 
 /** Fails a model call that runs past `limit`. The timeout interrupts it, which aborts the subprocess. */
 export const within =
@@ -49,7 +39,108 @@ export const within =
         ),
     })
 
+/** Only a request in a chat continues an agent conversation. */
+export type ClaudeOrigin =
+  | {
+      readonly source: 'chat'
+      readonly jobId: string
+      readonly sessionId: string | null
+      readonly resume: string | null
+    }
+  | { readonly source: 'summary' }
+  | { readonly source: 'situational' }
+
+export interface ClaudeCall {
+  readonly origin: ClaudeOrigin
+  readonly prompt: string
+  readonly options: Omit<Options, 'resume' | 'abortController' | 'pathToClaudeCodeExecutable'>
+  readonly onAssistant?: (message: SDKAssistantMessage) => void
+}
+
+export interface ClaudeReply {
+  readonly text: string
+  readonly conversation: string
+}
+
+export interface ClaudeService {
+  readonly converse: (call: ClaudeCall) => Effect.Effect<ClaudeReply, AgentFailed>
+}
+
+export class Claude extends Context.Service<Claude, ClaudeService>()('Claude') {}
+
+// The one way the server starts Claude Code, so every call lands in the usage
+// ledger, failed ones included: a run that hits its turn limit has still
+// spent them. Without an explicit executable the SDK looks for its
+// per-platform optional package next to itself, which a `bun build --compile`
+// binary does not carry, so every call passes the `claude` the CLI found
+// (GHOST_CLAUDE_PATH).
+export const ClaudeLive = Layer.effect(
+  Claude,
+  Effect.gen(function* () {
+    const { claudePath } = yield* AppConfig
+    const ledger = yield* UsageRepo
+
+    const record = (origin: ClaudeOrigin, tally: Tally, conversation: string | null) =>
+      Effect.gen(function* () {
+        yield* ledger.noteLimits(tally.limits)
+        if (tally.usage === null) return
+        const chat = origin.source === 'chat' ? origin : null
+        const baseline =
+          chat === null || chat.resume === null ? noUsage : yield* ledger.baseline(chat.resume)
+        yield* ledger.record({
+          source: origin.source,
+          jobId: chat?.jobId ?? null,
+          sessionId: chat?.sessionId ?? null,
+          conversation,
+          model: tally.usage.model,
+          usage: since(tally.usage.totals, baseline),
+          context: tally.usage.context,
+        })
+      }).pipe(
+        Effect.catchCause((cause) => Effect.logWarning('could not record Claude usage', cause)),
+      )
+
+    const converse = ({ origin, prompt, options, onAssistant }: ClaudeCall) =>
+      Effect.suspend(() => {
+        let tally = emptyTally
+        let conversation: string | null = null
+        return Effect.tryPromise({
+          try: async (signal) => {
+            const full: Options = { ...options, abortController: abortOn(signal) }
+            if (origin.source === 'chat' && origin.resume !== null) full.resume = origin.resume
+            if (claudePath !== '') full.pathToClaudeCodeExecutable = claudePath
+            const run = query({ prompt, options: full })
+            let lastText = ''
+            for await (const message of run) {
+              tally = observe(tally, message)
+              if (message.type === 'assistant') {
+                conversation = message.session_id
+                for (const block of message.message.content) {
+                  if (block.type === 'text') lastText = block.text
+                }
+                onAssistant?.(message)
+              }
+              if (message.type === 'result') {
+                conversation = message.session_id
+                if (message.subtype === 'success') {
+                  return { text: message.result || lastText, conversation: message.session_id }
+                }
+                throw new Error(`Claude ended with ${message.subtype}`)
+              }
+            }
+            throw new Error('Claude ended without a result')
+          },
+          catch: (error) => new AgentFailed({ message: String(error) }),
+        }).pipe(Effect.ensuring(Effect.suspend(() => record(origin, tally, conversation))))
+      })
+
+    return { converse }
+  }),
+)
+
 export interface AgentRequest {
+  readonly jobId: string
+  readonly sessionId: string | null
   readonly kind: JobKind
   readonly prompt: string
   readonly characterId: string | null
@@ -60,13 +151,8 @@ export interface AgentRequest {
   readonly onStep: (step: JobStep) => void
 }
 
-export interface AgentAnswer {
-  readonly text: string
-  readonly conversation: string | null
-}
-
 export interface ClaudeAgentService {
-  readonly run: (request: AgentRequest) => Effect.Effect<AgentAnswer, AgentFailed>
+  readonly run: (request: AgentRequest) => Effect.Effect<ClaudeReply, AgentFailed>
 }
 
 export class ClaudeAgent extends Context.Service<ClaudeAgent, ClaudeAgentService>()(
@@ -140,22 +226,24 @@ export const ClaudeAgentLive = Layer.effect(
     const config = yield* AppConfig
     const { mcpToken } = yield* Access
     const agentConfig = yield* AgentConfig
+    const claude = yield* Claude
     const mcpUrl = `http://127.0.0.1:${config.port}${MCP_PATH}`
 
     const ask = (
-      { kind, prompt, characterId, context, resume, onStep }: AgentRequest,
+      { jobId, sessionId, kind, prompt, characterId, context, resume, onStep }: AgentRequest,
       effort: AgentEffort,
-    ) =>
-      Effect.tryPromise({
-        try: async (signal) => {
-          const selected =
-            characterId === null
-              ? 'No character is selected; default to the highest light one.'
-              : `The player has character ${characterId} selected in the app; plans target it unless they say otherwise.`
-          const fullPrompt = [KIND_PROMPTS[kind], selected, context ?? '', prompt]
+    ) => {
+      const selected =
+        characterId === null
+          ? 'No character is selected; default to the highest light one.'
+          : `The player has character ${characterId} selected in the app; plans target it unless they say otherwise.`
+      return claude
+        .converse({
+          origin: { source: 'chat', jobId, sessionId, resume },
+          prompt: [KIND_PROMPTS[kind], selected, context ?? '', prompt]
             .filter((part) => part !== '')
-            .join('\n\n')
-          const options: Options = {
+            .join('\n\n'),
+          options: {
             model: config.model,
             effort,
             systemPrompt: SYSTEM_PROMPT,
@@ -171,31 +259,16 @@ export const ClaudeAgentLive = Layer.effect(
             permissionMode: 'bypassPermissions',
             allowDangerouslySkipPermissions: true,
             maxTurns: 40,
-            abortController: abortOn(signal),
-          }
-          if (resume !== null) options.resume = resume
-          let lastText = ''
-          let conversation: string | null = null
-          for await (const message of runClaude(config.claudePath, fullPrompt, options)) {
-            if (message.type === 'assistant') {
-              conversation = message.session_id
-              for (const block of message.message.content) {
-                if (block.type === 'text') lastText = block.text
-                if (block.type === 'tool_use')
-                  onStep(describeStep(block.name, decodeToolInput(block.input)))
-              }
+          },
+          onAssistant: (message) => {
+            for (const block of message.message.content) {
+              if (block.type === 'tool_use')
+                onStep(describeStep(block.name, decodeToolInput(block.input)))
             }
-            if (message.type === 'result') {
-              if (message.subtype === 'success') {
-                return { text: message.result || lastText, conversation: message.session_id }
-              }
-              throw new Error(`agent ended with ${message.subtype}`)
-            }
-          }
-          return { text: lastText, conversation }
-        },
-        catch: (error) => new AgentFailed({ message: String(error) }),
-      }).pipe(within('10 minutes', 'The agent'))
+          },
+        })
+        .pipe(within('10 minutes', 'The agent'))
+    }
 
     const run = (request: AgentRequest) =>
       Effect.flatMap(agentConfig.current, ({ effort }) => ask(request, effort))

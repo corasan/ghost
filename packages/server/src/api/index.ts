@@ -22,6 +22,7 @@ import { Cleanup } from '../cleanup/service.ts'
 import { ItemsRepo } from '../db/items.ts'
 import { PerkRatings } from '../db/perk-ratings.ts'
 import { JobsRepo } from '../db/jobs.ts'
+import { UsageRepo } from '../db/usage.ts'
 import { reviewItems } from '../junk/proposal.ts'
 import { JunkJudge } from '../junk/service.ts'
 import { Items } from '../items/items.ts'
@@ -229,6 +230,12 @@ const AgentLive = HttpApiBuilder.group(GhostApi, 'agent', (handlers) =>
     ),
 )
 
+const UsageLive = HttpApiBuilder.group(GhostApi, 'usage', (handlers) =>
+  handlers.handle('report', ({ query }) =>
+    Effect.flatMap(UsageRepo, (usage) => usage.report(query.range, query.tz)).pipe(Effect.orDie),
+  ),
+)
+
 const CleanupApiLive = HttpApiBuilder.group(GhostApi, 'cleanup', (handlers) =>
   handlers
     .handle('preview', ({ query }) =>
@@ -312,6 +319,7 @@ export const ApiLive = HttpApiBuilder.layer(GhostApi, { openapiPath: '/openapi.j
     GuardianLive,
     BuildsLive,
     AgentLive,
+    UsageLive,
     CleanupApiLive,
     AuthLive,
   ]),
