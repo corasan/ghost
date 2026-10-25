@@ -82,6 +82,13 @@ interface SessionRow {
   readonly started_at: string
   readonly last_at: string
   readonly count: number
+  readonly input_tokens: number
+  readonly output_tokens: number
+  readonly cache_read_tokens: number
+  readonly cache_write_tokens: number
+  readonly cost_usd: number
+  readonly context_tokens: number | null
+  readonly context_window: number | null
 }
 
 export interface ManualJob {
@@ -136,16 +143,39 @@ export const JobsRepoLive = Layer.effect(
       `.pipe(Effect.flatMap(Effect.forEach(rowToJob)))
 
     const sessions = sql<SessionRow>`
-      SELECT session_id AS id,
+      SELECT jobs.session_id AS id,
              (SELECT prompt FROM jobs first
               WHERE first.session_id = jobs.session_id
               ORDER BY created_at ASC LIMIT 1) AS title,
-             MIN(created_at) AS started_at,
-             MAX(created_at) AS last_at,
-             COUNT(*) AS count
+             MIN(jobs.created_at) AS started_at,
+             MAX(jobs.created_at) AS last_at,
+             COUNT(*) AS count,
+             COALESCE(spent.input_tokens, 0) AS input_tokens,
+             COALESCE(spent.output_tokens, 0) AS output_tokens,
+             COALESCE(spent.cache_read_tokens, 0) AS cache_read_tokens,
+             COALESCE(spent.cache_write_tokens, 0) AS cache_write_tokens,
+             COALESCE(spent.cost_usd, 0) AS cost_usd,
+             latest.context_tokens,
+             latest.context_window
       FROM jobs
-      WHERE session_id IS NOT NULL
-      GROUP BY session_id
+      LEFT JOIN (
+        SELECT session_id,
+               SUM(input_tokens) AS input_tokens,
+               SUM(output_tokens) AS output_tokens,
+               SUM(cache_read_tokens) AS cache_read_tokens,
+               SUM(cache_write_tokens) AS cache_write_tokens,
+               SUM(cost_usd) AS cost_usd
+        FROM usage_runs
+        WHERE source = 'chat' AND session_id IS NOT NULL
+        GROUP BY session_id
+      ) spent ON spent.session_id = jobs.session_id
+      LEFT JOIN usage_runs latest ON latest.id = (
+        SELECT id FROM usage_runs
+        WHERE source = 'chat' AND usage_runs.session_id = jobs.session_id
+        ORDER BY created_at DESC LIMIT 1
+      )
+      WHERE jobs.session_id IS NOT NULL
+      GROUP BY jobs.session_id
       ORDER BY last_at DESC
       LIMIT 50
     `.pipe(
@@ -158,6 +188,17 @@ export const JobsRepoLive = Layer.effect(
               startedAt: row.started_at,
               lastAt: row.last_at,
               count: row.count,
+              usage: {
+                inputTokens: row.input_tokens,
+                outputTokens: row.output_tokens,
+                cacheReadTokens: row.cache_read_tokens,
+                cacheWriteTokens: row.cache_write_tokens,
+                costUsd: row.cost_usd,
+              },
+              context:
+                row.context_tokens === null || row.context_window === null
+                  ? null
+                  : { tokens: row.context_tokens, window: row.context_window },
             }),
         ),
       ),

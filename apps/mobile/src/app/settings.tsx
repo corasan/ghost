@@ -35,7 +35,10 @@ export default function SettingsScreen() {
 
   const link = () =>
     authStart.mutate(undefined, {
-      onSuccess: ({ url }) => WebBrowser.openBrowserAsync(url),
+      onSuccess: async ({ url }) => {
+        await WebBrowser.openBrowserAsync(url)
+        await health.refetch()
+      },
     })
 
   return (
@@ -71,6 +74,7 @@ export default function SettingsScreen() {
           label="Save"
           onPress={() => {
             setServerToken(tokenDraft)
+            authStart.reset()
             void queryClient.invalidateQueries()
           }}
           disabled={tokenDraft.trim() === '' || tokenDraft.trim() === serverToken}
@@ -107,10 +111,22 @@ export default function SettingsScreen() {
       >
         <Row
           title={health.data?.bungieLinked ? 'Linked' : 'Not linked'}
-          subtitle={health.data ? undefined : 'Connect to the server first'}
+          subtitle={
+            authStart.isError
+              ? `Couldn't start sign-in: ${errorMessage(authStart.error)}`
+              : health.data
+                ? undefined
+                : 'Connect to the server first'
+          }
         />
         <Button
-          label={health.data?.bungieLinked ? 'Re-link account' : 'Link account'}
+          label={
+            authStart.isPending
+              ? 'Opening Bungie…'
+              : health.data?.bungieLinked
+                ? 'Re-link account'
+                : 'Link account'
+          }
           onPress={link}
           disabled={!health.data || authStart.isPending}
         />

@@ -1,6 +1,7 @@
 import type { Job } from '@ghost/contract'
 import { LegendList, type LegendListRef } from '@legendapp/list/react-native'
 import { router, useLocalSearchParams } from 'expo-router'
+import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Pressable, View } from 'react-native'
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller'
@@ -11,7 +12,15 @@ import { ChatHeader } from '@/components/chat/header'
 import { MessageView } from '@/components/chat/message'
 import { Body, Cond, Mono } from '@/components/ghost/ui'
 import { Ghost } from '@/constants/theme'
-import { errorMessage, useBriefing, useCreateJob, useJobs, useSavedBuilds } from '@/lib/api'
+import {
+  errorMessage,
+  invalidateUsage,
+  useBriefing,
+  useCreateJob,
+  useJobs,
+  useSavedBuilds,
+  useSessions,
+} from '@/lib/api'
 import { useCharacter } from '@/lib/character'
 import { usePullRefresh } from '@/lib/refresh'
 import { continueSession, startFreshSession, usePendingRevision, useSessionId } from '@/lib/session'
@@ -42,6 +51,14 @@ export default function ChatScreen() {
       : (jobs.data?.find((job) => (job.buildId ?? null) !== null)?.buildId ?? null)
   const revising = useSavedBuilds().data?.find((build) => build.id === revisingId)
   const pull = usePullRefresh(jobs.refetch, briefing.refetch)
+  const queryClient = useQueryClient()
+  const context = useSessions().data?.find((session) => session.id === sessionId)?.context
+  const thinking =
+    jobs.data?.some((job) => job.status === 'queued' || job.status === 'running') ?? false
+
+  useEffect(() => {
+    if (!thinking) void invalidateUsage(queryClient)
+  }, [thinking, queryClient])
 
   // A page's "ASK ›" returns here with its suggestion queued in the composer.
   useEffect(() => {
@@ -110,6 +127,7 @@ export default function ChatScreen() {
       <ChatHeader
         character={character}
         ruled={asked}
+        context={context}
         onNewChat={hasHistory ? startFreshSession : undefined}
       />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">

@@ -2,7 +2,7 @@ import { BunHttpServer } from '@effect/platform-bun'
 import { Effect, Layer } from 'effect'
 import { HttpRouter, HttpServer } from 'effect/http'
 import { ActivityLive } from './activity/activity.ts'
-import { ClaudeAgentLive } from './agent/claude.ts'
+import { ClaudeAgentLive, ClaudeLive } from './agent/claude.ts'
 import { SummarizerLive } from './agent/summarize.ts'
 import { SituationalWriterLive } from './agent/situational.ts'
 import { CurrentJobLive } from './agent/current-job.ts'
@@ -32,6 +32,7 @@ import { ItemsRepoLive } from './db/items.ts'
 import { JobsRepoLive } from './db/jobs.ts'
 import { JunkJudgeLive } from './junk/service.ts'
 import { SettingsLive } from './db/settings.ts'
+import { UsageRepoLive } from './db/usage.ts'
 import { ItemsLive } from './items/items.ts'
 import { LoggerLive, requestLogger } from './log.ts'
 import { McpLive } from './mcp/server.ts'
@@ -51,6 +52,7 @@ const Repositories = Layer.mergeAll(
   SettingsLive,
   ChargeEffectsLive,
   CleanupRepoLive,
+  UsageRepoLive.pipe(Layer.provide(SettingsLive)),
 ).pipe(Layer.provideMerge(DatabaseLive))
 
 const Clients = Layer.mergeAll(
@@ -64,6 +66,7 @@ const Clients = Layer.mergeAll(
   CurrentJobLive,
   JevLive,
 ).pipe(
+  Layer.provideMerge(ClaudeLive),
   Layer.provideMerge(AgentConfigLive),
   Layer.provideMerge(AccessLive),
   Layer.provideMerge(Repositories),

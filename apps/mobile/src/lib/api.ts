@@ -20,6 +20,7 @@ import {
   type SavedBuild,
   type ApplyPerks,
   type SetPerkRating,
+  type UsageRange,
   VaultSnapshot,
   WeaponPerk,
   WeaponSheet,
@@ -88,6 +89,7 @@ export const queryKeys = {
   cleanupPreview: (url: string, characterId: string | undefined) =>
     [url, 'cleanupPreview', characterId] as const,
   junkReview: (url: string) => [url, 'junkReview'] as const,
+  usage: (url: string, range: UsageRange) => [url, 'usage', range] as const,
 }
 
 /** Queries worth keeping on disk so the app opens on real data, not spinners. */
@@ -100,6 +102,7 @@ export const PERSISTED = new Set([
   'briefing',
   'history',
   'builds',
+  'usage',
 ])
 
 // The server counts "actions today" from midnight where the player is.
@@ -165,6 +168,23 @@ export function useJob(id: string) {
     staleTime: 5_000,
   })
 }
+
+export function useUsage(range: UsageRange) {
+  const url = useServerUrl()
+  return useQuery({
+    queryKey: queryKeys.usage(url, range),
+    queryFn: () => run((api) => api.usage.report({ query: { range, tz: localTimeZone } })),
+    staleTime: 15_000,
+  })
+}
+
+/** A finished answer changes what chats and the plan have used. */
+export const invalidateUsage = (queryClient: QueryClient) =>
+  Promise.all(
+    [queryKeys.sessions(getServerUrl()), [getServerUrl(), 'usage']].map((queryKey) =>
+      queryClient.invalidateQueries({ queryKey }),
+    ),
+  )
 
 export function useSessions() {
   const url = useServerUrl()

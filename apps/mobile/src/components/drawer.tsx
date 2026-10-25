@@ -6,12 +6,20 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { Body, Button, Cond, Diamond, Meta, Mono } from '@/components/ghost/ui'
 import { Ghost } from '@/constants/theme'
-import { getLastLatency, useBriefing, useHealth, useSavedBuilds, useSessions } from '@/lib/api'
+import {
+  getLastLatency,
+  useBriefing,
+  useHealth,
+  useSavedBuilds,
+  useSessions,
+  useUsage,
+} from '@/lib/api'
 import { selectCharacter, useCharacter } from '@/lib/character'
-import { age, upper } from '@/lib/format'
+import { age, percent, upper } from '@/lib/format'
 import { useServerUrl } from '@/lib/server-url'
 import { continueSession, startFreshSession, useSessionId } from '@/lib/session'
 import { useBottomInset } from '@/lib/insets'
+import { fiveHour } from '@/lib/usage'
 
 const where = (url: string) =>
   /localhost|127\.0\.0\.1/.test(url) ? 'local' : /\.ts\.net/.test(url) ? 'tailnet' : 'remote'
@@ -33,6 +41,8 @@ export function GhostDrawer({ navigation }: DrawerContentComponentProps) {
   const sessions = useSessions()
   const savedBuilds = useSavedBuilds().data
   const sessionId = useSessionId()
+  const usage = useUsage('day').data
+  const meter = usage ? fiveHour(usage.limits) : undefined
 
   const go = (href: Href) => {
     navigation.closeDrawer()
@@ -67,6 +77,12 @@ export function GhostDrawer({ navigation }: DrawerContentComponentProps) {
       value: briefing ? `${briefing.actionsToday} today` : '—',
       href: '/history' as const,
       color: Ghost.dim,
+    },
+    {
+      label: 'USAGE',
+      value: meter ? `${percent(meter.utilization)} of 5h` : usage ? `${usage.runs} in 24h` : '—',
+      href: '/usage' as const,
+      color: meter && meter.utilization >= 0.9 ? Ghost.danger : Ghost.dim,
     },
   ]
 

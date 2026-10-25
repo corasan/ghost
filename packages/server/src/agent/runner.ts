@@ -43,6 +43,8 @@ const tick = Effect.gen(function* () {
     onSome: (build) => build.recipe.characterId ?? job.characterId,
   })
   const request: AgentRequest = {
+    jobId: job.id,
+    sessionId: job.sessionId,
     kind: job.kind,
     prompt: job.prompt,
     characterId,
@@ -69,7 +71,7 @@ const tick = Effect.gen(function* () {
     .pipe(Effect.catch(retryFresh), current.around({ id: job.id, characterId }), Effect.result)
   if (outcome._tag === 'Success') {
     const { text, conversation } = outcome.success
-    if (job.sessionId !== null && conversation !== null) {
+    if (job.sessionId !== null) {
       yield* settings.set(conversationKey(job.sessionId), conversation)
     }
     yield* jobs.setStatus(job.id, 'done', { result: text })
