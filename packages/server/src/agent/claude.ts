@@ -53,7 +53,14 @@ export type ClaudeOrigin =
 export interface ClaudeCall {
   readonly origin: ClaudeOrigin
   readonly prompt: string
-  readonly options: Omit<Options, 'resume' | 'abortController' | 'pathToClaudeCodeExecutable'>
+  readonly options: Omit<
+    Options,
+    | 'resume'
+    | 'abortController'
+    | 'pathToClaudeCodeExecutable'
+    | 'settingSources'
+    | 'strictMcpConfig'
+  >
   readonly onAssistant?: (message: SDKAssistantMessage) => void
 }
 
@@ -106,7 +113,12 @@ export const ClaudeLive = Layer.effect(
         let conversation: string | null = null
         return Effect.tryPromise({
           try: async (signal) => {
-            const full: Options = { ...options, abortController: abortOn(signal) }
+            const full: Options = {
+              ...options,
+              settingSources: [],
+              strictMcpConfig: true,
+              abortController: abortOn(signal),
+            }
             if (origin.source === 'chat' && origin.resume !== null) full.resume = origin.resume
             if (claudePath !== '') full.pathToClaudeCodeExecutable = claudePath
             const run = query({ prompt, options: full })
