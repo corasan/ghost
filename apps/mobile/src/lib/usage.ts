@@ -3,6 +3,8 @@ import type { ContextFill, PlanLimit, TokenUsage, UsageSource } from '@ghost/con
 export const totalTokens = (usage: TokenUsage) =>
   usage.inputTokens + usage.outputTokens + usage.cacheReadTokens + usage.cacheWriteTokens
 
+export const uncachedTokens = (usage: TokenUsage) => usage.inputTokens + usage.outputTokens
+
 export const contextShare = (context: ContextFill) =>
   context.window === 0 ? 0 : context.tokens / context.window
 

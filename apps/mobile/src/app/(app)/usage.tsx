@@ -4,7 +4,7 @@ import { router } from 'expo-router'
 import { type ReactNode, useState } from 'react'
 import { Pressable, StyleSheet, View } from 'react-native'
 
-import { Body, Chip, Cond, Meta, Mono, PageHeader } from '@/components/ghost/ui'
+import { Body, Chevron, Chip, Cond, Meta, Mono, PageHeader } from '@/components/ghost/ui'
 import { FillBar, fillTone } from '@/components/usage/fill-bar'
 import { Ghost, Gutter } from '@/constants/theme'
 import { useUsage } from '@/lib/api'
@@ -12,7 +12,14 @@ import { age, clock, percent, tokens, until, usd } from '@/lib/format'
 import { useBottomInset } from '@/lib/insets'
 import { usePullRefresh } from '@/lib/refresh'
 import { continueSession } from '@/lib/session'
-import { contextShare, fiveHour, limitLabel, SOURCE_LABELS, totalTokens } from '@/lib/usage'
+import {
+  contextShare,
+  fiveHour,
+  limitLabel,
+  SOURCE_LABELS,
+  totalTokens,
+  uncachedTokens,
+} from '@/lib/usage'
 
 const RANGES: ReadonlyArray<{ value: UsageRange; label: string; caption: string }> = [
   { value: 'day', label: '24H', caption: 'Last 24 hours' },
@@ -133,7 +140,31 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 const spend = (usage: TokenUsage, runs: number) =>
-  `${runs} ${runs === 1 ? 'run' : 'runs'} · ${tokens(totalTokens(usage))} tokens · ${usd(usage.costUsd)}`
+  `${runs} ${runs === 1 ? 'run' : 'runs'} · ${tokens(uncachedTokens(usage))} tokens · ${usd(usage.costUsd)}`
+
+function Spend({ usage, runs }: { usage: TokenUsage; runs: number }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <View style={{ gap: 4 }}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityHint="Shows cache tokens"
+        hitSlop={8}
+        onPress={() => setOpen(!open)}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start' }}
+      >
+        <Meta size={12}>{spend(usage, runs)}</Meta>
+        <Chevron direction={open ? 'up' : 'down'} size={6} />
+      </Pressable>
+      {open ? (
+        <Meta size={12} color={Ghost.dim}>
+          {`In ${tokens(usage.inputTokens)} · Out ${tokens(usage.outputTokens)} · Cache read ${tokens(usage.cacheReadTokens)} · Cache write ${tokens(usage.cacheWriteTokens)}`}
+        </Meta>
+      ) : null}
+    </View>
+  )
+}
 
 function ChatRow({ chat }: { chat: ChatUsage }) {
   const share = chat.context === null ? null : contextShare(chat.context)
@@ -152,7 +183,7 @@ function ChatRow({ chat }: { chat: ChatUsage }) {
         </Body>
         <Meta size={12}>{age(chat.lastAt)}</Meta>
       </View>
-      <Meta size={12}>{spend(chat.usage, chat.runs)}</Meta>
+      <Spend usage={chat.usage} runs={chat.runs} />
       {share === null ? null : (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <View style={{ flex: 1 }}>
@@ -231,11 +262,11 @@ export default function UsageScreen() {
                 {report.bySource.length > 0 ? (
                   <Section title="BY SOURCE">
                     {report.bySource.map((source) => (
-                      <View key={source.source} style={styles.between}>
+                      <View key={source.source} style={{ gap: 4 }}>
                         <Body size={14} color={Ghost.soft}>
                           {SOURCE_LABELS[source.source]}
                         </Body>
-                        <Meta size={12}>{spend(source.usage, source.runs)}</Meta>
+                        <Spend usage={source.usage} runs={source.runs} />
                       </View>
                     ))}
                   </Section>
