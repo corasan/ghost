@@ -146,6 +146,7 @@ const harness = (
     authorizeUrl: Effect.succeed(''),
     exchangeCode: () => unlinked,
     get: () => unlinked,
+    writes: Effect.succeed([]),
     transferItem: (input) =>
       Effect.suspend(() => {
         const moving = inventory.items.find((i) => i.itemInstanceId === input.itemId)

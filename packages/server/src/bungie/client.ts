@@ -16,6 +16,7 @@ import {
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http'
 import { AppConfig } from '../config.ts'
 import { Settings } from '../db/settings.ts'
+import type { ProfileWrite, TimedWrite } from './writes.ts'
 
 const PLATFORM = 'https://www.bungie.net/Platform'
 const OAUTH = 'https://www.bungie.net/platform/app/oauth'
@@ -247,6 +248,8 @@ export interface BungieClientService {
   readonly snapshotLoadout: (
     input: LoadoutSnapshot,
   ) => Effect.Effect<unknown, BungieError | BungieNotLinked>
+  /** Item changes Bungie confirmed recently, oldest first, which a profile read may not show yet. */
+  readonly writes: Effect.Effect<ReadonlyArray<TimedWrite>>
 }
 
 export class BungieClient extends Context.Service<BungieClient, BungieClientService>()(
@@ -257,6 +260,7 @@ const TOKENS_KEY = 'bungie.tokens'
 /** The Destiny membership the stored tokens act on (see profile.ts); forgotten whenever the tokens change. */
 export const MEMBERSHIP_KEY = 'bungie.membership'
 const STATE_TTL_MS = 10 * 60 * 1000
+const WRITES_TTL_MS = 3 * 60 * 1000
 
 const millisOf = (iso: string) => DateTime.toEpochMillis(DateTime.makeUnsafe(iso))
 
@@ -423,6 +427,18 @@ export const BungieClientLive = Layer.effect(
         Effect.flatMap((request) => authed(request, false)),
       )
 
+    let ledger: ReadonlyArray<TimedWrite> = []
+    const recent = (now: number) => ledger.filter((write) => now - write.at < WRITES_TTL_MS)
+    const writes = Effect.map(Clock.currentTimeMillis, recent)
+    const wrote =
+      (write: ProfileWrite) =>
+      <A, E>(request: Effect.Effect<A, E>) =>
+        Effect.tap(request, () =>
+          Effect.map(Clock.currentTimeMillis, (at) => {
+            ledger = [...recent(at), { ...write, at }]
+          }),
+        )
+
     const authorizeUrl = Effect.gen(function* () {
       const now = yield* Clock.currentTimeMillis
       for (const [state, lapses] of pendingStates) if (lapses <= now) pendingStates.delete(state)
@@ -458,16 +474,28 @@ export const BungieClientLive = Layer.effect(
       exchangeCode,
       get,
       transferItem: (input) =>
-        post('/Destiny2/Actions/Items/TransferItem/', { stackSize: 1, ...input }),
+        post('/Destiny2/Actions/Items/TransferItem/', { stackSize: 1, ...input }).pipe(
+          wrote({
+            kind: 'move',
+            itemId: input.itemId,
+            to: input.transferToVault ? null : input.characterId,
+          }),
+        ),
       pullFromPostmaster: (input) =>
-        post('/Destiny2/Actions/Items/PullFromPostmaster/', { stackSize: 1, ...input }),
-      equipItem: (input) => post('/Destiny2/Actions/Items/EquipItem/', input),
+        post('/Destiny2/Actions/Items/PullFromPostmaster/', { stackSize: 1, ...input }).pipe(
+          wrote({ kind: 'move', itemId: input.itemId, to: input.characterId }),
+        ),
+      equipItem: (input) =>
+        post('/Destiny2/Actions/Items/EquipItem/', input).pipe(
+          wrote({ kind: 'equip', itemId: input.itemId, characterId: input.characterId }),
+        ),
       insertPlug: ({ socketIndex, plugHash, ...item }) =>
         post('/Destiny2/Actions/Items/InsertSocketPlugFree/', {
           ...item,
           plug: { socketIndex, socketArrayType: 0, plugItemHash: plugHash },
-        }),
+        }).pipe(wrote({ kind: 'plug', itemId: item.itemId, socketIndex, plugHash })),
       snapshotLoadout: (input) => post('/Destiny2/Actions/Loadouts/SnapshotLoadout/', input),
+      writes,
     }
   }),
 ).pipe(Layer.provide(FetchHttpClient.layer))
