@@ -6,6 +6,7 @@ import { BUCKETS, Manifest, type ManifestItem } from './manifest.ts'
 import { Membership } from './membership.ts'
 import { ProfileStore, ProfileStoreLive } from './profile.ts'
 import { unlockedPlugs } from './subclass.ts'
+import type { TimedWrite } from './writes.ts'
 
 const CHARACTER = '2305843009309769093'
 const SENTINEL_ASPECTS = 1369926501
@@ -49,7 +50,7 @@ const answer = (path: string) => {
   )
 }
 
-const bungie = Layer.mock(BungieClient, { get: answer })
+const bungie = Layer.mock(BungieClient, { get: answer, writes: Effect.succeed([]) })
 
 const manifest = Layer.mock(Manifest, {
   lookup: () => Effect.succeed(new Map()),
@@ -89,6 +90,7 @@ describe('ProfileStore.invalidate', () => {
           ? answer(path)
           : Deferred.await(held).pipe(Effect.andThen(answer(path)))
       },
+      writes: Effect.succeed([]),
     })
     const counted = ProfileStoreLive.pipe(
       Layer.provide(Layer.mergeAll(counting, manifest, items, membership)),
@@ -151,7 +153,7 @@ describe('ProfileStore after a write', () => {
   }
   const stale = Layer.mock(BungieClient, {
     get: () => Effect.succeed(beforeTheWrite),
-    writes: Effect.succeed([
+    writes: Effect.succeed<ReadonlyArray<TimedWrite>>([
       { kind: 'move', itemId: NAIL, to: CHARACTER, at: 0 },
       { kind: 'plug', itemId: NAIL, socketIndex: 3, plugHash: 2675184851, at: 0 },
     ]),

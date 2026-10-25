@@ -14,6 +14,7 @@ import { Manifest } from './manifest.ts'
 import { Membership } from './membership.ts'
 import { setsByItem } from './sets.ts'
 import { PlugSets } from './subclass.ts'
+import { reconcile } from './writes.ts'
 
 // One GetProfile call feeds every screen and agent tool. It is cached for 30
 // seconds so a burst of requests (the app refetching, the agent searching)
@@ -52,16 +53,21 @@ export const ProfileStoreLive = Layer.effect(
       const plugSets = yield* Schema.decodeUnknownEffect(PlugSets)(raw).pipe(
         Effect.catch(decodeFailure),
       )
-      const defs = yield* manifest.lookup(profileHashes(profile))
+      const writes = yield* bungie.writes
+      const defs = yield* manifest.lookup([
+        ...profileHashes(profile),
+        ...writes.flatMap((write) => (write.kind === 'plug' ? [write.plugHash] : [])),
+      ])
+      const current = reconcile(profile, writes, defs)
       const sets = setsByItem(yield* manifest.armorSets)
       const tuning = yield* manifest.tuningMods
       // Sync needs the item list and the summaries need what sync wrote
       // (first-seen times), so the pure build runs twice; it is cheap.
-      const draft = buildInventory(profile, defs, new Map(), sets, tuning)
+      const draft = buildInventory(current, defs, new Map(), sets, tuning)
       yield* items.sync(draft.items).pipe(Effect.orDie)
       const seen = yield* items.decisions.pipe(Effect.orDie)
       const inventory = {
-        ...buildInventory(profile, defs, seen, sets, tuning),
+        ...buildInventory(current, defs, seen, sets, tuning),
         membershipType: m.membershipType,
         membershipId: m.membershipId,
       }

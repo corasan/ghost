@@ -167,6 +167,7 @@ const harness = (account: Account, dataDir = mkdtempSync(join(tmpdir(), 'ghost-c
       authorizeUrl: Effect.succeed(''),
       exchangeCode: () => unused,
       get: () => unused,
+      writes: Effect.succeed([]),
       transferItem: (input) => Effect.suspend(() => account.transfer(input)),
       pullFromPostmaster: () => unused,
       equipItem: () => unused,
