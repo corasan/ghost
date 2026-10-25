@@ -8,10 +8,12 @@ import {
   GhostApi,
   type ItemAction,
   type ItemDecision,
+  ItemDetail,
   type ItemSlot,
   ItemSummary,
   type Job,
   type LinkBuild,
+  PerkColumn,
   RecentItem,
   type ReviewItem,
   type SaveBuild,
@@ -19,6 +21,8 @@ import {
   type ApplyPerks,
   type SetPerkRating,
   VaultSnapshot,
+  WeaponPerk,
+  WeaponSheet,
 } from '@ghost/contract'
 import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Effect } from 'effect'
@@ -205,12 +209,59 @@ export function useRatePerk(id: string) {
   })
 }
 
+const withPerks = (sheet: WeaponSheet, plugs: ApplyPerks['plugs']) =>
+  new WeaponSheet({
+    ...sheet,
+    columns: sheet.columns.map((column) => {
+      const plug = plugs.find((each) => each.socketIndex === column.socketIndex)
+      return plug === undefined
+        ? column
+        : new PerkColumn({
+            ...column,
+            perks: column.perks.map(
+              (perk) => new WeaponPerk({ ...perk, active: perk.plugHash === plug.plugHash }),
+            ),
+          })
+    }),
+  })
+
+const carriedBy = (detail: ItemDetail, characterId: string) =>
+  detail.item.location === 'character'
+    ? detail
+    : new ItemDetail({
+        ...detail,
+        item: new ItemSummary({ ...detail.item, location: 'character', characterId }),
+      })
+
 export function useApplyPerks(id: string) {
   const queryClient = useQueryClient()
+  const url = useServerUrl()
+  const sheetKey = queryKeys.weaponSheet(url, id)
+  const itemKey = queryKeys.item(url, id)
+  const restore = (before: { sheet?: WeaponSheet; detail?: ItemDetail } | undefined) => {
+    queryClient.setQueryData(sheetKey, before?.sheet)
+    queryClient.setQueryData(itemKey, before?.detail)
+  }
   return useMutation({
     mutationFn: (input: ApplyPerks) =>
       run((api) => api.items.applyPerks({ params: { id }, payload: input })),
-    onSuccess: () =>
+    onMutate: async (input) => {
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: sheetKey }),
+        queryClient.cancelQueries({ queryKey: itemKey }),
+      ])
+      const sheet = queryClient.getQueryData<WeaponSheet>(sheetKey)
+      const detail = queryClient.getQueryData<ItemDetail>(itemKey)
+      if (sheet !== undefined) queryClient.setQueryData(sheetKey, withPerks(sheet, input.plugs))
+      if (detail !== undefined)
+        queryClient.setQueryData(itemKey, carriedBy(detail, input.characterId))
+      return { sheet, detail }
+    },
+    onSuccess: (job, _input, before) => {
+      if (job.plan?.rows.some((row) => row.outcome === 'failed')) restore(before)
+    },
+    onError: (_error, _input, before) => restore(before),
+    onSettled: () =>
       Promise.all([
         invalidateInventory(queryClient),
         queryClient.invalidateQueries({ queryKey: [getServerUrl(), 'item'] }),
