@@ -68,3 +68,24 @@ export function groupRecent(items: ReadonlyArray<RecentItem>): RecentGroup[] {
   }
   return groups
 }
+
+/** "940", "45.2K", "1.3M": a token count that fits a narrow column. */
+export function tokens(count: number) {
+  if (count < 1000) return String(Math.round(count))
+  const [value, unit] = count < 1_000_000 ? [count / 1000, 'K'] : [count / 1_000_000, 'M']
+  return `${value.toFixed(value < 100 ? 1 : 0).replace(/\.0$/, '')}${unit}`
+}
+
+export const usd = (amount: number) =>
+  amount > 0 && amount < 0.01 ? '<$0.01' : `$${amount.toFixed(2)}`
+
+export const percent = (share: number) => `${Math.round(share * 100)}%`
+
+/** "in 42m", "in 3h 10m", "in 2d 4h": how long until a reset. */
+export function until(iso: string, now: number = Date.now()) {
+  const minutes = Math.max(0, Math.round((Date.parse(iso) - now) / 60_000))
+  if (minutes < 60) return `in ${minutes}m`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `in ${hours}h ${minutes % 60}m`
+  return `in ${Math.floor(hours / 24)}d ${hours % 24}h`
+}

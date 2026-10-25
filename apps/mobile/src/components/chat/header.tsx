@@ -1,23 +1,29 @@
-import type { GuardianCharacter } from '@ghost/contract'
+import type { ContextFill, GuardianCharacter } from '@ghost/contract'
 import { Image } from 'expo-image'
+import { router } from 'expo-router'
 import { Pressable, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { Bars, Cond, Cut, Diamond, useOpenDrawer } from '@/components/ghost/ui'
+import { fillTone } from '@/components/usage/fill-bar'
 import { Ghost } from '@/constants/theme'
+import { percent } from '@/lib/format'
+import { contextShare } from '@/lib/usage'
 
 // Colour of the header glow behind the controls, so their cut corners blend
 // in (see Cut).
 const UNDER_GLOW = '#111418'
 
-/** The chat's only chrome: the drawer, the Ghost mark, a fresh chat, and your power. */
+/** The chat's only chrome: the drawer, the Ghost mark, context used, a fresh chat, and your power. */
 export function ChatHeader({
   character,
   ruled,
+  context,
   onNewChat,
 }: {
   character: GuardianCharacter | undefined
   ruled: boolean
+  context?: ContextFill | null
   onNewChat?: () => void
 }) {
   const insets = useSafeAreaInsets()
@@ -61,6 +67,24 @@ export function ChatHeader({
         </View>
       </Pressable>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        {context ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Context ${percent(contextShare(context))} full, open usage`}
+            hitSlop={8}
+            onPress={() => router.navigate('/usage')}
+          >
+            <Cut
+              border={Ghost.line}
+              under={under}
+              style={{ paddingVertical: 6, paddingHorizontal: 10 }}
+            >
+              <Cond size={14} color={fillTone(contextShare(context))} style={{ lineHeight: 20 }}>
+                {percent(contextShare(context))}
+              </Cond>
+            </Cut>
+          </Pressable>
+        ) : null}
         {onNewChat ? (
           <Pressable
             accessibilityRole="button"
