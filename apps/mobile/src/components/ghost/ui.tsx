@@ -511,12 +511,12 @@ export function PageHeader({
   children,
 }: {
   title: string
-  subtitle: string
+  subtitle?: string
   subtitleColor?: string
-  figure: string | number
+  figure?: string | number
   figureSuffix?: string
   figureColor?: string
-  caption: string
+  caption?: string
   children?: ReactNode
 }) {
   const insets = useSafeAreaInsets()
@@ -540,17 +540,21 @@ export function PageHeader({
           <Cond size={44} style={styles.headline} lines={1}>
             {title}
           </Cond>
-          <Meta color={subtitleColor} style={{ marginTop: 6 }}>
-            {subtitle}
-          </Meta>
+          {subtitle ? (
+            <Meta color={subtitleColor} style={{ marginTop: 6 }}>
+              {subtitle}
+            </Meta>
+          ) : null}
         </View>
-        <View style={{ alignItems: 'flex-end' }}>
-          <Cond size={44} color={figureColor} style={styles.headline}>
-            {figure}
-            {figureSuffix ? <Text style={{ color: Ghost.dim }}>{figureSuffix}</Text> : null}
-          </Cond>
-          <Meta style={{ marginTop: 6 }}>{caption}</Meta>
-        </View>
+        {figure === undefined ? null : (
+          <View style={{ alignItems: 'flex-end' }}>
+            <Cond size={44} color={figureColor} style={styles.headline}>
+              {figure}
+              {figureSuffix ? <Text style={{ color: Ghost.dim }}>{figureSuffix}</Text> : null}
+            </Cond>
+            <Meta style={{ marginTop: 6 }}>{caption}</Meta>
+          </View>
+        )}
       </View>
       {children}
     </View>
