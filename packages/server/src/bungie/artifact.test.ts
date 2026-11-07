@@ -3,6 +3,7 @@ import { Schema } from 'effect'
 import {
   ArtifactProfile,
   type CharacterArtifact,
+  equippedArtifact,
   parseArtifact,
   type PerkFacts,
   planArtifact,
@@ -207,5 +208,17 @@ describe('planArtifact', () => {
     expect(picked(['A', 'Grenade Kickstart'])).toEqual({
       errors: ['"Grenade Kickstart" is not a perk on Implement of Curiosity'],
     })
+  })
+})
+
+describe('equippedArtifact', () => {
+  test('keeps only the active perks, column by column, with the points spent', () => {
+    const equipped = equippedArtifact(artifact)
+    expect([equipped.pointsUsed, equipped.pointsAvailable]).toEqual([3, 4])
+    expect(equipped.perks.map((perk) => [perk.name, perk.column])).toEqual([
+      ['A', 0],
+      ['B', 0],
+      ['D', 1],
+    ])
   })
 })

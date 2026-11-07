@@ -18,6 +18,7 @@ import { Pressable, StyleSheet, View } from 'react-native'
 import { BuildHeader } from '@/components/chat/build-card'
 import { BuildStats } from '@/components/chat/build-stats'
 import { Perks, RowRight } from '@/components/chat/plan-block'
+import { ArtifactPerkRow } from '@/components/ghost/artifact-perk'
 import { ChargeNote, ChargeTag, Situational } from '@/components/ghost/charge'
 import { ItemIcon } from '@/components/ghost/item-icon'
 import { ModStrip } from '@/components/ghost/mod-strip'
@@ -345,22 +346,17 @@ function Artifact({ artifact }: { artifact: ArtifactPlan }) {
       {artifact.picks.map((pick) => {
         const select = pick.state === 'select_in_game'
         return (
-          <View key={pick.hash} style={[styles.entry, styles.plug, { alignItems: 'flex-start' }]}>
-            <PlugIcon icon={pick.icon} size={28} />
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Body size={14} style={{ fontFamily: Type.bodyMedium, lineHeight: 18 }}>
-                {pick.name}
-              </Body>
-              {pick.description ? (
-                <Meta style={{ marginTop: 1 }} lines={2}>
-                  {firstSentence(pick.description)}
-                </Meta>
-              ) : null}
-            </View>
-            <Meta color={select ? Ghost.accent : Ghost.dim}>
-              {select ? 'Select in game' : 'Active'}
-            </Meta>
-          </View>
+          <ArtifactPerkRow
+            key={pick.hash}
+            icon={pick.icon}
+            name={pick.name}
+            description={pick.description}
+            trailing={
+              <Meta color={select ? Ghost.accent : Ghost.dim}>
+                {select ? 'Select in game' : 'Active'}
+              </Meta>
+            }
+          />
         )
       })}
       {artifact.reset ? (

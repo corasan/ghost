@@ -875,6 +875,25 @@ export class GuardianSituational extends Schema.Class<GuardianSituational>('Guar
   pending: Schema.Boolean,
 }) {}
 
+export class EquippedArtifactPerk extends Schema.Class<EquippedArtifactPerk>(
+  'EquippedArtifactPerk',
+)({
+  hash: Schema.Number,
+  name: Schema.String,
+  description: Schema.String,
+  icon: Schema.NullOr(Schema.String),
+  /** The artifact column the perk sits in, from 0. */
+  column: Schema.Number,
+}) {}
+
+/** The Seasonal Artifact a character has on: the perks it has active and the points spent. */
+export class GuardianArtifact extends Schema.Class<GuardianArtifact>('GuardianArtifact')({
+  name: Schema.String,
+  pointsUsed: Schema.Number,
+  pointsAvailable: Schema.Number,
+  perks: Schema.Array(EquippedArtifactPerk),
+}) {}
+
 export class GuardianSnapshot extends Schema.Class<GuardianSnapshot>('GuardianSnapshot')({
   characters: Schema.Array(GuardianCharacter),
   vaultCount: Schema.Number,

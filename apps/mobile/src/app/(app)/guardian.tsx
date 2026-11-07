@@ -1,10 +1,11 @@
-import type { CharacterStats, ItemSummary } from '@ghost/contract'
+import type { CharacterStats, GuardianArtifact, ItemSummary } from '@ghost/contract'
 import { LegendList } from '@legendapp/list/react-native'
 import { router } from 'expo-router'
 import { useState } from 'react'
 import { Pressable, View } from 'react-native'
 
 import { ChatHeader } from '@/components/chat/header'
+import { ArtifactPerkRow } from '@/components/ghost/artifact-perk'
 import { Situational } from '@/components/ghost/charge'
 import { SubclassBanner } from '@/components/ghost/subclass-banner'
 import { Unavailable } from '@/components/ghost/unavailable'
@@ -12,7 +13,7 @@ import { ItemIcon } from '@/components/ghost/item-icon'
 import { ModStrip } from '@/components/ghost/mod-strip'
 import { Body, Chevron, Cond, Meta, Mono, Nudge, TierStats } from '@/components/ghost/ui'
 import { Ghost, Gutter, Rarity, Type } from '@/constants/theme'
-import { useGuardian, useSituational } from '@/lib/api'
+import { useArtifact, useGuardian, useSituational } from '@/lib/api'
 import { chargedMods } from '@/lib/charge'
 import { useCharacter } from '@/lib/character'
 import { sentence } from '@/lib/format'
@@ -178,13 +179,46 @@ function ItemRow({
   )
 }
 
+function Artifact({ artifact }: { artifact: GuardianArtifact }) {
+  return (
+    <View style={{ paddingHorizontal: Gutter, paddingTop: 22 }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 12,
+        }}
+      >
+        <Mono style={{ letterSpacing: 1.3 }}>ARTIFACT</Mono>
+        <Meta lines={1}>{artifact.name}</Meta>
+      </View>
+      <Meta style={{ paddingTop: 2, paddingBottom: 6 }}>
+        {artifact.pointsUsed} of {artifact.pointsAvailable} points
+      </Meta>
+      {artifact.perks.length === 0 ? (
+        <Meta color={Ghost.dim}>No perks selected. Pick them in game.</Meta>
+      ) : null}
+      {artifact.perks.map((perk) => (
+        <ArtifactPerkRow
+          key={perk.hash}
+          icon={perk.icon}
+          name={perk.name}
+          description={perk.description}
+        />
+      ))}
+    </View>
+  )
+}
+
 /** The subclass on top, then stats in one row and weapons and armor down the page. */
 export default function GuardianScreen() {
   const bottomInset = useBottomInset()
   const guardian = useGuardian()
   const { character } = useCharacter()
   const situational = useSituational(character?.characterId)
-  const pull = usePullRefresh(guardian.refetch, situational.refetch)
+  const artifact = useArtifact(character?.characterId)
+  const pull = usePullRefresh(guardian.refetch, situational.refetch, artifact.refetch)
   const [open, setOpen] = useState<ReadonlySet<ItemSummary['slot']>>(new Set())
   const toggle = (slot: ItemSummary['slot']) =>
     setOpen((was) => {
@@ -268,6 +302,7 @@ export default function GuardianScreen() {
         }
         ListFooterComponent={
           <>
+            {artifact.data ? <Artifact artifact={artifact.data} /> : null}
             {situational.data && situational.data.mods.length > 0 ? (
               <View style={{ paddingHorizontal: Gutter, paddingTop: 22 }}>
                 <Situational
