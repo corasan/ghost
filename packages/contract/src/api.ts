@@ -18,6 +18,7 @@ import {
   CreateJob,
   EquipBuild,
   EquipBuildResult,
+  GuardianArtifact,
   GuardianSituational,
   GuardianSnapshot,
   Health,
@@ -189,6 +190,13 @@ export const guardianGroup = HttpApiGroup.make('guardian')
     HttpApiEndpoint.get('situational', '/guardian/situational', {
       query: { characterId: Schema.String },
       success: GuardianSituational,
+      error: bungieErrors,
+    }),
+  )
+  .add(
+    HttpApiEndpoint.get('artifact', '/guardian/artifact', {
+      query: { characterId: Schema.String },
+      success: Schema.NullOr(GuardianArtifact),
       error: bungieErrors,
     }),
   )

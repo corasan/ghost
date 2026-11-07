@@ -79,6 +79,8 @@ export const queryKeys = {
   history: (url: string) => [url, 'history'] as const,
   situational: (url: string, characterId: string | undefined) =>
     [url, 'situational', characterId] as const,
+  artifact: (url: string, characterId: string | undefined) =>
+    [url, 'artifact', characterId] as const,
   job: (url: string, id: string) => [url, 'job', id] as const,
   builds: (url: string) => [url, 'builds'] as const,
   buildOptions: (url: string, id: string, slot: ItemSlot | undefined) =>
@@ -413,6 +415,18 @@ export function useSituational(characterId: string | undefined) {
     enabled: characterId !== undefined,
     staleTime: 60_000,
     refetchInterval: (query) => (query.state.data?.pending ? SITUATIONAL_POLL : false),
+    retry: false,
+  })
+}
+
+export function useArtifact(characterId: string | undefined) {
+  const url = useServerUrl()
+  return useQuery({
+    queryKey: queryKeys.artifact(url, characterId),
+    queryFn: () =>
+      run((api) => api.guardian.artifact({ query: { characterId: characterId ?? '' } })),
+    enabled: characterId !== undefined,
+    staleTime: 60_000,
     retry: false,
   })
 }

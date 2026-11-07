@@ -14,6 +14,7 @@ import { Effect, Layer, Option, Schema } from 'effect'
 import { HttpApiBuilder, HttpApiScalar } from 'effect/http-api'
 import { AgentConfig } from '../agent/settings.ts'
 import { Activity } from '../activity/activity.ts'
+import { Artifacts, equippedArtifact } from '../bungie/artifact.ts'
 import { BungieClient, type BungieError } from '../bungie/client.ts'
 import { Guardian } from '../bungie/guardian.ts'
 import { ProfileStore } from '../bungie/profile.ts'
@@ -167,6 +168,12 @@ const GuardianLive = HttpApiBuilder.group(GhostApi, 'guardian', (handlers) =>
     )
     .handle('situational', ({ query }) =>
       Effect.flatMap(Guardian, (g) => g.situational(query.characterId)).pipe(
+        Effect.catchTag('BungieError', toBungieFailed),
+      ),
+    )
+    .handle('artifact', ({ query }) =>
+      Effect.flatMap(Artifacts, (a) => a.forCharacter(query.characterId)).pipe(
+        Effect.map((artifact) => (artifact === null ? null : equippedArtifact(artifact))),
         Effect.catchTag('BungieError', toBungieFailed),
       ),
     )

@@ -1,4 +1,10 @@
-import { ArtifactPick, ArtifactPlan, type BungieNotLinked } from '@ghost/contract'
+import {
+  ArtifactPick,
+  ArtifactPlan,
+  type BungieNotLinked,
+  EquippedArtifactPerk,
+  GuardianArtifact,
+} from '@ghost/contract'
 import { Context, Effect, Layer, Schema } from 'effect'
 import { BungieClient, type BungieError } from './client.ts'
 import { Manifest } from './manifest.ts'
@@ -185,6 +191,27 @@ export const planArtifact = (
     reset,
   })
 }
+
+export const equippedArtifact = (artifact: CharacterArtifact): GuardianArtifact =>
+  new GuardianArtifact({
+    name: artifact.name,
+    pointsUsed: artifact.pointsUsed,
+    pointsAvailable: artifact.pointsAvailable,
+    perks: artifact.tiers.flatMap((tier) =>
+      tier.perks
+        .filter((perk) => perk.active)
+        .map(
+          (perk) =>
+            new EquippedArtifactPerk({
+              hash: perk.hash,
+              name: perk.name,
+              description: perk.description,
+              icon: perk.icon,
+              column: tier.column,
+            }),
+        ),
+    ),
+  })
 
 export interface ArtifactsService {
   readonly forCharacter: (
